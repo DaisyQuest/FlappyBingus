@@ -1,0 +1,1219 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Flappy Bingus – Config Editor</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <!-- Bootstrap 5 (CDN) -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <script defer src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+
+  <style>
+    :root{
+      --bg0:#070b12;
+      --bg1:#0b1220;
+      --card:#0f172a;
+      --card2:#0b1220;
+      --border:#1f2a44;
+      --text:#e5e7eb;
+      --muted:#9aa4b2;
+      --accent:#60a5fa;
+      --ok:#34d399;
+      --warn:#fbbf24;
+      --danger:#fb7185;
+      
+    }
+    body{
+      background:
+        radial-gradient(1200px 800px at 20% -10%, rgba(96,165,250,.18), transparent 60%),
+        radial-gradient(900px 700px at 110% 0%, rgba(52,211,153,.10), transparent 55%),
+        radial-gradient(900px 700px at 60% 120%, rgba(251,113,133,.12), transparent 55%),
+        linear-gradient(180deg, var(--bg0), var(--bg1));
+      color: var(--text);
+      min-height: 100vh;
+    }
+    .navbar{
+      background: rgba(2,6,23,.55) !important;
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      border-bottom: 1px solid rgba(255,255,255,.08);
+    }
+    .brand-dot{
+      width:10px;height:10px;border-radius:999px;background:var(--accent);
+      box-shadow: 0 0 18px rgba(96,165,250,.5);
+      display:inline-block;margin-right:.6rem;
+    }
+
+    .glass-card{
+      background: linear-gradient(180deg, rgba(15,23,42,.82), rgba(2,6,23,.62));
+      border: 1px solid rgba(255,255,255,.08);
+      border-radius: 16px;
+      box-shadow: 0 18px 60px rgba(0,0,0,.45);
+      overflow: hidden;
+    }
+    .glass-card .card-header{
+      background: rgba(255,255,255,.03);
+      border-bottom: 1px solid rgba(255,255,255,.08);
+    }
+
+    .help{
+      color: var(--muted);
+      font-size: .9rem;
+    }
+    .badge-soft{
+      border: 1px solid rgba(255,255,255,.10);
+      background: rgba(255,255,255,.05);
+      color: var(--text);
+      font-weight: 600;
+    }
+    .chip{
+      display:inline-flex;align-items:center;gap:.5rem;
+      padding:.45rem .7rem;border-radius:999px;
+      border: 1px solid rgba(255,255,255,.10);
+      background: rgba(255,255,255,.05);
+      color: var(--text);
+      font-size: .9rem;
+    }
+    .chip .dot{ width:8px;height:8px;border-radius:999px;background:var(--warn); box-shadow:0 0 14px rgba(251,191,36,.35); }
+    .chip.ok .dot{ background:var(--ok); box-shadow:0 0 14px rgba(52,211,153,.35); }
+    .chip.bad .dot{ background:var(--danger); box-shadow:0 0 14px rgba(251,113,133,.35); }
+
+    .form-control, .form-select{
+      background: rgba(255,255,255,.06);
+      border: 1px solid rgba(255,255,255,.10);
+      color: var(--text);
+    }
+    .form-control:focus, .form-select:focus{
+      background: rgba(255,255,255,.08);
+      border-color: rgba(96,165,250,.45);
+      box-shadow: 0 0 0 .25rem rgba(96,165,250,.15);
+      color: var(--text);
+    }
+    .form-range{
+      height: 1.2rem;
+    }
+
+    .mono{
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+    }
+    pre{
+      background: rgba(2,6,23,.85);
+      border: 1px solid rgba(255,255,255,.10);
+      color: #e5e7eb;
+      padding: 1rem;
+      border-radius: 12px;
+      max-height: 380px;
+      overflow: auto;
+    }
+
+    .accordion-button{
+      background: rgba(255,255,255,.03);
+      color: var(--text);
+      border: 0;
+    }
+    .accordion-button:focus{
+      box-shadow: 0 0 0 .25rem rgba(96,165,250,.12);
+    }
+    .accordion-item{
+      background: transparent;
+      border: 1px solid rgba(255,255,255,.08);
+      border-radius: 14px;
+      overflow: hidden;
+      margin-bottom: .75rem;
+      color: #00FF00 !important;
+    }
+    .h5{
+          color: #00FF00 !important;
+    }
+    .accordion-button:not(.collapsed){
+      background: rgba(96,165,250,.10);
+      color: var(--text);
+    }
+    .accordion-body{
+      background: rgba(0,0,0,.12);
+    }
+
+    .kv{
+      display:flex;align-items:center;justify-content:space-between;
+      gap: 10px;
+    }
+    .kv .label{
+      font-weight: 700;
+      letter-spacing: .2px;
+    }
+    .kv .value{
+      font-weight: 800;
+      color: rgba(255,255,255,.9);
+    }
+
+    .sticky-actions{
+      position: sticky;
+      top: .75rem;
+      z-index: 5;
+    }
+    .label {
+        color:#e5e7eb;
+    }
+
+    /* nicer number width */
+    input[type="number"]{
+      font-variant-numeric: tabular-nums;
+    }
+  </style>
+</head>
+<body>
+
+<nav class="navbar navbar-expand-lg navbar-dark px-3 py-2">
+  <div class="container-fluid">
+    <span class="navbar-brand fw-bold">
+      <span class="brand-dot"></span>
+      Flappy Bingus – Config Editor
+      <span class="badge badge-soft ms-2">Bootstrap 5</span>
+    </span>
+
+    <div class="ms-auto d-flex align-items-center gap-2">
+      <span id="statusChip" class="chip">
+        <span class="dot"></span>
+        <span id="statusText">Loading…</span>
+      </span>
+    </div>
+  </div>
+</nav>
+
+<div class="container py-4">
+
+  <div class="row g-4">
+    <!-- Left: Form -->
+    <div class="col-lg-7">
+      <div class="glass-card card mb-4">
+        <div class="card-header">
+          <div class="d-flex flex-wrap gap-2 justify-content-between align-items-center">
+            <div>
+              <div class="h5 mb-1">Edit Config</div>
+              <div class="help">
+                Loads <span class="mono">flappy_bingus_config.json</span> then <span class="mono">config.json</span> if accessible. Otherwise uses defaults.
+              </div>
+            </div>
+
+            <div class="d-flex flex-wrap gap-2 align-items-center">
+              <button class="btn btn-outline-light btn-sm" id="resetDefaultsBtn" type="button">
+                Reset to Defaults
+              </button>
+
+              <label class="btn btn-outline-light btn-sm mb-0">
+                Import JSON
+                <input id="importFile" type="file" accept="application/json" hidden>
+              </label>
+
+              <button class="btn btn-primary btn-sm" id="downloadBtn" type="button">
+                Download config.json
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div class="card-body">
+          <div class="accordion" id="cfgAccordion">
+
+            <!-- PLAYER -->
+            <div class="accordion-item">
+              <h2 class="accordion-header">
+                <button class="accordion-button" type="button" data-bs-toggle="collapse" data-bs-target="#sectionPlayer" aria-expanded="true">
+                  Player Settings
+                </button>
+              </h2>
+              <div id="sectionPlayer" class="accordion-collapse collapse show" data-bs-parent="#cfgAccordion">
+                <div class="accordion-body">
+
+                  <div class="row g-3">
+                    <div class="col-12">
+                      <div class="help">
+                        Tip: use the slider for quick tuning, the number box for precision.
+                      </div>
+                    </div>
+
+                    <!-- maxSpeed -->
+                    <div class="col-12">
+                      <div class="kv mb-1">
+                        <div class="label">Max Speed</div>
+                        <div class="value"><span id="v_player_maxSpeed"></span> px/s</div>
+                      </div>
+                      <div class="row g-2 align-items-center">
+                        <div class="col-md-8">
+                          <input class="form-range" type="range" id="r_player_maxSpeed" min="150" max="900" step="10">
+                        </div>
+                        <div class="col-md-4">
+                          <input class="form-control" type="number" id="n_player_maxSpeed" min="0" step="10">
+                        </div>
+                      </div>
+                      <div class="help mt-1">Base movement speed before powerups.</div>
+                    </div>
+
+                    <!-- accel -->
+                    <div class="col-12">
+                      <div class="kv mb-1">
+                        <div class="label">Acceleration</div>
+                        <div class="value"><span id="v_player_accel"></span></div>
+                      </div>
+                      <div class="row g-2 align-items-center">
+                        <div class="col-md-8">
+                          <input class="form-range" type="range" id="r_player_accel" min="800" max="8000" step="100">
+                        </div>
+                        <div class="col-md-4">
+                          <input class="form-control" type="number" id="n_player_accel" min="0" step="100">
+                        </div>
+                      </div>
+                      <div class="help mt-1">Higher acceleration makes direction changes snap harder.</div>
+                    </div>
+
+                    <!-- friction -->
+                    <div class="col-12">
+                      <div class="kv mb-1">
+                        <div class="label">Friction</div>
+                        <div class="value"><span id="v_player_friction"></span></div>
+                      </div>
+                      <div class="row g-2 align-items-center">
+                        <div class="col-md-8">
+                          <input class="form-range" type="range" id="r_player_friction" min="4" max="40" step="1">
+                        </div>
+                        <div class="col-md-4">
+                          <input class="form-control" type="number" id="n_player_friction" min="0" step="1">
+                        </div>
+                      </div>
+                      <div class="help mt-1">Higher = stops faster when no input (snappier feel).</div>
+                    </div>
+
+                    <!-- size -->
+                    <div class="col-md-6">
+                      <div class="kv mb-1">
+                        <div class="label">Size Scale</div>
+                        <div class="value"><span id="v_player_sizeScale"></span></div>
+                      </div>
+                      <div class="row g-2 align-items-center">
+                        <div class="col-8">
+                          <input class="form-range" type="range" id="r_player_sizeScale" min="0.03" max="0.10" step="0.001">
+                        </div>
+                        <div class="col-4">
+                          <input class="form-control" type="number" id="n_player_sizeScale" step="0.001">
+                        </div>
+                      </div>
+                      <div class="help mt-1">Relative to min(screenW, screenH).</div>
+                    </div>
+
+                    <div class="col-md-3">
+                      <label class="form-label mb-1">Size Min</label>
+                      <input class="form-control" type="number" id="n_player_sizeMin" step="1" min="10">
+                      <div class="help mt-1">px</div>
+                    </div>
+
+                    <div class="col-md-3">
+                      <label class="form-label mb-1">Size Max</label>
+                      <input class="form-control" type="number" id="n_player_sizeMax" step="1" min="10">
+                      <div class="help mt-1">px</div>
+                    </div>
+
+                    <div class="col-md-6">
+                      <div class="kv mb-1">
+                        <div class="label">Radius Scale</div>
+                        <div class="value"><span id="v_player_radiusScale"></span></div>
+                      </div>
+                      <div class="row g-2 align-items-center">
+                        <div class="col-8">
+                          <input class="form-range" type="range" id="r_player_radiusScale" min="0.20" max="0.55" step="0.01">
+                        </div>
+                        <div class="col-4">
+                          <input class="form-control" type="number" id="n_player_radiusScale" step="0.01">
+                        </div>
+                      </div>
+                      <div class="help mt-1">Collision radius as fraction of sprite size.</div>
+                    </div>
+
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- PIPES -->
+            <div class="accordion-item">
+              <h2 class="accordion-header">
+                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#sectionPipes">
+                  Pipes: Spawn, Speed, Gap, Patterns
+                </button>
+              </h2>
+              <div id="sectionPipes" class="accordion-collapse collapse" data-bs-parent="#cfgAccordion">
+                <div class="accordion-body">
+
+                  <div class="row g-3">
+
+                    <div class="col-12">
+                      <div class="help">Spawn interval lerps from “Start” to “End” as difficulty rises.</div>
+                    </div>
+
+                    <div class="col-md-6">
+                      <div class="kv mb-1">
+                        <div class="label">Spawn Interval Start</div>
+                        <div class="value"><span id="v_pipes_spawn_start"></span>s</div>
+                      </div>
+                      <div class="row g-2 align-items-center">
+                        <div class="col-8">
+                          <input class="form-range" type="range" id="r_pipes_spawn_start" min="0.10" max="1.50" step="0.01">
+                        </div>
+                        <div class="col-4">
+                          <input class="form-control" type="number" id="n_pipes_spawn_start" step="0.01" min="0">
+                        </div>
+                      </div>
+                    </div>
+
+                    <div class="col-md-6">
+                      <div class="kv mb-1">
+                        <div class="label">Spawn Interval End</div>
+                        <div class="value"><span id="v_pipes_spawn_end"></span>s</div>
+                      </div>
+                      <div class="row g-2 align-items-center">
+                        <div class="col-8">
+                          <input class="form-range" type="range" id="r_pipes_spawn_end" min="0.05" max="1.00" step="0.01">
+                        </div>
+                        <div class="col-4">
+                          <input class="form-control" type="number" id="n_pipes_spawn_end" step="0.01" min="0">
+                        </div>
+                      </div>
+                    </div>
+
+                    <div class="col-md-6">
+                      <div class="kv mb-1">
+                        <div class="label">Pipe Speed Start</div>
+                        <div class="value"><span id="v_pipes_speed_start"></span> px/s</div>
+                      </div>
+                      <div class="row g-2 align-items-center">
+                        <div class="col-8">
+                          <input class="form-range" type="range" id="r_pipes_speed_start" min="80" max="600" step="10">
+                        </div>
+                        <div class="col-4">
+                          <input class="form-control" type="number" id="n_pipes_speed_start" step="10" min="0">
+                        </div>
+                      </div>
+                    </div>
+
+                    <div class="col-md-6">
+                      <div class="kv mb-1">
+                        <div class="label">Pipe Speed End</div>
+                        <div class="value"><span id="v_pipes_speed_end"></span> px/s</div>
+                      </div>
+                      <div class="row g-2 align-items-center">
+                        <div class="col-8">
+                          <input class="form-range" type="range" id="r_pipes_speed_end" min="120" max="900" step="10">
+                        </div>
+                        <div class="col-4">
+                          <input class="form-control" type="number" id="n_pipes_speed_end" step="10" min="0">
+                        </div>
+                      </div>
+                    </div>
+
+                    <div class="col-md-6">
+                      <div class="kv mb-1">
+                        <div class="label">Gap Start Scale</div>
+                        <div class="value"><span id="v_pipes_gap_startScale"></span></div>
+                      </div>
+                      <div class="row g-2 align-items-center">
+                        <div class="col-8">
+                          <input class="form-range" type="range" id="r_pipes_gap_startScale" min="0.12" max="0.45" step="0.01">
+                        </div>
+                        <div class="col-4">
+                          <input class="form-control" type="number" id="n_pipes_gap_startScale" step="0.01">
+                        </div>
+                      </div>
+                      <div class="help mt-1">Gap = scale * min(screenW, screenH)</div>
+                    </div>
+
+                    <div class="col-md-6">
+                      <div class="kv mb-1">
+                        <div class="label">Gap End Scale</div>
+                        <div class="value"><span id="v_pipes_gap_endScale"></span></div>
+                      </div>
+                      <div class="row g-2 align-items-center">
+                        <div class="col-8">
+                          <input class="form-range" type="range" id="r_pipes_gap_endScale" min="0.10" max="0.40" step="0.01">
+                        </div>
+                        <div class="col-4">
+                          <input class="form-control" type="number" id="n_pipes_gap_endScale" step="0.01">
+                        </div>
+                      </div>
+                    </div>
+
+                    <div class="col-md-3">
+                      <label class="form-label mb-1">Gap Min (px)</label>
+                      <input class="form-control" type="number" id="n_pipes_gap_min" step="1" min="0">
+                    </div>
+                    <div class="col-md-3">
+                      <label class="form-label mb-1">Gap Max (px)</label>
+                      <input class="form-control" type="number" id="n_pipes_gap_max" step="1" min="0">
+                    </div>
+
+                    <div class="col-md-6">
+                      <div class="kv mb-1">
+                        <div class="label">Thickness Scale</div>
+                        <div class="value"><span id="v_pipes_thickness_scale"></span></div>
+                      </div>
+                      <div class="row g-2 align-items-center">
+                        <div class="col-8">
+                          <input class="form-range" type="range" id="r_pipes_thickness_scale" min="0.02" max="0.10" step="0.001">
+                        </div>
+                        <div class="col-4">
+                          <input class="form-control" type="number" id="n_pipes_thickness_scale" step="0.001">
+                        </div>
+                      </div>
+                      <div class="help mt-1">Thickness = scale * min(screenW, screenH)</div>
+                    </div>
+
+                    <div class="col-md-3">
+                      <label class="form-label mb-1">Thickness Min (px)</label>
+                      <input class="form-control" type="number" id="n_pipes_thickness_min" step="1" min="0">
+                    </div>
+                    <div class="col-md-3">
+                      <label class="form-label mb-1">Thickness Max (px)</label>
+                      <input class="form-control" type="number" id="n_pipes_thickness_max" step="1" min="0">
+                    </div>
+
+                    <div class="col-12"><hr class="border border-white border-opacity-10 my-2"></div>
+
+                    <div class="col-md-6">
+                      <label class="form-label mb-1">Difficulty: Time To Max (s)</label>
+                      <input class="form-control" type="number" id="n_pipes_diff_timeToMax" step="1" min="1">
+                      <div class="help mt-1">How fast difficulty ramps with time.</div>
+                    </div>
+                    <div class="col-md-6">
+                      <label class="form-label mb-1">Difficulty: Score To Max</label>
+                      <input class="form-control" type="number" id="n_pipes_diff_scoreToMax" step="1" min="1">
+                      <div class="help mt-1">How fast difficulty ramps with score.</div>
+                    </div>
+
+                    <div class="col-md-6">
+                      <div class="kv mb-1">
+                        <div class="label">Mix Time</div>
+                        <div class="value"><span id="v_pipes_diff_mixTime"></span></div>
+                      </div>
+                      <div class="row g-2 align-items-center">
+                        <div class="col-8">
+                          <input class="form-range" type="range" id="r_pipes_diff_mixTime" min="0" max="1" step="0.01">
+                        </div>
+                        <div class="col-4">
+                          <input class="form-control" type="number" id="n_pipes_diff_mixTime" step="0.01" min="0" max="1">
+                        </div>
+                      </div>
+                      <div class="help mt-1">Time weight (0..1). MixScore should usually be 1 - MixTime.</div>
+                    </div>
+
+                    <div class="col-md-6">
+                      <div class="kv mb-1">
+                        <div class="label">Mix Score</div>
+                        <div class="value"><span id="v_pipes_diff_mixScore"></span></div>
+                      </div>
+                      <div class="row g-2 align-items-center">
+                        <div class="col-8">
+                          <input class="form-range" type="range" id="r_pipes_diff_mixScore" min="0" max="1" step="0.01">
+                        </div>
+                        <div class="col-4">
+                          <input class="form-control" type="number" id="n_pipes_diff_mixScore" step="0.01" min="0" max="1">
+                        </div>
+                      </div>
+                    </div>
+
+                    <div class="col-md-6">
+                      <label class="form-label mb-1">Pattern Weight: Wall (start,end)</label>
+                      <div class="input-group">
+                        <input class="form-control" type="number" id="n_pipes_weight_wall_start" step="0.01" min="0" max="1">
+                        <span class="input-group-text bg-transparent text-white border-opacity-10">→</span>
+                        <input class="form-control" type="number" id="n_pipes_weight_wall_end" step="0.01" min="0" max="1">
+                      </div>
+                      <div class="help mt-1">Chance of flappy-wall pattern over difficulty.</div>
+                    </div>
+
+                    <div class="col-md-6">
+                      <label class="form-label mb-1">Pattern Weight: Aimed (start,end)</label>
+                      <div class="input-group">
+                        <input class="form-control" type="number" id="n_pipes_weight_aimed_start" step="0.01" min="0" max="1">
+                        <span class="input-group-text bg-transparent text-white border-opacity-10">→</span>
+                        <input class="form-control" type="number" id="n_pipes_weight_aimed_end" step="0.01" min="0" max="1">
+                      </div>
+                      <div class="help mt-1">Chance of aimed single pipes over difficulty.</div>
+                    </div>
+
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- POWERUPS -->
+            <div class="accordion-item">
+              <h2 class="accordion-header">
+                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#sectionPowerups">
+                  Powerups: Spawn & Types
+                </button>
+              </h2>
+              <div id="sectionPowerups" class="accordion-collapse collapse" data-bs-parent="#cfgAccordion">
+                <div class="accordion-body">
+
+                  <div class="row g-3">
+
+                    <div class="col-12 d-flex flex-wrap align-items-center justify-content-between gap-2">
+                      <div class="help">
+                        Powerups spawn into the arena; pickups add a “charge” into your 4-slot inventory (1–4 to use).
+                      </div>
+                      <div class="form-check form-switch">
+                        <input class="form-check-input" type="checkbox" id="b_powerups_spawn_enabled">
+                        <label class="form-check-label" for="b_powerups_spawn_enabled">Spawn Enabled</label>
+                      </div>
+                    </div>
+
+                    <div class="col-md-4">
+                      <label class="form-label mb-1">Inventory Slots</label>
+                      <input class="form-control" type="number" id="n_powerups_inventorySlots" min="1" max="8" step="1">
+                      <div class="help mt-1">1–8 supported by editor; game uses this value.</div>
+                    </div>
+
+                    <div class="col-md-4">
+                      <label class="form-label mb-1">Pickup Radius (px)</label>
+                      <input class="form-control" type="number" id="n_powerups_pickupRadius" min="8" max="60" step="1">
+                    </div>
+
+                    <div class="col-md-4">
+                      <label class="form-label mb-1">Max On Screen</label>
+                      <input class="form-control" type="number" id="n_powerups_spawn_maxOnScreen" min="0" max="10" step="1">
+                    </div>
+
+                    <div class="col-md-6">
+                      <div class="kv mb-1">
+                        <div class="label">Spawn Interval Min</div>
+                        <div class="value"><span id="v_powerups_spawn_intervalMin"></span>s</div>
+                      </div>
+                      <div class="row g-2 align-items-center">
+                        <div class="col-8">
+                          <input class="form-range" type="range" id="r_powerups_spawn_intervalMin" min="0.5" max="20" step="0.1">
+                        </div>
+                        <div class="col-4">
+                          <input class="form-control" type="number" id="n_powerups_spawn_intervalMin" step="0.1" min="0">
+                        </div>
+                      </div>
+                    </div>
+
+                    <div class="col-md-6">
+                      <div class="kv mb-1">
+                        <div class="label">Spawn Interval Max</div>
+                        <div class="value"><span id="v_powerups_spawn_intervalMax"></span>s</div>
+                      </div>
+                      <div class="row g-2 align-items-center">
+                        <div class="col-8">
+                          <input class="form-range" type="range" id="r_powerups_spawn_intervalMax" min="0.5" max="30" step="0.1">
+                        </div>
+                        <div class="col-4">
+                          <input class="form-control" type="number" id="n_powerups_spawn_intervalMax" step="0.1" min="0">
+                        </div>
+                      </div>
+                    </div>
+
+                    <div class="col-md-6">
+                      <div class="kv mb-1">
+                        <div class="label">Lifetime</div>
+                        <div class="value"><span id="v_powerups_spawn_lifetime"></span>s</div>
+                      </div>
+                      <div class="row g-2 align-items-center">
+                        <div class="col-8">
+                          <input class="form-range" type="range" id="r_powerups_spawn_lifetime" min="1" max="30" step="0.5">
+                        </div>
+                        <div class="col-4">
+                          <input class="form-control" type="number" id="n_powerups_spawn_lifetime" step="0.5" min="0">
+                        </div>
+                      </div>
+                    </div>
+
+                    <div class="col-12"><hr class="border border-white border-opacity-10 my-2"></div>
+
+                    <div class="col-12">
+                      <div class="help fw-semibold">Type weights (must sum to anything &gt; 0)</div>
+                    </div>
+
+                    <div class="col-md-4">
+                      <div class="kv mb-1">
+                        <div class="label">Weight: Speed</div>
+                        <div class="value"><span id="v_powerups_weight_speed"></span></div>
+                      </div>
+                      <div class="row g-2 align-items-center">
+                        <div class="col-8">
+                          <input class="form-range" type="range" id="r_powerups_weight_speed" min="0" max="1" step="0.01">
+                        </div>
+                        <div class="col-4">
+                          <input class="form-control" type="number" id="n_powerups_weight_speed" min="0" max="1" step="0.01">
+                        </div>
+                      </div>
+                    </div>
+
+                    <div class="col-md-4">
+                      <div class="kv mb-1">
+                        <div class="label">Weight: Invuln</div>
+                        <div class="value"><span id="v_powerups_weight_invuln"></span></div>
+                      </div>
+                      <div class="row g-2 align-items-center">
+                        <div class="col-8">
+                          <input class="form-range" type="range" id="r_powerups_weight_invuln" min="0" max="1" step="0.01">
+                        </div>
+                        <div class="col-4">
+                          <input class="form-control" type="number" id="n_powerups_weight_invuln" min="0" max="1" step="0.01">
+                        </div>
+                      </div>
+                    </div>
+
+                    <div class="col-md-4">
+                      <div class="kv mb-1">
+                        <div class="label">Weight: Teleport</div>
+                        <div class="value"><span id="v_powerups_weight_teleport"></span></div>
+                      </div>
+                      <div class="row g-2 align-items-center">
+                        <div class="col-8">
+                          <input class="form-range" type="range" id="r_powerups_weight_teleport" min="0" max="1" step="0.01">
+                        </div>
+                        <div class="col-4">
+                          <input class="form-control" type="number" id="n_powerups_weight_teleport" min="0" max="1" step="0.01">
+                        </div>
+                      </div>
+                    </div>
+
+                    <div class="col-12"><hr class="border border-white border-opacity-10 my-2"></div>
+
+                    <div class="col-12"><div class="help fw-semibold">Speed Boost</div></div>
+
+                    <div class="col-md-4">
+                      <div class="kv mb-1">
+                        <div class="label">Duration</div>
+                        <div class="value"><span id="v_speed_duration"></span>s</div>
+                      </div>
+                      <div class="row g-2 align-items-center">
+                        <div class="col-8">
+                          <input class="form-range" type="range" id="r_speed_duration" min="0" max="30" step="0.5">
+                        </div>
+                        <div class="col-4">
+                          <input class="form-control" type="number" id="n_speed_duration" step="0.5" min="0">
+                        </div>
+                      </div>
+                    </div>
+
+                    <div class="col-md-4">
+                      <div class="kv mb-1">
+                        <div class="label">Speed Multiplier</div>
+                        <div class="value"><span id="v_speed_multiplier"></span>x</div>
+                      </div>
+                      <div class="row g-2 align-items-center">
+                        <div class="col-8">
+                          <input class="form-range" type="range" id="r_speed_multiplier" min="1" max="3" step="0.05">
+                        </div>
+                        <div class="col-4">
+                          <input class="form-control" type="number" id="n_speed_multiplier" step="0.05" min="1">
+                        </div>
+                      </div>
+                    </div>
+
+                    <div class="col-md-4">
+                      <div class="kv mb-1">
+                        <div class="label">Sparkle Rate</div>
+                        <div class="value"><span id="v_speed_sparkleRate"></span>/s</div>
+                      </div>
+                      <div class="row g-2 align-items-center">
+                        <div class="col-8">
+                          <input class="form-range" type="range" id="r_speed_sparkleRate" min="0" max="220" step="5">
+                        </div>
+                        <div class="col-4">
+                          <input class="form-control" type="number" id="n_speed_sparkleRate" step="1" min="0">
+                        </div>
+                      </div>
+                    </div>
+
+                    <div class="col-12"><div class="help fw-semibold mt-2">Invulnerability</div></div>
+
+                    <div class="col-md-6">
+                      <div class="kv mb-1">
+                        <div class="label">Duration</div>
+                        <div class="value"><span id="v_invuln_duration"></span>s</div>
+                      </div>
+                      <div class="row g-2 align-items-center">
+                        <div class="col-8">
+                          <input class="form-range" type="range" id="r_invuln_duration" min="0" max="10" step="0.1">
+                        </div>
+                        <div class="col-4">
+                          <input class="form-control" type="number" id="n_invuln_duration" step="0.1" min="0">
+                        </div>
+                      </div>
+                    </div>
+
+                    <div class="col-md-6">
+                      <div class="kv mb-1">
+                        <div class="label">Blink Frequency</div>
+                        <div class="value"><span id="v_invuln_blinkHz"></span> Hz</div>
+                      </div>
+                      <div class="row g-2 align-items-center">
+                        <div class="col-8">
+                          <input class="form-range" type="range" id="r_invuln_blinkHz" min="1" max="20" step="0.5">
+                        </div>
+                        <div class="col-4">
+                          <input class="form-control" type="number" id="n_invuln_blinkHz" step="0.5" min="0">
+                        </div>
+                      </div>
+                    </div>
+
+                    <div class="col-12"><div class="help fw-semibold mt-2">Teleport</div></div>
+
+                    <div class="col-md-6">
+                      <div class="kv mb-1">
+                        <div class="label">Effect Duration</div>
+                        <div class="value"><span id="v_teleport_effectDuration"></span>s</div>
+                      </div>
+                      <div class="row g-2 align-items-center">
+                        <div class="col-8">
+                          <input class="form-range" type="range" id="r_teleport_effectDuration" min="0.1" max="2.0" step="0.05">
+                        </div>
+                        <div class="col-4">
+                          <input class="form-control" type="number" id="n_teleport_effectDuration" step="0.05" min="0">
+                        </div>
+                      </div>
+                    </div>
+
+                    <div class="col-md-6">
+                      <div class="kv mb-1">
+                        <div class="label">Burst Particles</div>
+                        <div class="value"><span id="v_teleport_burstParticles"></span></div>
+                      </div>
+                      <div class="row g-2 align-items-center">
+                        <div class="col-8">
+                          <input class="form-range" type="range" id="r_teleport_burstParticles" min="0" max="160" step="2">
+                        </div>
+                        <div class="col-4">
+                          <input class="form-control" type="number" id="n_teleport_burstParticles" step="1" min="0">
+                        </div>
+                      </div>
+                    </div>
+
+                  </div><!-- /row -->
+                </div><!-- /accordion-body -->
+              </div>
+            </div>
+
+          </div><!-- /accordion -->
+        </div><!-- /card-body -->
+      </div><!-- /card -->
+    </div>
+
+    <!-- Right: Preview / Actions -->
+    <div class="col-lg-5">
+      <div class="sticky-actions">
+        <div class="glass-card card mb-4">
+          <div class="card-header">
+            <div class="d-flex align-items-center justify-content-between gap-2">
+              <div>
+                <div class="h5 mb-0">Generated JSON</div>
+                <div class="help">This is what will be downloaded as <span class="mono">config.json</span>.</div>
+              </div>
+              <div class="d-flex gap-2">
+                <button class="btn btn-outline-light btn-sm" id="copyBtn" type="button">Copy</button>
+              </div>
+            </div>
+          </div>
+          <div class="card-body">
+            <pre id="jsonOutput" class="mono mb-0"></pre>
+          </div>
+        </div>
+
+        <div class="glass-card card">
+          <div class="card-body">
+            <div class="d-flex flex-column gap-2">
+              <div class="help">
+                If config loading fails on <span class="mono">file://</span>, run a tiny local server:
+                <span class="mono">python -m http.server</span> then open <span class="mono">http://localhost:8000</span>.
+              </div>
+              <div class="d-flex gap-2 flex-wrap">
+                <button class="btn btn-primary" id="downloadBtn2" type="button">Download config.json</button>
+                <button class="btn btn-outline-light" id="exportPrettyBtn" type="button">Download Pretty JSON</button>
+              </div>
+              <div class="help mt-1">
+                “Pretty JSON” is identical data, just formatted with extra spacing.
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </div><!-- /sticky -->
+    </div>
+  </div>
+</div>
+
+<script>
+/* ========= DEFAULT CONFIG (matches your game schema) ========= */
+const DEFAULT_CONFIG = {
+  "player": {
+    "maxSpeed": 420,
+    "accel": 2600,
+    "friction": 16,
+    "sizeScale": 0.055,
+    "sizeMin": 28,
+    "sizeMax": 54,
+    "radiusScale": 0.38
+  },
+  "pipes": {
+    "difficulty": {
+      "timeToMax": 38,
+      "scoreToMax": 70,
+      "mixTime": 0.55,
+      "mixScore": 0.45
+    },
+    "spawnInterval": { "start": 0.78, "end": 0.23, "min": 0.2, "max": 0.9 },
+    "speed": { "start": 240, "end": 520 },
+    "thickness": { "scale": 0.055, "min": 28, "max": 64 },
+    "gap": { "startScale": 0.3, "endScale": 0.2, "min": 88, "max": 190 },
+    "special": { "startCadence": 3.8, "endCadence": 2.3, "jitterMin": 0.2, "jitterMax": 0.7 },
+    "patternWeights": { "wall": [0.16, 0.26], "aimed": [0.28, 0.4] }
+  },
+  "powerups": {
+    "inventorySlots": 4,
+    "pickupRadius": 18,
+    "spawn": { "enabled": true, "intervalMin": 4.8, "intervalMax": 7.8, "maxOnScreen": 2, "lifetime": 12 },
+    "typeWeights": { "speed": 0.4, "invuln": 0.35, "teleport": 0.25 },
+    "types": {
+      "speed": { "duration": 10, "speedMultiplier": 1.5, "sparkleRate": 75 },
+      "invuln": { "duration": 2, "blinkHz": 9 },
+      "teleport": { "effectDuration": 0.5, "burstParticles": 42 }
+    }
+  }
+};
+
+function deepClone(obj){ return JSON.parse(JSON.stringify(obj)); }
+let cfg = deepClone(DEFAULT_CONFIG);
+
+const statusChip = document.getElementById("statusChip");
+const statusText = document.getElementById("statusText");
+
+function setStatus(kind, text){
+  statusChip.classList.remove("ok","bad");
+  if (kind === "ok") statusChip.classList.add("ok");
+  else if (kind === "bad") statusChip.classList.add("bad");
+  statusText.textContent = text;
+}
+
+/* ========= Bind helpers ========= */
+function fmt(v){
+  if (typeof v === "number"){
+    if (Math.abs(v) >= 100) return String(Math.round(v));
+    if (Math.abs(v) >= 10) return (Math.round(v * 10)/10).toString();
+    return (Math.round(v * 1000)/1000).toString();
+  }
+  return String(v);
+}
+
+function setByPath(obj, path, value){
+  const parts = path.split(".");
+  let cur = obj;
+  for (let i=0; i<parts.length-1; i++){
+    cur = cur[parts[i]];
+  }
+  cur[parts[parts.length-1]] = value;
+}
+
+function getByPath(obj, path){
+  const parts = path.split(".");
+  let cur = obj;
+  for (const p of parts) cur = cur[p];
+  return cur;
+}
+
+function clampNum(n, min, max){
+  if (!Number.isFinite(n)) return min;
+  if (min != null) n = Math.max(min, n);
+  if (max != null) n = Math.min(max, n);
+  return n;
+}
+
+function bindRangeNumber({
+  rangeId, numberId, valueId,
+  path, parse = Number,
+  min = null, max = null, step = null,
+  formatSuffix = ""
+}){
+  const r = document.getElementById(rangeId);
+  const n = document.getElementById(numberId);
+  const v = document.getElementById(valueId);
+
+  if (!r || !n) return;
+
+  if (min != null) { r.min = min; n.min = min; }
+  if (max != null) { r.max = max; n.max = max; }
+  if (step != null){ r.step = step; n.step = step; }
+
+  const syncFromValue = (val) => {
+    r.value = val;
+    n.value = val;
+    if (v) v.textContent = fmt(Number(val)) + formatSuffix;
+    renderJSON();
+  };
+
+  const setVal = (raw) => {
+    let val = parse(raw);
+    if (!Number.isFinite(val)) val = parse(getByPath(cfg, path));
+    val = clampNum(val, min, max);
+    setByPath(cfg, path, val);
+    syncFromValue(val);
+  };
+
+  // init
+  const initVal = getByPath(cfg, path);
+  syncFromValue(initVal);
+
+  r.addEventListener("input", () => setVal(r.value));
+  n.addEventListener("input", () => setVal(n.value));
+}
+
+function bindNumber({ id, path, min=null, max=null, step=null }){
+  const el = document.getElementById(id);
+  if (!el) return;
+
+  if (min != null) el.min = min;
+  if (max != null) el.max = max;
+  if (step != null) el.step = step;
+
+  el.value = getByPath(cfg, path);
+
+  el.addEventListener("input", () => {
+    let val = Number(el.value);
+    if (!Number.isFinite(val)) val = getByPath(cfg, path);
+    val = clampNum(val, min, max);
+    setByPath(cfg, path, val);
+    renderJSON();
+  });
+}
+
+function bindSwitch({ id, path }){
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.checked = !!getByPath(cfg, path);
+  el.addEventListener("change", () => {
+    setByPath(cfg, path, !!el.checked);
+    renderJSON();
+  });
+}
+
+function bindPair({ aId, bId, pathA, pathB, min=0, max=1, step=0.01 }){
+  const a = document.getElementById(aId);
+  const b = document.getElementById(bId);
+  if (!a || !b) return;
+  a.min=min; a.max=max; a.step=step;
+  b.min=min; b.max=max; b.step=step;
+  a.value = getByPath(cfg, pathA);
+  b.value = getByPath(cfg, pathB);
+  const apply = () => {
+    let av = clampNum(Number(a.value), min, max);
+    let bv = clampNum(Number(b.value), min, max);
+    if (!Number.isFinite(av)) av = getByPath(cfg, pathA);
+    if (!Number.isFinite(bv)) bv = getByPath(cfg, pathB);
+    setByPath(cfg, pathA, av);
+    setByPath(cfg, pathB, bv);
+    renderJSON();
+  };
+  a.addEventListener("input", apply);
+  b.addEventListener("input", apply);
+}
+
+/* ========= JSON render ========= */
+function renderJSON(){
+  // small sanity: keep mixTime + mixScore aligned only if user wants; here we don't force.
+  document.getElementById("jsonOutput").textContent = JSON.stringify(cfg, null, 2);
+  // update visible "value" labels that are not tied to bindRangeNumber (none needed beyond those)
+}
+
+/* ========= Download / Copy ========= */
+function download(filename, text){
+  const blob = new Blob([text], { type: "application/json" });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(()=>URL.revokeObjectURL(a.href), 500);
+}
+
+function wireDownloads(){
+  const dl = () => download("config.json", JSON.stringify(cfg, null, 2));
+  document.getElementById("downloadBtn").addEventListener("click", dl);
+  document.getElementById("downloadBtn2").addEventListener("click", dl);
+  document.getElementById("exportPrettyBtn").addEventListener("click", () => {
+    // identical data; pretty formatting is already 2-space; this is just a separate button per your UX request.
+    download("config.pretty.json", JSON.stringify(cfg, null, 2));
+  });
+}
+
+document.getElementById("copyBtn").addEventListener("click", async () => {
+  try{
+    await navigator.clipboard.writeText(JSON.stringify(cfg, null, 2));
+    setStatus("ok", "Copied JSON to clipboard");
+    setTimeout(()=>setStatus(statusChip.classList.contains("bad") ? "bad" : "ok", lastStatusText), 1400);
+  } catch {
+    alert("Clipboard copy failed (browser restriction). You can still select and copy from the JSON panel.");
+  }
+});
+
+/* ========= Import ========= */
+document.getElementById("importFile").addEventListener("change", async (e) => {
+  const file = e.target.files && e.target.files[0];
+  if (!file) return;
+  try{
+    const txt = await file.text();
+    const obj = JSON.parse(txt);
+    cfg = mergeKnown(DEFAULT_CONFIG, obj);
+    hydrateForm();
+    setStatus("ok", `Imported ${file.name}`);
+  } catch(err){
+    setStatus("bad", "Import failed: invalid JSON");
+  } finally {
+    e.target.value = "";
+  }
+});
+
+/* ========= Reset ========= */
+document.getElementById("resetDefaultsBtn").addEventListener("click", () => {
+  cfg = deepClone(DEFAULT_CONFIG);
+  hydrateForm();
+  setStatus("ok", "Reset to defaults");
+});
+
+/* ========= Schema-aware merge (ignore unknown keys, coerce types) ========= */
+function isPlainObject(v){ return v && typeof v === "object" && !Array.isArray(v); }
+
+function mergeKnown(base, incoming){
+  if (Array.isArray(base)){
+    return Array.isArray(incoming) ? incoming.slice() : base.slice();
+  }
+  if (!isPlainObject(base)){
+    if (incoming === undefined) return base;
+    if (typeof base === "number"){
+      const n = Number(incoming);
+      return Number.isFinite(n) ? n : base;
+    }
+    if (typeof base === "boolean"){
+      if (incoming === true || incoming === false) return incoming;
+      return base;
+    }
+    if (typeof base === "string"){
+      return (typeof incoming === "string") ? incoming : base;
+    }
+    return base;
+  }
+
+  const out = {};
+  const src = isPlainObject(incoming) ? incoming : {};
+  for (const k of Object.keys(base)){
+    out[k] = mergeKnown(base[k], src[k]);
+  }
+  return out;
+}
+
+/* ========= Load config.json (optional) ========= */
+let lastStatusText = "Ready (defaults)";
+async function tryFetchJson(url){
+  const res = await fetch(url, { cache: "no-store" });
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  const txt = await res.text();
+  return JSON.parse(txt);
+}
+
+async function loadConfig(){
+  const candidates = ["flappy_bingus_config.json", "config.json"];
+  for (const c of candidates){
+    try{
+      const json = await tryFetchJson(c);
+      cfg = mergeKnown(DEFAULT_CONFIG, json);
+      lastStatusText = `Loaded ${c}`;
+      setStatus("ok", lastStatusText);
+      hydrateForm();
+      return;
+    } catch(_) {}
+  }
+  lastStatusText = "Using defaults (config not found/blocked)";
+  setStatus("bad", lastStatusText);
+  hydrateForm();
+}
+
+/* ========= Hydrate UI bindings ========= */
+function hydrateForm(){
+  // PLAYER
+  bindRangeNumber({ rangeId:"r_player_maxSpeed", numberId:"n_player_maxSpeed", valueId:"v_player_maxSpeed", path:"player.maxSpeed", min:150, max:900, step:10 });
+  bindRangeNumber({ rangeId:"r_player_accel", numberId:"n_player_accel", valueId:"v_player_accel", path:"player.accel", min:800, max:8000, step:100 });
+  bindRangeNumber({ rangeId:"r_player_friction", numberId:"n_player_friction", valueId:"v_player_friction", path:"player.friction", min:4, max:40, step:1 });
+
+  bindRangeNumber({ rangeId:"r_player_sizeScale", numberId:"n_player_sizeScale", valueId:"v_player_sizeScale", path:"player.sizeScale", min:0.03, max:0.10, step:0.001 });
+  bindNumber({ id:"n_player_sizeMin", path:"player.sizeMin", min:10, max:200, step:1 });
+  bindNumber({ id:"n_player_sizeMax", path:"player.sizeMax", min:10, max:200, step:1 });
+  bindRangeNumber({ rangeId:"r_player_radiusScale", numberId:"n_player_radiusScale", valueId:"v_player_radiusScale", path:"player.radiusScale", min:0.20, max:0.55, step:0.01 });
+
+  // PIPES
+  bindRangeNumber({ rangeId:"r_pipes_spawn_start", numberId:"n_pipes_spawn_start", valueId:"v_pipes_spawn_start", path:"pipes.spawnInterval.start", min:0.10, max:1.50, step:0.01 });
+  bindRangeNumber({ rangeId:"r_pipes_spawn_end", numberId:"n_pipes_spawn_end", valueId:"v_pipes_spawn_end", path:"pipes.spawnInterval.end", min:0.05, max:1.00, step:0.01 });
+
+  bindRangeNumber({ rangeId:"r_pipes_speed_start", numberId:"n_pipes_speed_start", valueId:"v_pipes_speed_start", path:"pipes.speed.start", min:80, max:600, step:10 });
+  bindRangeNumber({ rangeId:"r_pipes_speed_end", numberId:"n_pipes_speed_end", valueId:"v_pipes_speed_end", path:"pipes.speed.end", min:120, max:900, step:10 });
+
+  bindRangeNumber({ rangeId:"r_pipes_gap_startScale", numberId:"n_pipes_gap_startScale", valueId:"v_pipes_gap_startScale", path:"pipes.gap.startScale", min:0.12, max:0.45, step:0.01 });
+  bindRangeNumber({ rangeId:"r_pipes_gap_endScale", numberId:"n_pipes_gap_endScale", valueId:"v_pipes_gap_endScale", path:"pipes.gap.endScale", min:0.10, max:0.40, step:0.01 });
+  bindNumber({ id:"n_pipes_gap_min", path:"pipes.gap.min", min:0, max:2000, step:1 });
+  bindNumber({ id:"n_pipes_gap_max", path:"pipes.gap.max", min:0, max:4000, step:1 });
+
+  bindRangeNumber({ rangeId:"r_pipes_thickness_scale", numberId:"n_pipes_thickness_scale", valueId:"v_pipes_thickness_scale", path:"pipes.thickness.scale", min:0.02, max:0.10, step:0.001 });
+  bindNumber({ id:"n_pipes_thickness_min", path:"pipes.thickness.min", min:0, max:2000, step:1 });
+  bindNumber({ id:"n_pipes_thickness_max", path:"pipes.thickness.max", min:0, max:4000, step:1 });
+
+  bindNumber({ id:"n_pipes_diff_timeToMax", path:"pipes.difficulty.timeToMax", min:1, max:9999, step:1 });
+  bindNumber({ id:"n_pipes_diff_scoreToMax", path:"pipes.difficulty.scoreToMax", min:1, max:9999, step:1 });
+  bindRangeNumber({ rangeId:"r_pipes_diff_mixTime", numberId:"n_pipes_diff_mixTime", valueId:"v_pipes_diff_mixTime", path:"pipes.difficulty.mixTime", min:0, max:1, step:0.01 });
+  bindRangeNumber({ rangeId:"r_pipes_diff_mixScore", numberId:"n_pipes_diff_mixScore", valueId:"v_pipes_diff_mixScore", path:"pipes.difficulty.mixScore", min:0, max:1, step:0.01 });
+
+  bindPair({
+    aId:"n_pipes_weight_wall_start", bId:"n_pipes_weight_wall_end",
+    pathA:"pipes.patternWeights.wall.0", pathB:"pipes.patternWeights.wall.1",
+    min:0, max:1, step:0.01
+  });
+  bindPair({
+    aId:"n_pipes_weight_aimed_start", bId:"n_pipes_weight_aimed_end",
+    pathA:"pipes.patternWeights.aimed.0", pathB:"pipes.patternWeights.aimed.1",
+    min:0, max:1, step:0.01
+  });
+
+  // POWERUPS
+  bindSwitch({ id:"b_powerups_spawn_enabled", path:"powerups.spawn.enabled" });
+  bindNumber({ id:"n_powerups_inventorySlots", path:"powerups.inventorySlots", min:1, max:8, step:1 });
+  bindNumber({ id:"n_powerups_pickupRadius", path:"powerups.pickupRadius", min:8, max:60, step:1 });
+  bindNumber({ id:"n_powerups_spawn_maxOnScreen", path:"powerups.spawn.maxOnScreen", min:0, max:10, step:1 });
+
+  bindRangeNumber({ rangeId:"r_powerups_spawn_intervalMin", numberId:"n_powerups_spawn_intervalMin", valueId:"v_powerups_spawn_intervalMin", path:"powerups.spawn.intervalMin", min:0.5, max:20, step:0.1 });
+  bindRangeNumber({ rangeId:"r_powerups_spawn_intervalMax", numberId:"n_powerups_spawn_intervalMax", valueId:"v_powerups_spawn_intervalMax", path:"powerups.spawn.intervalMax", min:0.5, max:30, step:0.1 });
+  bindRangeNumber({ rangeId:"r_powerups_spawn_lifetime", numberId:"n_powerups_spawn_lifetime", valueId:"v_powerups_spawn_lifetime", path:"powerups.spawn.lifetime", min:1, max:30, step:0.5 });
+
+  bindRangeNumber({ rangeId:"r_powerups_weight_speed", numberId:"n_powerups_weight_speed", valueId:"v_powerups_weight_speed", path:"powerups.typeWeights.speed", min:0, max:1, step:0.01 });
+  bindRangeNumber({ rangeId:"r_powerups_weight_invuln", numberId:"n_powerups_weight_invuln", valueId:"v_powerups_weight_invuln", path:"powerups.typeWeights.invuln", min:0, max:1, step:0.01 });
+  bindRangeNumber({ rangeId:"r_powerups_weight_teleport", numberId:"n_powerups_weight_teleport", valueId:"v_powerups_weight_teleport", path:"powerups.typeWeights.teleport", min:0, max:1, step:0.01 });
+
+  bindRangeNumber({ rangeId:"r_speed_duration", numberId:"n_speed_duration", valueId:"v_speed_duration", path:"powerups.types.speed.duration", min:0, max:30, step:0.5 });
+  bindRangeNumber({ rangeId:"r_speed_multiplier", numberId:"n_speed_multiplier", valueId:"v_speed_multiplier", path:"powerups.types.speed.speedMultiplier", min:1, max:3, step:0.05, formatSuffix:"" });
+  bindRangeNumber({ rangeId:"r_speed_sparkleRate", numberId:"n_speed_sparkleRate", valueId:"v_speed_sparkleRate", path:"powerups.types.speed.sparkleRate", min:0, max:220, step:5 });
+
+  bindRangeNumber({ rangeId:"r_invuln_duration", numberId:"n_invuln_duration", valueId:"v_invuln_duration", path:"powerups.types.invuln.duration", min:0, max:10, step:0.1 });
+  bindRangeNumber({ rangeId:"r_invuln_blinkHz", numberId:"n_invuln_blinkHz", valueId:"v_invuln_blinkHz", path:"powerups.types.invuln.blinkHz", min:1, max:20, step:0.5 });
+
+  bindRangeNumber({ rangeId:"r_teleport_effectDuration", numberId:"n_teleport_effectDuration", valueId:"v_teleport_effectDuration", path:"powerups.types.teleport.effectDuration", min:0.1, max:2.0, step:0.05 });
+  bindRangeNumber({ rangeId:"r_teleport_burstParticles", numberId:"n_teleport_burstParticles", valueId:"v_teleport_burstParticles", path:"powerups.types.teleport.burstParticles", min:0, max:160, step:2 });
+
+  renderJSON();
+}
+
+/* ========= Init ========= */
+wireDownloads();
+hydrateForm();
+loadConfig();
+</script>
+
+</body>
+</html>

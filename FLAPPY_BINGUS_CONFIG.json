@@ -1,0 +1,57 @@
+
+{
+  "player": {
+    "maxSpeed": 420,
+    "accel": 2600,
+    "friction": 16,
+    "sizeScale": 0.055,
+    "sizeMin": 28,
+    "sizeMax": 54,
+    "radiusScale": 0.38
+  },
+  "pipes": {
+    "difficulty": {
+      "timeToMax": 38,
+      "scoreToMax": 120,
+      "mixTime": 0.55,
+      "mixScore": 0.45
+    },
+    "spawnInterval": { "start": 0.78, "end": 0.23, "min": 0.18, "max": 0.9 },
+    "speed": { "start": 240, "end": 560 },
+    "thickness": { "scale": 0.055, "min": 28, "max": 64 },
+    "gap": { "startScale": 0.3, "endScale": 0.2, "min": 88, "max": 190 },
+    "special": { "startCadence": 3.8, "endCadence": 2.3, "jitterMin": 0.2, "jitterMax": 0.7 },
+    "patternWeights": { "wall": [0.18, 0.3], "aimed": [0.26, 0.4] },
+    "colors": { "green": "#34d399", "blue": "#60a5fa", "yellow": "#fbbf24", "red": "#fb7185" }
+  },
+  "skills": {
+    "bindings": ["dash", "phase", "teleport", "slowField"],
+    "dash": { "cooldown": 1.15, "duration": 0.18, "speed": 900 },
+    "phase": { "cooldown": 2.75, "duration": 0.7 },
+    "teleport": { "cooldown": 2.1, "range": 1000, "effectDuration": 0.35, "burstParticles": 34 },
+    "slowField": { "cooldown": 4.5, "duration": 1.8, "radius": 210, "slowFactor": 0.58 }
+  },
+  "catalysts": {
+    "orbs": {
+      "enabled": true,
+      "intervalMin": 0.95,
+      "intervalMax": 1.65,
+      "maxOnScreen": 6,
+      "lifetime": 10,
+      "radius": 12,
+      "driftSpeedMin": 10,
+      "driftSpeedMax": 45,
+      "safeDistance": 120
+    }
+  },
+  "scoring": {
+    "pipeDodge": 1,
+    "orbBase": 5,
+    "orbComboBonus": 1,
+    "orbComboMax": 30,
+    "perfect": { "enabled": true, "bonus": 10, "windowScale": 0.075, "flashDuration": 0.55 }
+  },
+  "ui": {
+    "comboBar": { "glowAt": 8, "sparkleAt": 12, "sparkleRate": 28 }
+  }
+}
