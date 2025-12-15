@@ -37,6 +37,8 @@ const over = document.getElementById("over");
 
 const startBtn = document.getElementById("start");
 const restartBtn = document.getElementById("restart");
+const retrySeedBtn = document.getElementById("retrySeed");
+
 const toMenuBtn = document.getElementById("toMenu");
 
 const bootPill = document.getElementById("bootPill");
@@ -136,6 +138,9 @@ let lastTs = 0;
 // Replay / run capture
 // activeRun = { seed, ticks: [ { move, cursor, actions[] } ], pendingActions:[], ended:boolean }
 let activeRun = null;
+
+// Seed of the most recently finished run (used for "Retry Previous Seed")
+let lastEndedSeed = "";
 
 // When true: main RAF loop does NOT advance the sim (replay drives it)
 let replayDriving = false;
@@ -565,6 +570,7 @@ bindWrap.addEventListener("click", (e) => {
 // ---- Menu/game over buttons ----
 startBtn.addEventListener("click", () => startGame());
 restartBtn.addEventListener("click", () => startGame());
+retrySeedBtn?.addEventListener("click", () => startGame({ mode: "retry" }));
 toMenuBtn.addEventListener("click", () => toMenu());
 
 window.addEventListener("keydown", (e) => {
@@ -577,10 +583,11 @@ window.addEventListener("keydown", (e) => {
     e.preventDefault();
     toMenu();
   }
-  if (e.code === "KeyR" && !over.classList.contains("hidden")) {
-    e.preventDefault();
-    startGame();
-  }
+if (e.code === "KeyR" && !over.classList.contains("hidden")) {
+  e.preventDefault();
+  startGame({ mode: "new" }); // default: new seed
+}
+
 }, { passive: false });
 
 // ---- State transitions ----
@@ -597,7 +604,7 @@ function toMenu() {
   refreshProfileAndHighscores();
 }
 
-function startGame() {
+function startGame({ mode = "new" } = {}) {
   setUIMode(false);
   if (rebindCleanup) rebindCleanup();
   rebindCleanup = null;
@@ -605,20 +612,28 @@ function startGame() {
 
   input.reset();
 
-  // seed selection
-  let seed = (seedInput ? seedInput.value.trim() : "").trim();
-  if (!seed) {
+  // Decide seed behavior:
+  // mode "new"   => always generate a new seed
+  // mode "retry" => reuse the last ended seed (fallback to current seedInput if missing)
+  let seed = "";
+
+  if (mode === "retry") {
+    seed = (lastEndedSeed || (seedInput ? seedInput.value.trim() : "")).trim();
+    if (!seed) {
+      seed = genRandomSeed(); // extreme fallback
+    }
+  } else {
+    // default: always new seed
     seed = genRandomSeed();
-    if (seedInput) seedInput.value = seed;
   }
+
+  if (seedInput) seedInput.value = seed;
   writeSeed(seed);
 
-
-
-// reset replay recording (tick-based) + RNG tape
+  // reset replay recording (tick-based) + RNG tape
   activeRun = { seed, ticks: [], pendingActions: [], ended: false, rngTape: [] };
 
-// IMPORTANT: record the exact RNG stream used during gameplay
+  // IMPORTANT: record the exact RNG stream used during gameplay
   setRandSource(createTapeRandRecorder(seed, activeRun.rngTape));
 
   if (replayStatus) {
@@ -635,6 +650,7 @@ function startGame() {
   game.startRun();
   window.focus();
 }
+
 
 async function onGameOver(finalScore) {
   setUIMode(true);
@@ -664,6 +680,14 @@ async function onGameOver(finalScore) {
 
   if (activeRun) {
     activeRun.ended = true;
+
+    // Remember this run's seed for "Retry Previous Seed"
+    lastEndedSeed = String(activeRun.seed || "");
+    if (retrySeedBtn) retrySeedBtn.disabled = !lastEndedSeed;
+
+    // Make default action "Restart (new seed)"
+    restartBtn?.focus?.();
+
     if (replayStatus) {
       replayStatus.className = "hint good";
       replayStatus.textContent = `Replay ready. Seed: ${activeRun.seed} • Ticks: ${activeRun.ticks.length}`;
@@ -672,6 +696,7 @@ async function onGameOver(finalScore) {
     if (exportMp4Btn) exportMp4Btn.disabled = false;
   }
 }
+
 let _ffmpegSingleton = null;
 
 async function loadFFmpeg() {

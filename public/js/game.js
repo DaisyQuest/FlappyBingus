@@ -633,8 +633,8 @@ if (name === "slowField") {
   }
 
   _trailStyle(id) {
-    if (id === "rainbow") return { rate: 95, life: [0.18, 0.34], size: [0.9, 2.2], speed: [35, 170], drag: 10.5, add: true };
-    if (id === "gothic") return { rate: 78, life: [0.20, 0.40], size: [0.9, 2.4], speed: [30, 150], drag: 9.5, add: true };
+    if (id === "rainbow") return { rate: 95, life: [0.18, 0.34], size: [7, 10], speed: [35, 170], drag: 10.5, add: true };
+    if (id === "gothic") return { rate: 78, life: [0.20, 0.40], size: [7, 10], speed: [30, 150], drag: 9.5, add: true };
     return { rate: 55, life: [0.18, 0.32], size: [0.8, 2.0], speed: [25, 120], drag: 11.5, add: true };
   }
 
