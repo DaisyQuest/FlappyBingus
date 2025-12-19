@@ -17,7 +17,7 @@ export const DEFAULT_CONFIG = {
   },
   skills: {
     // cooldowns live here; activation keybinds are user-configurable (menu)
-    dash: { cooldown: 1.15, duration: 0.18, speed: 900 },
+    dash: { cooldown: 1.15, duration: 0.18, speed: 900, bounceRetain: 0.86, maxBounces: 2 },
     phase: { cooldown: 1.75, duration: 0.40 },
     teleport: { cooldown: 2.10, range: 170, effectDuration: 0.35, burstParticles: 34 },
     slowField: { cooldown: 4.50, duration: 1.80, radius: 210, slowFactor: 0.58 }

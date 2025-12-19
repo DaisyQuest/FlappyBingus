@@ -95,6 +95,48 @@ export function circleRect(cx, cy, r, rx, ry, rw, rh) {
   return (dx * dx + dy * dy) <= r * r;
 }
 
+/**
+ * Detailed circle vs axis-aligned rectangle test.
+ * Returns null on no hit, otherwise the contact normal (axis-aligned), contact point, and penetration depth.
+ */
+export function circleRectInfo(cx, cy, r, rx, ry, rw, rh) {
+  const qx = clamp(cx, rx, rx + rw);
+  const qy = clamp(cy, ry, ry + rh);
+  const dx = cx - qx, dy = cy - qy;
+  if ((dx * dx + dy * dy) > r * r) return null;
+
+  // Snap the normal to the dominant axis for predictable reflections.
+  let nx = 0, ny = 0;
+  const ax = Math.abs(dx), ay = Math.abs(dy);
+  if (ax > ay) {
+    nx = Math.sign(dx || (cx - (rx + rw * 0.5)));
+  } else if (ay > ax) {
+    ny = Math.sign(dy || (cy - (ry + rh * 0.5)));
+  } else {
+    // Perfect tie (corner / fully inside) -> pick the nearest face.
+    const left = cx - rx, right = (rx + rw) - cx;
+    const top = cy - ry, bottom = (ry + rh) - cy;
+    if (Math.min(left, right) <= Math.min(top, bottom)) nx = (left < right) ? -1 : 1;
+    else ny = (top < bottom) ? -1 : 1;
+  }
+
+  const contactX = (nx < 0) ? rx : (nx > 0 ? rx + rw : cx);
+  const contactY = (ny < 0) ? ry : (ny > 0 ? ry + rh : cy);
+
+  let pen = 0;
+  if (nx !== 0) {
+    const dist = (nx < 0) ? (cx - rx) : ((rx + rw) - cx);
+    pen = r - dist;
+  } else if (ny !== 0) {
+    const dist = (ny < 0) ? (cy - ry) : ((ry + rh) - cy);
+    pen = r - dist;
+  } else {
+    pen = r;
+  }
+
+  return { hit: true, nx, ny, contactX, contactY, penetration: Math.max(0, pen) };
+}
+
 export function circleCircle(ax, ay, ar, bx, by, br) {
   const dx = ax - bx, dy = ay - by, rr = ar + br;
   return (dx * dx + dy * dy) <= rr * rr;
