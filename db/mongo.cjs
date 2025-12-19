@@ -131,6 +131,18 @@ class MongoDataStore {
     await this.ensureConnected();
     const now = Date.now();
     const { username: _ignored, updatedAt: _ignoredUpdated, ...rest } = defaults || {};
+    const collection = this.usersCollection();
+
+    // Try to fetch existing user first to avoid update operator conflicts.
+    const existing = await collection.findOne({ key });
+    if (existing) {
+      if (existing.username !== username) {
+        await collection.updateOne({ key }, { $set: { username, updatedAt: now } });
+        return await collection.findOne({ key });
+      }
+      return existing;
+    }
+
     const insertDoc = {
       ...rest,
       key,
@@ -139,22 +151,13 @@ class MongoDataStore {
       updatedAt: now
     };
 
-    // First try to update an existing user (common path).
-    const updated = await this.usersCollection().findOneAndUpdate(
-      { key },
-      { $set: { username, updatedAt: now } },
-      { returnDocument: "after" }
-    );
-    if (updated.value) return updated.value;
-
-    // If not found, insert a fresh document. Handle potential races with duplicate key.
+    // Insert new user, handling concurrent creation races gracefully.
     try {
-      const insertRes = await this.usersCollection().insertOne(insertDoc);
-      return await this.usersCollection().findOne({ _id: insertRes.insertedId });
+      const insertRes = await collection.insertOne(insertDoc);
+      return await collection.findOne({ _id: insertRes.insertedId });
     } catch (err) {
-      // Duplicate means someone created it concurrently; fetch latest.
       if (err?.code === 11000) {
-        return await this.usersCollection().findOne({ key });
+        return await collection.findOne({ key });
       }
       throw err;
     }
