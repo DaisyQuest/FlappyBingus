@@ -54,7 +54,34 @@ const DEFAULT_KEYBINDS = Object.freeze({
 const TRAILS = Object.freeze([
   { id: "classic", name: "Classic", minScore: 0 },
   { id: "rainbow", name: "Rainbow", minScore: 100 },
-  { id: "gothic", name: "Gothic", minScore: 150 }
+  { id: "gothic", name: "Gothic", minScore: 250 },
+  { id: "sunset", name: "Sunset", minScore: 400 },
+  { id: "miami", name: "Miami", minScore: 550 },
+  { id: "aurora", name: "Aurora", minScore: 700 },
+  { id: "ocean", name: "Ocean", minScore: 850 },
+  { id: "ember", name: "Ember", minScore: 1000 },
+  { id: "cyber", name: "Cyber", minScore: 1150 },
+  { id: "pastel", name: "Pastel", minScore: 1300 },
+  { id: "vapor", name: "Vapor", minScore: 1450 },
+  { id: "glacier", name: "Glacier", minScore: 1600 },
+  { id: "forest", name: "Forest", minScore: 1750 },
+  { id: "solar", name: "Solar", minScore: 1900 },
+  { id: "toxic", name: "Toxic", minScore: 2050 },
+  { id: "bubblegum", name: "Bubblegum", minScore: 2200 },
+  { id: "midnight", name: "Midnight", minScore: 2350 },
+  { id: "obsidian", name: "Obsidian", minScore: 2500 },
+  { id: "golden", name: "Golden", minScore: 2650 },
+  { id: "silver", name: "Silver", minScore: 2800 },
+  { id: "storm", name: "Storm", minScore: 2950 },
+  { id: "magma", name: "Magma", minScore: 3100 },
+  { id: "celestial", name: "Celestial", minScore: 3250 },
+  { id: "nebula", name: "Nebula", minScore: 3400 },
+  { id: "citrus", name: "Citrus", minScore: 3550 },
+  { id: "cotton", name: "Cotton Candy", minScore: 3700 },
+  { id: "plasma", name: "Plasma", minScore: 3850 },
+  { id: "royal", name: "Royal", minScore: 4000 },
+  { id: "ultraviolet", name: "Ultraviolet", minScore: 4150 },
+  { id: "dragonfire", name: "Dragonfire", minScore: 4300 }
 ]);
 
 // --------- Simple JSON "DB" ----------
