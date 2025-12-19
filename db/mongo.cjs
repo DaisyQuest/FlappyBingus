@@ -130,11 +130,10 @@ class MongoDataStore {
   async upsertUser(username, key, defaults) {
     await this.ensureConnected();
     const now = Date.now();
-    const { username: _ignored, ...rest } = defaults || {};
+    const { username: _ignored, updatedAt: _ignoredUpdated, ...rest } = defaults || {};
     const insertDoc = {
       ...rest,
-      createdAt: rest.createdAt ?? now,
-      updatedAt: rest.updatedAt ?? now
+      createdAt: rest.createdAt ?? now
     };
     const res = await this.usersCollection().findOneAndUpdate(
       { key },
