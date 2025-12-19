@@ -133,17 +133,31 @@ class MongoDataStore {
     const { username: _ignored, updatedAt: _ignoredUpdated, ...rest } = defaults || {};
     const insertDoc = {
       ...rest,
-      createdAt: rest.createdAt ?? now
+      key,
+      username,
+      createdAt: rest.createdAt ?? now,
+      updatedAt: now
     };
-    const res = await this.usersCollection().findOneAndUpdate(
+
+    // First try to update an existing user (common path).
+    const updated = await this.usersCollection().findOneAndUpdate(
       { key },
-      {
-        $setOnInsert: insertDoc,
-        $set: { username, updatedAt: now }
-      },
-      { upsert: true, returnDocument: "after" }
+      { $set: { username, updatedAt: now } },
+      { returnDocument: "after" }
     );
-    return res.value;
+    if (updated.value) return updated.value;
+
+    // If not found, insert a fresh document. Handle potential races with duplicate key.
+    try {
+      const insertRes = await this.usersCollection().insertOne(insertDoc);
+      return await this.usersCollection().findOne({ _id: insertRes.insertedId });
+    } catch (err) {
+      // Duplicate means someone created it concurrently; fetch latest.
+      if (err?.code === 11000) {
+        return await this.usersCollection().findOne({ key });
+      }
+      throw err;
+    }
   }
 
   async recordScore(key, score) {
