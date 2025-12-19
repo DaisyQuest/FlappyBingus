@@ -9,7 +9,8 @@ const fs = require("node:fs/promises");
 const fssync = require("node:fs");
 const path = require("node:path");
 const { URL } = require("node:url");
-const crypto = require("node:crypto");
+
+const { MongoDataStore, resolveMongoConfig } = require("./db/mongo.cjs");
 
 // --------- Config (env overrides) ----------
 const PORT = Number(process.env.PORT || 3000);
@@ -18,23 +19,11 @@ const PUBLIC_DIR = process.env.PUBLIC_DIR
   ? path.resolve(process.env.PUBLIC_DIR)
   : path.join(process.cwd(), "public");
 
-// Prefer a writable location on hosts like Azure App Service.
-// If HOME/USERPROFILE isn't set or isn't writable, fall back to ./data.
-function defaultDataDir() {
-  const base =
-    process.env.BINGUS_DATA_DIR ||
-    process.env.HOME ||
-    process.env.USERPROFILE ||
-    "";
-  if (base) return path.join(path.resolve(base), "data");
-  return path.join(process.cwd(), "data");
-}
+const START_TIME = Date.now();
 
-const DATA_DIR = process.env.BINGUS_DATA_DIR
-  ? path.resolve(process.env.BINGUS_DATA_DIR)
-  : defaultDataDir();
-
-const DB_PATH = path.join(DATA_DIR, "db.json");
+// Mongo configuration: MONGODB_URI (supports {PASSWORD} placeholder), MONGODB_PASSWORD, MONGODB_DB
+const mongoConfig = resolveMongoConfig();
+const dataStore = new MongoDataStore(mongoConfig);
 
 // Cookie that holds username (per requirements)
 const USER_COOKIE = "sugar";
@@ -57,74 +46,9 @@ const TRAILS = Object.freeze([
   { id: "gothic", name: "Gothic", minScore: 150 }
 ]);
 
-// --------- Simple JSON "DB" ----------
-/**
- * db shape:
- * {
- *   users: {
- *     [keyLower]: {
- *       username: "Alice",
- *       key: "alice",
- *       bestScore: 0,
- *       selectedTrail: "classic",
- *       keybinds: { dash:{...}, phase:{...}, teleport:{...}, slowField:{...} },
- *       runs: 0,
- *       totalScore: 0,
- *       createdAt: 1690000000000,
- *       updatedAt: 1690000000000
- *     }
- *   }
- * }
- */
-let db = { users: {} };
-let saveChain = Promise.resolve();
-
+// --------- Domain helpers ----------
 function nowMs() {
   return Date.now();
-}
-
-async function ensureDir(p) {
-  await fs.mkdir(p, { recursive: true });
-}
-
-async function loadDb() {
-  try {
-    const raw = await fs.readFile(DB_PATH, "utf8");
-    const parsed = JSON.parse(raw);
-    if (
-      parsed &&
-      typeof parsed === "object" &&
-      parsed.users &&
-      typeof parsed.users === "object"
-    ) {
-      db = parsed;
-      // Ensure schema defaults on all users (backward compat)
-      for (const u of Object.values(db.users)) ensureUserSchema(u);
-      await saveDb();
-      return;
-    }
-  } catch (_) {
-    // ignore: first boot or corrupt file -> reset below
-  }
-  db = { users: {} };
-  await saveDb();
-}
-
-async function writeFileAtomic(filePath, text) {
-  const tmp = filePath + ".tmp." + crypto.randomBytes(6).toString("hex");
-  await fs.writeFile(tmp, text, "utf8");
-  await fs.rename(tmp, filePath);
-}
-
-function saveDb() {
-  saveChain = saveChain
-    .then(async () => {
-      await ensureDir(DATA_DIR);
-      const text = JSON.stringify(db, null, 2);
-      await writeFileAtomic(DB_PATH, text);
-    })
-    .catch(() => {});
-  return saveChain;
 }
 
 // --------- Helpers ----------
@@ -319,37 +243,38 @@ function publicUser(u) {
   };
 }
 
-function getUserFromReq(req) {
+async function getUserFromReq(req) {
   const cookies = parseCookies(req.headers.cookie);
   const raw = cookies[USER_COOKIE];
   if (!raw) return null;
   const key = keyForUsername(raw);
-  const u = db.users[key];
+  const u = await dataStore.getUserByKey(key);
   if (!u) return null;
   ensureUserSchema(u);
   return u;
 }
 
-function getOrCreateUser(username) {
+function buildUserDefaults(username, key) {
+  const now = nowMs();
+  return {
+    username,
+    key,
+    bestScore: 0,
+    selectedTrail: "classic",
+    keybinds: structuredClone(DEFAULT_KEYBINDS),
+    runs: 0,
+    totalScore: 0,
+    createdAt: now,
+    updatedAt: now
+  };
+}
+
+async function getOrCreateUser(username) {
   const norm = normalizeUsername(username);
   if (!norm) return null;
   const key = keyForUsername(norm);
-  let u = db.users[key];
-  if (!u) {
-    const t = nowMs();
-    u = {
-      username: norm,
-      key,
-      bestScore: 0,
-      selectedTrail: "classic",
-      keybinds: structuredClone(DEFAULT_KEYBINDS),
-      runs: 0,
-      totalScore: 0,
-      createdAt: t,
-      updatedAt: t
-    };
-    db.users[key] = u;
-  }
+  const defaults = buildUserDefaults(norm, key);
+  const u = await dataStore.upsertUser(norm, key, defaults);
   ensureUserSchema(u);
   return u;
 }
@@ -376,20 +301,187 @@ function escapeHtml(s) {
     .replaceAll("'", "&#39;");
 }
 
-function topHighscores(limit = 25) {
-  const list = Object.values(db.users)
-    .map((u) => ({
-      username: u.username,
-      bestScore: u.bestScore | 0,
-      updatedAt: u.updatedAt | 0
-    }))
-    .sort(
-      (a, b) =>
-        b.bestScore - a.bestScore ||
-        b.updatedAt - a.updatedAt ||
-        a.username.localeCompare(b.username)
-    );
-  return list.slice(0, Math.max(1, Math.min(200, limit | 0)));
+function formatDuration(ms) {
+  if (!Number.isFinite(ms) || ms < 0) return "0s";
+  const totalSeconds = Math.floor(ms / 1000);
+  const days = Math.floor(totalSeconds / 86400);
+  const hours = Math.floor((totalSeconds % 86400) / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
+  const parts = [];
+  if (days) parts.push(`${days}d`);
+  if (hours) parts.push(`${hours}h`);
+  if (minutes) parts.push(`${minutes}m`);
+  parts.push(`${seconds}s`);
+  return parts.join(" ");
+}
+
+function formatDate(ts) {
+  if (!ts) return "—";
+  const d = new Date(ts);
+  if (Number.isNaN(d.getTime())) return "—";
+  return d.toISOString();
+}
+
+async function topHighscores(limit = 25) {
+  return dataStore.topHighscores(limit);
+}
+
+async function ensureDatabase(res) {
+  try {
+    await dataStore.ensureConnected();
+    return true;
+  } catch (err) {
+    console.error("[bingus] database unavailable:", err);
+    sendJson(res, 503, { ok: false, error: "database_unavailable" });
+    return false;
+  }
+}
+
+function renderStatusPage(status) {
+  const db = status.db || {};
+  const dbBadge = db.connected
+    ? '<span class="badge bg-success">Connected</span>'
+    : '<span class="badge bg-danger">Disconnected</span>';
+  const dbError = status.dbError
+    ? `<div class="alert alert-danger mt-3 mb-0"><strong>Database error:</strong> ${escapeHtml(
+        status.dbError
+      )}</div>`
+    : "";
+  const highscores = status.highscores || [];
+  const recentUsers = status.recentUsers || [];
+  const highscoresRows =
+    highscores.length > 0
+      ? highscores
+          .map(
+            (e, i) =>
+              `<tr><td>${i + 1}</td><td>${escapeHtml(e.username)}</td><td>${e.bestScore}</td><td class="text-muted">${formatDate(
+                e.updatedAt
+              )}</td></tr>`
+          )
+          .join("")
+      : '<tr><td colspan="4" class="text-muted">No scores recorded.</td></tr>';
+  const recentRows =
+    recentUsers.length > 0
+      ? recentUsers
+          .map(
+            (u) =>
+              `<tr><td>${escapeHtml(u.username)}</td><td>${u.bestScore | 0}</td><td class="text-muted">${formatDate(
+                u.updatedAt || u.createdAt
+              )}</td></tr>`
+          )
+          .join("")
+      : '<tr><td colspan="3" class="text-muted">No users recorded.</td></tr>';
+
+  return `<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>Flappy Bingus – Status</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css"/>
+</head>
+<body class="bg-dark text-light">
+  <div class="container py-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+      <div>
+        <h1 class="h3 mb-1">Flappy Bingus Status</h1>
+        <p class="mb-0 text-secondary">Live server and database health</p>
+      </div>
+      <div class="d-flex gap-2">
+        <a class="btn btn-outline-info" href="/">Back to game</a>
+        <a class="btn btn-outline-light" href="/highscores">View highscores</a>
+      </div>
+    </div>
+
+    <div class="row g-3">
+      <div class="col-12 col-lg-6">
+        <div class="card bg-secondary-subtle text-dark h-100">
+          <div class="card-body">
+            <h2 class="h5 card-title">Server</h2>
+            <dl class="row mb-0">
+              <dt class="col-4 text-muted">Status</dt>
+              <dd class="col-8"><span class="badge bg-primary">Online</span></dd>
+              <dt class="col-4 text-muted">Uptime</dt>
+              <dd class="col-8">${escapeHtml(formatDuration(status.uptimeMs))}</dd>
+              <dt class="col-4 text-muted">Port</dt>
+              <dd class="col-8">${escapeHtml(String(status.port))}</dd>
+              <dt class="col-4 text-muted">Public dir</dt>
+              <dd class="col-8"><code>${escapeHtml(status.publicDir)}</code></dd>
+            </dl>
+          </div>
+        </div>
+      </div>
+      <div class="col-12 col-lg-6">
+        <div class="card h-100 ${db.connected ? "border-success" : "border-danger"}">
+          <div class="card-body">
+            <div class="d-flex justify-content-between align-items-center">
+              <h2 class="h5 card-title mb-0">Database</h2>
+              ${dbBadge}
+            </div>
+            <dl class="row mb-0 mt-3">
+              <dt class="col-4 text-muted">Type</dt>
+              <dd class="col-8">MongoDB</dd>
+              <dt class="col-4 text-muted">Database</dt>
+              <dd class="col-8">${escapeHtml(db.dbName || "unknown")}</dd>
+              <dt class="col-4 text-muted">URI</dt>
+              <dd class="col-8"><code>${escapeHtml(db.uri || "not set")}</code></dd>
+              <dt class="col-4 text-muted">Last ping</dt>
+              <dd class="col-8">${db.lastPingMs ? `${db.lastPingMs} ms` : "—"}</dd>
+              <dt class="col-4 text-muted">Last attempt</dt>
+              <dd class="col-8">${escapeHtml(formatDate(db.lastAttemptAt))}</dd>
+              <dt class="col-4 text-muted">Last error</dt>
+              <dd class="col-8 text-danger">${db.lastError ? escapeHtml(db.lastError) : "—"}</dd>
+            </dl>
+            ${dbError}
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="row g-3 mt-1">
+      <div class="col-12 col-lg-4">
+        <div class="card h-100">
+          <div class="card-body">
+            <h2 class="h6 text-uppercase text-secondary">Totals</h2>
+            <div class="fs-1 fw-bold">${status.userCount ?? 0}</div>
+            <div class="text-muted">Registered users</div>
+          </div>
+        </div>
+      </div>
+      <div class="col-12 col-lg-8">
+        <div class="card h-100">
+          <div class="card-body">
+            <h2 class="h6 text-uppercase text-secondary">Top scores</h2>
+            <div class="table-responsive">
+              <table class="table table-sm table-dark align-middle mb-0">
+                <thead><tr><th>#</th><th>User</th><th>Best</th><th>Updated</th></tr></thead>
+                <tbody>${highscoresRows}</tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="row g-3 mt-1">
+      <div class="col-12">
+        <div class="card">
+          <div class="card-body">
+            <h2 class="h6 text-uppercase text-secondary">Recent users</h2>
+            <div class="table-responsive">
+              <table class="table table-sm table-dark align-middle mb-0">
+                <thead><tr><th>User</th><th>Best score</th><th>Last activity</th></tr></thead>
+                <tbody>${recentRows}</tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</body>
+</html>`;
 }
 
 // --------- Static serving ----------
@@ -474,13 +566,15 @@ async function route(req, res) {
 
   // Me
   if (pathname === "/api/me" && req.method === "GET") {
-    const u = getUserFromReq(req);
+    if (!(await ensureDatabase(res))) return;
+    const u = await getUserFromReq(req);
     sendJson(res, 200, { ok: true, user: publicUser(u), trails: TRAILS });
     return;
   }
 
   // Register/login by username
   if (pathname === "/api/register" && req.method === "POST") {
+    if (!(await ensureDatabase(res))) return;
     let body;
     try {
       body = await readJsonBody(req);
@@ -490,9 +584,7 @@ async function route(req, res) {
     const username = normalizeUsername(body.username);
     if (!username) return badRequest(res, "invalid_username");
 
-    const u = getOrCreateUser(username);
-    u.updatedAt = nowMs();
-    await saveDb();
+    const u = await getOrCreateUser(username);
 
     // Store username in cookie "sugar"
     // httpOnly is OK because the browser doesn't need to read it; the server does.
@@ -508,7 +600,8 @@ async function route(req, res) {
 
   // Submit score (updates best score + progression)
   if (pathname === "/api/score" && req.method === "POST") {
-    const u = getUserFromReq(req);
+    if (!(await ensureDatabase(res))) return;
+    const u = await getUserFromReq(req);
     if (!u) return unauthorized(res);
 
     let body;
@@ -522,26 +615,22 @@ async function route(req, res) {
 
     const score = Math.max(0, Math.min(1_000_000_000, Math.floor(s)));
 
-    u.runs = (u.runs | 0) + 1;
-    u.totalScore = (u.totalScore | 0) + score;
-    if (score > (u.bestScore | 0)) u.bestScore = score;
-    u.updatedAt = nowMs();
-    ensureUserSchema(u);
-
-    await saveDb();
+    const updated = await dataStore.recordScore(u.key, score);
+    ensureUserSchema(updated);
 
     sendJson(res, 200, {
       ok: true,
-      user: publicUser(u),
+      user: publicUser(updated),
       trails: TRAILS,
-      highscores: topHighscores(20)
+      highscores: await topHighscores(20)
     });
     return;
   }
 
   // Set selected trail cosmetic
   if (pathname === "/api/cosmetics/trail" && req.method === "POST") {
-    const u = getUserFromReq(req);
+    if (!(await ensureDatabase(res))) return;
+    const u = await getUserFromReq(req);
     if (!u) return unauthorized(res);
 
     let body;
@@ -557,17 +646,17 @@ async function route(req, res) {
     const unlocked = unlockedTrails(u.bestScore | 0);
     if (!unlocked.includes(trailId)) return badRequest(res, "trail_locked");
 
-    u.selectedTrail = trailId;
-    u.updatedAt = nowMs();
-    await saveDb();
+    const updated = await dataStore.setTrail(u.key, trailId);
+    ensureUserSchema(updated);
 
-    sendJson(res, 200, { ok: true, user: publicUser(u), trails: TRAILS });
+    sendJson(res, 200, { ok: true, user: publicUser(updated), trails: TRAILS });
     return;
   }
 
   // Set keybinds
   if (pathname === "/api/binds" && req.method === "POST") {
-    const u = getUserFromReq(req);
+    if (!(await ensureDatabase(res))) return;
+    const u = await getUserFromReq(req);
     if (!u) return unauthorized(res);
 
     let body;
@@ -579,24 +668,45 @@ async function route(req, res) {
     const binds = validateKeybindsPayload(body.keybinds);
     if (!binds) return badRequest(res, "invalid_keybinds");
 
-    u.keybinds = binds;
-    u.updatedAt = nowMs();
-    await saveDb();
+    const updated = await dataStore.setKeybinds(u.key, binds);
+    ensureUserSchema(updated);
 
-    sendJson(res, 200, { ok: true, user: publicUser(u), trails: TRAILS });
+    sendJson(res, 200, { ok: true, user: publicUser(updated), trails: TRAILS });
     return;
   }
 
   // Highscores JSON
   if (pathname === "/api/highscores" && req.method === "GET") {
+    if (!(await ensureDatabase(res))) return;
     const limit = Number(url.searchParams.get("limit") || 20);
-    sendJson(res, 200, { ok: true, highscores: topHighscores(limit) });
+    sendJson(res, 200, { ok: true, highscores: await topHighscores(limit) });
+    return;
+  }
+
+  if (pathname === "/status" && req.method === "GET") {
+    const status = {
+      port: PORT,
+      publicDir: PUBLIC_DIR,
+      uptimeMs: Date.now() - START_TIME,
+      db: dataStore.getStatus()
+    };
+    try {
+      await dataStore.ensureConnected();
+      status.db = dataStore.getStatus();
+      status.userCount = await dataStore.userCount();
+      status.highscores = await topHighscores(10);
+      status.recentUsers = await dataStore.recentUsers(10);
+    } catch (err) {
+      status.dbError = err?.message || String(err);
+    }
+    sendHtml(res, 200, renderStatusPage(status));
     return;
   }
 
   // Simple HTML highscores page
   if (pathname === "/highscores" && req.method === "GET") {
-    const list = topHighscores(50);
+    if (!(await ensureDatabase(res))) return;
+    const list = await topHighscores(50);
     const rows = list
       .map(
         (e, i) =>
@@ -646,8 +756,13 @@ async function route(req, res) {
   if (!fssync.existsSync(PUBLIC_DIR)) {
     console.warn(`[bingus] PUBLIC_DIR missing: ${PUBLIC_DIR}`);
   }
-  await ensureDir(DATA_DIR);
-  await loadDb();
+  try {
+    await dataStore.ensureConnected();
+    const st = dataStore.getStatus();
+    console.log(`[bingus] database ready at ${st.uri} (db ${st.dbName})`);
+  } catch (err) {
+    console.error("[bingus] database connection failed at startup:", err);
+  }
 
   const server = http.createServer((req, res) => {
     route(req, res).catch((err) => {
@@ -659,7 +774,7 @@ async function route(req, res) {
   server.listen(PORT, () => {
     console.log(`[bingus] listening on :${PORT}`);
     console.log(`[bingus] serving public from ${PUBLIC_DIR}`);
-    console.log(`[bingus] db at ${DB_PATH}`);
+    console.log(`[bingus] mongo target ${mongoConfig.maskedUri} (db ${mongoConfig.dbName})`);
     console.log(`[bingus] NOTE: put your client file at ${path.join(PUBLIC_DIR, "js", "main.js")} so /js/main.js works`);
   });
 })();
