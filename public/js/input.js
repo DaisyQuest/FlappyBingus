@@ -44,14 +44,14 @@ export class Input {
     // --- Cursor mapping: DOM client coords -> canvas internal pixel coords ---
     const updateCursor = (e) => {
       const r = this.canvas.getBoundingClientRect();
-      const cw = this.canvas.width || 1;
-      const ch = this.canvas.height || 1;
+      const lw = Math.max(1, this.canvas._logicalW || this.canvas.width || 1);
+      const lh = Math.max(1, this.canvas._logicalH || this.canvas.height || 1);
 
-      const sx = cw / Math.max(1, r.width);
-      const sy = ch / Math.max(1, r.height);
+      const nx = (e.clientX - r.left) / Math.max(1, r.width);
+      const ny = (e.clientY - r.top) / Math.max(1, r.height);
 
-      this.cursor.x = (e.clientX - r.left) * sx;
-      this.cursor.y = (e.clientY - r.top) * sy;
+      this.cursor.x = nx * lw;
+      this.cursor.y = ny * lh;
       this.cursor.has = true;
     };
 

@@ -227,21 +227,35 @@ export class Game {
 
 
   resizeToWindow() {
+    const zoom = Math.max(0.01, Math.min(window.visualViewport?.scale || 1, 4));
     const dpr = Math.min(window.devicePixelRatio || 1, 2);
-    const cssW = Math.max(1, window.innerWidth);
-    const cssH = Math.max(1, window.innerHeight);
+
+    // Use visualViewport when available so the canvas tracks the visible area
+    const cssW = Math.max(1, Math.round(window.visualViewport?.width || window.innerWidth));
+    const cssH = Math.max(1, Math.round(window.visualViewport?.height || window.innerHeight));
+
+    // Logical game space should ignore browser zoom so zooming out does not
+    // widen the playable field. Scale it by the zoom factor while the canvas
+    // continues to fill the viewport in CSS pixels.
+    const logicalW = cssW * zoom;
+    const logicalH = cssH * zoom;
 
     this.canvas.style.width = cssW + "px";
     this.canvas.style.height = cssH + "px";
     this.canvas.width = Math.floor(cssW * dpr);
     this.canvas.height = Math.floor(cssH * dpr);
 
-    this.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    this.ctx.setTransform(dpr / zoom, 0, 0, dpr / zoom, 0, 0);
     this.ctx.imageSmoothingEnabled = true;
 
-    this.DPR = dpr;
-    this.W = cssW;
-    this.H = cssH;
+    this.DPR = dpr / zoom;
+    this.W = logicalW;
+    this.H = logicalH;
+
+    // Expose logical size + zoom to input mapping.
+    this.canvas._logicalW = logicalW;
+    this.canvas._logicalH = logicalH;
+    this.canvas._zoom = zoom;
 
     this._computePlayerSize();
     this._initBackground();
