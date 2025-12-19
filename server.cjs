@@ -188,9 +188,9 @@ function unlockedTrails(bestScore) {
 
 function ensureUserSchema(u) {
   if (!u || typeof u !== "object") return;
-  if (typeof u.bestScore !== "number") u.bestScore = 0;
-  if (typeof u.runs !== "number") u.runs = 0;
-  if (typeof u.totalScore !== "number") u.totalScore = 0;
+  u.bestScore = normalizeScore(u.bestScore);
+  u.runs = normalizeCount(u.runs);
+  u.totalScore = normalizeTotal(u.totalScore);
   if (typeof u.selectedTrail !== "string") u.selectedTrail = "classic";
   if (!u.keybinds || typeof u.keybinds !== "object")
     u.keybinds = structuredClone(DEFAULT_KEYBINDS);
@@ -201,6 +201,24 @@ function ensureUserSchema(u) {
   // Ensure selected trail is unlocked
   const unlocked = unlockedTrails(u.bestScore | 0);
   if (!unlocked.includes(u.selectedTrail)) u.selectedTrail = "classic";
+}
+
+function normalizeScore(v) {
+  const n = Number(v);
+  if (!Number.isFinite(n)) return 0;
+  return Math.max(0, Math.min(1_000_000_000, Math.floor(n)));
+}
+
+function normalizeCount(v) {
+  const n = Number(v);
+  if (!Number.isFinite(n)) return 0;
+  return Math.max(0, Math.floor(n));
+}
+
+function normalizeTotal(v) {
+  const n = Number(v);
+  if (!Number.isFinite(n)) return 0;
+  return Math.max(0, Math.floor(n));
 }
 
 function mergeKeybinds(base, inc) {

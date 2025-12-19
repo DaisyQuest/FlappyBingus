@@ -2,6 +2,8 @@
 
 const { MongoClient } = require("mongodb");
 
+const MAX_SCORE = 1_000_000_000;
+
 function maskConnectionString(uri) {
   if (!uri) return "";
   try {
@@ -43,6 +45,12 @@ function resolveMongoConfig() {
     maskedUri: maskConnectionString(uri),
     serverSelectionTimeoutMS: Number(process.env.MONGODB_TIMEOUT_MS || 5000)
   };
+}
+
+function clampScore(v) {
+  const n = Number(v);
+  if (!Number.isFinite(n)) return 0;
+  return Math.max(0, Math.min(MAX_SCORE, Math.floor(n)));
 }
 
 async function safeClose(client) {
@@ -166,13 +174,27 @@ class MongoDataStore {
   async recordScore(key, score) {
     await this.ensureConnected();
     const now = Date.now();
+    const safeScore = clampScore(score);
+    const toIntOrZero = (field) => ({
+      $convert: {
+        input: `$${field}`,
+        to: "long",
+        onError: 0,
+        onNull: 0
+      }
+    });
     const res = await this.usersCollection().findOneAndUpdate(
       { key },
-      {
-        $inc: { runs: 1, totalScore: score },
-        $max: { bestScore: score },
-        $set: { updatedAt: now }
-      },
+      [
+        {
+          $set: {
+            runs: { $add: [toIntOrZero("runs"), 1] },
+            totalScore: { $add: [toIntOrZero("totalScore"), safeScore] },
+            bestScore: { $max: [toIntOrZero("bestScore"), safeScore] },
+            updatedAt: now
+          }
+        }
+      ],
       { returnDocument: "after" }
     );
     return res.value;
