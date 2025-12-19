@@ -242,6 +242,8 @@ tutorial = new Tutorial({
 });
 
 window.addEventListener("resize", () => game.resizeToWindow());
+// On some browsers, zoom changes fire visualViewport resize without window resize.
+window.visualViewport?.addEventListener("resize", () => game.resizeToWindow());
 
 // ---- Boot UI ----
 function refreshBootUI() {
