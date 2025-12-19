@@ -1,11 +1,13 @@
 // =====================
 // FILE: public/js/audio.js
 // =====================
+import { clamp } from "./util.js";
 let ctx = null;
 
 let musicBuffer = null;
 let boopBuffer = null;
 let niceBuffer = null;
+let bounceBuffer = null;
 
 let musicGain = null;
 let sfxGain = null;
@@ -39,14 +41,15 @@ async function loadBuffer(url) {
   return await c.decodeAudioData(arr);
 }
 
-export async function audioInit({ musicUrl, boopUrl, niceUrl } = {}) {
+export async function audioInit({ musicUrl, boopUrl, niceUrl, bounceUrl } = {}) {
   // Must be called from a user gesture (Start / Restart click)
   await getCtx();
 
   // Load lazily once
   if (musicUrl && !musicBuffer) musicBuffer = await loadBuffer(musicUrl);
   if (boopUrl && !boopBuffer) boopBuffer = await loadBuffer(boopUrl);
-    if (niceUrl && !niceBuffer) niceBuffer = await loadBuffer(niceUrl); // NEW
+  if (niceUrl && !niceBuffer) niceBuffer = await loadBuffer(niceUrl); // NEW
+  if (bounceUrl && !bounceBuffer) bounceBuffer = await loadBuffer(bounceUrl);
 }
 
 export function setMusicVolume(v01) {
@@ -114,6 +117,22 @@ export function sfxPerfectNice() {
 
   const g = ctx.createGain();
   g.gain.value = 1.0;
+
+  src.connect(g);
+  g.connect(sfxGain);
+
+  src.start(0);
+}
+
+export function sfxDashBounce(speed = 1) {
+  if (!ctx || !bounceBuffer || !sfxGain) return;
+
+  const src = ctx.createBufferSource();
+  src.buffer = bounceBuffer;
+  src.playbackRate.value = clamp(0.85, 1.0 + speed * 0.25, 1.35);
+
+  const g = ctx.createGain();
+  g.gain.value = 0.85;
 
   src.connect(g);
   g.connect(sfxGain);

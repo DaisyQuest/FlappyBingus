@@ -188,6 +188,11 @@ export class Tutorial {
     this._dashWasInZone = false;
     this._dashSuccessDelay = 0;
     this._dashWallsSpawned = 0;
+    this._reflectWall = null;
+    this._reflectTarget = null;
+    this._reflectBounceSeen = false;
+    this._reflectSuccessDelay = 0;
+    this._reflectSeenSerial = 0;
 
     this._teleTarget = null;
     this._teleUsed = false;
@@ -345,7 +350,7 @@ export class Tutorial {
     // Ensure the “teaching skill” is always ready when we’re in a skill step,
     // and keep all skills ready in practice mode.
     if (sid === "skill_phase" || sid === "practice") this.game.cds.phase = 0;
-    if (sid === "skill_dash" || sid === "practice") this.game.cds.dash = 0;
+    if (sid === "skill_dash" || sid === "dash_reflect" || sid === "practice") this.game.cds.dash = 0;
     if (sid === "skill_teleport" || sid === "practice") this.game.cds.teleport = 0;
     if (sid === "skill_slow" || sid === "practice") this.game.cds.slowField = 0;
   }
@@ -361,6 +366,7 @@ export class Tutorial {
     else if (sid === "perfect") this._stepPerfect(dt);
     else if (sid === "skill_phase") this._stepSkillPhase(dt);
     else if (sid === "skill_dash") this._stepSkillDash(dt);
+    else if (sid === "dash_reflect") this._stepDashReflect(dt);
     else if (sid === "skill_teleport") this._stepSkillTeleport(dt);
     else if (sid === "skill_slow") this._stepSkillSlow(dt);
     else if (sid === "practice") {
@@ -477,6 +483,7 @@ for (const ln of lines.slice(0, maxLines)) {
       { id: "perfect" },
       { id: "skill_phase" },
       { id: "skill_dash" },
+      { id: "dash_reflect" },
       { id: "skill_teleport" },
       { id: "skill_slow" },
       { id: "practice" },
@@ -514,6 +521,11 @@ for (const ln of lines.slice(0, maxLines)) {
     this._dashWasInZone = false;
     this._dashSuccessDelay = 0;
     this._dashWallsSpawned = 0;
+    this._reflectWall = null;
+    this._reflectTarget = null;
+    this._reflectBounceSeen = false;
+    this._reflectSuccessDelay = 0;
+    this._reflectSeenSerial = this.game?.lastDashReflect?.serial || 0;
 
     this._teleTarget = null;
     this._teleUsed = false;
@@ -571,6 +583,12 @@ for (const ln of lines.slice(0, maxLines)) {
       this._setPerfectEnabled(false);
       this._allowed = new Set(["dash"]);
       this._beginSkillIntro("dash");
+    }
+
+    if (sid === "dash_reflect") {
+      this._setPerfectEnabled(false);
+      this._allowed = new Set(["dash"]);
+      this._spawnDashReflectScenario();
     }
 
     if (sid === "skill_teleport") {
@@ -1058,6 +1076,57 @@ _stepOrbs(dt) {
   }
 
   // =====================================================
+  // Dash Reflect (ricochet)
+  // =====================================================
+  _spawnDashReflectScenario() {
+    const W = this.game.W, H = this.game.H;
+    const p = this.game.player;
+
+    const th = this.game._thickness ? this.game._thickness() : Math.max(46, Math.min(W, H) * 0.08);
+    const wallH = clamp(H * 0.55, 180, H * 0.72);
+    const wx = clamp(W * 0.55, th + 10, W - th * 2);
+    const wy = clamp((H - wallH) * 0.5, 12, H - wallH - 12);
+
+    this._reflectWall = makePipeRect({ x: wx, y: wy, w: th, h: wallH, vx: 0, vy: 0 });
+    this.game.pipes.push(this._reflectWall);
+
+    p.x = clamp(wx + th * 1.8, p.r + 30, W - p.r - 30);
+    p.y = clamp(wy + wallH * 0.80, p.r + 30, H - p.r - 30);
+    p.vx = 0; p.vy = 0; p.dashT = 0; p.dashBounces = 0;
+    this.game.cds.dash = 0;
+
+    const tx = clamp(wx - th * 1.6, p.r + 40, W - 40);
+    const ty = clamp(wy + wallH * 0.25, p.r + 40, H - 40);
+    this._reflectTarget = { x: tx, y: ty, r: clamp(Math.min(W, H) * 0.055, 42, 60) };
+
+    this._reflectBounceSeen = false;
+    this._reflectSuccessDelay = 0;
+    this._reflectSeenSerial = this.game?.lastDashReflect?.serial || 0;
+
+    this._flash("Dash into the wall to bounce. Use Phase if you need to cancel the ricochet.");
+  }
+
+  _stepDashReflect(dt) {
+    if (!this._reflectTarget) return;
+
+    const ev = this.game.lastDashReflect;
+    if (ev && ev.serial !== this._reflectSeenSerial) {
+      this._reflectSeenSerial = ev.serial;
+      this._reflectBounceSeen = true;
+      this._flash("Bounced! Now land in the ring.");
+    }
+
+    const p = this.game.player;
+    const ok = dist2(p.x, p.y, this._reflectTarget.x, this._reflectTarget.y) <= (this._reflectTarget.r * this._reflectTarget.r);
+    if (ok && this._reflectBounceSeen) this._reflectSuccessDelay = Math.max(this._reflectSuccessDelay, 0.75);
+
+    if (this._reflectSuccessDelay > 0) {
+      this._reflectSuccessDelay = Math.max(0, this._reflectSuccessDelay - dt);
+      if (this._reflectSuccessDelay <= 0) this._nextStep();
+    }
+  }
+
+  // =====================================================
   // Skill: TELEPORT
   // =====================================================
   _spawnTeleportScenario() {
@@ -1217,6 +1286,17 @@ _stepOrbs(dt) {
       };
     }
 
+    if (sid === "dash_reflect") {
+      return {
+        title: "Dash Reflect",
+        body:
+          `While Dash is active, hitting a wall or pipe will bounce you — unless Phase is active.\n` +
+          "Angle your dash into the surface to ricochet and keep your speed.\n" +
+          `Phase + Dash still passes through cleanly; no bounce.`,
+        objective: `Dash into the marked wall (no Phase) and bounce into the target ring.`
+      };
+    }
+
     if (sid === "skill_teleport") {
       return {
         title: "Skill: Teleport",
@@ -1325,6 +1405,35 @@ _stepOrbs(dt) {
       ctx.fillStyle = "rgba(255,255,255,.92)";
       ctx.fillText(String(t), cx, cy);
 
+      ctx.restore();
+    }
+
+    // Dash reflect: highlight the bounce wall + landing zone.
+    if (sid === "dash_reflect" && this._reflectTarget) {
+      ctx.save();
+      ctx.globalAlpha = 0.60;
+      ctx.strokeStyle = "rgba(255,255,255,.90)";
+      ctx.lineWidth = 2.5;
+      ctx.beginPath();
+      ctx.arc(this._reflectTarget.x, this._reflectTarget.y, this._reflectTarget.r, 0, Math.PI * 2);
+      ctx.stroke();
+
+      ctx.globalAlpha = 0.22;
+      ctx.fillStyle = "rgba(255,255,255,.55)";
+      ctx.beginPath();
+      ctx.arc(this._reflectTarget.x, this._reflectTarget.y, this._reflectTarget.r, 0, Math.PI * 2);
+      ctx.fill();
+
+      const wall = this._reflectWall;
+      if (wall) {
+        ctx.globalAlpha = 0.80;
+        ctx.strokeStyle = "rgba(255,220,180,.85)";
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.moveTo(wall.x + wall.w * 0.5, wall.y + 10);
+        ctx.lineTo(wall.x + wall.w * 0.5, wall.y + wall.h - 10);
+        ctx.stroke();
+      }
       ctx.restore();
     }
 

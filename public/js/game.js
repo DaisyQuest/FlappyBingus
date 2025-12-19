@@ -3,13 +3,13 @@
 // =====================
 import {
   clamp, lerp, rand, norm2, approach,
-  circleRect, circleCircle,
+  circleRectInfo, circleCircle,
   hexToRgb, lerpC, rgb, shade, hsla
 } from "./util.js";
 import { ACTIONS, humanizeBind } from "./keybinds.js";
 
 // NEW: orb pickup SFX (pitch shifts by combo)
-import { sfxOrbBoop, sfxPerfectNice } from "./audio.js";
+import { sfxOrbBoop, sfxPerfectNice, sfxDashBounce } from "./audio.js";
 
 
 const STATE = Object.freeze({ MENU: 0, PLAY: 1, OVER: 2 });
@@ -174,7 +174,9 @@ export class Game {
       w: 48, h: 48, r: 18,
       lastX: 0, lastY: -1,
       invT: 0,
-      dashT: 0, dashVX: 0, dashVY: 0
+      dashT: 0, dashVX: 0, dashVY: 0,
+      dashBounces: 0,
+      dashImpactFlash: 0
     };
 
     this.pipes = [];
@@ -197,6 +199,7 @@ export class Game {
     this.perfectT = 0;
     this.perfectMax = 0;
 
+    this.lastDashReflect = null;
     this.slowField = null; // {x,y,r,fac,t,tm}
 
     this.cds = { dash: 0, phase: 0, teleport: 0, slowField: 0 };
@@ -292,6 +295,7 @@ export class Game {
 
     this.trailAcc = 0;
     this.trailHue = 0;
+    this.lastDashReflect = null;
 
     this._resetPlayer();
   }
@@ -303,6 +307,8 @@ export class Game {
     p.vx = 0; p.vy = 0;
     p.invT = 0;
     p.dashT = 0;
+    p.dashBounces = 0;
+    p.dashImpactFlash = 0;
     p.lastX = 0; p.lastY = -1;
   }
 
@@ -494,6 +500,87 @@ export class Game {
     this.cds.slowField = Math.max(0, this.cds.slowField - dt);
   }
 
+  _dashBounceMax() {
+    const n = Number(this.cfg?.skills?.dash?.maxBounces);
+    if (!Number.isFinite(n)) return 2;
+    return Math.max(0, n | 0);
+  }
+
+  _dashBounceSfx(speed = 0) {
+    if (!this.audioEnabled) return;
+    sfxDashBounce(speed);
+  }
+
+  _spawnDashReflectFx(x, y, nx, ny, power = 1) {
+    const dir = Math.atan2(ny || 0, nx || 0);
+    const sparkCount = 16;
+    const strength = clamp(power, 0.4, 1.6);
+
+    for (let i = 0; i < sparkCount; i++) {
+      const spread = rand(-0.8, 0.8);
+      const sp = rand(140, 320) * strength;
+      const vx = Math.cos(dir + spread) * sp;
+      const vy = Math.sin(dir + spread) * sp;
+      const prt = new Part(x, y, vx, vy, rand(0.14, 0.30), rand(1.0, 2.1), "rgba(255,220,180,.90)", true);
+      prt.drag = 11.5;
+      this.parts.push(prt);
+    }
+
+    // Impact ring
+    const ring = new Part(x, y, 0, 0, 0.22, rand(1.6, 2.4), "rgba(255,255,255,.55)", true);
+    ring.drag = 0;
+    this.parts.push(ring);
+  }
+
+  _applyDashReflect(hit) {
+    const p = this.player;
+    const nx = hit?.nx || 0, ny = hit?.ny || 0;
+    const keep = clamp(Number(this.cfg?.skills?.dash?.bounceRetain) || 0.86, 0, 1);
+    const baseSpeed = Math.max(Math.hypot(p.vx, p.vy), Number(this.cfg?.skills?.dash?.speed) || 0);
+    const dot = p.vx * nx + p.vy * ny;
+    let rx = p.vx - 2 * dot * nx;
+    let ry = p.vy - 2 * dot * ny;
+
+    const n = norm2(rx, ry);
+    let dirX = n.x, dirY = n.y;
+    if (n.len <= 1e-5) {
+      const fallback = norm2((nx !== 0 || ny !== 0) ? -nx : p.dashVX, (nx !== 0 || ny !== 0) ? -ny : p.dashVY);
+      dirX = fallback.x; dirY = fallback.y;
+    }
+
+    const speed = baseSpeed * keep;
+    p.vx = dirX * speed;
+    p.vy = dirY * speed;
+    p.dashVX = dirX;
+    p.dashVY = dirY;
+    p.dashBounces = (p.dashBounces | 0) + 1;
+    p.dashImpactFlash = Math.max(p.dashImpactFlash, 0.16);
+
+    const push = (hit?.penetration || 0) + 0.6;
+    p.x += (nx || 0) * push;
+    p.y += (ny || 0) * push;
+
+    const pad = p.r + 2;
+    p.x = clamp(p.x, pad, this.W - pad);
+    p.y = clamp(p.y, pad, this.H - pad);
+
+    this.lastDashReflect = {
+      t: this.timeAlive,
+      x: (hit?.contactX != null) ? hit.contactX : p.x,
+      y: (hit?.contactY != null) ? hit.contactY : p.y,
+      count: p.dashBounces,
+      serial: (this.lastDashReflect?.serial || 0) + 1
+    };
+
+    this._dashBounceSfx(speed);
+    this._spawnDashReflectFx(
+      (hit?.contactX != null) ? hit.contactX : p.x,
+      (hit?.contactY != null) ? hit.contactY : p.y,
+      nx, ny,
+      speed / Math.max(1, Number(this.cfg?.skills?.dash?.speed) || 1)
+    );
+  }
+
   _useSkill(name) {
     if (!this.cfg.skills[name]) return;
     if (this.cds[name] > 0) return;
@@ -514,6 +601,8 @@ export class Game {
       p.dashVX = (nn.len > 0) ? nn.x : 0;
       p.dashVY = (nn.len > 0) ? nn.y : -1;
       p.dashT = dur;
+      p.dashBounces = 0;
+      p.dashImpactFlash = 0;
 
       this.cds.dash = Math.max(0, Number(d.cooldown) || 0);
 
@@ -620,13 +709,13 @@ export class Game {
 
     if (p.invT > 0) p.invT = Math.max(0, p.invT - dt);
     if (p.dashT > 0) p.dashT = Math.max(0, p.dashT - dt);
+    if (p.dashImpactFlash > 0) p.dashImpactFlash = Math.max(0, p.dashImpactFlash - dt);
 
     const mv = this.input.getMove();
     const n = norm2(mv.dx, mv.dy);
     if (n.len > 0) { p.lastX = n.x; p.lastY = n.y; }
 
     if (p.dashT > 0) {
-      if (n.len > 0) { p.dashVX = n.x; p.dashVY = n.y; }
       const dashSpeed = Math.max(0, Number(this.cfg.skills.dash.speed) || 0);
       p.vx = p.dashVX * dashSpeed;
       p.vy = p.dashVY * dashSpeed;
@@ -645,12 +734,23 @@ export class Game {
       }
     }
 
+    const pad = p.r + 2;
+
     p.x += p.vx * dt;
     p.y += p.vy * dt;
 
-    const pad = p.r + 2;
+    let wallBounce = null;
+    if (p.dashT > 0 && p.invT <= 0 && p.dashBounces < this._dashBounceMax()) {
+      if (p.x < pad) wallBounce = { nx: 1, ny: 0, contactX: pad, contactY: p.y, penetration: pad - p.x };
+      else if (p.x > this.W - pad) wallBounce = { nx: -1, ny: 0, contactX: this.W - pad, contactY: p.y, penetration: p.x - (this.W - pad) };
+      else if (p.y < pad) wallBounce = { nx: 0, ny: 1, contactX: p.x, contactY: pad, penetration: pad - p.y };
+      else if (p.y > this.H - pad) wallBounce = { nx: 0, ny: -1, contactX: p.x, contactY: this.H - pad, penetration: p.y - (this.H - pad) };
+    }
+
     p.x = clamp(p.x, pad, this.W - pad);
     p.y = clamp(p.y, pad, this.H - pad);
+
+    if (wallBounce) this._applyDashReflect(wallBounce);
   }
 
   _trailStyle(id) {
@@ -880,8 +980,22 @@ if (dist <= thresh) {
 
     // collision (phase = invuln)
     if (this.player.invT <= 0) {
+      const bounceCap = this._dashBounceMax();
       for (const p of this.pipes) {
-        if (circleRect(this.player.x, this.player.y, this.player.r, p.x, p.y, p.w, p.h)) {
+        const hit = circleRectInfo(this.player.x, this.player.y, this.player.r, p.x, p.y, p.w, p.h);
+        if (!hit) continue;
+
+        if (this.player.dashT > 0) {
+          if (this.player.dashBounces < bounceCap) {
+            this._applyDashReflect(hit);
+            // Only process one reflection per frame to avoid ping-pong chaos.
+            break;
+          } else {
+            this.state = STATE.OVER; // exceeded reflect cap -> normal collision
+            this.onGameOver(this.score | 0);
+            return;
+          }
+        } else {
           this.state = STATE.OVER; // freeze
           this.onGameOver(this.score | 0);
           return;
@@ -1080,6 +1194,15 @@ _drawOrb(o) {
       ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2); ctx.fill();
       ctx.fillStyle = "rgba(0,0,0,.55)";
       ctx.beginPath(); ctx.arc(p.x, p.y, Math.max(2, p.r * 0.18), 0, Math.PI * 2); ctx.fill();
+    }
+
+    if (p.dashImpactFlash > 0) {
+      const a = clamp(p.dashImpactFlash / 0.16, 0, 1);
+      ctx.save();
+      ctx.globalAlpha = a * 0.55;
+      ctx.fillStyle = "rgba(255,200,120,.90)";
+      ctx.beginPath(); ctx.arc(p.x, p.y, p.r * 1.15, 0, Math.PI * 2); ctx.fill();
+      ctx.restore();
     }
 
     // Phase i-frame indicator: ring (no blink)

@@ -165,7 +165,8 @@ let replayDriving = false;
 const AUDIO = Object.freeze({
   musicUrl: "/audio/music.mp3",
   boopUrl: "/audio/orb-boop.mp3",
-  niceUrl: "/audio/nice.mp3"
+  niceUrl: "/audio/nice.mp3",
+  bounceUrl: "/audio/dash-bounce.mp3"
 });
 
 // IMPORTANT: actions are NOT applied immediately.
@@ -615,7 +616,7 @@ bindWrap.addEventListener("click", (e) => {
 // NEW: ensure audio buffers are loaded + music starts ONLY when gameplay begins.
 async function ensureAudioReady() {
   try {
-await audioInit({ musicUrl: AUDIO.musicUrl, boopUrl: AUDIO.boopUrl, niceUrl: AUDIO.niceUrl });
+await audioInit({ musicUrl: AUDIO.musicUrl, boopUrl: AUDIO.boopUrl, niceUrl: AUDIO.niceUrl, bounceUrl: AUDIO.bounceUrl });
 
   } catch (e) {
     // Non-fatal; game should still run without sound.
