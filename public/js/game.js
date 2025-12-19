@@ -11,6 +11,7 @@ import { ACTIONS, humanizeBind } from "./keybinds.js";
 // NEW: orb pickup SFX (pitch shifts by combo)
 import { sfxOrbBoop, sfxPerfectNice } from "./audio.js";
 
+const BASE_DPR = Math.max(0.25, window.devicePixelRatio || 1);
 
 const STATE = Object.freeze({ MENU: 0, PLAY: 1, OVER: 2 });
 
@@ -227,35 +228,32 @@ export class Game {
 
 
   resizeToWindow() {
-    const zoom = Math.max(0.01, Math.min(window.visualViewport?.scale || 1, 4));
     const dpr = Math.min(window.devicePixelRatio || 1, 2);
-
-    // Use visualViewport when available so the canvas tracks the visible area
     const cssW = Math.max(1, Math.round(window.visualViewport?.width || window.innerWidth));
     const cssH = Math.max(1, Math.round(window.visualViewport?.height || window.innerHeight));
+    const norm = Math.max(0.25, (window.devicePixelRatio || 1) / BASE_DPR);
 
-    // Logical game space should ignore browser zoom so zooming out does not
-    // widen the playable field. Scale it by the zoom factor while the canvas
-    // continues to fill the viewport in CSS pixels.
-    const logicalW = cssW * zoom;
-    const logicalH = cssH * zoom;
+    // Logical game space is normalized to the DPR at page load so browser zoom
+    // does not change the effective playfield size.
+    const logicalW = cssW * norm;
+    const logicalH = cssH * norm;
 
     this.canvas.style.width = cssW + "px";
     this.canvas.style.height = cssH + "px";
     this.canvas.width = Math.floor(cssW * dpr);
     this.canvas.height = Math.floor(cssH * dpr);
 
-    this.ctx.setTransform(dpr / zoom, 0, 0, dpr / zoom, 0, 0);
+    this.ctx.setTransform(dpr / norm, 0, 0, dpr / norm, 0, 0);
     this.ctx.imageSmoothingEnabled = true;
 
-    this.DPR = dpr / zoom;
+    this.DPR = dpr / norm;
     this.W = logicalW;
     this.H = logicalH;
 
     // Expose logical size + zoom to input mapping.
     this.canvas._logicalW = logicalW;
     this.canvas._logicalH = logicalH;
-    this.canvas._zoom = zoom;
+    this.canvas._norm = norm;
 
     this._computePlayerSize();
     this._initBackground();
