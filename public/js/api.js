@@ -1,4 +1,29 @@
 
+const CLIENT_RATE_LIMITS = Object.freeze({
+  default: { limit: 30, windowMs: 10_000 },
+  "/api/me": { limit: 8, windowMs: 5_000 },
+  "/api/register": { limit: 3, windowMs: 10_000 },
+  "/api/score": { limit: 5, windowMs: 10_000 },
+  "/api/cosmetics/trail": { limit: 6, windowMs: 10_000 },
+  "/api/binds": { limit: 8, windowMs: 10_000 },
+  "/api/highscores": { limit: 10, windowMs: 5_000 }
+});
+
+const _clientRateState = new Map();
+
+function hitClientRateLimit(name) {
+  const cfg = { ...CLIENT_RATE_LIMITS.default, ...(CLIENT_RATE_LIMITS[name] || {}) };
+  const now = Date.now();
+  const entry = _clientRateState.get(name);
+  if (!entry || now >= entry.reset) {
+    _clientRateState.set(name, { count: 1, reset: now + cfg.windowMs });
+    return false;
+  }
+  if (entry.count >= cfg.limit) return true;
+  entry.count += 1;
+  return false;
+}
+
 async function requestJson(url, opts = {}) {
   try {
     const res = await fetch(url, {
@@ -18,25 +43,31 @@ async function requestJson(url, opts = {}) {
 }
 
 export async function apiGetMe() {
+  if (hitClientRateLimit("/api/me")) return null;
   return requestJson("/api/me", { method: "GET" });
 }
 
 export async function apiRegister(username) {
+  if (hitClientRateLimit("/api/register")) return null;
   return requestJson("/api/register", { method: "POST", body: JSON.stringify({ username }) });
 }
 
 export async function apiSubmitScore(score) {
+  if (hitClientRateLimit("/api/score")) return null;
   return requestJson("/api/score", { method: "POST", body: JSON.stringify({ score }) });
 }
 
 export async function apiSetTrail(trailId) {
+  if (hitClientRateLimit("/api/cosmetics/trail")) return null;
   return requestJson("/api/cosmetics/trail", { method: "POST", body: JSON.stringify({ trailId }) });
 }
 
 export async function apiSetKeybinds(keybinds) {
+  if (hitClientRateLimit("/api/binds")) return null;
   return requestJson("/api/binds", { method: "POST", body: JSON.stringify({ keybinds }) });
 }
 
 export async function apiGetHighscores(limit = 20) {
+  if (hitClientRateLimit("/api/highscores")) return null;
   return requestJson(`/api/highscores?limit=${encodeURIComponent(String(limit))}`, { method: "GET" });
 }
