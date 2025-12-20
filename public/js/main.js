@@ -84,6 +84,7 @@ const watchReplayBtn = document.getElementById("watchReplay");
 const exportGifBtn = document.getElementById("exportGif");
 const exportMp4Btn = document.getElementById("exportMp4");
 const replayStatus = document.getElementById("replayStatus");
+const versionInfo = document.getElementById("versionInfo");
 
 // ---- Local best fallback cookie (legacy support) ----
 const LOCAL_BEST_COOKIE = "chocolate_chip";
@@ -290,6 +291,27 @@ function refreshBootUI() {
   const b = boot.cfgOk ? boot.cfgSrc : "defaults";
   const c = net.online ? (net.user ? `user: ${net.user.username}` : "guest") : "offline";
   bootText.textContent = `${a} • ${b} • ${c}`;
+}
+
+async function loadVersionInfo() {
+  if (!versionInfo) return;
+  try {
+    const res = await fetch("/version.json", { cache: "no-store" });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+    const version = typeof data.version === "string" ? data.version.trim() : "";
+    if (version) {
+      versionInfo.className = "hint";
+      versionInfo.textContent = `v${version}`;
+    } else {
+      versionInfo.className = "hint warn";
+      versionInfo.textContent = "Version file is missing a version value.";
+    }
+  } catch (err) {
+    console.error("Failed to load version.json:", err);
+    versionInfo.className = "hint bad";
+    versionInfo.textContent = "Version unavailable (could not read version.json).";
+  }
 }
 
 // ---- Menu rendering (highscores, cosmetics, binds) ----
@@ -1072,6 +1094,8 @@ function frame(ts) {
 
 // ---- Boot init ----
 (async function init() {
+  loadVersionInfo();
+
   // Seed UI init (ONLY ONCE)
   if (seedInput) seedInput.value = readSeed() || "";
 
