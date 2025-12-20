@@ -11,13 +11,13 @@
   },
   "pipes": {
     "difficulty": {
-      "timeToMax": 820,
-      "scoreToMax": 400,
+      "timeToMax": 1500,
+      "scoreToMax": 2400,
       "mixTime": 0.55,
       "mixScore": 0.45,
-      "scoreRampStart": 0,
-      "timeRampStart": 0,
-      "earlyCurvePower": 1.4
+      "scoreRampStart": 400,
+      "timeRampStart": 45,
+      "earlyCurvePower": 1.35
     },
     "spawnInterval": { "start": 0.78, "end": 0.23, "min": 0.18, "max": 0.9 },
     "speed": { "start": 240, "end": 560 },
