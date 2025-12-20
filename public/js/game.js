@@ -6,6 +6,7 @@ import {
   circleRectInfo, circleCircle,
   hexToRgb, lerpC, rgb, shade, hsla
 } from "./util.js";
+import { RenderProfile, BackgroundLayer } from "./rendering.js";
 import { ACTIONS, humanizeBind } from "./keybinds.js";
 
 // NEW: orb pickup SFX (pitch shifts by combo)
@@ -15,143 +16,11 @@ const BASE_DPR = Math.max(0.25, window.devicePixelRatio || 1);
 
 const STATE = Object.freeze({ MENU: 0, PLAY: 1, OVER: 2 });
 
-class Pipe {
-  constructor(x, y, w, h, vx, vy) {
-    this.x = x; this.y = y; this.w = w; this.h = h;
-    this.vx = vx; this.vy = vy;
-    this.entered = false;
-    this.scored = false;
-  }
-  cx() { return this.x + this.w * 0.5; }
-  cy() { return this.y + this.h * 0.5; }
+import { Pipe, Gate, Orb, Part, FloatText } from "./entities.js";
+import { spawnBurst, spawnCrossfire, spawnOrb, spawnSinglePipe, spawnWall } from "./spawn.js";
+import { dashBounceMax, orbPoints, tickCooldowns } from "./mechanics.js";
 
-  // ADD W,H params
-  update(dt, mul = 1, W = 0, H = 0) {
-    this.x += this.vx * dt * mul;
-    this.y += this.vy * dt * mul;
-
-    if (!this.entered) {
-      // Mark entered once it overlaps the screen bounds
-      if (this.x + this.w >= 0 && this.x <= W && this.y + this.h >= 0 && this.y <= H) {
-        this.entered = true;
-      }
-    }
-  }
-
-  off(W, H, m) {
-    return (this.x > W + m) || (this.x + this.w < -m) || (this.y > H + m) || (this.y + this.h < -m);
-  }
-}
-
-class Gate {
-  constructor(axis, pos, v, gapCenter, gapHalf, thick) {
-    this.axis = axis; this.pos = pos; this.prev = pos; this.v = v;
-    this.gapCenter = gapCenter; this.gapHalf = gapHalf; this.thick = thick;
-    this.entered = false;
-    this.cleared = false;
-  }
-  update(dt, W, H) {
-    this.prev = this.pos;
-    this.pos += this.v * dt;
-    if (!this.entered) {
-      if (this.axis === "x") {
-        if (this.pos + this.thick * 0.5 >= 0 && this.pos - this.thick * 0.5 <= W) this.entered = true;
-      } else {
-        if (this.pos + this.thick * 0.5 >= 0 && this.pos - this.thick * 0.5 <= H) this.entered = true;
-      }
-    }
-  }
-  crossed(playerAxis) {
-    if (this.cleared || !this.entered) return false;
-    if (this.v > 0) return (this.prev < playerAxis && this.pos >= playerAxis);
-    if (this.v < 0) return (this.prev > playerAxis && this.pos <= playerAxis);
-    return false;
-  }
-  off(W, H, m) { return this.axis === "x" ? (this.pos < -m || this.pos > W + m) : (this.pos < -m || this.pos > H + m); }
-}
-
-class Orb {
-  constructor(x, y, vx, vy, r, life) {
-    this.x = x; this.y = y; this.vx = vx; this.vy = vy;
-    this.r = r; this.life = life; this.max = life;
-    this.ph = rand(0, Math.PI * 2);
-  }
-  update(dt, W, H) {
-    this.life -= dt;
-    this.ph += dt * 2.2;
-    this.x += this.vx * dt;
-    this.y += this.vy * dt;
-    const pad = this.r + 4;
-    if (this.x < pad) { this.x = pad; this.vx = Math.abs(this.vx); }
-    if (this.x > W - pad) { this.x = W - pad; this.vx = -Math.abs(this.vx); }
-    if (this.y < pad) { this.y = pad; this.vy = Math.abs(this.vy); }
-    if (this.y > H - pad) { this.y = H - pad; this.vy = -Math.abs(this.vy); }
-  }
-  dead() { return this.life <= 0; }
-}
-
-class Part {
-  constructor(x, y, vx, vy, life, size, color, add) {
-    this.x = x; this.y = y; this.vx = vx; this.vy = vy;
-    this.life = life; this.max = life; this.size = size;
-    this.color = color; this.add = add;
-    this.drag = 0;
-  }
-  update(dt) {
-    this.life -= dt;
-    if (this.life <= 0) return;
-    if (this.drag > 0) {
-      const d = Math.exp(-this.drag * dt);
-      this.vx *= d; this.vy *= d;
-    }
-    this.x += this.vx * dt;
-    this.y += this.vy * dt;
-  }
-  draw(ctx) {
-    if (this.life <= 0) return;
-    const t = clamp(this.life / this.max, 0, 1);
-    const a = t * t;
-    ctx.save();
-    if (this.add) ctx.globalCompositeOperation = "lighter";
-    ctx.globalAlpha = a;
-    ctx.fillStyle = this.color;
-    ctx.beginPath();
-    ctx.arc(this.x, this.y, Math.max(0.7, this.size * (0.6 + 0.6 * (1 - t))), 0, Math.PI * 2);
-    ctx.fill();
-    ctx.restore();
-  }
-}
-
-class FloatText {
-  constructor(txt, x, y, color) {
-    this.txt = txt; this.x = x; this.y = y;
-    this.vx = rand(-18, 18); this.vy = rand(-90, -55);
-    this.life = 0.9; this.max = 0.9;
-    this.color = color || "rgba(255,255,255,.95)";
-    this.size = 18;
-  }
-  update(dt) {
-    this.life -= dt;
-    if (this.life <= 0) return;
-    this.x += this.vx * dt;
-    this.y += this.vy * dt;
-    const d = Math.exp(-2.7 * dt);
-    this.vx *= d; this.vy *= d;
-  }
-  draw(ctx) {
-    if (this.life <= 0) return;
-    const t = clamp(this.life / this.max, 0, 1), a = t * t;
-    ctx.save();
-    ctx.globalAlpha = a;
-    ctx.font = `900 ${this.size}px system-ui,-apple-system,Segoe UI,Roboto,sans-serif`;
-    ctx.textAlign = "center"; ctx.textBaseline = "middle";
-    ctx.shadowColor = "rgba(0,0,0,.55)";
-    ctx.shadowBlur = 14; ctx.shadowOffsetY = 2;
-    ctx.fillStyle = this.color;
-    ctx.fillText(this.txt, this.x, this.y);
-    ctx.restore();
-  }
-}
+export { Pipe, Gate, Orb, Part, FloatText };
 
 export class Game {
   constructor({ canvas, ctx, config, playerImg, input, getTrailId, getBinds, onGameOver }) {
@@ -169,6 +38,9 @@ export class Game {
     this.W = 1; this.H = 1; this.DPR = 1;
 
     this.bgDots = [];
+    this.renderProfile = new RenderProfile("high");
+    this.backgroundLayer = new BackgroundLayer("#07101a");
+    this.maxParts = 1100;
 
     this.player = {
       x: 0, y: 0, vx: 0, vy: 0,
@@ -211,6 +83,16 @@ export class Game {
 
     // NEW: allow main.js to disable SFX during replay/export if desired
     this.audioEnabled = true;
+
+    this._applyCapsFromDetail();
+  }
+
+  setDetailLevel(level) {
+    const changed = this.renderProfile.setLevel(level);
+    if (changed) {
+      this._applyCapsFromDetail();
+      this._initBackground(true);
+    }
   }
 
   // NEW: toggle game SFX without touching music
@@ -259,7 +141,7 @@ export class Game {
     this.canvas._norm = norm;
 
     this._computePlayerSize();
-    this._initBackground();
+    this._initBackground(true);
   }
 
   setStateMenu() {
@@ -335,9 +217,10 @@ export class Game {
     p.r = Math.min(p.w, p.h) * this.cfg.player.radiusScale;
   }
 
-  _initBackground() {
+  _initBackground(rebuildLayer = false) {
     this.bgDots.length = 0;
-    const n = Math.floor(clamp((this.W * this.H) / 11000, 80, 220));
+    const base = clamp((this.W * this.H) / 11000, 80, 220);
+    const n = this.renderProfile.backgroundCount(base);
     for (let i = 0; i < n; i++) {
       // IMPORTANT: visuals only -> do NOT use seeded rand()
       this.bgDots.push({
@@ -347,6 +230,20 @@ export class Game {
         s: 4 + Math.random() * (22 - 4)
       });
     }
+    if (rebuildLayer) this._rebuildBackgroundLayer();
+  }
+
+  _rebuildBackgroundLayer() {
+    this.backgroundLayer.rebuild({
+      width: this.W,
+      height: this.H,
+      dots: this.bgDots,
+      profile: this.renderProfile
+    });
+  }
+
+  _applyCapsFromDetail() {
+    this.maxParts = this.renderProfile.particleLimit(1100);
   }
 
   _margin() {
@@ -398,128 +295,27 @@ export class Game {
   }
 
   _spawnSinglePipe(opts = {}) {
-    const th = this._thickness();
-    const len = clamp(th * rand(3.0, 6.5), th * 2.6, Math.max(this.W, this.H) * 0.55);
-    const spd = (opts.speed != null) ? opts.speed : this._pipeSpeed();
-    const side = (typeof opts.side === "number") ? opts.side : ((rand(0, 4)) | 0);
-
-    let x = 0, y = 0, vx = 0, vy = 0, pw = 0, ph = 0;
-    if (side === 0) { pw = th; ph = len; x = -pw - 12; y = rand(-ph * 0.15, this.H - ph * 0.85); vx = spd; vy = rand(-spd * 0.28, spd * 0.28); }
-    if (side === 1) { pw = th; ph = len; x = this.W + 12; y = rand(-ph * 0.15, this.H - ph * 0.85); vx = -spd; vy = rand(-spd * 0.28, spd * 0.28); }
-    if (side === 2) { pw = len; ph = th; x = rand(-pw * 0.15, this.W - pw * 0.85); y = -ph - 12; vx = rand(-spd * 0.28, spd * 0.28); vy = spd; }
-    if (side === 3) { pw = len; ph = th; x = rand(-pw * 0.15, this.W - pw * 0.85); y = this.H + 12; vx = rand(-spd * 0.28, spd * 0.28); vy = -spd; }
-
-    if (opts.aimAtPlayer) {
-      const px = this.player.x, py = this.player.y;
-      const cx = (side === 0) ? (-th * 0.5) : (side === 1) ? (this.W + th * 0.5) : rand(0, this.W);
-      const cy = (side === 2) ? (-th * 0.5) : (side === 3) ? (this.H + th * 0.5) : rand(0, this.H);
-      const d0 = norm2(px - cx, py - cy);
-      const spread = (opts.spreadRad != null) ? opts.spreadRad : rand(-0.22, 0.22);
-      const cs = Math.cos(spread), sn = Math.sin(spread);
-      const ux = d0.x * cs - d0.y * sn, uy = d0.x * sn + d0.y * cs;
-      vx = ux * spd; vy = uy * spd;
-      if (side === 0) { x = -pw - 14; y = clamp(cy - ph * 0.5, -ph, this.H + ph); }
-      if (side === 1) { x = this.W + 14; y = clamp(cy - ph * 0.5, -ph, this.H + ph); }
-      if (side === 2) { y = -ph - 14; x = clamp(cx - pw * 0.5, -pw, this.W + pw); }
-      if (side === 3) { y = this.H + 14; x = clamp(cx - pw * 0.5, -pw, this.W + pw); }
-    }
-
-    this.pipes.push(new Pipe(x, y, pw, ph, vx, vy));
+    spawnSinglePipe(this, opts);
   }
 
   _spawnWall(opts = {}) {
-    const th = this._thickness();
-    const spd = (opts.speed != null) ? opts.speed : (this._pipeSpeed() * 0.95);
-    const gap = (opts.gap != null) ? opts.gap : this._gapSize();
-    const side = (typeof opts.side === "number") ? opts.side : ((rand(0, 4)) | 0);
-    const pad = Math.max(18, this.player.r * 1.1);
-
-    if (side === 0 || side === 1) {
-      const gc = rand(pad + gap * 0.5, this.H - (pad + gap * 0.5));
-      const top = gc - gap * 0.5, bot = gc + gap * 0.5;
-      const topLen = clamp(top, 10, this.H), botLen = clamp(this.H - bot, 10, this.H);
-      const sx = (side === 0) ? (-th - 16) : (this.W + 16);
-      const vx = (side === 0) ? spd : -spd;
-      if (topLen > 10) this.pipes.push(new Pipe(sx, 0, th, topLen, vx, 0));
-      if (botLen > 10) this.pipes.push(new Pipe(sx, bot, th, botLen, vx, 0));
-      this.gates.push(new Gate("x", sx + th * 0.5, vx, gc, gap * 0.5, th));
-    } else {
-      const gc = rand(pad + gap * 0.5, this.W - (pad + gap * 0.5));
-      const left = gc - gap * 0.5, right = gc + gap * 0.5;
-      const leftLen = clamp(left, 10, this.W), rightLen = clamp(this.W - right, 10, this.W);
-      const sy = (side === 2) ? (-th - 16) : (this.H + 16);
-      const vy = (side === 2) ? spd : -spd;
-      if (leftLen > 10) this.pipes.push(new Pipe(0, sy, leftLen, th, 0, vy));
-      if (rightLen > 10) this.pipes.push(new Pipe(right, sy, rightLen, th, 0, vy));
-      this.gates.push(new Gate("y", sy + th * 0.5, vy, gc, gap * 0.5, th));
-    }
+    spawnWall(this, opts);
   }
 
   _spawnBurst() {
-    const d = this._difficulty01();
-    const side = (rand(0, 4)) | 0;
-    const count = Math.floor(lerp(5, 8, d));
-    const spd = this._pipeSpeed() * lerp(0.92, 1.12, d);
-    const arc = lerp(0.65, 0.95, d);
-    for (let i = 0; i < count; i++) {
-      const t = (count === 1) ? 0.5 : i / (count - 1);
-      const spread = (t - 0.5) * arc;
-      this._spawnSinglePipe({ side, speed: spd, aimAtPlayer: true, spreadRad: spread });
-    }
+    spawnBurst(this);
   }
 
   _spawnCrossfire() {
-    const d = this._difficulty01();
-    const spd = this._pipeSpeed() * lerp(0.95, 1.10, d);
-    this._spawnSinglePipe({ side: 0, speed: spd, aimAtPlayer: true, spreadRad: rand(-0.1, 0.1) });
-    this._spawnSinglePipe({ side: 1, speed: spd, aimAtPlayer: true, spreadRad: rand(-0.1, 0.1) });
-    this._spawnSinglePipe({ side: 2, speed: spd, aimAtPlayer: true, spreadRad: rand(-0.1, 0.1) });
-    this._spawnSinglePipe({ side: 3, speed: spd, aimAtPlayer: true, spreadRad: rand(-0.1, 0.1) });
+    spawnCrossfire(this);
   }
 
   _spawnOrb() {
-    const o = this.cfg.catalysts.orbs;
-    if (!o.enabled) return;
-    if (this.orbs.length >= o.maxOnScreen) return;
-
-    const r = clamp(Number(o.radius) || 12, 6, 40);
-    const life = clamp(Number(o.lifetime) || 10, 1, 60);
-    const safe = clamp(Number(o.safeDistance) || 120, 0, 800);
-    const spread = o.spawnSpread || {};
-    const prog = (() => {
-      const tc = Math.max(1e-3, Number(spread.timeToMax) || 1);
-      const sc = Math.max(1e-3, Number(spread.scoreToMax) || 1);
-      const mt = clamp(Number(spread.mixTime) || 0.5, 0, 1);
-      const ms = clamp(Number(spread.mixScore) || 0.5, 0, 1);
-      const dT = 1 - Math.exp(-(Math.max(0, this.timeAlive) / tc));
-      const dS = 1 - Math.exp(-(Math.max(0, this.score) / sc));
-      return clamp(mt * dT + ms * dS, 0, 1);
-    })();
-    const startFrac = clamp(Number(spread.startFraction) || 1, 0.05, 1.0);
-    const endFrac = clamp(Number(spread.endFraction) || 1, 0.05, 1.0);
-    const frac = clamp(lerp(startFrac, endFrac, prog), 0.05, 1.0);
-    const mx = (this.W * (1 - frac)) * 0.5;
-    const my = (this.H * (1 - frac)) * 0.5;
-    let minX = r + 10 + mx, maxX = this.W - (r + 10) - mx;
-    let minY = r + 10 + my, maxY = this.H - (r + 10) - my;
-    if (minX >= maxX) { minX = r + 10; maxX = this.W - r - 10; }
-    if (minY >= maxY) { minY = r + 10; maxY = this.H - r - 10; }
-
-    let x = this.W * 0.5, y = this.H * 0.5;
-    for (let i = 0; i < 18; i++) {
-      const px = rand(minX, maxX), py = rand(minY, maxY);
-      if (Math.hypot(px - this.player.x, py - this.player.y) >= (this.player.r + r + safe)) { x = px; y = py; break; }
-    }
-
-    const sp = rand(o.driftSpeedMin, o.driftSpeedMax);
-    const a = rand(0, Math.PI * 2);
-    this.orbs.push(new Orb(x, y, Math.cos(a) * sp, Math.sin(a) * sp, r, life));
+    spawnOrb(this);
   }
 
   _orbPoints(comboNow) {
-    const base = Math.max(0, Number(this.cfg.scoring.orbBase) || 0);
-    const bonus = Math.max(0, Number(this.cfg.scoring.orbComboBonus) || 0);
-    return Math.round(base + bonus * Math.max(0, comboNow - 1));
+    return orbPoints(this.cfg, comboNow);
   }
 
   _breakCombo(x, y) {
@@ -529,16 +325,11 @@ export class Game {
   }
 
   _tickCooldowns(dt) {
-    this.cds.dash = Math.max(0, this.cds.dash - dt);
-    this.cds.phase = Math.max(0, this.cds.phase - dt);
-    this.cds.teleport = Math.max(0, this.cds.teleport - dt);
-    this.cds.slowField = Math.max(0, this.cds.slowField - dt);
+    tickCooldowns(this.cds, dt);
   }
 
   _dashBounceMax() {
-    const n = Number(this.cfg?.skills?.dash?.maxBounces);
-    if (!Number.isFinite(n)) return 2;
-    return Math.max(0, n | 0);
+    return dashBounceMax(this.cfg);
   }
 
   _dashBounceSfx(speed = 0) {
@@ -548,7 +339,7 @@ export class Game {
 
   _spawnDashReflectFx(x, y, nx, ny, power = 1) {
     const dir = Math.atan2(ny || 0, nx || 0);
-    const sparkCount = 16;
+    const sparkCount = this.renderProfile.particleCount(16);
     const strength = clamp(power, 0.4, 1.6);
 
     for (let i = 0; i < sparkCount; i++) {
@@ -1092,34 +883,14 @@ if (dist <= thresh) {
 
     // caps
     if (this.pipes.length > 280) this.pipes.splice(0, this.pipes.length - 280);
-    if (this.parts.length > 1100) this.parts.splice(0, this.parts.length - 1100);
+    if (this.parts.length > this.maxParts) this.parts.splice(0, this.parts.length - this.maxParts);
     if (this.floats.length > 80) this.floats.splice(0, this.floats.length - 80);
   }
 
   render() {
     const ctx = this.ctx;
 
-    // background
-    ctx.fillStyle = "#07101a";
-    ctx.fillRect(0, 0, this.W, this.H);
-
-    // vignette
-    const vg = ctx.createRadialGradient(this.W * 0.5, this.H * 0.45, Math.min(this.W, this.H) * 0.12, this.W * 0.5, this.H * 0.5, Math.max(this.W, this.H) * 0.75);
-    vg.addColorStop(0, "rgba(0,0,0,0)");
-    vg.addColorStop(1, "rgba(0,0,0,.44)");
-    ctx.fillStyle = vg;
-    ctx.fillRect(0, 0, this.W, this.H);
-
-    // dots
-    ctx.save();
-    ctx.globalAlpha = 0.75;
-    ctx.fillStyle = "rgba(255,255,255,.20)";
-    for (const p of this.bgDots) {
-      ctx.beginPath();
-      ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
-      ctx.fill();
-    }
-    ctx.restore();
+    this.backgroundLayer.draw(ctx);
 
     // world
     const pc = this._pipeColor();
@@ -1154,8 +925,8 @@ if (dist <= thresh) {
     const edge = shade(base, 0.72), hi = shade(base, 1.12);
 
     ctx.save();
-    ctx.shadowColor = "rgba(0,0,0,.45)";
-    ctx.shadowBlur = 10;
+    ctx.shadowColor = this.renderProfile.shadowColor("rgba(0,0,0,.45)");
+    ctx.shadowBlur = this.renderProfile.shadowBlur(10);
     ctx.shadowOffsetY = 3;
 
     const g = (p.w >= p.h)
@@ -1215,8 +986,8 @@ _drawOrb(o) {
   ctx.save();
 
   // Glow matches the core color
-  ctx.shadowColor = `rgba(${core.r|0},${core.g|0},${core.b|0},.50)`;
-  ctx.shadowBlur = 18;
+  ctx.shadowColor = this.renderProfile.shadowColor(`rgba(${core.r|0},${core.g|0},${core.b|0},.50)`);
+  ctx.shadowBlur = this.renderProfile.shadowBlur(18);
 
   // Outer shell
   ctx.fillStyle = "rgba(255,255,255,.88)";
@@ -1226,7 +997,7 @@ _drawOrb(o) {
 
   // Inner core (traffic-light color)
   ctx.shadowBlur = 0;
-  ctx.globalAlpha = 0.78;
+  ctx.globalAlpha = this.renderProfile.glowAlpha(0.78);
   ctx.fillStyle = rgb(core, 0.85);
   ctx.beginPath();
   ctx.arc(o.x, o.y, r * 0.55, 0, Math.PI * 2);
@@ -1251,8 +1022,8 @@ _drawOrb(o) {
     const p = this.player;
 
     ctx.save();
-    ctx.shadowBlur = 18;
-    ctx.shadowColor = (p.invT > 0) ? "rgba(160,220,255,.35)" : "rgba(120,210,255,.22)";
+    ctx.shadowBlur = this.renderProfile.shadowBlur(18);
+    ctx.shadowColor = this.renderProfile.shadowColor((p.invT > 0) ? "rgba(160,220,255,.35)" : "rgba(120,210,255,.22)");
 
     if (this.playerImg && this.playerImg.naturalWidth > 0) {
       ctx.drawImage(this.playerImg, p.x - p.w * 0.5, p.y - p.h * 0.5, p.w, p.h);
@@ -1266,7 +1037,7 @@ _drawOrb(o) {
     if (p.dashImpactFlash > 0) {
       const a = clamp(p.dashImpactFlash / 0.16, 0, 1);
       ctx.save();
-      ctx.globalAlpha = a * 0.55;
+      ctx.globalAlpha = this.renderProfile.glowAlpha(a * 0.55);
       ctx.fillStyle = "rgba(255,200,120,.90)";
       ctx.beginPath(); ctx.arc(p.x, p.y, p.r * 1.15, 0, Math.PI * 2); ctx.fill();
       ctx.restore();

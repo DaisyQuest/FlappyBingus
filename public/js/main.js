@@ -77,6 +77,9 @@ const seedInput = document.getElementById("seedInput");
 const seedRandomBtn = document.getElementById("seedRandomBtn");
 const seedHint = document.getElementById("seedHint");
 
+const detailSelect = document.getElementById("detailSelect");
+const detailHint = document.getElementById("detailHint");
+
 const watchReplayBtn = document.getElementById("watchReplay");
 const exportGifBtn = document.getElementById("exportGif");
 const exportMp4Btn = document.getElementById("exportMp4");
@@ -106,6 +109,16 @@ function genRandomSeed() {
   const u = new Uint32Array(2);
   crypto.getRandomValues(u);
   return `${u[0].toString(16)}-${u[1].toString(16)}`;
+}
+
+// ---- Detail level cookie ----
+const DETAIL_COOKIE = "bingus_detail";
+function readDetailLevel() {
+  const raw = getCookie(DETAIL_COOKIE);
+  return (raw === "low" || raw === "high") ? raw : "high";
+}
+function writeDetailLevel(v) {
+  setCookie(DETAIL_COOKIE, (v === "low") ? "low" : "high", 3650);
 }
 
 function setUIMode(isUI) {
@@ -253,6 +266,8 @@ tutorial = new Tutorial({
   onExit: () => toMenu()
 });
 
+applyDetailLevel(readDetailLevel());
+
 window.addEventListener("resize", () => game.resizeToWindow());
 // On some browsers, zoom changes fire visualViewport resize without window resize.
 window.visualViewport?.addEventListener("resize", () => game.resizeToWindow());
@@ -329,6 +344,21 @@ function fillTrailSelect() {
       : "All trails unlocked!";
     trailHint.textContent = `${hint} Your best: ${best}`;
   }
+}
+
+function applyDetailLevel(level) {
+  const v = (level === "low") ? "low" : "high";
+  if (detailSelect) detailSelect.value = v;
+  if (detailHint) {
+    if (v === "low") {
+      detailHint.className = "hint warn";
+      detailHint.textContent = "Low detail reduces glow and particles for better performance.";
+    } else {
+      detailHint.className = "hint";
+      detailHint.textContent = "High detail keeps all visual effects.";
+    }
+  }
+  if (game) game.setDetailLevel(v);
 }
 
 function renderHighscores() {
@@ -568,6 +598,11 @@ trailSelect.addEventListener("change", async () => {
     net.trails = res.trails || net.trails;
     fillTrailSelect();
   }
+});
+
+detailSelect?.addEventListener("change", () => {
+  applyDetailLevel(detailSelect.value);
+  writeDetailLevel(detailSelect.value);
 });
 
 // ---- Keybind rebinding flow ----
@@ -837,7 +872,8 @@ async function onGameOver(finalScore) {
 
   if (net.user) {
     const res = await apiSubmitScore(finalScore | 0);
-    if (res && res.ok) {
+    if (res && res.ok && res.user) {
+      net.online = true;
       net.user = res.user;
       net.trails = res.trails || net.trails;
       net.highscores = res.highscores || net.highscores;
@@ -846,6 +882,15 @@ async function onGameOver(finalScore) {
       renderHighscores();
 
       overPB.textContent = String(net.user.bestScore | 0);
+    } else {
+      net.online = false;
+
+      // Try to re-hydrate the session so subsequent runs can still submit.
+      await refreshProfileAndHighscores();
+
+      // Keep PB display meaningful even if the submission failed.
+      const best = net.user ? (net.user.bestScore | 0) : readLocalBest();
+      overPB.textContent = String(best);
     }
   }
 

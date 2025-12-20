@@ -12,11 +12,17 @@ function defaultMapState(engineState, game) {
     ...(engineState.score || {}),
     total: game.score ?? engineState.score?.total ?? 0
   };
+  const basePlayer = engineState.player || {};
   engineState.player = {
-    x: game.player?.x ?? engineState.player?.x ?? 0,
-    y: game.player?.y ?? engineState.player?.y ?? 0,
-    vx: game.player?.vx ?? engineState.player?.vx ?? 0,
-    vy: game.player?.vy ?? engineState.player?.vy ?? 0
+    ...basePlayer,
+    x: game.player?.x ?? basePlayer.x ?? 0,
+    y: game.player?.y ?? basePlayer.y ?? 0,
+    vx: game.player?.vx ?? basePlayer.vx ?? 0,
+    vy: game.player?.vy ?? basePlayer.vy ?? 0,
+    dash: basePlayer.dash || { active: false, time: 0, direction: null },
+    invulnerable: basePlayer.invulnerable ?? false,
+    invulnTime: basePlayer.invulnTime ?? 0,
+    wallBounces: basePlayer.wallBounces ?? 0
   };
 }
 
