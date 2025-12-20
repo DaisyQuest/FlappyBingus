@@ -239,7 +239,7 @@ describe("MongoDataStore mutations and reads", () => {
   it("returns top highscores with sane limits and coercion", async () => {
     const { MongoDataStore } = await loadModule();
     const docs = [
-      { username: "a", bestScore: "10", updatedAt: "5" },
+      { username: "a", bestScore: "10", updatedAt: "5", bestReplayMeta: { seed: "abc", tickCount: 2, durationMs: 8, actionCount: 1 } },
       { username: "b", bestScore: 5, updatedAt: 2 }
     ];
     const chain = {
@@ -254,7 +254,13 @@ describe("MongoDataStore mutations and reads", () => {
 
     const result = await store.topHighscores(500);
     expect(chain.limit).toHaveBeenCalledWith(200);
-    expect(result[0]).toEqual({ username: "a", bestScore: 10, updatedAt: 5 });
+    expect(result[0]).toEqual({
+      username: "a",
+      bestScore: 10,
+      updatedAt: 5,
+      hasReplay: true,
+      replay: { seed: "abc", tickCount: 2, durationMs: 8, actionCount: 1 }
+    });
   });
 
   it("returns recent users capped at reasonable limits", async () => {
@@ -409,7 +415,13 @@ describe("MongoDataStore mutations and reads", () => {
     const result = await store.topHighscores(0);
 
     expect(chain.limit).toHaveBeenCalledWith(20);
-    expect(result[0]).toEqual({ username: "zero", bestScore: 0, updatedAt: 0 });
+    expect(result[0]).toEqual({
+      username: "zero",
+      bestScore: 0,
+      updatedAt: 0,
+      hasReplay: false,
+      replay: null
+    });
   });
 
   it("caps recent user queries at a minimum of one and defaults on falsy values", async () => {
@@ -426,6 +438,74 @@ describe("MongoDataStore mutations and reads", () => {
 
     await store.recentUsers(0);
     expect(chain.limit).toHaveBeenCalledWith(5);
+  });
+
+  it("saves best replays when the best score matches and seeds metadata", async () => {
+    const { MongoDataStore } = await loadModule();
+    const stored = {
+      key: "k",
+      bestReplay: { seed: "abc" },
+      bestReplayMeta: { seed: "abc", tickCount: 1, durationMs: 8, actionCount: 0, score: 77 }
+    };
+    const coll = makeCollection({
+      findOneAndUpdate: vi.fn(async () => ({ value: stored }))
+    });
+    const store = new MongoDataStore({ uri: "mongodb://ok", dbName: "db" });
+    store.ensureConnected = vi.fn();
+    store.usersCollection = () => coll;
+
+    const replay = {
+      seed: "abc",
+      rngTape: [0.1],
+      ticks: [{ move: { dx: 0, dy: 0 }, cursor: { x: 0, y: 0, has: false }, actions: [] }],
+      tickCount: 1,
+      durationMs: 8,
+      actionCount: 0
+    };
+    const result = await store.saveBestReplay("k", replay, 77);
+
+    expect(coll.findOneAndUpdate).toHaveBeenCalledWith(
+      { key: "k", bestScore: 77 },
+      expect.objectContaining({
+        $set: expect.objectContaining({
+          bestReplay: expect.objectContaining({ seed: "abc", score: 77, ended: true }),
+          bestReplayMeta: expect.objectContaining({ seed: "abc", score: 77 })
+        })
+      }),
+      { returnDocument: "after" }
+    );
+    expect(result.bestReplayMeta.score).toBe(77);
+  });
+
+  it("fetches stored replays by username when available", async () => {
+    const { MongoDataStore } = await loadModule();
+    const store = new MongoDataStore({ uri: "mongodb://ok", dbName: "db" });
+    store.ensureConnected = vi.fn();
+    store.usersCollection = () => ({
+      findOne: vi.fn(async () => ({
+        username: "champ",
+        bestScore: 99,
+        bestReplay: { seed: "seed", tickCount: 1 },
+        bestReplayMeta: { seed: "seed", tickCount: 1, durationMs: 8 }
+      }))
+    });
+
+    const replay = await store.getReplayForUser("champ");
+    expect(replay.username).toBe("champ");
+    expect(replay.bestReplay.seed).toBe("seed");
+    expect(replay.bestScore).toBe(99);
+  });
+
+  it("returns null when no replay is stored", async () => {
+    const { MongoDataStore } = await loadModule();
+    const store = new MongoDataStore({ uri: "mongodb://ok", dbName: "db" });
+    store.ensureConnected = vi.fn();
+    store.usersCollection = () => ({
+      findOne: vi.fn(async () => ({ username: "champ", bestScore: 9 }))
+    });
+
+    const replay = await store.getReplayForUser("champ");
+    expect(replay).toBeNull();
   });
 });
 

@@ -8,11 +8,12 @@ import {
   apiGetHighscores,
   apiSetTrail,
   apiSubmitScore,
-  apiSetKeybinds
+  apiSetKeybinds,
+  apiGetReplay
 } from "./api.js";
 
 import {
-  escapeHtml, clamp, getCookie, setCookie,
+  clamp, getCookie, setCookie,
   setRandSource, createSeededRand, createTapeRandRecorder, createTapeRandPlayer
 } from "./util.js";
 
@@ -132,6 +133,8 @@ const net = {
   highscores: []
 };
 
+let leaderboardReplayLoading = null;
+
 // keybinds: start from guest cookie; override from server user when available
 let binds = loadGuestBinds();
 
@@ -156,6 +159,12 @@ const SIM_DT = 1 / 120;
 const MAX_FRAME = 1 / 20;
 let acc = 0;
 let lastTs = 0;
+
+const CLIENT_REPLAY_LIMITS = Object.freeze({
+  maxTicks: 120_000,
+  maxActionsPerTick: 8,
+  maxRngTape: 240_000
+});
 
 // Replay / run capture
 // activeRun = { seed, ticks: [ { move, cursor, actions[] } ], pendingActions:[], ended:boolean, rngTape:[] }
@@ -373,6 +382,25 @@ function fillTrailSelect() {
   }
 }
 
+function formatDurationMs(ms) {
+  const totalSeconds = Math.max(0, Math.floor((Number(ms) || 0) / 1000));
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  if (minutes) return `${minutes}m ${seconds.toString().padStart(2, "0")}s`;
+  return `${seconds}s`;
+}
+
+function describeReplayMeta(meta, hasReplay = false) {
+  if (!hasReplay || !meta) return "Replay not captured yet.";
+  const ticks = meta.tickCount ? `${meta.tickCount} ticks` : null;
+  const actions = meta.actionCount ? `${meta.actionCount} inputs` : null;
+  const duration = formatDurationMs(meta.durationMs || 0);
+  const parts = [duration];
+  if (ticks) parts.push(ticks);
+  if (actions) parts.push(actions);
+  return `Replay: ${parts.join(" • ")}`;
+}
+
 function renderHighscores() {
   if (!net.online) {
     hsWrap.className = "hint bad";
@@ -386,28 +414,119 @@ function renderHighscores() {
     return;
   }
 
-  hsWrap.className = "";
-  const table = document.createElement("table");
-  table.className = "hsTable";
+  hsWrap.className = "hsCardHost";
+  const list = document.createElement("div");
+  list.className = "hsCardList";
 
-  const thead = document.createElement("thead");
-  thead.innerHTML = `<tr><th>#</th><th>User</th><th class="mono">Best</th></tr>`;
-  table.appendChild(thead);
-
-  const tbody = document.createElement("tbody");
   hs.slice(0, 10).forEach((e, i) => {
-    const tr = document.createElement("tr");
-    const isMe = net.user && e.username === net.user.username;
-    tr.innerHTML =
-      `<td class="mono">${i + 1}</td>` +
-      `<td>${escapeHtml(e.username)}${isMe ? " (you)" : ""}</td>` +
-      `<td class="mono">${e.bestScore | 0}</td>`;
-    tbody.appendChild(tr);
+    const row = document.createElement("div");
+    row.className = "hsCardRow";
+
+    const rank = document.createElement("div");
+    rank.className = "hsRank";
+    rank.textContent = `#${i + 1}`;
+
+    const body = document.createElement("div");
+    body.className = "hsCardBody";
+
+    const title = document.createElement("div");
+    title.className = "hsUser";
+    title.textContent = e.username || "Unknown";
+    if (net.user && e.username === net.user.username) {
+      const me = document.createElement("span");
+      me.className = "hsYou";
+      me.textContent = " you";
+      title.append(" ", me);
+    }
+
+    const score = document.createElement("div");
+    score.className = "hsScore";
+    score.textContent = `${e.bestScore | 0} pts`;
+
+    const meta = document.createElement("div");
+    meta.className = "hsMeta";
+    meta.textContent = describeReplayMeta(e.replay, e.hasReplay);
+
+    body.append(title, score, meta);
+
+    const actions = document.createElement("div");
+    actions.className = "hsActions";
+    const watch = document.createElement("button");
+    watch.className = "hsWatchBtn";
+    watch.textContent = e.hasReplay ? "Watch replay" : "No replay yet";
+    watch.disabled = !e.hasReplay;
+    if (e.hasReplay) {
+      watch.addEventListener("click", () => watchHighscoreReplay(e, watch));
+    }
+    actions.append(watch);
+
+    row.append(rank, body, actions);
+    list.append(row);
   });
-  table.appendChild(tbody);
 
   hsWrap.innerHTML = "";
-  hsWrap.appendChild(table);
+  hsWrap.append(list);
+}
+
+async function watchHighscoreReplay(entry, button) {
+  if (!entry?.username) return;
+  if (leaderboardReplayLoading) return;
+  leaderboardReplayLoading = entry.username;
+
+  const resetButton = () => {
+    if (!button) return;
+    button.disabled = !entry.hasReplay;
+    button.textContent = entry.hasReplay ? "Watch replay" : "No replay yet";
+    button.classList.remove("ghost");
+  };
+
+  try {
+    if (button) {
+      button.disabled = true;
+      button.textContent = "Loading…";
+      button.classList.add("ghost");
+    }
+    if (replayStatus) {
+      replayStatus.className = "hint";
+      replayStatus.textContent = `Fetching ${entry.username}'s replay…`;
+    }
+    const res = await apiGetReplay(entry.username);
+    if (!res || !res.ok || !res.replay) {
+      if (replayStatus) {
+        replayStatus.className = "hint bad";
+        replayStatus.textContent = "Replay unavailable for that score.";
+      }
+      return;
+    }
+
+    const hydrated = hydrateReplayFromServer(res.replay);
+    if (!hydrated) {
+      if (replayStatus) {
+        replayStatus.className = "hint bad";
+        replayStatus.textContent = "Replay data was invalid.";
+      }
+      return;
+    }
+
+    const priorRun = activeRun;
+    activeRun = hydrated;
+    try {
+      if (replayStatus) {
+        replayStatus.className = "hint";
+        replayStatus.textContent = `Watching ${res.user?.username || entry.username}'s replay…`;
+      }
+      await playReplay({ captureMode: "none" });
+      if (replayStatus) {
+        replayStatus.className = "hint good";
+        replayStatus.textContent = "Replay finished.";
+      }
+    } finally {
+      activeRun = priorRun;
+    }
+  } finally {
+    leaderboardReplayLoading = null;
+    resetButton();
+  }
 }
 
 function renderBindUI(listeningActionId = null) {
@@ -491,6 +610,123 @@ saveUserBtn.addEventListener("click", async () => {
 });
 
 // ---- Replay UI ----
+function buildReplayPayload(run, score) {
+  if (
+    !run ||
+    !run.ended ||
+    !run.seed ||
+    !Array.isArray(run.ticks) ||
+    !run.ticks.length ||
+    !Array.isArray(run.rngTape) ||
+    !run.rngTape.length
+  ) {
+    return null;
+  }
+
+  const ticks = run.ticks.slice(0, CLIENT_REPLAY_LIMITS.maxTicks);
+  const tape = run.rngTape.slice(0, CLIENT_REPLAY_LIMITS.maxRngTape);
+  if (!ticks.length || !tape.length) return null;
+
+  let actionCount = 0;
+  const safeTicks = ticks.map((tk) => {
+    const actions = Array.isArray(tk?.actions)
+      ? tk.actions
+          .slice(0, CLIENT_REPLAY_LIMITS.maxActionsPerTick)
+          .map((a) => {
+            if (!a || !a.id) return null;
+            const id = String(a.id);
+            if (!id) return null;
+            const cursor = a.cursor
+              ? {
+                  x: Number(a.cursor.x) || 0,
+                  y: Number(a.cursor.y) || 0,
+                  has: !!a.cursor.has
+                }
+              : null;
+            return cursor ? { id, cursor } : { id };
+          })
+          .filter(Boolean)
+      : [];
+    actionCount += actions.length;
+    return {
+      move: {
+        dx: Number(tk?.move?.dx) || 0,
+        dy: Number(tk?.move?.dy) || 0
+      },
+      cursor: {
+        x: Number(tk?.cursor?.x) || 0,
+        y: Number(tk?.cursor?.y) || 0,
+        has: !!tk?.cursor?.has
+      },
+      actions
+    };
+  });
+
+  return {
+    version: 1,
+    seed: String(run.seed),
+    rngTape: tape.map((v) => Number(v) || 0),
+    ticks: safeTicks,
+    tickCount: safeTicks.length,
+    durationMs: Math.round(safeTicks.length * 1000 * SIM_DT),
+    actionCount,
+    score: Number(score) || 0,
+    recordedAt: Date.now(),
+    ended: true
+  };
+}
+
+function hydrateReplayFromServer(replay) {
+  if (!replay || typeof replay !== "object") return null;
+  const seed = String(replay.seed || "").trim();
+  const ticks = Array.isArray(replay.ticks) ? replay.ticks.slice(0, CLIENT_REPLAY_LIMITS.maxTicks) : [];
+  const tape = Array.isArray(replay.rngTape) ? replay.rngTape.slice(0, CLIENT_REPLAY_LIMITS.maxRngTape) : [];
+  if (!seed || !ticks.length || !tape.length) return null;
+
+  const safeTicks = ticks.map((tk) => ({
+    move: {
+      dx: Number(tk?.move?.dx) || 0,
+      dy: Number(tk?.move?.dy) || 0
+    },
+    cursor: {
+      x: Number(tk?.cursor?.x) || 0,
+      y: Number(tk?.cursor?.y) || 0,
+      has: !!tk?.cursor?.has
+    },
+    actions: Array.isArray(tk?.actions)
+      ? tk.actions
+          .slice(0, CLIENT_REPLAY_LIMITS.maxActionsPerTick)
+          .map((a) => {
+            if (!a || !a.id) return null;
+            const id = String(a.id);
+            if (!id) return null;
+            const cursor = a.cursor
+              ? {
+                  x: Number(a.cursor.x) || 0,
+                  y: Number(a.cursor.y) || 0,
+                  has: !!a.cursor.has
+                }
+              : null;
+            return cursor ? { id, cursor } : { id };
+          })
+          .filter(Boolean)
+      : []
+  }));
+
+  return {
+    version: Number(replay.version) || 1,
+    seed,
+    rngTape: tape.map((v) => Number(v) || 0),
+    ticks: safeTicks,
+    tickCount: safeTicks.length,
+    durationMs: Number(replay.durationMs) || Math.round(safeTicks.length * 1000 * SIM_DT),
+    actionCount: Number(replay.actionCount) || 0,
+    recordedAt: Number(replay.recordedAt) || Date.now(),
+    ended: true,
+    pendingActions: []
+  };
+}
+
 function downloadBlob(blob, filename) {
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
@@ -506,14 +742,23 @@ async function playReplay({ captureMode = "none" } = {}) {
   // NEW: ensure gameplay music is OFF during replay playback/capture
   musicStop();
 
-  setRandSource(createTapeRandPlayer(activeRun.rngTape));
-  if (!activeRun || !activeRun.ended || !activeRun.ticks || !activeRun.ticks.length) {
+  const hasReplay =
+    activeRun &&
+    activeRun.ended &&
+    Array.isArray(activeRun.ticks) &&
+    activeRun.ticks.length &&
+    Array.isArray(activeRun.rngTape) &&
+    activeRun.rngTape.length;
+
+  if (!hasReplay) {
     if (replayStatus) {
       replayStatus.className = "hint bad";
       replayStatus.textContent = "No replay available yet (finish a run first).";
     }
     return null;
   }
+
+  setRandSource(createTapeRandPlayer(activeRun.rngTape));
 
   replayDriving = true;
   try {
@@ -887,13 +1132,25 @@ async function onGameOver(finalScore) {
 
   over.classList.remove("hidden");
 
+  if (activeRun) {
+    activeRun.ended = true;
+  }
+
+  let replaySaved = false;
+  let replayError = null;
+
   if (net.user) {
-    const res = await apiSubmitScore(finalScore | 0);
+    const bestBefore = net.user ? (net.user.bestScore | 0) : 0;
+    const isNewBest = (finalScore | 0) > bestBefore;
+    const replayPayload = isNewBest ? buildReplayPayload(activeRun, finalScore | 0) : null;
+    const res = await apiSubmitScore(finalScore | 0, replayPayload);
     if (res && res.ok && res.user) {
       net.online = true;
       net.user = res.user;
       net.trails = normalizeTrails(res.trails || net.trails);
       net.highscores = res.highscores || net.highscores;
+      replaySaved = Boolean(res.replaySaved);
+      replayError = res.replayError || null;
 
       fillTrailSelect();
       renderHighscores();
@@ -919,11 +1176,18 @@ async function onGameOver(finalScore) {
     if (retrySeedBtn) retrySeedBtn.disabled = !lastEndedSeed;
 
     // Make default action "Restart (new seed)"
-    restartBtn?.focus?.();
+      restartBtn?.focus?.();
 
     if (replayStatus) {
       replayStatus.className = "hint good";
-      replayStatus.textContent = `Replay ready. Seed: ${activeRun.seed} • Ticks: ${activeRun.ticks.length}`;
+      if (replaySaved) {
+        replayStatus.textContent = "Replay saved to leaderboard.";
+      } else if (replayError) {
+        replayStatus.className = "hint warn";
+        replayStatus.textContent = "Replay could not be saved. You can still watch locally.";
+      } else {
+        replayStatus.textContent = `Replay ready. Seed: ${activeRun.seed} • Ticks: ${activeRun.ticks.length}`;
+      }
     }
     if (exportGifBtn) exportGifBtn.disabled = false;
     if (exportMp4Btn) exportMp4Btn.disabled = false;
@@ -1080,6 +1344,13 @@ function frame(ts) {
 
   requestAnimationFrame(frame);
 }
+
+export const __replayTestables = {
+  buildReplayPayload,
+  hydrateReplayFromServer,
+  describeReplayMeta,
+  formatDurationMs
+};
 
 // ---- Boot init ----
 (async function init() {

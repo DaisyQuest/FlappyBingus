@@ -63,6 +63,17 @@ const TRAILS = Object.freeze([
   { id: "world_record", name: "World Record Cherry Blossom", minScore: 0, requiresRecordHolder: true }
 ]);
 
+// Replay capture constraints (payloads avoid video; limit JSON growth)
+const REPLAY_LIMITS = Object.freeze({
+  maxTicks: 120_000,
+  maxActionsPerTick: 8,
+  maxRngTape: 240_000,
+  maxBytes: 1_500_000,
+  maxSeedLength: 80
+});
+
+const TICK_MILLISECONDS = 1000 / 120;
+
 // --------- Domain helpers ----------
 function nowMs() {
   return Date.now();
@@ -76,7 +87,8 @@ const RATE_LIMIT_CONFIG = Object.freeze({
   "/api/score": { limit: 30, windowMs: 60_000 },
   "/api/cosmetics/trail": { limit: 30, windowMs: 60_000 },
   "/api/binds": { limit: 30, windowMs: 60_000 },
-  "/api/highscores": { limit: 90, windowMs: 60_000 }
+  "/api/highscores": { limit: 90, windowMs: 60_000 },
+  "/api/replay": { limit: 60, windowMs: 60_000 }
 });
 
 const _rateLimitState = new Map();
@@ -239,6 +251,18 @@ function unlockedTrails(bestScore, { recordHolder = false } = {}) {
   return TRAILS.filter((t) => s >= t.minScore && (!t.requiresRecordHolder || recordHolder)).map((t) => t.id);
 }
 
+function summarizeReplayMeta(replay) {
+  if (!replay || typeof replay !== "object") return null;
+  const tickCount = normalizeCount(replay.tickCount ?? replay.ticks?.length);
+  if (!tickCount) return null;
+  return {
+    seed: typeof replay.seed === "string" ? replay.seed : "",
+    tickCount,
+    durationMs: normalizeTotal(replay.durationMs ?? Math.round(tickCount * TICK_MILLISECONDS)),
+    actionCount: normalizeCount(replay.actionCount)
+  };
+}
+
 function ensureUserSchema(u, { recordHolder = false } = {}) {
   if (!u || typeof u !== "object") return;
   u.bestScore = normalizeScore(u.bestScore);
@@ -254,6 +278,10 @@ function ensureUserSchema(u, { recordHolder = false } = {}) {
   // Ensure selected trail is unlocked
   const unlocked = unlockedTrails(u.bestScore | 0, { recordHolder });
   if (!unlocked.includes(u.selectedTrail)) u.selectedTrail = "classic";
+
+  const replayMeta = summarizeReplayMeta(u.bestReplayMeta || u.bestReplay);
+  if (replayMeta) u.bestReplayMeta = replayMeta;
+  else if (u.bestReplayMeta) delete u.bestReplayMeta;
 }
 
 function normalizeScore(v) {
@@ -330,6 +358,7 @@ function validateKeybindsPayload(binds) {
 
 function publicUser(u, { recordHolder = false } = {}) {
   if (!u) return null;
+  const replayMeta = summarizeReplayMeta(u.bestReplayMeta || u.bestReplay);
   return {
     username: u.username,
     bestScore: u.bestScore | 0,
@@ -338,7 +367,9 @@ function publicUser(u, { recordHolder = false } = {}) {
     runs: u.runs | 0,
     totalScore: u.totalScore | 0,
     unlockedTrails: unlockedTrails(u.bestScore | 0, { recordHolder }),
-    isRecordHolder: Boolean(recordHolder)
+    isRecordHolder: Boolean(recordHolder),
+    hasReplay: Boolean(replayMeta),
+    replay: replayMeta
   };
 }
 
@@ -431,7 +462,141 @@ function formatDate(ts) {
 }
 
 async function topHighscores(limit = 25) {
-  return dataStore.topHighscores(limit);
+  const list = await dataStore.topHighscores(limit);
+  return list.map((entry) => ({
+    username: entry.username,
+    bestScore: normalizeScore(entry.bestScore),
+    updatedAt: normalizeTotal(entry.updatedAt),
+    hasReplay: Boolean(entry.hasReplay || entry.replay),
+    replay: summarizeReplayMeta(entry.replay)
+  }));
+}
+
+function clampNumber(n, min, max, fallback = 0) {
+  const v = Number(n);
+  if (!Number.isFinite(v)) return fallback;
+  return Math.max(min, Math.min(max, v));
+}
+
+function sanitizeReplayAction(action) {
+  if (!action || typeof action !== "object") return null;
+  const id = String(action.id || "").trim();
+  const allowed = ["dash", "phase", "teleport", "slowField"];
+  if (!allowed.includes(id)) return null;
+  const cursor = action.cursor && typeof action.cursor === "object"
+    ? {
+        x: clampNumber(action.cursor.x, -10_000, 10_000, 0),
+        y: clampNumber(action.cursor.y, -10_000, 10_000, 0),
+        has: Boolean(action.cursor.has)
+      }
+    : null;
+  return cursor ? { id, cursor } : { id };
+}
+
+function sanitizeReplayPayload(raw, { score = 0 } = {}) {
+  if (!raw || typeof raw !== "object") return { ok: false, error: "invalid_replay" };
+
+  const seed = String(raw.seed || "").trim();
+  if (!seed || seed.length > REPLAY_LIMITS.maxSeedLength) {
+    return { ok: false, error: "invalid_replay_seed" };
+  }
+
+  const ticks = Array.isArray(raw.ticks) ? raw.ticks : null;
+  if (!ticks || !ticks.length) return { ok: false, error: "replay_missing_ticks" };
+  if (ticks.length > REPLAY_LIMITS.maxTicks) return { ok: false, error: "replay_too_large" };
+
+  const safeTicks = [];
+  let actionCount = 0;
+
+  for (const tk of ticks) {
+    const move = tk?.move || {};
+    const cursor = tk?.cursor || {};
+    const rawActions = Array.isArray(tk?.actions) ? tk.actions.slice(0, REPLAY_LIMITS.maxActionsPerTick) : [];
+
+    const actions = [];
+    for (const a of rawActions) {
+      const safe = sanitizeReplayAction(a);
+      if (safe) {
+        actions.push(safe);
+        actionCount++;
+      }
+    }
+
+    safeTicks.push({
+      move: {
+        dx: clampNumber(move.dx, -1, 1, 0),
+        dy: clampNumber(move.dy, -1, 1, 0)
+      },
+      cursor: {
+        x: clampNumber(cursor.x, -10_000, 10_000, 0),
+        y: clampNumber(cursor.y, -10_000, 10_000, 0),
+        has: Boolean(cursor.has)
+      },
+      actions
+    });
+  }
+
+  const rngTape = Array.isArray(raw.rngTape) ? raw.rngTape : [];
+  if (!rngTape.length) return { ok: false, error: "replay_missing_rng" };
+  if (rngTape.length > REPLAY_LIMITS.maxRngTape) return { ok: false, error: "replay_too_large" };
+  const safeTape = rngTape.map((v) => clampNumber(v, 0, 1, 0));
+
+  const replay = {
+    version: 1,
+    seed,
+    rngTape: safeTape,
+    ticks: safeTicks,
+    tickCount: safeTicks.length,
+    actionCount,
+    durationMs: Math.round(safeTicks.length * TICK_MILLISECONDS),
+    recordedAt: Date.now(),
+    ended: true,
+    score: normalizeScore(score)
+  };
+
+  const estimatedBytes = Buffer.byteLength(JSON.stringify(replay), "utf8");
+  if (estimatedBytes > REPLAY_LIMITS.maxBytes) {
+    return { ok: false, error: "replay_too_large" };
+  }
+
+  return { ok: true, replay };
+}
+
+function shapeReplayForClient(replay) {
+  if (!replay || typeof replay !== "object") return null;
+  const meta = summarizeReplayMeta(replay);
+  if (!meta || meta.tickCount > REPLAY_LIMITS.maxTicks) return null;
+
+  const ticks = Array.isArray(replay.ticks) ? replay.ticks.slice(0, REPLAY_LIMITS.maxTicks) : [];
+  const safeTicks = ticks.map((tk) => ({
+    move: {
+      dx: clampNumber(tk?.move?.dx, -1, 1, 0),
+      dy: clampNumber(tk?.move?.dy, -1, 1, 0)
+    },
+    cursor: {
+      x: clampNumber(tk?.cursor?.x, -10_000, 10_000, 0),
+      y: clampNumber(tk?.cursor?.y, -10_000, 10_000, 0),
+      has: Boolean(tk?.cursor?.has)
+    },
+    actions: Array.isArray(tk?.actions)
+      ? tk.actions.slice(0, REPLAY_LIMITS.maxActionsPerTick).map(sanitizeReplayAction).filter(Boolean)
+      : []
+  }));
+
+  const rngTape = Array.isArray(replay.rngTape) ? replay.rngTape.slice(0, REPLAY_LIMITS.maxRngTape) : [];
+  if (!rngTape.length || !safeTicks.length) return null;
+
+  return {
+    version: normalizeCount(replay.version) || 1,
+    seed: typeof replay.seed === "string" ? replay.seed : "",
+    rngTape: rngTape.map((v) => clampNumber(v, 0, 1, 0)),
+    ticks: safeTicks,
+    tickCount: meta.tickCount,
+    actionCount: meta.actionCount,
+    durationMs: meta.durationMs,
+    recordedAt: normalizeTotal(replay.recordedAt || Date.now()),
+    ended: true
+  };
 }
 
 const scoreService = createScoreService({
@@ -440,7 +605,9 @@ const scoreService = createScoreService({
   publicUser,
   listHighscores: () => topHighscores(20),
   trails: TRAILS,
-  clampScore: clampScoreDefault
+  clampScore: clampScoreDefault,
+  sanitizeReplayPayload,
+  saveReplayForBest: (user, replay) => dataStore.saveBestReplay(user.key, replay, replay?.score ?? user.bestScore)
 });
 
 async function ensureDatabase(res) {
@@ -748,12 +915,14 @@ async function route(req, res) {
 
     let body;
     try {
-      body = await readJsonBody(req);
+      body = await readJsonBody(req, REPLAY_LIMITS.maxBytes);
     } catch {
       return badRequest(res, "invalid_json");
     }
 
-    const { status, body: responseBody, error } = await scoreService.submitScore(u, body.score);
+    const { status, body: responseBody, error } = await scoreService.submitScore(u, body.score, {
+      replay: body.replay
+    });
     if (status >= 200 && status < 300 && responseBody) {
       sendJson(res, status, responseBody);
     } else {
@@ -822,6 +991,25 @@ async function route(req, res) {
     if (!(await ensureDatabase(res))) return;
     const limit = Number(url.searchParams.get("limit") || 20);
     sendJson(res, 200, { ok: true, highscores: await topHighscores(limit) });
+    return;
+  }
+
+  if (pathname === "/api/replay" && req.method === "GET") {
+    if (rateLimit(req, res, "/api/replay")) return;
+    if (!(await ensureDatabase(res))) return;
+    const username = normalizeUsername(url.searchParams.get("username"));
+    if (!username) return badRequest(res, "invalid_username");
+    const doc = await dataStore.getReplayForUser(username);
+    if (!doc?.bestReplay) return notFound(res);
+    const replay = shapeReplayForClient(doc.bestReplay);
+    if (!replay) return notFound(res);
+    const replayMeta = summarizeReplayMeta(doc.bestReplayMeta || doc.bestReplay);
+    sendJson(res, 200, {
+      ok: true,
+      replay,
+      user: { username: doc.username, bestScore: doc.bestScore | 0 },
+      replayMeta
+    });
     return;
   }
 
@@ -947,6 +1135,9 @@ module.exports = {
   isRecordHolder,
   normalizeUsername,
   keyForUsername,
+  sanitizeReplayPayload,
+  shapeReplayForClient,
+  summarizeReplayMeta,
   route,
   startServer
 };

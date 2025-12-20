@@ -10,7 +10,9 @@ function buildDeps(overrides = {}) {
     || vi.fn((u, opts) => ({ name: u.username, bestScore: u.bestScore, recordHolder: !!opts?.recordHolder }));
   const listHighscores = overrides.listHighscores || vi.fn(async () => [{ username: "a", bestScore: 1 }]);
   const trails = overrides.trails || [{ id: "classic" }];
-  return { dataStore, ensureUserSchema, publicUser, listHighscores, trails };
+  const sanitizeReplayPayload = overrides.sanitizeReplayPayload || vi.fn(() => ({ ok: false, error: "disabled" }));
+  const saveReplayForBest = overrides.saveReplayForBest || vi.fn(async () => null);
+  return { dataStore, ensureUserSchema, publicUser, listHighscores, trails, sanitizeReplayPayload, saveReplayForBest };
 }
 
 describe("scoreService", () => {
@@ -55,7 +57,9 @@ describe("scoreService", () => {
         ok: true,
         user: { name: "User", bestScore: 123, recordHolder: false },
         trails: deps.trails,
-        highscores: [{ username: "a", bestScore: 1 }]
+        highscores: [{ username: "a", bestScore: 1 }],
+        replaySaved: false,
+        replayError: null
       }
     });
   });
@@ -85,6 +89,37 @@ describe("scoreService", () => {
     expect(res.ok).toBe(false);
     expect(res.status).toBe(503);
     expect(res.error).toBe("score_persist_failed");
+  });
+
+  it("saves replay payloads when a new personal best is submitted", async () => {
+    const user = { key: "u", username: "User", bestScore: 5 };
+    const updated = { ...user, bestScore: 10 };
+    deps.dataStore.recordScore.mockResolvedValue(updated);
+    deps.sanitizeReplayPayload = vi.fn(() => ({ ok: true, replay: { seed: "abc" } }));
+    deps.saveReplayForBest = vi.fn(async () => ({ ...updated, bestReplayMeta: { seed: "abc", tickCount: 1 } }));
+    deps.publicUser = vi.fn((u) => ({ username: u.username, hasReplay: !!u.bestReplayMeta }));
+
+    const svc = createScoreService(deps);
+    const res = await svc.submitScore(user, 10, { replay: { seed: "abc" } });
+
+    expect(deps.sanitizeReplayPayload).toHaveBeenCalled();
+    expect(deps.saveReplayForBest).toHaveBeenCalledWith(updated, { seed: "abc" });
+    expect(res.body.replaySaved).toBe(true);
+    expect(res.body.user.hasReplay).toBe(true);
+  });
+
+  it("surfaces replay errors without blocking score submissions", async () => {
+    const user = { key: "u", username: "User", bestScore: 1 };
+    deps.dataStore.recordScore.mockResolvedValue({ ...user, bestScore: 2 });
+    deps.sanitizeReplayPayload = vi.fn(() => ({ ok: false, error: "bad_replay" }));
+    deps.saveReplayForBest = vi.fn();
+
+    const svc = createScoreService(deps);
+    const res = await svc.submitScore(user, 2, { replay: { seed: "" } });
+
+    expect(res.body.replaySaved).toBe(false);
+    expect(res.body.replayError).toBe("bad_replay");
+    expect(deps.saveReplayForBest).not.toHaveBeenCalled();
   });
 });
 
