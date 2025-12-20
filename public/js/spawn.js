@@ -37,6 +37,8 @@ export function spawnWall(game, opts = {}) {
   const gap = opts.gap != null ? opts.gap : game._gapSize();
   const side = typeof opts.side === "number" ? opts.side : (rand(0, 4) | 0);
   const pad = Math.max(18, game.player.r * 1.1);
+  const gapId = game._nextGapId++;
+  let pipeCount = 0;
 
   if (side === 0 || side === 1) {
     const gc = rand(pad + gap * 0.5, game.H - (pad + gap * 0.5));
@@ -44,18 +46,46 @@ export function spawnWall(game, opts = {}) {
     const topLen = clamp(top, 10, game.H); const botLen = clamp(game.H - bot, 10, game.H);
     const sx = side === 0 ? -th - 16 : game.W + 16;
     const vx = side === 0 ? spd : -spd;
-    if (topLen > 10) game.pipes.push(new Pipe(sx, 0, th, topLen, vx, 0));
-    if (botLen > 10) game.pipes.push(new Pipe(sx, bot, th, botLen, vx, 0));
-    game.gates.push(new Gate("x", sx + th * 0.5, vx, gc, gap * 0.5, th));
+    if (topLen > 10) {
+      const pTop = new Pipe(sx, 0, th, topLen, vx, 0);
+      pTop.gapId = gapId;
+      pipeCount += 1;
+      game.pipes.push(pTop);
+    }
+    if (botLen > 10) {
+      const pBot = new Pipe(sx, bot, th, botLen, vx, 0);
+      pBot.gapId = gapId;
+      pipeCount += 1;
+      game.pipes.push(pBot);
+    }
+    const g = new Gate("x", sx + th * 0.5, vx, gc, gap * 0.5, th);
+    g.gapId = gapId;
+    game.gates.push(g);
   } else {
     const gc = rand(pad + gap * 0.5, game.W - (pad + gap * 0.5));
     const left = gc - gap * 0.5; const right = gc + gap * 0.5;
     const leftLen = clamp(left, 10, game.W); const rightLen = clamp(game.W - right, 10, game.W);
     const sy = side === 2 ? -th - 16 : game.H + 16;
     const vy = side === 2 ? spd : -spd;
-    if (leftLen > 10) game.pipes.push(new Pipe(0, sy, leftLen, th, 0, vy));
-    if (rightLen > 10) game.pipes.push(new Pipe(right, sy, rightLen, th, 0, vy));
-    game.gates.push(new Gate("y", sy + th * 0.5, vy, gc, gap * 0.5, th));
+    if (leftLen > 10) {
+      const pLeft = new Pipe(0, sy, leftLen, th, 0, vy);
+      pLeft.gapId = gapId;
+      pipeCount += 1;
+      game.pipes.push(pLeft);
+    }
+    if (rightLen > 10) {
+      const pRight = new Pipe(right, sy, rightLen, th, 0, vy);
+      pRight.gapId = gapId;
+      pipeCount += 1;
+      game.pipes.push(pRight);
+    }
+    const g = new Gate("y", sy + th * 0.5, vy, gc, gap * 0.5, th);
+    g.gapId = gapId;
+    game.gates.push(g);
+  }
+
+  if (pipeCount > 0 && game._gapMeta) {
+    game._gapMeta.set(gapId, { perfected: false });
   }
 }
 
