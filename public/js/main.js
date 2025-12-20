@@ -365,7 +365,9 @@ function fillTrailSelect() {
   const safeSel = unlocked.has(selected) ? selected : "classic";
   trailSelect.value = safeSel;
 
-  trailText.textContent = safeSel;
+  if (trailText) {
+    trailText.textContent = safeSel;
+  }
   pbText.textContent = String(best);
 
   if (!net.user) {
@@ -606,7 +608,9 @@ async function playReplay({ captureMode = "none" } = {}) {
 // ---- Cosmetics selection ----
 trailSelect.addEventListener("change", async () => {
   const id = trailSelect.value;
-  trailText.textContent = id;
+  if (trailText) {
+    trailText.textContent = id;
+  }
 
   if (!net.user) return;
 
