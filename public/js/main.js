@@ -50,6 +50,7 @@ import { buildGameUI } from "./uiLayout.js";
 import { TrailPreview } from "./trailPreview.js";
 import { normalizeTrailSelection, rebuildTrailOptions } from "./trailSelectUtils.js";
 import { buildTrailHint } from "./trailHint.js";
+import { DEFAULT_TRAILS, getUnlockedTrails, normalizeTrails, sortTrailsForDisplay } from "./trailProgression.js";
 
 // ---- DOM ----
 const ui = buildGameUI();
@@ -127,38 +128,7 @@ const boot = { imgReady: false, imgOk: false, cfgReady: false, cfgOk: false, cfg
 const net = {
   online: true,
   user: null,
-  trails: [
-    { id: "classic", name: "Classic", minScore: 0 },
-    { id: "rainbow", name: "Rainbow", minScore: 100 },
-    { id: "gothic", name: "Gothic", minScore: 250 },
-    { id: "sunset", name: "Sunset", minScore: 400 },
-    { id: "miami", name: "Miami", minScore: 550 },
-    { id: "aurora", name: "Aurora", minScore: 700 },
-    { id: "ocean", name: "Ocean", minScore: 850 },
-    { id: "ember", name: "Ember", minScore: 1000 },
-    { id: "cyber", name: "Cyber", minScore: 1150 },
-    { id: "pastel", name: "Pastel", minScore: 1300 },
-    { id: "vapor", name: "Vapor", minScore: 1450 },
-    { id: "glacier", name: "Glacier", minScore: 1600 },
-    { id: "forest", name: "Forest", minScore: 1750 },
-    { id: "solar", name: "Solar", minScore: 1900 },
-    { id: "toxic", name: "Toxic", minScore: 2050 },
-    { id: "bubblegum", name: "Bubblegum", minScore: 2200 },
-    { id: "midnight", name: "Midnight", minScore: 2350 },
-    { id: "obsidian", name: "Obsidian", minScore: 2500 },
-    { id: "golden", name: "Golden", minScore: 2650 },
-    { id: "silver", name: "Silver", minScore: 2800 },
-    { id: "storm", name: "Storm", minScore: 2950 },
-    { id: "magma", name: "Magma", minScore: 3100 },
-    { id: "celestial", name: "Celestial", minScore: 3250 },
-    { id: "nebula", name: "Nebula", minScore: 3400 },
-    { id: "citrus", name: "Citrus", minScore: 3550 },
-    { id: "cotton", name: "Cotton Candy", minScore: 3700 },
-    { id: "plasma", name: "Plasma", minScore: 3850 },
-    { id: "royal", name: "Royal", minScore: 4000 },
-    { id: "ultraviolet", name: "Ultraviolet", minScore: 4150 },
-    { id: "dragonfire", name: "Dragonfire", minScore: 4300 }
-  ],
+  trails: DEFAULT_TRAILS.map((t) => ({ ...t })),
   highscores: []
 };
 
@@ -349,15 +319,15 @@ function setUserHint() {
   userHint.textContent = `Signed in as ${net.user.username}. Runs: ${net.user.runs} • Total: ${net.user.totalScore}`;
 }
 
-function getTrailDisplayName(id) {
-  return net.trails.find(t => t.id === id)?.name || id;
+function getTrailDisplayName(id, trails = net.trails) {
+  return trails.find(t => t.id === id)?.name || id;
 }
 
-function applyTrailSelection(id) {
+function applyTrailSelection(id, trails = net.trails) {
   const safeId = id || "classic";
   currentTrailId = safeId;
   if (trailText) {
-    trailText.textContent = getTrailDisplayName(safeId);
+    trailText.textContent = getTrailDisplayName(safeId, trails);
   }
   if (trailSelect && trailSelect.value !== safeId) {
     trailSelect.value = safeId;
@@ -374,14 +344,11 @@ function pauseTrailPreview() {
   trailPreview?.stop();
 }
 
-function getUnlockedTrails(bestScore) {
-  const s = bestScore | 0;
-  return net.trails.filter(t => s >= t.minScore).map(t => t.id);
-}
-
 function fillTrailSelect() {
   const best = (net.user ? (net.user.bestScore | 0) : readLocalBest());
-  const unlocked = new Set(getUnlockedTrails(best));
+  const isRecordHolder = Boolean(net.user?.isRecordHolder);
+  const orderedTrails = sortTrailsForDisplay(net.trails, { isRecordHolder });
+  const unlocked = new Set(getUnlockedTrails(orderedTrails, best, { isRecordHolder }));
   const selected = normalizeTrailSelection({
     currentId: currentTrailId,
     userSelectedId: net.user?.selectedTrail,
@@ -390,15 +357,15 @@ function fillTrailSelect() {
     fallbackId: "classic"
   });
 
-  const applied = rebuildTrailOptions(trailSelect, net.trails, unlocked, selected);
-  applyTrailSelection(applied);
+  const applied = rebuildTrailOptions(trailSelect, orderedTrails, unlocked, selected);
+  applyTrailSelection(applied, orderedTrails);
   pbText.textContent = String(best);
 
   const hint = buildTrailHint({
     online: net.online,
     user: net.user,
     bestScore: best,
-    trails: net.trails
+    trails: orderedTrails
   });
   if (trailHint) {
     trailHint.className = hint.className;
@@ -480,7 +447,7 @@ async function refreshProfileAndHighscores() {
   } else {
     net.online = true;
     net.user = me.user || null;
-    net.trails = me.trails || net.trails;
+    net.trails = normalizeTrails(me.trails || net.trails);
     if (net.user?.keybinds) binds = mergeBinds(DEFAULT_KEYBINDS, net.user.keybinds);
   }
 
@@ -513,7 +480,7 @@ saveUserBtn.addEventListener("click", async () => {
   if (res.ok) {
     net.online = true;
     net.user = res.user;
-    net.trails = res.trails || net.trails;
+    net.trails = normalizeTrails(res.trails || net.trails);
 
     binds = mergeBinds(DEFAULT_KEYBINDS, net.user.keybinds);
     usernameInput.value = net.user.username;
@@ -646,7 +613,7 @@ trailSelect.addEventListener("change", async () => {
   if (res.ok) {
     net.online = true;
     net.user = res.user;
-    net.trails = res.trails || net.trails;
+    net.trails = normalizeTrails(res.trails || net.trails);
     fillTrailSelect();
   }
 });
@@ -925,7 +892,7 @@ async function onGameOver(finalScore) {
     if (res && res.ok && res.user) {
       net.online = true;
       net.user = res.user;
-      net.trails = res.trails || net.trails;
+      net.trails = normalizeTrails(res.trails || net.trails);
       net.highscores = res.highscores || net.highscores;
 
       fillTrailSelect();
