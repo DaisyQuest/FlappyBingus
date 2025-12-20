@@ -6,6 +6,9 @@
 
 const DETAIL_LEVELS = {
   high: {
+    resolutionScale: 1.0,
+    minDpr: 1.0,
+    maxDpr: 1.9,
     backgroundDensity: 1.0,
     backgroundAlpha: 1.0,
     vignetteIntensity: 1.0,
@@ -16,14 +19,17 @@ const DETAIL_LEVELS = {
     fxCap: 1.0
   },
   low: {
-    backgroundDensity: 0.55,
+    resolutionScale: 0.82,
+    minDpr: 0.9,
+    maxDpr: 1.35,
+    backgroundDensity: 0.52,
     backgroundAlpha: 0.82,
-    vignetteIntensity: 0.72,
-    shadows: true,
-    shadowScale: 0.55,
+    vignetteIntensity: 0.68,
+    shadows: false,
+    shadowScale: 0.45,
     glow: false,
-    fxDensity: 0.58,
-    fxCap: 0.68
+    fxDensity: 0.52,
+    fxCap: 0.6
   }
 };
 
@@ -73,6 +79,14 @@ export class RenderProfile {
 
   particleLimit(base) {
     return Math.max(1, Math.round(base * this.settings.fxCap));
+  }
+
+  effectiveDpr(rawDpr = 1) {
+    const cap = Math.max(0.5, Number(this.settings.maxDpr) || 2);
+    const floor = Math.max(0.5, Number(this.settings.minDpr) || 0.5);
+    const scale = Number(this.settings.resolutionScale) || 1;
+    const base = Math.max(0.5, rawDpr);
+    return Math.max(floor, Math.min(cap, base * scale));
   }
 }
 

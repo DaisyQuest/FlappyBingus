@@ -91,7 +91,11 @@ export class Game {
     const changed = this.renderProfile.setLevel(level);
     if (changed) {
       this._applyCapsFromDetail();
-      this._initBackground(true);
+      if (this.cfg) {
+        this.resizeToWindow();
+      } else {
+        this._initBackground(true);
+      }
     }
   }
 
@@ -113,10 +117,11 @@ export class Game {
 
 
   resizeToWindow() {
-    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    const rawDpr = Math.max(0.5, window.devicePixelRatio || 1);
+    const dpr = this.renderProfile.effectiveDpr(rawDpr);
     const cssW = Math.max(1, Math.round(window.visualViewport?.width || window.innerWidth));
     const cssH = Math.max(1, Math.round(window.visualViewport?.height || window.innerHeight));
-    const norm = Math.max(0.25, (window.devicePixelRatio || 1) / BASE_DPR);
+    const norm = Math.max(0.25, rawDpr / BASE_DPR);
 
     // Logical game space is normalized to the DPR at page load so browser zoom
     // does not change the effective playfield size.
