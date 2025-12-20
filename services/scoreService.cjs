@@ -41,7 +41,8 @@ function createScoreService(deps) {
 
     try {
       const updated = await dataStore.recordScore(user, score);
-      const newPersonalBest = (updated.bestScore | 0) > priorBest;
+      const bestAfter = updated.bestScore | 0;
+      const newPersonalBest = score >= bestAfter && bestAfter >= priorBest;
       let replaySaved = false;
       let replayError = null;
       let bestUser = updated;

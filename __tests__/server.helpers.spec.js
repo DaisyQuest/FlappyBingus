@@ -73,4 +73,14 @@ describe("server helpers (replays)", () => {
     expect(shaped.tickCount).toBe(1);
     expect(shaped.ticks[0].actions[0].id).toBe("dash");
   });
+
+  it("rejects replay payloads without RNG tape or ticks", () => {
+    const noTicks = server.sanitizeReplayPayload({ seed: "abc", rngTape: [0.1] }, { score: 1 });
+    expect(noTicks.ok).toBe(false);
+    expect(noTicks.error).toBe("replay_missing_ticks");
+
+    const noRng = server.sanitizeReplayPayload({ seed: "abc", ticks: [{ move: {}, cursor: {}, actions: [] }] }, { score: 1 });
+    expect(noRng.ok).toBe(false);
+    expect(noRng.error).toBe("replay_missing_rng");
+  });
 });

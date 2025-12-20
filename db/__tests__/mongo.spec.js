@@ -477,6 +477,28 @@ describe("MongoDataStore mutations and reads", () => {
     expect(result.bestReplayMeta.score).toBe(77);
   });
 
+  it("builds replay metadata when missing fields", async () => {
+    const { MongoDataStore } = await loadModule();
+    const coll = makeCollection({
+      findOneAndUpdate: vi.fn(async () => ({
+        value: {
+          key: "k",
+          bestReplayMeta: { seed: "seed", tickCount: 1, durationMs: 8, actionCount: 0, score: 10 }
+        }
+      }))
+    });
+    const store = new MongoDataStore({ uri: "mongodb://ok", dbName: "db" });
+    store.ensureConnected = vi.fn();
+    store.usersCollection = () => coll;
+
+    const replay = { seed: "seed", rngTape: [0.1, 0.2], ticks: [{ move: {}, cursor: {}, actions: [] }] };
+    const result = await store.saveBestReplay("k", replay, 10);
+
+    expect(coll.findOneAndUpdate).toHaveBeenCalled();
+    expect(result.bestReplayMeta.tickCount).toBe(1);
+    expect(result.bestReplayMeta.score).toBe(10);
+  });
+
   it("fetches stored replays by username when available", async () => {
     const { MongoDataStore } = await loadModule();
     const store = new MongoDataStore({ uri: "mongodb://ok", dbName: "db" });

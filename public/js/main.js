@@ -1141,8 +1141,8 @@ async function onGameOver(finalScore) {
 
   if (net.user) {
     const bestBefore = net.user ? (net.user.bestScore | 0) : 0;
-    const isNewBest = (finalScore | 0) > bestBefore;
-    const replayPayload = isNewBest ? buildReplayPayload(activeRun, finalScore | 0) : null;
+    const reachedBest = (finalScore | 0) >= bestBefore;
+    const replayPayload = reachedBest ? buildReplayPayload(activeRun, finalScore | 0) : null;
     const res = await apiSubmitScore(finalScore | 0, replayPayload);
     if (res && res.ok && res.user) {
       net.online = true;

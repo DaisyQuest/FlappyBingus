@@ -108,6 +108,22 @@ describe("scoreService", () => {
     expect(res.body.user.hasReplay).toBe(true);
   });
 
+  it("saves replay payloads again when tying an existing personal best", async () => {
+    const user = { key: "u", username: "User", bestScore: 10 };
+    const updated = { ...user, bestScore: 10 };
+    deps.dataStore.recordScore.mockResolvedValue(updated);
+    deps.sanitizeReplayPayload = vi.fn(() => ({ ok: true, replay: { seed: "abc" } }));
+    deps.saveReplayForBest = vi.fn(async () => ({ ...updated, bestReplayMeta: { seed: "abc", tickCount: 1 } }));
+    deps.publicUser = vi.fn((u) => ({ username: u.username, hasReplay: !!u.bestReplayMeta }));
+
+    const svc = createScoreService(deps);
+    const res = await svc.submitScore(user, 10, { replay: { seed: "abc" } });
+
+    expect(deps.saveReplayForBest).toHaveBeenCalled();
+    expect(res.body.replaySaved).toBe(true);
+    expect(res.body.user.hasReplay).toBe(true);
+  });
+
   it("surfaces replay errors without blocking score submissions", async () => {
     const user = { key: "u", username: "User", bestScore: 1 };
     deps.dataStore.recordScore.mockResolvedValue({ ...user, bestScore: 2 });
