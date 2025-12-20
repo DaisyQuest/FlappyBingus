@@ -121,28 +121,15 @@ function createTrailCard(doc, refs) {
   const trailOverlay = doc.createElement("div");
   trailOverlay.className = "trail-preview-overlay";
 
-  const trailMeta = doc.createElement("div");
-  trailMeta.className = "trail-preview-meta";
-  const trailLabel = doc.createElement("div");
-  trailLabel.className = "lbl";
-  trailLabel.textContent = "Trail preview";
-  const trailName = createElement(doc, refs, "div", {
-    id: "trailPreviewName",
-    className: "trail-preview-name",
-    text: "Classic"
-  });
-  trailMeta.append(trailLabel, trailName);
-
   const selectWrap = doc.createElement("div");
-  selectWrap.className = "trail-select-wrap";
-  const select = createElement(doc, refs, "select", { id: "trailSelect" });
+  selectWrap.className = "trail-select-wrap selectwrap";
+  const select = createElement(doc, refs, "select", {
+    id: "trailSelect",
+    attrs: { "aria-label": "Select a trail" }
+  });
   selectWrap.append(select);
 
-  const trailNote = doc.createElement("div");
-  trailNote.className = "trail-preview-note";
-  trailNote.textContent = "Pick a trail and watch the particles fly before you start.";
-
-  trailOverlay.append(trailMeta, selectWrap, trailNote);
+  trailOverlay.append(selectWrap);
   trailShell.append(trailCanvas, trailGlow, trailOverlay);
   trailRow.append(trailShell);
 

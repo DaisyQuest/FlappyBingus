@@ -23,6 +23,9 @@ describe("uiLayout", () => {
     expect(ui.menu?.id).toBe("menu");
     expect(ui.over?.id).toBe("over");
     expect(ui.start?.textContent).toContain("Start");
+    const overlay = mount.querySelector(".trail-preview-overlay");
+    expect(overlay?.querySelectorAll("select")?.length).toBe(1);
+    expect(overlay?.textContent.trim()).toBe("");
   });
 
   it("exposes interactive controls with expected defaults", () => {
@@ -33,7 +36,6 @@ describe("uiLayout", () => {
     expect(ui.exportGif?.disabled).toBe(true);
     expect(ui.exportMp4?.disabled).toBe(true);
     expect(ui.trailText?.textContent).toBe("classic");
-    expect(ui.trailPreviewName?.textContent).toBe("Classic");
     expect(ui.seedInput?.maxLength).toBe(48);
     expect(ui.musicVolume?.value).toBe("70");
     expect(ui.sfxVolume?.value).toBe("80");
@@ -51,7 +53,6 @@ describe("uiLayout", () => {
       "pbText",
       "trailText",
       "trailPreviewCanvas",
-      "trailPreviewName",
       "final",
       "overPB",
       "seedInput",

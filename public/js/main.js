@@ -48,6 +48,7 @@ import {
 
 import { buildGameUI } from "./uiLayout.js";
 import { TrailPreview } from "./trailPreview.js";
+import { normalizeTrailSelection, rebuildTrailOptions } from "./trailSelectUtils.js";
 
 // ---- DOM ----
 const ui = buildGameUI();
@@ -69,7 +70,6 @@ const {
   trailSelect,
   trailHint,
   trailPreviewCanvas,
-  trailPreviewName,
   bindWrap,
   bindHint,
   hsWrap,
@@ -167,6 +167,7 @@ let binds = loadGuestBinds();
 // config + assets
 let CFG = null;
 let trailPreview = null;
+let currentTrailId = "classic";
 
 // assets
 const playerImg = new Image();
@@ -276,7 +277,7 @@ let game = new Game({
   input,
   getTrailId: () => {
     if (net.user?.selectedTrail) return net.user.selectedTrail;
-    return trailSelect.value || "classic";
+    return currentTrailId || trailSelect.value || "classic";
   },
   getBinds: () => binds,
   onGameOver: (score) => onGameOver(score)
@@ -352,17 +353,19 @@ function getTrailDisplayName(id) {
 }
 
 function applyTrailSelection(id) {
+  const safeId = id || "classic";
+  currentTrailId = safeId;
   if (trailText) {
-    trailText.textContent = id;
+    trailText.textContent = getTrailDisplayName(safeId);
   }
-  if (trailPreviewName) {
-    trailPreviewName.textContent = getTrailDisplayName(id);
+  if (trailSelect && trailSelect.value !== safeId) {
+    trailSelect.value = safeId;
   }
-  trailPreview?.setTrail(id);
+  trailPreview?.setTrail(safeId);
 }
 
 function resumeTrailPreview(selectedId = trailSelect?.value || "classic") {
-  applyTrailSelection(selectedId || "classic");
+  applyTrailSelection(selectedId || currentTrailId || "classic");
   trailPreview?.start();
 }
 
@@ -378,22 +381,16 @@ function getUnlockedTrails(bestScore) {
 function fillTrailSelect() {
   const best = (net.user ? (net.user.bestScore | 0) : readLocalBest());
   const unlocked = new Set(getUnlockedTrails(best));
-  const selected = net.user?.selectedTrail || trailSelect.value || "classic";
+  const selected = normalizeTrailSelection({
+    currentId: currentTrailId,
+    userSelectedId: net.user?.selectedTrail,
+    selectValue: trailSelect?.value,
+    unlockedIds: unlocked,
+    fallbackId: "classic"
+  });
 
-  trailSelect.innerHTML = "";
-  for (const t of net.trails) {
-    const opt = document.createElement("option");
-    opt.value = t.id;
-    const locked = !unlocked.has(t.id);
-    opt.textContent = locked ? `${t.name} (locked: ${t.minScore})` : t.name;
-    opt.disabled = locked;
-    trailSelect.appendChild(opt);
-  }
-
-  const safeSel = unlocked.has(selected) ? selected : "classic";
-  trailSelect.value = safeSel;
-
-  applyTrailSelection(safeSel);
+  rebuildTrailOptions(trailSelect, net.trails, unlocked, selected);
+  applyTrailSelection(selected);
   pbText.textContent = String(best);
 
   if (!net.user) {
@@ -635,6 +632,11 @@ trailSelect.addEventListener("change", async () => {
   const id = trailSelect.value;
   applyTrailSelection(id);
   trailPreview?.start();
+  if (net.user) {
+    net.user = { ...net.user, selectedTrail: id };
+  } else {
+    currentTrailId = id;
+  }
 
   if (!net.user) return;
 

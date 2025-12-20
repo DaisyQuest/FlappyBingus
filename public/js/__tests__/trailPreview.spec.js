@@ -96,4 +96,32 @@ describe("TrailPreview", () => {
     expect(cancel).toHaveBeenCalledWith(77);
     expect(preview.running).toBe(false);
   });
+
+  it("binds animation frame callbacks to the global context to avoid illegal invocations", () => {
+    const { canvas } = makeCanvas();
+    const cancel = vi.fn(function (id) {
+      if (this !== globalThis) throw new TypeError("Illegal invocation");
+      return id;
+    });
+    let rafCallback = null;
+    const raf = vi.fn(function (cb) {
+      if (this !== globalThis) throw new TypeError("Illegal invocation");
+      rafCallback = cb;
+      return 42;
+    });
+
+    const preview = new TrailPreview({
+      canvas,
+      playerImg: {},
+      requestFrame: raf,
+      cancelFrame: cancel,
+      now: () => 16
+    });
+
+    expect(() => preview.start()).not.toThrow();
+    expect(() => rafCallback?.(0)).not.toThrow();
+    preview.stop();
+    expect(raf).toHaveBeenCalled();
+    expect(cancel).toHaveBeenCalledWith(42);
+  });
 });

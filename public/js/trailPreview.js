@@ -29,8 +29,10 @@ export class TrailPreview {
     this.H = 180;
     this.DPR = Math.max(1, (typeof window !== "undefined" ? window.devicePixelRatio || 1 : 1));
 
-    this._raf = requestFrame;
-    this._cancel = cancelFrame;
+    const bindToGlobal = (fn) => (typeof fn === "function" ? fn.bind(globalThis) : null);
+
+    this._raf = bindToGlobal(requestFrame);
+    this._cancel = bindToGlobal(cancelFrame);
     this._now = now;
     this._frame = null;
     this._tick = this._tick.bind(this);
