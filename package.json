@@ -8,7 +8,12 @@
     "node": ">=24"
   },
   "scripts": {
-    "start": "node server.cjs"
+    "start": "node server.cjs",
+    "test:headless": "vitest run",
+    "test:headless:watch": "vitest watch",
+    "test:coverage": "vitest run --coverage",
+    "test:coverage:summary": "npm run test:coverage && node scripts/coverage-summary.js",
+    "test:report": "npm run test:coverage:summary"
   },
   "dependencies": {
     "@ffmpeg/core": "^0.12.10",
@@ -16,5 +21,9 @@
     "@ffmpeg/util": "^0.12.2",
     "ffmpeg": "^0.0.4",
     "mongodb": "^6.9.0"
+  },
+  "devDependencies": {
+    "@vitest/coverage-v8": "^4.0.16",
+    "vitest": "^4.0.16"
   }
 }
