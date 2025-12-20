@@ -101,4 +101,16 @@ describe("GameEngine", () => {
     expect(snap.events[0].time).toBe(0);
     expect(snap.events[1].time).toBeCloseTo(10, 5);
   });
+
+  it("trims event history when configured", () => {
+    const engine = new GameEngine({ config: { eventBufferSize: 2 } });
+    engine.emit("a");
+    engine.emit("b");
+    engine.emit("c");
+    const snap = engine.getSnapshot();
+
+    expect(snap.events).toHaveLength(2);
+    expect(snap.events[0].type).toBe("b");
+    expect(snap.events[1].type).toBe("c");
+  });
 });
