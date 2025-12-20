@@ -71,6 +71,7 @@
     .hero-inputs{display:flex;flex-direction:column;gap:12px;align-items:center;margin-top:6px;width:min(640px,100%);padding:10px 12px;border-radius:18px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.12);box-shadow:0 10px 26px rgba(0,0,0,.28)}
     .input-row{width:100%;display:grid;grid-template-columns:1fr auto;gap:10px}
     .input-row.single{grid-template-columns:1fr}
+    .input-row.preview-row{grid-template-columns:1fr 220px;align-items:start}
     .menu-shell{display:grid;grid-template-columns:1fr 1fr;gap:12px;align-items:start;padding:6px;margin-top:12px}
     @media (max-width: 900px){ .menu-shell{grid-template-columns:1fr} .title-pill{min-width:0} }
     .card{
@@ -250,13 +251,15 @@
             <button id="saveUserBtn">Save</button>
           </div>
           <div class="hint" id="userHint" style="width:100%;text-align:left">Not signed in.</div>
-          <div class="input-row">
-            <select id="trailSelect"></select>
-            <div class="pill note" style="justify-content:center;min-width:120px"><span class="dot"></span><span class="tiny-label">Live preview</span></div>
-          </div>
-          <div class="trail-preview">
-            <canvas id="trailPreviewCanvas" width="320" height="140" aria-label="Trail preview canvas"></canvas>
-            <div class="trail-preview-label">Preview</div>
+          <div class="input-row preview-row">
+            <div class="field" style="margin:0">
+              <select id="trailSelect"></select>
+              <div class="pill note" style="margin-top:8px;justify-content:center;min-width:120px"><span class="dot"></span><span class="tiny-label">Live preview</span></div>
+            </div>
+            <div class="trail-preview">
+              <canvas id="trailPreviewCanvas" width="320" height="140" aria-label="Trail preview canvas"></canvas>
+              <div class="trail-preview-label">Preview</div>
+            </div>
           </div>
           <div class="hint" id="trailHint" style="width:100%;text-align:left">Unlock trails by improving your personal best.</div>
           <div class="pills-row" style="width:100%">
