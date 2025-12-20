@@ -533,8 +533,10 @@ function renderStatusPage(status) {
 async function serveStatic(reqPath, res) {
   // Serve engine modules for browser imports (for headless bridge + parity tests)
   if (reqPath.startsWith("/engine/")) {
-    const decodedEngine = safeDecodePath(reqPath.replace(/^\/engine\//, ""));
-    if (decodedEngine == null) return notFound(res);
+    const decodedEnginePath = safeDecodePath(reqPath);
+    if (decodedEnginePath == null) return notFound(res);
+    const decodedEngine = decodedEnginePath.replace(/^engine[\\/]/, "");
+    if (!decodedEngine) return notFound(res);
     const engineRoot = path.resolve(process.cwd(), "engine");
     const resolvedEngine = path.resolve(engineRoot, decodedEngine);
     if (!resolvedEngine.startsWith(engineRoot + path.sep) && resolvedEngine !== engineRoot) {
