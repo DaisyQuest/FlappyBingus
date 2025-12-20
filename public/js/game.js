@@ -305,6 +305,16 @@ export class Game {
     return (x + w >= -m) && (x <= this.W + m) && (y + h >= -m) && (y <= this.H + m);
   }
 
+  _scorePopupAnchor() {
+    const p = this.player;
+    const offsetX = Math.max(24, p.r * 1.35);
+    const offsetY = Math.max(20, p.r * 1.1);
+    const pad = 14;
+    const x = clamp(p.x + offsetX, pad, this.W - pad);
+    const y = clamp(p.y - offsetY, pad, this.H - pad);
+    return { x, y };
+  }
+
   _difficulty01() {
     const t = this.timeAlive, s = this.score;
     const tc = Math.max(1e-3, Number(this.cfg.pipes.difficulty.timeToMax) || 38);
@@ -928,7 +938,8 @@ export class Game {
         if (res.awarded) {
           const pts = res.points || 0;
           const perfectStyle = buildScorePopupStyle({ combo: res.streak || this.perfectCombo, variant: "perfect" });
-          this.floats.push(new FloatText(`+${pts}`, this.player.x, this.player.y - this.player.r * 2.0, perfectStyle.color, perfectStyle));
+          const anchor = this._scorePopupAnchor();
+          this.floats.push(new FloatText(`+${pts}`, anchor.x, anchor.y, perfectStyle.color, perfectStyle));
 
           for (let k = 0; k < 28; k++) {
             const a = rand(0, Math.PI * 2), sp = rand(60, 320);
@@ -977,7 +988,8 @@ export class Game {
         this.score += pts;
 
         const popupStyle = buildScorePopupStyle({ combo: this.combo, variant: "orb" });
-        this.floats.push(new FloatText(`+${pts}`, ob.x, ob.y, popupStyle.color, popupStyle));
+        const anchor = this._scorePopupAnchor();
+        this.floats.push(new FloatText(`+${pts}`, anchor.x, anchor.y, popupStyle.color, popupStyle));
 
         for (let k = 0; k < 18; k++) {
           const a = rand(0, Math.PI * 2), sp = rand(40, 240);
@@ -1276,34 +1288,34 @@ _drawOrb(o) {
   _drawHUD() {
     const ctx = this.ctx;
 
-    // score (top-left)
+    // score (centered, near bottom)
     ctx.save();
-    ctx.textAlign = "left"; ctx.textBaseline = "top";
-    const scoreBg = ctx.createLinearGradient(0, 0, 0, 86);
-    scoreBg.addColorStop(0, "rgba(16,25,48,.75)");
-    scoreBg.addColorStop(1, "rgba(24,36,68,.35)");
-    ctx.shadowColor = "rgba(0,0,0,.60)"; ctx.shadowBlur = 18; ctx.shadowOffsetY = 4;
-    ctx.fillStyle = scoreBg;
-    this._roundRect(10, 8, 180, 74, 16); ctx.fill();
+    const scoreX = this.W * 0.5;
+    const scoreY = this.H * 0.95;
+    const bubbleSize = clamp(Math.min(this.W, this.H) * 0.18, 80, 190);
+
+    ctx.textAlign = "center"; ctx.textBaseline = "middle";
+    ctx.font = `900 ${bubbleSize}px "Baloo 2","Fredoka One",system-ui,-apple-system,Segoe UI,Roboto,sans-serif`;
+    ctx.shadowColor = "rgba(0,0,0,.45)";
+    ctx.shadowBlur = 18; ctx.shadowOffsetY = 4;
+    ctx.lineJoin = "round";
+
+    const bubble = ctx.createRadialGradient(scoreX, scoreY, bubbleSize * 0.15, scoreX, scoreY, bubbleSize * 0.85);
+    bubble.addColorStop(0, "rgba(255,255,255,.70)");
+    bubble.addColorStop(1, "rgba(160,210,255,.30)");
+
+    ctx.globalAlpha = 0.72;
+    ctx.fillStyle = bubble;
+    ctx.strokeStyle = "rgba(255,255,255,.32)";
+    ctx.lineWidth = Math.max(4, bubbleSize * 0.07);
+    ctx.strokeText(`${this.score | 0}`, scoreX, scoreY);
+    ctx.fillText(`${this.score | 0}`, scoreX, scoreY);
+
     ctx.shadowBlur = 0;
-
-    const scoreGlow = ctx.createLinearGradient(0, 0, 0, 42);
-    scoreGlow.addColorStop(0, "rgba(255,255,255,.95)");
-    scoreGlow.addColorStop(1, "rgba(190,215,255,.95)");
-    ctx.font = "900 26px system-ui,-apple-system,Segoe UI,Roboto,sans-serif";
-    ctx.shadowColor = "rgba(0,0,0,.55)"; ctx.shadowBlur = 10; ctx.shadowOffsetY = 2;
-    ctx.strokeStyle = "rgba(0,0,0,.45)";
-    ctx.lineWidth = 2.2;
-    ctx.fillStyle = scoreGlow;
-    ctx.strokeText("Score", 18, 12);
-    ctx.fillText("Score", 18, 12);
-
-    ctx.font = "900 36px system-ui,-apple-system,Segoe UI,Roboto,sans-serif";
-    ctx.shadowColor = "rgba(180,215,255,.75)"; ctx.shadowBlur = 18; ctx.shadowOffsetY = 3;
-    ctx.fillStyle = "rgba(255,255,255,.98)";
-    ctx.strokeText(`${this.score | 0}`, 18, 38);
-    ctx.fillText(`${this.score | 0}`, 18, 38);
-
+    ctx.lineWidth = Math.max(2, bubbleSize * 0.04);
+    ctx.strokeStyle = "rgba(120,210,255,.35)";
+    ctx.strokeText(`${this.score | 0}`, scoreX, scoreY);
+    
     // intensity (top-right)
     ctx.textAlign = "right";
     ctx.globalAlpha = 0.70;
