@@ -95,6 +95,58 @@ describe("config helpers", () => {
     process.env.MONGODB_PASSWORD = prevPw;
     process.env.MONGODB_URI = prevUri;
   });
+
+  it("appends the database name when missing from the URI", async () => {
+    const { resolveMongoConfig } = await loadModule();
+    const prevUri = process.env.MONGODB_URI;
+    const prevDb = process.env.MONGODB_DB;
+    const prevPw = process.env.MONGODB_PASSWORD;
+
+    process.env.MONGODB_URI = "mongodb://localhost:27017";
+    delete process.env.MONGODB_DB;
+    delete process.env.MONGODB_PASSWORD;
+
+    const cfg = resolveMongoConfig();
+
+    expect(cfg.uri).toBe("mongodb://localhost:27017/flappybingus");
+
+    process.env.MONGODB_URI = prevUri;
+    process.env.MONGODB_DB = prevDb;
+    process.env.MONGODB_PASSWORD = prevPw;
+  });
+
+  it("preserves trailing slashes when appending the database name", async () => {
+    const { resolveMongoConfig } = await loadModule();
+    const prevUri = process.env.MONGODB_URI;
+    const prevDb = process.env.MONGODB_DB;
+    const prevPw = process.env.MONGODB_PASSWORD;
+    process.env.MONGODB_URI = "mongodb://localhost:27017/";
+    process.env.MONGODB_DB = "flappybingus";
+    delete process.env.MONGODB_PASSWORD;
+
+    const cfg = resolveMongoConfig();
+
+    expect(cfg.uri).toContain("/flappybingus");
+
+    process.env.MONGODB_URI = prevUri;
+    process.env.MONGODB_DB = prevDb;
+    process.env.MONGODB_PASSWORD = prevPw;
+  });
+
+  it("falls back to defaults when no connection string is provided", async () => {
+    const { resolveMongoConfig } = await loadModule();
+    const prevUri = process.env.MONGODB_URI;
+    const prevDb = process.env.MONGODB_DB;
+
+    delete process.env.MONGODB_URI;
+    delete process.env.MONGODB_DB;
+
+    const cfg = resolveMongoConfig();
+    expect(cfg.uri).toBe("mongodb://localhost:27017/flappybingus");
+
+    process.env.MONGODB_URI = prevUri;
+    process.env.MONGODB_DB = prevDb;
+  });
 });
 
 describe("MongoDataStore connection lifecycle", () => {
@@ -128,10 +180,45 @@ describe("MongoDataStore connection lifecycle", () => {
     expect(store.status.lastError).toBe("boom");
   });
 
+  it("captures non-Error failures with a stringified lastError", async () => {
+    const { MongoDataStore } = await loadModule();
+    const store = new MongoDataStore({ uri: "mongodb://fail", dbName: "db" });
+    const err = { reason: "kaput", toString: () => "kaput" };
+    vi.spyOn(store, "connect").mockRejectedValue(err);
+
+    await expect(store.ensureConnected()).rejects.toEqual(err);
+    expect(store.status.lastError).toBe("kaput");
+  });
+
   it("throws when accessing users collection without a db", async () => {
     const { MongoDataStore } = await loadModule();
     const store = new MongoDataStore({ uri: "mongodb://no", dbName: "db" });
     expect(() => store.usersCollection()).toThrow("db_not_connected");
+  });
+
+  it("fetches users by key while ensuring connectivity", async () => {
+    const { MongoDataStore } = await loadModule();
+    const store = new MongoDataStore({ uri: "mongodb://ok", dbName: "db" });
+    store.ensureConnected = vi.fn();
+    const found = { key: "abc" };
+    store.usersCollection = () => ({ findOne: vi.fn(async (query) => ({ ...found, ...query })) });
+
+    const user = await store.getUserByKey("abc");
+
+    expect(store.ensureConnected).toHaveBeenCalled();
+    expect(user).toEqual({ key: "abc" });
+  });
+
+  it("returns cached connections without re-initializing a client", async () => {
+    const { MongoDataStore } = await loadModule();
+    const store = new MongoDataStore({ uri: "mongodb://ok", dbName: "db" });
+    store.client = { cached: true };
+    store.db = { name: "db" };
+
+    const db = await store.connect();
+
+    expect(db).toEqual({ name: "db" });
+    expect(store.status.lastAttemptAt).toBeNull();
   });
 });
 
@@ -234,6 +321,112 @@ describe("MongoDataStore mutations and reads", () => {
     expect(collection.findOne).toHaveBeenCalledTimes(2);
     expect(result).toEqual({ key: "dup", username: "Dup" });
   });
+
+  it("returns existing users unchanged when usernames match", async () => {
+    const { MongoDataStore } = await loadModule();
+    const existing = { key: "abc", username: "Same" };
+    const collection = {
+      findOne: vi.fn().mockResolvedValue(existing)
+    };
+    const store = new MongoDataStore({ uri: "mongodb://ok", dbName: "db" });
+    store.ensureConnected = vi.fn();
+    store.usersCollection = () => collection;
+
+    const result = await store.upsertUser("Same", "abc", {});
+
+    expect(collection.findOne).toHaveBeenCalledTimes(1);
+    expect(result).toBe(existing);
+  });
+
+  it("upserts new users and returns the freshly inserted document", async () => {
+    const { MongoDataStore } = await loadModule();
+    const inserted = { _id: "1", key: "abc", username: "Fresh" };
+    const collection = {
+      findOne: vi.fn()
+        .mockResolvedValueOnce(null)
+        .mockResolvedValueOnce(inserted),
+      insertOne: vi.fn(async () => ({ insertedId: "1" }))
+    };
+    const store = new MongoDataStore({ uri: "mongodb://ok", dbName: "db" });
+    store.ensureConnected = vi.fn();
+    store.usersCollection = () => collection;
+
+    const result = await store.upsertUser("Fresh", "abc", { createdAt: 1 });
+
+    expect(collection.insertOne).toHaveBeenCalledWith(expect.objectContaining({ key: "abc", username: "Fresh" }));
+    expect(result).toBe(inserted);
+  });
+
+  it("rethrows unexpected insert errors", async () => {
+    const { MongoDataStore } = await loadModule();
+    const collection = {
+      findOne: vi.fn().mockResolvedValue(null),
+      insertOne: vi.fn(async () => { const err = new Error("kaput"); err.code = 42; throw err; })
+    };
+    const store = new MongoDataStore({ uri: "mongodb://ok", dbName: "db" });
+    store.ensureConnected = vi.fn();
+    store.usersCollection = () => collection;
+
+    await expect(store.upsertUser("Boom", "abc", {})).rejects.toThrow("kaput");
+  });
+
+  it("upserts with default metadata when no defaults are provided", async () => {
+    const { MongoDataStore } = await loadModule();
+    const now = 9_000;
+    vi.spyOn(Date, "now").mockReturnValue(now);
+    const inserted = { _id: "1", key: "abc", username: "Fresh" };
+    const collection = {
+      findOne: vi.fn()
+        .mockResolvedValueOnce(null)
+        .mockResolvedValueOnce(inserted),
+      insertOne: vi.fn(async () => ({ insertedId: "1" }))
+    };
+    const store = new MongoDataStore({ uri: "mongodb://ok", dbName: "db" });
+    store.ensureConnected = vi.fn();
+    store.usersCollection = () => collection;
+
+    const result = await store.upsertUser("Fresh", "abc", undefined);
+
+    expect(collection.insertOne).toHaveBeenCalledWith({ key: "abc", username: "Fresh", createdAt: now, updatedAt: now });
+    expect(result).toBe(inserted);
+  });
+
+  it("clamps highscore queries to defaults and sanitizes values", async () => {
+    const { MongoDataStore } = await loadModule();
+    const docs = [
+      { username: "zero", bestScore: null, updatedAt: undefined }
+    ];
+    const chain = {
+      sort: vi.fn().mockReturnThis(),
+      limit: vi.fn().mockReturnThis(),
+      toArray: vi.fn(async () => docs)
+    };
+    const coll = makeCollection({ find: vi.fn(() => chain) });
+    const store = new MongoDataStore({ uri: "mongodb://ok", dbName: "db" });
+    store.ensureConnected = vi.fn();
+    store.usersCollection = () => coll;
+
+    const result = await store.topHighscores(0);
+
+    expect(chain.limit).toHaveBeenCalledWith(20);
+    expect(result[0]).toEqual({ username: "zero", bestScore: 0, updatedAt: 0 });
+  });
+
+  it("caps recent user queries at a minimum of one and defaults on falsy values", async () => {
+    const { MongoDataStore } = await loadModule();
+    const chain = {
+      sort: vi.fn().mockReturnThis(),
+      limit: vi.fn().mockReturnThis(),
+      toArray: vi.fn(async () => [{ username: "x" }])
+    };
+    const coll = makeCollection({ find: vi.fn(() => chain) });
+    const store = new MongoDataStore({ uri: "mongodb://ok", dbName: "db" });
+    store.ensureConnected = vi.fn();
+    store.usersCollection = () => coll;
+
+    await store.recentUsers(0);
+    expect(chain.limit).toHaveBeenCalledWith(5);
+  });
 });
 
 describe("cleanup and status", () => {
@@ -250,5 +443,12 @@ describe("cleanup and status", () => {
     const status = store.getStatus();
     expect(status.uri).toBe(store.maskedUri);
     expect(status.dbName).toBe(store.dbName);
+  });
+
+  it("ignores close requests when no client exists", async () => {
+    const { MongoDataStore } = await loadModule();
+    const store = new MongoDataStore({ uri: "mongodb://ok", dbName: "db" });
+
+    await expect(store.close()).resolves.toBeUndefined();
   });
 });

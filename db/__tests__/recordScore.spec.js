@@ -217,4 +217,14 @@ describe("MongoDataStore.recordScore", () => {
     await expect(store.recordScore({}, 5)).rejects.toThrow("user_key_required");
     expect(store.usersCollection).not.toHaveBeenCalled();
   });
+
+  it("throws when the update result is unexpectedly empty", async () => {
+    const store = new MongoDataStore({ uri: "mongodb://test", dbName: "db" });
+    store.ensureConnected = vi.fn();
+    store.usersCollection = () => ({
+      findOneAndUpdate: vi.fn(async () => ({ value: null }))
+    });
+
+    await expect(store.recordScore({ key: "missing" }, 1)).rejects.toThrow("record_score_failed");
+  });
 });
