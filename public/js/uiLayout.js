@@ -109,18 +109,6 @@ function createTrailCard(doc, refs) {
   trailRow.className = "minirow trail-row";
   const trailShell = doc.createElement("div");
   trailShell.className = "trail-preview-shell";
-
-  const trailCanvas = createElement(doc, refs, "canvas", {
-    id: "trailPreviewCanvas",
-    className: "trail-preview-canvas"
-  });
-
-  const trailGlow = doc.createElement("div");
-  trailGlow.className = "trail-preview-glow";
-
-  const trailOverlay = doc.createElement("div");
-  trailOverlay.className = "trail-preview-overlay";
-
   const selectWrap = doc.createElement("div");
   selectWrap.className = "trail-select-wrap selectwrap";
   const select = createElement(doc, refs, "select", {
@@ -129,8 +117,11 @@ function createTrailCard(doc, refs) {
   });
   selectWrap.append(select);
 
-  trailOverlay.append(selectWrap);
-  trailShell.append(trailCanvas, trailGlow, trailOverlay);
+  const selectPanel = doc.createElement("div");
+  selectPanel.className = "trail-select-panel";
+  selectPanel.append(selectWrap);
+
+  trailShell.append(selectPanel);
   trailRow.append(trailShell);
 
   const trailHint = createElement(doc, refs, "div", {
@@ -142,6 +133,22 @@ function createTrailCard(doc, refs) {
   trailField.append(trailTitle, trailRow, trailHint);
   card.append(title, actions, divider, trailField);
   return card;
+}
+
+function createTrailPreviewOverlay(doc, refs) {
+  const overlay = doc.createElement("div");
+  overlay.className = "trail-preview-overlay";
+
+  const trailGlow = doc.createElement("div");
+  trailGlow.className = "trail-preview-glow";
+
+  const trailCanvas = createElement(doc, refs, "canvas", {
+    id: "trailPreviewCanvas",
+    className: "trail-preview-canvas"
+  });
+
+  overlay.append(trailGlow, trailCanvas);
+  return overlay;
 }
 
 function createStatusCard(doc, refs) {
@@ -357,6 +364,7 @@ function createMenuScreen(doc, refs) {
   const screen = createElement(doc, refs, "div", { id: "menu", className: "screen" });
   const panel = doc.createElement("div");
   panel.className = "panel";
+  const trailOverlay = createTrailPreviewOverlay(doc, refs);
   const aurora = doc.createElement("div");
   aurora.className = "light-aurora";
   const content = doc.createElement("div");
@@ -438,7 +446,7 @@ function createMenuScreen(doc, refs) {
 
   shell.append(mainCard, sideStack);
   content.append(header, viewMain, viewSettings, shell);
-  panel.append(aurora, content);
+  panel.append(trailOverlay, aurora, content);
   screen.append(panel);
   return screen;
 }

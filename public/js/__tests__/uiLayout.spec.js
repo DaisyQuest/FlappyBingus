@@ -23,9 +23,12 @@ describe("uiLayout", () => {
     expect(ui.menu?.id).toBe("menu");
     expect(ui.over?.id).toBe("over");
     expect(ui.start?.textContent).toContain("Start");
-    const overlay = mount.querySelector(".trail-preview-overlay");
-    expect(overlay?.querySelectorAll("select")?.length).toBe(1);
-    expect(overlay?.textContent.trim()).toBe("");
+    const overlay = mount.querySelector(".panel .trail-preview-overlay");
+    expect(overlay?.querySelectorAll(".trail-preview-canvas")?.length).toBe(1);
+    expect(overlay?.querySelectorAll(".trail-preview-glow")?.length).toBe(1);
+    const selectPanel = mount.querySelector(".trail-select-panel");
+    expect(selectPanel?.querySelectorAll("select")?.length).toBe(1);
+    expect(selectPanel?.textContent.trim()).toBe("");
   });
 
   it("exposes interactive controls with expected defaults", () => {
@@ -75,6 +78,20 @@ describe("uiLayout", () => {
     expect(howToItems?.length).toBe(6);
     expect(ui.seedHint?.textContent).toContain("pipe/orb");
     expect(ui.trailHint?.textContent).toContain("Unlock trails");
+  });
+
+  it("layers the trail preview behind panel content while keeping menus interactive", () => {
+    buildGameUI({ document, mount });
+    const panel = mount.querySelector(".panel");
+    const overlay = panel?.querySelector(".trail-preview-overlay");
+    const aurora = panel?.querySelector(".light-aurora");
+    const content = panel?.querySelector(".content-layer");
+
+    expect(panel?.firstElementChild).toBe(overlay);
+    expect(panel?.contains(aurora)).toBe(true);
+    expect(panel?.contains(content)).toBe(true);
+    expect(overlay?.contains(content)).toBe(false);
+    expect(overlay?.contains(aurora)).toBe(false);
   });
 
   it("preserves a single #wrap when mounted on body without a custom mount", () => {
