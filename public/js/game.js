@@ -485,6 +485,22 @@ export class Game {
     );
   }
 
+  _handlePipeCollision(hit, bounceCap) {
+    if (this.player.dashT > 0) {
+      if (this.player.dashBounces < bounceCap) {
+        this._applyDashReflect(hit);
+        return "reflected";
+      }
+      this.state = STATE.OVER; // exceeded reflect cap -> normal collision
+      this.onGameOver(this.score | 0);
+      return "over";
+    }
+
+    this.state = STATE.OVER; // freeze
+    this.onGameOver(this.score | 0);
+    return "over";
+  }
+
   _useSkill(name) {
     if (!this.cfg.skills[name]) return;
     if (this.cds[name] > 0) return;
@@ -942,18 +958,10 @@ export class Game {
         if (!hit) continue;
 
         if (this.player.dashT > 0) {
-          if (this.player.dashBounces < bounceCap) {
-            this._applyDashReflect(hit);
-            // Only process one reflection per frame to avoid ping-pong chaos.
-            break;
-          } else {
-            this.state = STATE.OVER; // exceeded reflect cap -> normal collision
-            this.onGameOver(this.score | 0);
-            return;
-          }
-        } else {
-          this.state = STATE.OVER; // freeze
-          this.onGameOver(this.score | 0);
+          const res = this._handlePipeCollision(hit, bounceCap);
+          if (res === "reflected") break; // Only process one reflection per frame to avoid ping-pong chaos.
+          if (res === "over") return;
+        } else if (this._handlePipeCollision(hit, bounceCap) === "over") {
           return;
         }
       }
