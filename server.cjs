@@ -557,7 +557,7 @@ async function serveStatic(reqPath, res) {
 
   // Optional: ignore noisy browser probes
   if (reqPath === "/favicon.ico") {
-    return send(res, 204, { "Cache-Control": "public, max-age=86400" }, "");
+    return send(res, 204, { "Cache-Control": "no-store" }, "");
   }
 
   const decoded = safeDecodePath(reqPath);
@@ -583,8 +583,7 @@ async function serveStatic(reqPath, res) {
 
   const ext = path.extname(resolved).toLowerCase();
   const type = MIME[ext] || "application/octet-stream";
-  const isHtml = ext === ".html";
-  const cache = isHtml ? "no-store" : "public, max-age=3600";
+  const cache = "no-store";
 
   try {
     const data = await fs.readFile(resolved);
