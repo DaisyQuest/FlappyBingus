@@ -1,5 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
+import { DEFAULT_CONFIG } from "../config.js";
 import { TrailPreview } from "../trailPreview.js";
+import { clamp } from "../util.js";
 
 const makeCtx = ({ linearGradient, radialGradient } = {}) => {
   const gradient = { addColorStop: vi.fn() };
@@ -139,6 +141,33 @@ describe("TrailPreview", () => {
 
     preview._draw();
     expect(ctx.drawImage).toHaveBeenCalled();
+  });
+
+  it("sizes the preview player to match in-game defaults", () => {
+    const { canvas, ctx } = makeCanvas();
+    const playerImg = { complete: true, naturalWidth: 32, naturalHeight: 32 };
+    const preview = new TrailPreview({
+      canvas,
+      playerImg,
+      requestFrame: null,
+      cancelFrame: null,
+      now: () => 0
+    });
+
+    preview._updatePlayer(1 / 60);
+
+    const cfg = DEFAULT_CONFIG.player;
+    const target = clamp(Math.min(preview.W, preview.H) * cfg.sizeScale, cfg.sizeMin, cfg.sizeMax);
+    const expectedR = target * cfg.radiusScale;
+
+    expect(preview.player.w).toBeCloseTo(target);
+    expect(preview.player.h).toBeCloseTo(target);
+    expect(preview.player.r).toBeCloseTo(expectedR);
+
+    preview._draw();
+    const call = ctx.drawImage.mock.calls.at(-1);
+    expect(call?.[3]).toBeCloseTo(target);
+    expect(call?.[4]).toBeCloseTo(target);
   });
 
   it("falls back to solid fill when gradients are unavailable", () => {
