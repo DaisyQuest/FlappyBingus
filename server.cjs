@@ -11,6 +11,7 @@ const path = require("node:path");
 const { URL } = require("node:url");
 
 const { MongoDataStore, resolveMongoConfig } = require("./db/mongo.cjs");
+const { createScoreService, clampScoreDefault } = require("./services/scoreService.cjs");
 
 // --------- Config (env overrides) ----------
 const PORT = Number(process.env.PORT || 3000);
@@ -435,6 +436,15 @@ async function topHighscores(limit = 25) {
   return dataStore.topHighscores(limit);
 }
 
+const scoreService = createScoreService({
+  dataStore,
+  ensureUserSchema,
+  publicUser,
+  listHighscores: () => topHighscores(20),
+  trails: TRAILS,
+  clampScore: clampScoreDefault
+});
+
 async function ensureDatabase(res) {
   try {
     await dataStore.ensureConnected();
@@ -733,7 +743,6 @@ async function route(req, res) {
     if (rateLimit(req, res, "/api/score")) return;
     if (!(await ensureDatabase(res))) return;
     const u = await getUserFromReq(req);
-    if (!u) return unauthorized(res);
 
     let body;
     try {
@@ -741,20 +750,15 @@ async function route(req, res) {
     } catch {
       return badRequest(res, "invalid_json");
     }
-    const s = Number(body.score);
-    if (!Number.isFinite(s)) return badRequest(res, "invalid_score");
 
-    const score = Math.max(0, Math.min(1_000_000_000, Math.floor(s)));
-
-    const updated = await dataStore.recordScore(u, score);
-    ensureUserSchema(updated);
-
-    sendJson(res, 200, {
-      ok: true,
-      user: publicUser(updated),
-      trails: TRAILS,
-      highscores: await topHighscores(20)
-    });
+    const { status, body: responseBody, error } = await scoreService.submitScore(u, body.score);
+    if (status >= 200 && status < 300 && responseBody) {
+      sendJson(res, status, responseBody);
+    } else {
+      if (status === 401) return unauthorized(res);
+      if (status === 400) return badRequest(res, error || "invalid_score");
+      sendJson(res, status, { ok: false, error: error || "score_persist_failed" });
+    }
     return;
   }
 
