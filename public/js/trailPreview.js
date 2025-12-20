@@ -6,6 +6,11 @@ import { clamp, createSeededRand } from "./util.js";
 import { Part } from "./entities.js";
 import { trailStyleFor } from "./trailStyles.js";
 
+const TRAIL_LIFE_SCALE = 1.45;
+const TRAIL_DISTANCE_SCALE = 1.18;
+const TRAIL_JITTER_SCALE = 0.55;
+const TRAIL_AURA_RATE = 0.42;
+
 export class TrailPreview {
   constructor({
     canvas,
@@ -24,6 +29,7 @@ export class TrailPreview {
     this.trailAcc = 0;
     this.trailGlintAcc = 0;
     this.trailSparkAcc = 0;
+    this.trailAuraAcc = 0;
     this.player = { x: 0, y: 0, vx: 0, vy: 0, prevX: 0, prevY: 0, r: 18, w: 0, h: 0, phase: 0 };
 
     this.W = 320;
@@ -51,6 +57,7 @@ export class TrailPreview {
     this.trailAcc = 1;
     this.trailGlintAcc = 1;
     this.trailSparkAcc = 1;
+    this.trailAuraAcc = 1;
     this.player.phase = 0;
     this.parts.length = 0;
     this._rand = createSeededRand(`trail-preview-${nextId}`);
@@ -180,12 +187,22 @@ export class TrailPreview {
     const st = trailStyleFor(this.trailId);
     const glint = st.glint || {};
     const sparkle = st.sparkle || {};
+    const aura = st.aura || {};
+
+    const baseLifeScale = st.lifeScale ?? TRAIL_LIFE_SCALE;
+    const distanceScale = st.distanceScale ?? TRAIL_DISTANCE_SCALE;
+    const auraRate = aura.rate ?? st.rate * TRAIL_AURA_RATE;
+    const auraLifeScale = aura.lifeScale ?? baseLifeScale;
+    const auraDistanceScale = aura.distanceScale ?? distanceScale;
+    const auraSizeScale = aura.sizeScale ?? 1.08;
+    const jitterScale = st.jitterScale ?? TRAIL_JITTER_SCALE;
 
     const flow = 0.8 + 0.4 * Math.sin(this.player.phase * 1.6);
     this.trailHue = (this.trailHue + dt * (st.hueRate || 220)) % 360;
     this.trailAcc += dt * st.rate * flow;
     this.trailGlintAcc += dt * (glint.rate || st.rate * 0.55);
     this.trailSparkAcc += dt * (sparkle.rate || 34);
+    this.trailAuraAcc += dt * auraRate;
 
     const n = this.trailAcc | 0;
     this.trailAcc -= n;
@@ -193,6 +210,8 @@ export class TrailPreview {
     this.trailGlintAcc -= g;
     const s = this.trailSparkAcc | 0;
     this.trailSparkAcc -= s;
+    const a = this.trailAuraAcc | 0;
+    this.trailAuraAcc -= a;
 
     const p = this.player;
     const vMag = Math.hypot(p.vx, p.vy) || 1;
@@ -204,21 +223,44 @@ export class TrailPreview {
 
     for (let i = 0; i < n; i++) {
       const jitter = this._randRange(0, Math.PI * 2);
-      const jx = Math.cos(jitter) * this._randRange(0, p.r * 0.35);
-      const jy = Math.sin(jitter) * this._randRange(0, p.r * 0.35);
+      const jx = Math.cos(jitter) * this._randRange(0, p.r * jitterScale);
+      const jy = Math.sin(jitter) * this._randRange(0, p.r * jitterScale);
 
-      const sp = this._randRange(st.speed[0], st.speed[1]);
+      const sp = this._randRange(st.speed[0], st.speed[1]) * distanceScale;
       const a = this._randRange(0, Math.PI * 2);
       const vx = backX * sp + Math.cos(a) * sp * 0.55;
       const vy = backY * sp + Math.sin(a) * sp * 0.55;
 
-      const life = this._randRange(st.life[0], st.life[1]);
-      const size = this._randRange(st.size[0], st.size[1]);
+      const life = this._randRange(st.life[0], st.life[1]) * baseLifeScale;
+      const size = this._randRange(st.size[0], st.size[1]) * 1.08;
 
       const color = st.color ? st.color({ i, hue: this.trailHue, rand: this._randRange.bind(this) }) : "rgba(140,220,255,.62)";
 
       const prt = new Part(bx + jx, by + jy, vx, vy, life, size, color, st.add);
       prt.drag = st.drag;
+      this.parts.push(prt);
+    }
+
+    for (let i = 0; i < a; i++) {
+      const ang = this._randRange(0, Math.PI * 2);
+      const wobble = this._randRange(-0.35, 0.35);
+      const orbit = this._randRange(aura.orbit?.[0] ?? p.r * 0.65, aura.orbit?.[1] ?? p.r * 1.65);
+      const px = p.x + Math.cos(ang) * orbit;
+      const py = p.y + Math.sin(ang) * orbit;
+
+      const sp = this._randRange(aura.speed?.[0] ?? st.speed[0] * 0.65, aura.speed?.[1] ?? st.speed[1] * 1.1) * auraDistanceScale;
+      const vx = Math.cos(ang + wobble) * sp;
+      const vy = Math.sin(ang + wobble) * sp;
+
+      const life = this._randRange(aura.life?.[0] ?? st.life[0] * 0.9, aura.life?.[1] ?? st.life[1] * 1.15) * auraLifeScale;
+      const size = this._randRange(aura.size?.[0] ?? st.size[0] * 0.9, aura.size?.[1] ?? st.size[1] * 1.25) * auraSizeScale;
+      const color = aura.color
+        ? aura.color({ i, hue: this.trailHue, rand: this._randRange.bind(this) })
+        : (st.color ? st.color({ i, hue: this.trailHue, rand: this._randRange.bind(this) }) : "rgba(140,220,255,.62)");
+
+      const prt = new Part(px, py, vx, vy, life, size, color, aura.add ?? st.add);
+      prt.drag = aura.drag ?? st.drag ?? 10.5;
+      prt.twinkle = aura.twinkle ?? true;
       this.parts.push(prt);
     }
 
@@ -228,11 +270,11 @@ export class TrailPreview {
       const px = bx + Math.cos(backA + Math.PI + spin) * off;
       const py = by + Math.sin(backA + Math.PI + spin) * off;
 
-      const sp = this._randRange(glint.speed?.[0] || 55, glint.speed?.[1] || 155);
+      const sp = this._randRange(glint.speed?.[0] || 55, glint.speed?.[1] || 155) * distanceScale;
       const vx = backX * sp * 0.42 + Math.cos(backA + Math.PI + spin) * sp * 0.58;
       const vy = backY * sp * 0.42 + Math.sin(backA + Math.PI + spin) * sp * 0.58;
 
-      const life = this._randRange(glint.life?.[0] || 0.18, glint.life?.[1] || 0.32);
+      const life = this._randRange(glint.life?.[0] || 0.18, glint.life?.[1] || 0.32) * baseLifeScale;
       const size = this._randRange(glint.size?.[0] || 1.2, glint.size?.[1] || 3.0);
 
       const color = glint.color
@@ -251,13 +293,13 @@ export class TrailPreview {
       const px = p.x + Math.cos(ang) * orbit;
       const py = p.y + Math.sin(ang) * orbit;
 
-      const sp = this._randRange(sparkle.speed?.[0] || 20, sparkle.speed?.[1] || 55);
+      const sp = this._randRange(sparkle.speed?.[0] || 20, sparkle.speed?.[1] || 55) * distanceScale;
       const wobble = this._randRange(-0.55, 0.55);
       const vx = Math.cos(ang + wobble) * sp * 0.65;
       const vy = Math.sin(ang + wobble) * sp * 0.65;
 
-      const life = this._randRange(sparkle.life?.[0] || 0.28, sparkle.life?.[1] || 0.46);
-      const size = this._randRange(sparkle.size?.[0] || 1.0, sparkle.size?.[1] || 2.4);
+      const life = this._randRange(sparkle.life?.[0] || 0.28, sparkle.life?.[1] || 0.46) * baseLifeScale;
+      const size = this._randRange(sparkle.size?.[0] || 1.0, sparkle.size?.[1] || 2.4) * 1.1;
       const color = sparkle.color
         ? sparkle.color({ i, hue: this.trailHue, rand: this._randRange.bind(this) })
         : "rgba(255,255,255,.88)";
