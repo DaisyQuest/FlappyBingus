@@ -146,7 +146,7 @@ input[type="text"]::placeholder{color:rgba(255,255,255,.45)}
 .hint{font-size:12.5px;color:rgba(255,255,255,.66);line-height:1.35}
 .trail-row{width:100%;flex-wrap:wrap;align-items:stretch}
 .trail-preview-shell{
-  position:relative;flex:1;width:100%;min-height:180px;overflow:hidden;border-radius:14px;
+  position:relative;flex:0 1 420px;width:100%;min-height:0;overflow:hidden;border-radius:14px;
   border:1px solid var(--panel-strong);
   background:
     radial-gradient(50% 45% at 24% 36%,rgba(150,210,255,.18),transparent 60%),
@@ -169,7 +169,7 @@ input[type="text"]::placeholder{color:rgba(255,255,255,.45)}
 }
 .trail-preview-overlay .trail-preview-glow{z-index:0}
 .trail-preview-overlay .trail-preview-canvas{z-index:1}
-.trail-select-panel{position:relative;z-index:1;display:flex;flex-direction:column;justify-content:flex-end;gap:8px;min-height:180px;padding:12px 12px 14px}
+.trail-select-panel{position:relative;z-index:1;display:flex;flex-direction:column;justify-content:flex-start;gap:8px;min-height:0;padding:10px 10px 12px}
 .trail-select-panel::before{
   content:"";position:absolute;inset:0;border-radius:14px;pointer-events:none;
   background:linear-gradient(180deg,rgba(6,10,22,.42),rgba(6,8,18,.16))

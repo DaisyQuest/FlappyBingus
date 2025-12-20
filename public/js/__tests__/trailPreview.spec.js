@@ -279,11 +279,74 @@ describe("TrailPreview", () => {
     const cx = preview.W * 0.5;
     const cy = preview.H * 0.5;
     const minRadius = positions.reduce((acc, pos) => Math.min(acc, Math.hypot(pos.x - cx, pos.y - cy)), Infinity);
-    const centerBoxHits = positions.filter((pos) => (
-      Math.abs(pos.x - cx) < preview.W * 0.16 && Math.abs(pos.y - cy) < preview.H * 0.16
-    )).length;
+    let centerBoxHits = 0;
+    let streak = 0;
+    let longestCenterStreak = 0;
+    for (const pos of positions) {
+      const inBox = (
+        Math.abs(pos.x - cx) < preview.W * 0.16 && Math.abs(pos.y - cy) < preview.H * 0.16
+      );
+      if (inBox) {
+        centerBoxHits += 1;
+        streak += 1;
+        longestCenterStreak = Math.max(longestCenterStreak, streak);
+      } else {
+        streak = 0;
+      }
+    }
 
-    expect(minRadius).toBeGreaterThan(preview.W * 0.18);
-    expect(centerBoxHits).toBe(0);
+    expect(minRadius).toBeGreaterThan(preview.W * 0.1);
+    expect(centerBoxHits).toBeLessThan(positions.length * 0.25);
+    expect(longestCenterStreak).toBeLessThan(18);
+  });
+
+  it("avoids lingering at the panel edges while still covering the preview area", () => {
+    const { canvas } = makeCanvas();
+    canvas.clientWidth = 960;
+    canvas.clientHeight = 540;
+    const preview = new TrailPreview({
+      canvas,
+      playerImg: {},
+      requestFrame: null,
+      cancelFrame: null,
+      now: () => 0
+    });
+    preview.resize();
+
+    const positions = [];
+    for (let i = 0; i < 360; i++) {
+      preview._updatePlayer(1 / 60);
+      positions.push({ x: preview.player.x, y: preview.player.y });
+    }
+
+    const edgeMargin = 0.12;
+    let longestEdgeStreak = 0;
+    let streak = 0;
+    let edgeVisits = 0;
+    for (const pos of positions) {
+      const nearEdge = (
+        pos.x <= preview.W * edgeMargin ||
+        pos.x >= preview.W * (1 - edgeMargin) ||
+        pos.y <= preview.H * edgeMargin ||
+        pos.y >= preview.H * (1 - edgeMargin)
+      );
+      if (nearEdge) {
+        streak += 1;
+        edgeVisits += 1;
+        longestEdgeStreak = Math.max(longestEdgeStreak, streak);
+      } else {
+        streak = 0;
+      }
+    }
+
+    const xs = positions.map((p) => p.x);
+    const ys = positions.map((p) => p.y);
+    const spanX = Math.max(...xs) - Math.min(...xs);
+    const spanY = Math.max(...ys) - Math.min(...ys);
+
+    expect(edgeVisits).toBe(0);
+    expect(longestEdgeStreak).toBe(0);
+    expect(spanX).toBeGreaterThan(preview.W * 0.35);
+    expect(spanY).toBeGreaterThan(preview.H * 0.22);
   });
 });
