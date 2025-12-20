@@ -14,6 +14,7 @@ function buildTrailPreviewCatalog(trails) {
       id: String(t.id || ""),
       name: t.name || String(t.id || ""),
       minScore: Number.isFinite(t.minScore) ? t.minScore : 0,
+      requiresRecordHolder: Boolean(t.requiresRecordHolder),
       previewSeed: `trail-preview-${t.id || "classic"}`
     }))
     .sort((a, b) => a.minScore - b.minScore || a.name.localeCompare(b.name));

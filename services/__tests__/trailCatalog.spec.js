@@ -15,9 +15,10 @@ describe("trailCatalog", () => {
       id: "a",
       name: "Alpha",
       minScore: 100,
-      previewSeed: "trail-preview-a"
+      previewSeed: "trail-preview-a",
+      requiresRecordHolder: false
     });
-    expect(catalog.previews[1].id).toBe("b");
+    expect(catalog.previews[1]).toMatchObject({ id: "b", requiresRecordHolder: false });
   });
 
   it("handles missing or malformed trail arrays gracefully", () => {

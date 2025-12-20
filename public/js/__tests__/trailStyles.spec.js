@@ -27,4 +27,11 @@ describe("trailStyles", () => {
     expect(first.sparkle).not.toBe(second.sparkle);
     expect(TRAIL_STYLE_IDS).toContain("rainbow");
   });
+
+  it("includes an extravagant record-holder blossom style", () => {
+    const style = trailStyleFor("world_record");
+    expect(TRAIL_STYLE_IDS).toContain("world_record");
+    expect(style.sparkle.size[1]).toBeGreaterThan(style.sparkle.size[0]);
+    expect(style.glint.size[1]).toBeGreaterThan(style.glint.size[0]);
+  });
 });

@@ -37,16 +37,16 @@ function createScoreService(deps) {
 
     try {
       const updated = await dataStore.recordScore(user, score);
-      ensureUserSchema(updated);
-
       const highscores = await listHighscores();
+      const recordHolder = highscores?.[0]?.username === updated.username;
+      ensureUserSchema(updated, { recordHolder });
 
       return {
         ok: true,
         status: 200,
         body: {
           ok: true,
-          user: publicUser(updated),
+          user: publicUser(updated, { recordHolder }),
           trails,
           highscores
         }
