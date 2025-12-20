@@ -1,8 +1,10 @@
 import { describe, expect, it, vi } from "vitest";
 import { TrailPreview } from "../trailPreview.js";
 
-const makeCtx = () => {
+const makeCtx = ({ linearGradient, radialGradient } = {}) => {
   const gradient = { addColorStop: vi.fn() };
+  const linearFactory = linearGradient ?? (() => gradient);
+  const radialFactory = radialGradient ?? (() => gradient);
   return {
     save: vi.fn(),
     restore: vi.fn(),
@@ -18,8 +20,8 @@ const makeCtx = () => {
     translate: vi.fn(),
     rotate: vi.fn(),
     drawImage: vi.fn(),
-    createLinearGradient: vi.fn(() => gradient),
-    createRadialGradient: vi.fn(() => gradient),
+    createLinearGradient: vi.fn(linearFactory),
+    createRadialGradient: vi.fn(radialFactory),
     lineWidth: 0,
     strokeStyle: "",
     fillStyle: "",
@@ -95,5 +97,42 @@ describe("TrailPreview", () => {
     preview.stop();
     expect(cancel).toHaveBeenCalledWith(77);
     expect(preview.running).toBe(false);
+  });
+
+  it("prefers the player image when available and ready", () => {
+    const { canvas, ctx } = makeCanvas();
+    const preview = new TrailPreview({
+      canvas,
+      playerImg: { complete: true, naturalWidth: 10, naturalHeight: 10 },
+      requestFrame: null,
+      cancelFrame: null,
+      now: () => 0
+    });
+
+    preview._draw();
+    expect(ctx.drawImage).toHaveBeenCalled();
+  });
+
+  it("falls back to solid fill when gradients are unavailable", () => {
+    const gradientLessCtx = makeCtx({ linearGradient: () => null, radialGradient: () => null });
+    const canvas = {
+      style: {},
+      width: 0,
+      height: 0,
+      clientWidth: 320,
+      clientHeight: 180,
+      getContext: () => gradientLessCtx
+    };
+    const preview = new TrailPreview({
+      canvas,
+      playerImg: null,
+      requestFrame: null,
+      cancelFrame: null,
+      now: () => 0
+    });
+
+    preview._draw();
+    expect(gradientLessCtx.fillStyle).toBe("rgba(220,230,255,.9)");
+    expect(gradientLessCtx.arc).toHaveBeenCalled();
   });
 });
