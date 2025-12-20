@@ -90,6 +90,9 @@ function createScoreService(deps) {
 
 function mapRecordScoreError(err) {
   const code = err?.message || err?.code || "";
+  if (code && typeof code === "string" && /ECONN|ENOTFOUND|ETIMEDOUT/.test(code)) {
+    return { status: 503, error: "database_unavailable" };
+  }
   if (code === "user_key_required") return { status: 401, error: "unauthorized" };
   return { status: 503, error: "score_persist_failed" };
 }

@@ -52,6 +52,7 @@ import { TrailPreview } from "./trailPreview.js";
 import { normalizeTrailSelection, rebuildTrailOptions } from "./trailSelectUtils.js";
 import { buildTrailHint } from "./trailHint.js";
 import { DEFAULT_TRAILS, getUnlockedTrails, normalizeTrails, sortTrailsForDisplay } from "./trailProgression.js";
+import { buildReplayPayload, hydrateReplayFromServer, describeReplayMeta, formatDurationMs } from "./replayUtils.js";
 
 // ---- DOM ----
 const ui = buildGameUI();
@@ -159,12 +160,6 @@ const SIM_DT = 1 / 120;
 const MAX_FRAME = 1 / 20;
 let acc = 0;
 let lastTs = 0;
-
-const CLIENT_REPLAY_LIMITS = Object.freeze({
-  maxTicks: 120_000,
-  maxActionsPerTick: 8,
-  maxRngTape: 240_000
-});
 
 // Replay / run capture
 // activeRun = { seed, ticks: [ { move, cursor, actions[] } ], pendingActions:[], ended:boolean, rngTape:[] }
@@ -382,25 +377,6 @@ function fillTrailSelect() {
   }
 }
 
-function formatDurationMs(ms) {
-  const totalSeconds = Math.max(0, Math.floor((Number(ms) || 0) / 1000));
-  const minutes = Math.floor(totalSeconds / 60);
-  const seconds = totalSeconds % 60;
-  if (minutes) return `${minutes}m ${seconds.toString().padStart(2, "0")}s`;
-  return `${seconds}s`;
-}
-
-function describeReplayMeta(meta, hasReplay = false) {
-  if (!hasReplay || !meta) return "Replay not captured yet.";
-  const ticks = meta.tickCount ? `${meta.tickCount} ticks` : null;
-  const actions = meta.actionCount ? `${meta.actionCount} inputs` : null;
-  const duration = formatDurationMs(meta.durationMs || 0);
-  const parts = [duration];
-  if (ticks) parts.push(ticks);
-  if (actions) parts.push(actions);
-  return `Replay: ${parts.join(" • ")}`;
-}
-
 function renderHighscores() {
   if (!net.online) {
     hsWrap.className = "hint bad";
@@ -610,123 +586,6 @@ saveUserBtn.addEventListener("click", async () => {
 });
 
 // ---- Replay UI ----
-function buildReplayPayload(run, score) {
-  if (
-    !run ||
-    !run.ended ||
-    !run.seed ||
-    !Array.isArray(run.ticks) ||
-    !run.ticks.length ||
-    !Array.isArray(run.rngTape) ||
-    !run.rngTape.length
-  ) {
-    return null;
-  }
-
-  const ticks = run.ticks.slice(0, CLIENT_REPLAY_LIMITS.maxTicks);
-  const tape = run.rngTape.slice(0, CLIENT_REPLAY_LIMITS.maxRngTape);
-  if (!ticks.length || !tape.length) return null;
-
-  let actionCount = 0;
-  const safeTicks = ticks.map((tk) => {
-    const actions = Array.isArray(tk?.actions)
-      ? tk.actions
-          .slice(0, CLIENT_REPLAY_LIMITS.maxActionsPerTick)
-          .map((a) => {
-            if (!a || !a.id) return null;
-            const id = String(a.id);
-            if (!id) return null;
-            const cursor = a.cursor
-              ? {
-                  x: Number(a.cursor.x) || 0,
-                  y: Number(a.cursor.y) || 0,
-                  has: !!a.cursor.has
-                }
-              : null;
-            return cursor ? { id, cursor } : { id };
-          })
-          .filter(Boolean)
-      : [];
-    actionCount += actions.length;
-    return {
-      move: {
-        dx: Number(tk?.move?.dx) || 0,
-        dy: Number(tk?.move?.dy) || 0
-      },
-      cursor: {
-        x: Number(tk?.cursor?.x) || 0,
-        y: Number(tk?.cursor?.y) || 0,
-        has: !!tk?.cursor?.has
-      },
-      actions
-    };
-  });
-
-  return {
-    version: 1,
-    seed: String(run.seed),
-    rngTape: tape.map((v) => Number(v) || 0),
-    ticks: safeTicks,
-    tickCount: safeTicks.length,
-    durationMs: Math.round(safeTicks.length * 1000 * SIM_DT),
-    actionCount,
-    score: Number(score) || 0,
-    recordedAt: Date.now(),
-    ended: true
-  };
-}
-
-function hydrateReplayFromServer(replay) {
-  if (!replay || typeof replay !== "object") return null;
-  const seed = String(replay.seed || "").trim();
-  const ticks = Array.isArray(replay.ticks) ? replay.ticks.slice(0, CLIENT_REPLAY_LIMITS.maxTicks) : [];
-  const tape = Array.isArray(replay.rngTape) ? replay.rngTape.slice(0, CLIENT_REPLAY_LIMITS.maxRngTape) : [];
-  if (!seed || !ticks.length || !tape.length) return null;
-
-  const safeTicks = ticks.map((tk) => ({
-    move: {
-      dx: Number(tk?.move?.dx) || 0,
-      dy: Number(tk?.move?.dy) || 0
-    },
-    cursor: {
-      x: Number(tk?.cursor?.x) || 0,
-      y: Number(tk?.cursor?.y) || 0,
-      has: !!tk?.cursor?.has
-    },
-    actions: Array.isArray(tk?.actions)
-      ? tk.actions
-          .slice(0, CLIENT_REPLAY_LIMITS.maxActionsPerTick)
-          .map((a) => {
-            if (!a || !a.id) return null;
-            const id = String(a.id);
-            if (!id) return null;
-            const cursor = a.cursor
-              ? {
-                  x: Number(a.cursor.x) || 0,
-                  y: Number(a.cursor.y) || 0,
-                  has: !!a.cursor.has
-                }
-              : null;
-            return cursor ? { id, cursor } : { id };
-          })
-          .filter(Boolean)
-      : []
-  }));
-
-  return {
-    version: Number(replay.version) || 1,
-    seed,
-    rngTape: tape.map((v) => Number(v) || 0),
-    ticks: safeTicks,
-    tickCount: safeTicks.length,
-    durationMs: Number(replay.durationMs) || Math.round(safeTicks.length * 1000 * SIM_DT),
-    actionCount: Number(replay.actionCount) || 0,
-    recordedAt: Number(replay.recordedAt) || Date.now(),
-    ended: true,
-    pendingActions: []
-  };
-}
-
 function downloadBlob(blob, filename) {
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
@@ -1158,6 +1017,7 @@ async function onGameOver(finalScore) {
       overPB.textContent = String(net.user.bestScore | 0);
     } else {
       net.online = false;
+      replayError = "score_submit_failed";
 
       // Try to re-hydrate the session so subsequent runs can still submit.
       await refreshProfileAndHighscores();

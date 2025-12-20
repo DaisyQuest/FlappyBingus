@@ -153,6 +153,11 @@ describe("mapRecordScoreError", () => {
     expect(mapRecordScoreError(new Error("user_key_required"))).toEqual({ status: 401, error: "unauthorized" });
   });
 
+  it("maps connection failures to database_unavailable", () => {
+    expect(mapRecordScoreError(new Error("ECONNREFUSED"))).toEqual({ status: 503, error: "database_unavailable" });
+    expect(mapRecordScoreError({ code: "ENOTFOUND" })).toEqual({ status: 503, error: "database_unavailable" });
+  });
+
   it("defaults to persistence failure", () => {
     expect(mapRecordScoreError(new Error("other"))).toEqual({ status: 503, error: "score_persist_failed" });
   });
