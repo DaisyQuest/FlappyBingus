@@ -22,12 +22,12 @@ async function importServer() {
   return { server, mockDataStore };
 }
 
-function createReq(body) {
+function createReq(body, path = "/api/register", extraHeaders = {}) {
   const data = JSON.stringify(body);
   return {
     method: "POST",
-    url: "/api/register",
-    headers: { host: "localhost" },
+    url: path,
+    headers: { host: "localhost", ...extraHeaders },
     [Symbol.asyncIterator]: async function* () { yield Buffer.from(data); }
   };
 }
@@ -71,6 +71,7 @@ describe("register flow preserves record-holder cosmetics", () => {
     expect(mockDataStore.upsertUser).toHaveBeenCalledTimes(1);
     expect(payload.user.selectedTrail).toBe("world_record");
     expect(payload.user.unlockedTrails).toContain("world_record");
+    expect(payload.user.settings.dashBehavior).toBe("dashRicochet");
   });
 
   it("falls back to classic when the registering user is not the record holder", async () => {
@@ -86,5 +87,30 @@ describe("register flow preserves record-holder cosmetics", () => {
     expect(res.status).toBe(200);
     expect(payload.user.selectedTrail).toBe("classic");
     expect(payload.user.unlockedTrails).not.toContain("world_record");
+    expect(payload.user.settings.slowFieldBehavior).toBe("slowField");
+  });
+
+  it("saves settings via the settings endpoint", async () => {
+    vi.resetModules();
+    const server = await import("../server.cjs");
+    const mockUser = { key: "champ", username: "champ", bestScore: 0, runs: 0, totalScore: 0, selectedTrail: "classic" };
+    const mockDataStore = {
+      ensureConnected: vi.fn(async () => true),
+      topHighscores: vi.fn(async () => []),
+      getUserByKey: vi.fn(async () => ({ ...mockUser })),
+      setSettings: vi.fn(async (_key, settings) => ({ ...mockUser, settings }))
+    };
+    server._setDataStoreForTests(mockDataStore);
+
+    const req = createReq({ settings: { dashBehavior: "dashDestroy", slowFieldBehavior: "slowExplosion" } }, "/api/settings", { cookie: "sugar=champ" });
+    const res = createRes();
+
+    await server.route(req, res);
+    const payload = JSON.parse(res.body || "{}");
+
+    expect(res.status).toBe(200);
+    expect(mockDataStore.setSettings).toHaveBeenCalledWith("champ", { dashBehavior: "dashDestroy", slowFieldBehavior: "slowExplosion" });
+    expect(payload.user.settings.dashBehavior).toBe("dashDestroy");
+    expect(payload.user.settings.slowFieldBehavior).toBe("slowExplosion");
   });
 });

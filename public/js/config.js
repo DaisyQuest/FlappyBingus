@@ -24,11 +24,14 @@ export const DEFAULT_CONFIG = {
     colors: { green: "#b7efb2", blue: "#b3ebf2", wisteria: "#c9a0dc", red: "#ff746c" }
   },
   skills: {
+    loadout: { dashBehavior: "dashRicochet", slowFieldBehavior: "slowField" },
     // cooldowns live here; activation keybinds are user-configurable (menu)
-    dash: { cooldown: 1.15, duration: 0.18, speed: 900, bounceRetain: 0.86, maxBounces: 2 },
+    dashRicochet: { cooldown: 1.15, duration: 0.22, speed: 900, bounceRetain: 0.86, maxBounces: -1 },
+    dashDestroy: { cooldown: 1.6, duration: 0.18, speed: 900, shatterParticles: 36 },
     phase: { cooldown: 1.75, duration: 0.40 },
     teleport: { cooldown: 2.10, range: 170, effectDuration: 0.35, burstParticles: 34 },
-    slowField: { cooldown: 4.50, duration: 1.80, radius: 210, slowFactor: 0.58 }
+    slowField: { cooldown: 4.50, duration: 1.80, radius: 210, slowFactor: 0.58 },
+    slowExplosion: { cooldown: 9.00, radius: 140, particleCount: 34 }
   },
   catalysts: {
     orbs: {

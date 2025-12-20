@@ -225,7 +225,7 @@ describe("MongoDataStore connection lifecycle", () => {
 describe("MongoDataStore mutations and reads", () => {
   it("updates trails and keybinds", async () => {
     const { MongoDataStore } = await loadModule();
-    const val = { key: "k", selectedTrail: "neon", keybinds: { dash: "Space" } };
+    const val = { key: "k", selectedTrail: "neon", keybinds: { dash: "Space" }, settings: { dashBehavior: "dashRicochet", slowFieldBehavior: "slowField" } };
     const coll = makeCollection({ findOneAndUpdate: vi.fn(async () => ({ value: val })) });
     const store = new MongoDataStore({ uri: "mongodb://ok", dbName: "db" });
     store.ensureConnected = vi.fn();
@@ -233,7 +233,8 @@ describe("MongoDataStore mutations and reads", () => {
 
     await expect(store.setTrail("k", "neon")).resolves.toEqual(val);
     await expect(store.setKeybinds("k", { dash: "Space" })).resolves.toEqual(val);
-    expect(coll.findOneAndUpdate).toHaveBeenCalledTimes(2);
+    await expect(store.setSettings("k", { dashBehavior: "dashDestroy", slowFieldBehavior: "slowExplosion" })).resolves.toEqual(val);
+    expect(coll.findOneAndUpdate).toHaveBeenCalledTimes(3);
   });
 
   it("returns top highscores with sane limits and coercion", async () => {

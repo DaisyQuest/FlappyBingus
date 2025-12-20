@@ -48,6 +48,11 @@ const DEFAULT_KEYBINDS = Object.freeze({
   slowField: { type: "key", code: "KeyE" }
 });
 
+const DEFAULT_SETTINGS = Object.freeze({
+  dashBehavior: "dashRicochet",
+  slowFieldBehavior: "slowField"
+});
+
 const TRAILS = Object.freeze([
   { id: "classic", name: "Classic", minScore: 0 },
   { id: "ember", name: "Ember Core", minScore: 100 },
@@ -81,6 +86,7 @@ const RATE_LIMIT_CONFIG = Object.freeze({
   "/api/score": { limit: 30, windowMs: 60_000 },
   "/api/cosmetics/trail": { limit: 30, windowMs: 60_000 },
   "/api/binds": { limit: 30, windowMs: 60_000 },
+  "/api/settings": { limit: 30, windowMs: 60_000 },
   "/api/highscores": { limit: 90, windowMs: 60_000 }
 });
 
@@ -252,9 +258,12 @@ function ensureUserSchema(u, { recordHolder = false } = {}) {
   if (typeof u.selectedTrail !== "string") u.selectedTrail = "classic";
   if (!u.keybinds || typeof u.keybinds !== "object")
     u.keybinds = structuredClone(DEFAULT_KEYBINDS);
+  if (!u.settings || typeof u.settings !== "object")
+    u.settings = structuredClone(DEFAULT_SETTINGS);
 
   // Merge any missing bind keys with defaults
   u.keybinds = mergeKeybinds(DEFAULT_KEYBINDS, u.keybinds);
+  u.settings = normalizeSettings(u.settings);
 
   // Ensure selected trail is unlocked
   const unlocked = unlockedTrails(u.bestScore | 0, { recordHolder });
@@ -284,6 +293,13 @@ function mergeKeybinds(base, inc) {
   const src = inc && typeof inc === "object" ? inc : {};
   for (const k of Object.keys(base)) out[k] = normalizeBind(src[k]) || base[k];
   return out;
+}
+
+function normalizeSettings(settings) {
+  const src = settings && typeof settings === "object" ? settings : {};
+  const dashBehavior = (src.dashBehavior === "dashDestroy") ? "dashDestroy" : DEFAULT_SETTINGS.dashBehavior;
+  const slowFieldBehavior = (src.slowFieldBehavior === "slowExplosion") ? "slowExplosion" : DEFAULT_SETTINGS.slowFieldBehavior;
+  return { dashBehavior, slowFieldBehavior };
 }
 
 function normalizeBind(b) {
@@ -333,6 +349,13 @@ function validateKeybindsPayload(binds) {
   return out;
 }
 
+function validateSettingsPayload(settings) {
+  if (!settings || typeof settings !== "object") return null;
+  const normalized = normalizeSettings(settings);
+  if (!normalized.dashBehavior || !normalized.slowFieldBehavior) return null;
+  return normalized;
+}
+
 function publicUser(u, { recordHolder = false } = {}) {
   if (!u) return null;
   return {
@@ -340,6 +363,7 @@ function publicUser(u, { recordHolder = false } = {}) {
     bestScore: u.bestScore | 0,
     selectedTrail: u.selectedTrail || "classic",
     keybinds: u.keybinds || structuredClone(DEFAULT_KEYBINDS),
+    settings: u.settings || structuredClone(DEFAULT_SETTINGS),
     runs: u.runs | 0,
     totalScore: u.totalScore | 0,
     unlockedTrails: unlockedTrails(u.bestScore | 0, { recordHolder }),
@@ -374,6 +398,7 @@ function buildUserDefaults(username, key) {
     bestScore: 0,
     selectedTrail: "classic",
     keybinds: structuredClone(DEFAULT_KEYBINDS),
+    settings: structuredClone(DEFAULT_SETTINGS),
     runs: 0,
     totalScore: 0,
     createdAt: now,
@@ -814,6 +839,29 @@ async function route(req, res) {
     if (!binds) return badRequest(res, "invalid_keybinds");
 
     const updated = await dataStore.setKeybinds(u.key, binds);
+    const recordHolder = Boolean(u?.isRecordHolder);
+    ensureUserSchema(updated, { recordHolder });
+
+    sendJson(res, 200, { ok: true, user: publicUser(updated, { recordHolder }), trails: TRAILS });
+    return;
+  }
+
+  if (pathname === "/api/settings" && req.method === "POST") {
+    if (rateLimit(req, res, "/api/settings")) return;
+    if (!(await ensureDatabase(res))) return;
+    const u = await getUserFromReq(req, { withRecordHolder: true });
+    if (!u) return unauthorized(res);
+
+    let body;
+    try {
+      body = await readJsonBody(req);
+    } catch {
+      return badRequest(res, "invalid_json");
+    }
+    const settings = validateSettingsPayload(body.settings);
+    if (!settings) return badRequest(res, "invalid_settings");
+
+    const updated = await dataStore.setSettings(u.key, settings);
     const recordHolder = Boolean(u?.isRecordHolder);
     ensureUserSchema(updated, { recordHolder });
 

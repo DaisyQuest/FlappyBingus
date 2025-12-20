@@ -11,6 +11,7 @@
 
 import { clamp, lerp } from "./util.js";
 import { ACTIONS, humanizeBind } from "./keybinds.js";
+import { DASH_BEHAVIORS, SLOW_BEHAVIORS, normalizeSkillSettings } from "./skillSettings.js";
 
 function easeInOutCubic(t) {
   t = clamp(t, 0, 1);
@@ -203,6 +204,7 @@ export class Tutorial {
 
     // Config overrides (restored on stop)
     this._cfgBackup = null;
+    this._skillSettingsBackup = null;
 
     // Meta key handling for tutorial-only flows
     this._boundKeyDown = (e) => {
@@ -229,6 +231,7 @@ export class Tutorial {
 
     this.active = true;
     window.addEventListener("keydown", this._boundKeyDown, { passive: false });
+    this._skillSettingsBackup = { ...this.game.skillSettings };
 
     this._backupAndOverrideConfig();
 
@@ -265,7 +268,9 @@ export class Tutorial {
 
     this._slowBurstSpawned = false;
 
+    if (this._skillSettingsBackup) this.game.setSkillSettings(this._skillSettingsBackup);
     this._restoreConfig();
+    this._skillSettingsBackup = null;
   }
 
   // ----- actions pipeline -----
@@ -293,9 +298,9 @@ export class Tutorial {
     if (!this.active) return;
     const sid = this._stepId();
     if ((sid === "skill_phase" || sid === "practice") && actionId === "phase") this._phaseUsed = true;
-    if ((sid === "skill_dash" || sid === "practice") && actionId === "dash") this._dashUsed = true;
+    if ((sid === "skill_dash" || sid === "dash_reflect" || sid === "dash_destroy" || sid === "practice") && actionId === "dash") this._dashUsed = true;
     if ((sid === "skill_teleport" || sid === "practice") && actionId === "teleport") this._teleUsed = true;
-    if ((sid === "skill_slow" || sid === "practice") && actionId === "slowField") this._slowUsed = true;
+    if ((sid === "skill_slow" || sid === "slow_explosion" || sid === "practice") && actionId === "slowField") this._slowUsed = true;
   }
 
   // Optional: call this from main.js when a skill is pressed but blocked.
@@ -350,9 +355,9 @@ export class Tutorial {
     // Ensure the “teaching skill” is always ready when we’re in a skill step,
     // and keep all skills ready in practice mode.
     if (sid === "skill_phase" || sid === "practice") this.game.cds.phase = 0;
-    if (sid === "skill_dash" || sid === "dash_reflect" || sid === "practice") this.game.cds.dash = 0;
+    if (sid === "skill_dash" || sid === "dash_reflect" || sid === "dash_destroy" || sid === "practice") this.game.cds.dash = 0;
     if (sid === "skill_teleport" || sid === "practice") this.game.cds.teleport = 0;
-    if (sid === "skill_slow" || sid === "practice") this.game.cds.slowField = 0;
+    if (sid === "skill_slow" || sid === "slow_explosion" || sid === "practice") this.game.cds.slowField = 0;
   }
 
   afterSimTick(dt) {
@@ -367,8 +372,10 @@ export class Tutorial {
     else if (sid === "skill_phase") this._stepSkillPhase(dt);
     else if (sid === "skill_dash") this._stepSkillDash(dt);
     else if (sid === "dash_reflect") this._stepDashReflect(dt);
+    else if (sid === "dash_destroy") this._stepDashDestroy(dt);
     else if (sid === "skill_teleport") this._stepSkillTeleport(dt);
     else if (sid === "skill_slow") this._stepSkillSlow(dt);
+    else if (sid === "slow_explosion") this._stepSlowExplosion(dt);
     else if (sid === "practice") {
       // sandbox: nothing special
     }
@@ -484,8 +491,10 @@ for (const ln of lines.slice(0, maxLines)) {
       { id: "skill_phase" },
       { id: "skill_dash" },
       { id: "dash_reflect" },
+      { id: "dash_destroy" },
       { id: "skill_teleport" },
       { id: "skill_slow" },
+      { id: "slow_explosion" },
       { id: "practice" },
     ];
   }
@@ -526,6 +535,8 @@ for (const ln of lines.slice(0, maxLines)) {
     this._reflectBounceSeen = false;
     this._reflectSuccessDelay = 0;
     this._reflectSeenSerial = this.game?.lastDashReflect?.serial || 0;
+    this._dashDestroyTarget = null;
+    this._dashDestroyCleared = false;
 
     this._teleTarget = null;
     this._teleUsed = false;
@@ -533,6 +544,8 @@ for (const ln of lines.slice(0, maxLines)) {
     this._slowUsed = false;
     this._slowBurstSpawned = false;
     this._surviveT = 0;
+    this._slowExplosionTargets = [];
+    this._slowExplosionCleared = false;
 
     // Fresh run per scenario keeps it clean and beginner-friendly.
     this.game.startRun();
@@ -540,6 +553,7 @@ for (const ln of lines.slice(0, maxLines)) {
     const sid = this._stepId();
     if (sid !== "practice") this._freezeAutoSpawns();
     this._hardClearWorld();
+    this._applyStepSkillSettings(sid);
 
     this._prevCombo = this.game.combo;
     this._prevPerfectT = this.game.perfectT;
@@ -591,6 +605,12 @@ for (const ln of lines.slice(0, maxLines)) {
       this._spawnDashReflectScenario();
     }
 
+    if (sid === "dash_destroy") {
+      this._setPerfectEnabled(false);
+      this._allowed = new Set(["dash"]);
+      this._beginSkillIntro("dash");
+    }
+
     if (sid === "skill_teleport") {
       this._setPerfectEnabled(false);
       this._allowed = new Set(["teleport"]);
@@ -598,6 +618,12 @@ for (const ln of lines.slice(0, maxLines)) {
     }
 
     if (sid === "skill_slow") {
+      this._setPerfectEnabled(false);
+      this._allowed = new Set(["slowField"]);
+      this._beginSkillIntro("slowField");
+    }
+
+    if (sid === "slow_explosion") {
       this._setPerfectEnabled(false);
       this._allowed = new Set(["slowField"]);
       this._beginSkillIntro("slowField");
@@ -939,6 +965,8 @@ _stepOrbs(dt) {
       if (sid === "skill_dash") this._spawnDashScenario();
       if (sid === "skill_teleport") this._spawnTeleportScenario();
       if (sid === "skill_slow") this._spawnSlowScenario();
+      if (sid === "dash_destroy") this._spawnDashDestroyScenario();
+      if (sid === "slow_explosion") this._spawnSlowExplosionScenario();
     }
   }
 
@@ -1024,6 +1052,28 @@ _stepOrbs(dt) {
     if (Math.min(W, H) >= 520) {
       mk(W + 18 + th * 2.0, clamp(H * 0.32, 20, H - blockH - 20), blockW, blockH, -spd, 0);
     }
+  }
+
+  _spawnDashDestroyScenario() {
+    const W = this.game.W, H = this.game.H;
+    const p = this.game.player;
+    const th = this.game._thickness ? this.game._thickness() : Math.max(46, Math.min(W, H) * 0.08);
+    const blockH = th * 3.2;
+    const x = clamp(W * 0.60, th + 20, W - th - 20);
+    const y = clamp(H * 0.42, 20, H - blockH - 20);
+
+    p.x = clamp(W * 0.20, p.r + 22, W - p.r - 22);
+    p.y = clamp(H * 0.78, p.r + 22, H - p.r - 22);
+    p.vx = 0; p.vy = 0; p.dashT = 0; p.dashBounces = 0;
+    this.game.cds.dash = 0;
+
+    const blocker = makePipeRect({ x, y, w: th, h: blockH, vx: 0, vy: 0 });
+    blocker.entered = true;
+    this._dashDestroyTarget = blocker;
+    this._dashDestroyCleared = false;
+    this.game.pipes.push(blocker);
+    this._dashSuccessDelay = 0;
+    this._flash("Dash into the obstacle to shatter it.");
   }
 
   _stepSkillDash(dt) {
@@ -1126,6 +1176,21 @@ _stepOrbs(dt) {
     }
   }
 
+  _stepDashDestroy(dt) {
+    if (!this._dashDestroyTarget) return;
+    const exists = this.game.pipes.includes(this._dashDestroyTarget);
+    if (!exists && this._dashUsed && !this._dashDestroyCleared) {
+      this._dashDestroyCleared = true;
+      this._dashSuccessDelay = 0.9;
+      this._flash("Nice — Destroy mode breaks a single pipe without scoring.");
+    }
+
+    if (this._dashDestroyCleared) {
+      this._dashSuccessDelay = Math.max(0, this._dashSuccessDelay - dt);
+      if (this._dashSuccessDelay <= 0) this._nextStep();
+    }
+  }
+
   // =====================================================
   // Skill: TELEPORT
   // =====================================================
@@ -1171,6 +1236,33 @@ _stepOrbs(dt) {
     // Wait for cast, then spawn a short, intense burst.
     this._slowBurstSpawned = false;
     this._surviveT = 0;
+  }
+
+  _spawnSlowExplosionScenario() {
+    const W = this.game.W, H = this.game.H;
+    const p = this.game.player;
+    p.x = clamp(W * 0.5, p.r + 40, W - p.r - 40);
+    p.y = clamp(H * 0.6, p.r + 40, H - p.r - 40);
+    p.vx = 0; p.vy = 0; p.dashT = 0;
+
+    const th = this.game._thickness ? this.game._thickness() : Math.max(48, Math.min(W, H) * 0.08);
+    const mk = (x, y, w, h) => {
+      const pipe = makePipeRect({ x, y, w, h, vx: 0, vy: 0 });
+      pipe.entered = true;
+      this.game.pipes.push(pipe);
+      this._slowExplosionTargets.push(pipe);
+    };
+
+    this._slowExplosionTargets = [];
+    const gap = Math.max(24, th * 0.5);
+    mk(p.x - th * 3 - gap, p.y - th, th, th * 2);
+    mk(p.x + gap, p.y - th * 2.1, th, th * 2.4);
+    mk(p.x - th * 1.2, p.y + gap, th * 2.1, th);
+    mk(p.x + th * 2.2, p.y + th * 0.4, th * 1.6, th * 1.6);
+
+    this._slowExplosionCleared = false;
+    this._surviveT = 0.6;
+    this._flash("Cast the Explosion variant to clear nearby pipes.");
   }
 
   _spawnSlowBurst() {
@@ -1219,6 +1311,23 @@ _stepOrbs(dt) {
         this._flash("Tutorial complete — practice with everything unlocked.");
         this._nextStep();
       }
+    }
+  }
+
+  _stepSlowExplosion(dt) {
+    if (!this._slowExplosionTargets) return;
+    const remaining = this._slowExplosionTargets.filter((p) => this.game.pipes.includes(p));
+    this._slowExplosionTargets = remaining;
+
+    if (!this._slowUsed && remaining.length < 4) this._slowUsed = true;
+    if (remaining.length === 0 && this._slowUsed && !this._slowExplosionCleared) {
+      this._slowExplosionCleared = true;
+      this._flash("Great — the explosion wipes nearby pipes (no score).");
+    }
+
+    if (this._slowExplosionCleared) {
+      this._surviveT = Math.max(0, this._surviveT - dt);
+      if (this._surviveT <= 0) this._nextStep();
     }
   }
 
@@ -1297,6 +1406,17 @@ _stepOrbs(dt) {
       };
     }
 
+    if (sid === "dash_destroy") {
+      return {
+        title: "Dash: Destroy Variant",
+        body:
+          `Dash can be switched to Destroy in Settings.\n` +
+          `With Destroy selected, dash directly into a pipe to shatter it instead of bouncing.\n` +
+          "Destroying a pipe removes the obstacle but does not award points.",
+        objective: `Dash (${key("dash")}) into the blocker to shatter it.`
+      };
+    }
+
     if (sid === "skill_teleport") {
       return {
         title: "Skill: Teleport",
@@ -1316,6 +1436,17 @@ _stepOrbs(dt) {
           `Press ${key("slowField")} to place it on yourself.\n` +
           "After you cast it, a burst of walls will come — dodge them while they’re slowed.",
         objective: `Cast Slow Field (${key("slowField")}) and survive the burst.`
+      };
+    }
+
+    if (sid === "slow_explosion") {
+      return {
+        title: "Slow Field: Explosion Variant",
+        body:
+          `Switch Slow Field to Explosion to clear space instantly.\n` +
+          `Press ${key("slowField")} to trigger the blast and remove nearby pipes.\n` +
+          "Use it when you need breathing room; it does not grant points.",
+        objective: `Cast the Explosion variant to clear all nearby pipes.`
       };
     }
 
@@ -1471,15 +1602,7 @@ _stepOrbs(dt) {
       perfectWindowScale: cfg?.scoring?.perfect?.windowScale,
       perfectFlashDuration: cfg?.scoring?.perfect?.flashDuration,
       catalystsOrbsEnabled: cfg?.catalysts?.orbs?.enabled,
-      // Skill tuning (gentle tutorial-friendly values)
-      dashCooldown: cfg?.skills?.dash?.cooldown,
-      phaseCooldown: cfg?.skills?.phase?.cooldown,
-      teleportCooldown: cfg?.skills?.teleport?.cooldown,
-      slowCooldown: cfg?.skills?.slowField?.cooldown,
-      phaseDuration: cfg?.skills?.phase?.duration,
-      slowDuration: cfg?.skills?.slowField?.duration,
-      slowRadius: cfg?.skills?.slowField?.radius,
-      slowFactor: cfg?.skills?.slowField?.slowFactor,
+      skills: JSON.parse(JSON.stringify(cfg?.skills || {}))
     };
 
     // Tutorial clarity: do NOT award points for pipes leaving the screen.
@@ -1496,7 +1619,8 @@ _stepOrbs(dt) {
     if (cfg?.catalysts?.orbs) cfg.catalysts.orbs.enabled = false;
 
     // Make skills forgiving during tutorial.
-    if (cfg?.skills?.dash) cfg.skills.dash.cooldown = 0;
+    if (cfg?.skills?.dashRicochet) cfg.skills.dashRicochet.cooldown = 0;
+    if (cfg?.skills?.dashDestroy) cfg.skills.dashDestroy.cooldown = 0;
     if (cfg?.skills?.phase) {
       cfg.skills.phase.cooldown = 0;
       cfg.skills.phase.duration = Math.max(1.4, Number(cfg.skills.phase.duration) || 1.4);
@@ -1507,6 +1631,11 @@ _stepOrbs(dt) {
       cfg.skills.slowField.duration = Math.max(4.5, Number(cfg.skills.slowField.duration) || 4.5);
       cfg.skills.slowField.radius = Math.max(220, Number(cfg.skills.slowField.radius) || 220);
       cfg.skills.slowField.slowFactor = clamp(Number(cfg.skills.slowField.slowFactor) || 0.35, 0.18, 0.55);
+    }
+    if (cfg?.skills?.slowExplosion) {
+      cfg.skills.slowExplosion.cooldown = 0;
+      cfg.skills.slowExplosion.radius = Math.max(220, Number(cfg.skills.slowExplosion.radius) || 220);
+      cfg.skills.slowExplosion.particleCount = Math.max(24, Number(cfg.skills.slowExplosion.particleCount) || 24);
     }
   }
 
@@ -1535,10 +1664,12 @@ _stepOrbs(dt) {
     this.game.orbT = Math.min(this.game.orbT || 1.6, 1.6);
 
     // Keep skill cooldowns at zero for practice (config + live cds).
-    if (cfg?.skills?.dash) cfg.skills.dash.cooldown = 0;
+    if (cfg?.skills?.dashRicochet) cfg.skills.dashRicochet.cooldown = 0;
+    if (cfg?.skills?.dashDestroy) cfg.skills.dashDestroy.cooldown = 0;
     if (cfg?.skills?.phase) cfg.skills.phase.cooldown = 0;
     if (cfg?.skills?.teleport) cfg.skills.teleport.cooldown = 0;
     if (cfg?.skills?.slowField) cfg.skills.slowField.cooldown = 0;
+    if (cfg?.skills?.slowExplosion) cfg.skills.slowExplosion.cooldown = 0;
 
     this.game.cds.dash = 0;
     this.game.cds.phase = 0;
@@ -1550,6 +1681,8 @@ _stepOrbs(dt) {
     const cfg = this.game.cfg;
     const b = this._cfgBackup;
     if (!cfg || !b) return;
+
+    if (b.skills) cfg.skills = JSON.parse(JSON.stringify(b.skills));
 
     if (cfg?.scoring) {
       cfg.scoring.pipeDodge = b.pipeDodge;
@@ -1564,19 +1697,23 @@ _stepOrbs(dt) {
       }
     }
     if (cfg?.catalysts?.orbs) cfg.catalysts.orbs.enabled = b.catalystsOrbsEnabled;
+    this.game.setConfig(cfg);
+  }
 
-    if (cfg?.skills?.dash) cfg.skills.dash.cooldown = b.dashCooldown;
-    if (cfg?.skills?.phase) {
-      cfg.skills.phase.cooldown = b.phaseCooldown;
-      cfg.skills.phase.duration = b.phaseDuration;
+  _applyStepSkillSettings(stepId) {
+    if (stepId === "practice" && this._skillSettingsBackup) {
+      this.game.setSkillSettings(this._skillSettingsBackup);
+      return;
     }
-    if (cfg?.skills?.teleport) cfg.skills.teleport.cooldown = b.teleportCooldown;
-    if (cfg?.skills?.slowField) {
-      cfg.skills.slowField.cooldown = b.slowCooldown;
-      cfg.skills.slowField.duration = b.slowDuration;
-      cfg.skills.slowField.radius = b.slowRadius;
-      cfg.skills.slowField.slowFactor = b.slowFactor;
-    }
+
+    const target = { ...normalizeSkillSettings(this.game.skillSettings, this.game.cfg) };
+    if (stepId === "dash_reflect" || stepId === "skill_dash") target.dashBehavior = DASH_BEHAVIORS.RICOCHET;
+    else if (stepId === "dash_destroy") target.dashBehavior = DASH_BEHAVIORS.DESTROY;
+
+    if (stepId === "skill_slow") target.slowFieldBehavior = SLOW_BEHAVIORS.FIELD;
+    else if (stepId === "slow_explosion") target.slowFieldBehavior = SLOW_BEHAVIORS.EXPLOSION;
+
+    this.game.setSkillSettings(target);
   }
 
   _setPerfectEnabled(on) {

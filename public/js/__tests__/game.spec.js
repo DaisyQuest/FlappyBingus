@@ -12,7 +12,10 @@ import { ACTIONS } from "../keybinds.js";
 vi.mock("../audio.js", () => ({
   sfxOrbBoop: vi.fn(),
   sfxPerfectNice: vi.fn(),
-  sfxDashBounce: vi.fn()
+  sfxDashBounce: vi.fn(),
+  sfxDashShatter: vi.fn(),
+  sfxSlowExplosion: vi.fn(),
+  sfxSlowField: vi.fn()
 }));
 
 const mockCtx = () => {
@@ -319,6 +322,31 @@ describe("Dash interactions", () => {
     expect(game.lastDashReflect.serial).toBe(prevSerial + 1);
     expect(Math.hypot(game.player.vx, game.player.vy)).toBeGreaterThan(0);
   });
+
+  it("shatters a pipe without scoring when destroy dash is selected", async () => {
+    const audio = await import("../audio.js");
+    const { game } = buildGame();
+    game.setSkillSettings({ dashBehavior: "dashDestroy", slowFieldBehavior: "slowField" });
+    game.resizeToWindow();
+    game.startRun();
+    game.pipeT = 10;
+    game.specialT = 10;
+    game.orbT = 10;
+    game.player.invT = 0;
+    game.player.dashT = 0.2;
+    game.player.dashVX = 1;
+    game.player.dashVY = 0;
+    expect(game._skillSlot("dash")?.id).toBe("dashDestroy");
+    const target = pipeStub({ x: game.player.x - game.player.r, y: game.player.y - game.player.r, w: game.player.r * 2, h: game.player.r * 2 });
+    game.pipes.push(target);
+    game.score = 5;
+
+    game.update(0.01);
+
+    expect(game.pipes.includes(target)).toBe(false);
+    expect(game.score).toBe(5);
+    expect(audio.sfxDashShatter).toHaveBeenCalled();
+  });
 });
 
 describe("Skill usage", () => {
@@ -358,6 +386,28 @@ describe("Skill usage", () => {
     game._useSkill("slowField");
     expect(game.slowField).toBeTruthy();
     expect(game.floats.some((f) => f.txt === "SLOW FIELD")).toBe(true);
+  });
+
+  it("explodes nearby pipes when the explosion slow variant is selected", async () => {
+    const audio = await import("../audio.js");
+    const { game } = buildGame();
+    game.setSkillSettings({ dashBehavior: "dashRicochet", slowFieldBehavior: "slowExplosion" });
+    game.setAudioEnabled(true);
+    game.resizeToWindow();
+    game.state = 1;
+    game.pipeT = 10;
+    game.specialT = 10;
+    game.orbT = 10;
+    const near = pipeStub({ x: game.player.x - 2, y: game.player.y - 2, w: 8, h: 8 });
+    const far = pipeStub({ x: game.player.x + 500, y: game.player.y + 500, w: 8, h: 8 });
+    game.pipes.push(near, far);
+    game.cds.slowField = 0;
+
+    game._useSkill("slowField");
+
+    expect(game.pipes).toContain(far);
+    expect(game.pipes).not.toContain(near);
+    expect(audio.sfxSlowExplosion).toHaveBeenCalled();
   });
 });
 
@@ -909,7 +959,7 @@ describe("Game loop", () => {
 
     game.player.vx = 0; game.player.vy = 0; game.player.dashVX = 0; game.player.dashVY = -1;
     game._applyDashReflect({ nx: 0, ny: 0, contactX: 0, contactY: 0, penetration: 0 });
-    game.cfg.skills.dash.bounceRetain = -2;
+    game.cfg.skills.dashRicochet.bounceRetain = -2;
     game._applyDashReflect({ nx: 1, ny: 0, contactX: 1, contactY: 1, penetration: 0 });
 
     game.cds.dash = 0;
@@ -930,9 +980,9 @@ describe("Game loop", () => {
     game._useSkill("slowField");
     expect(game.slowField).toBeTruthy();
 
-    game.cfg.skills.dash.duration = 5;
-    game.cfg.skills.dash.cooldown = 2;
-    game.cfg.skills.dash.speed = -5;
+    game.cfg.skills.dashRicochet.duration = 5;
+    game.cfg.skills.dashRicochet.cooldown = 2;
+    game.cfg.skills.dashRicochet.speed = -5;
     moveRef.dx = 1; moveRef.dy = 0;
     game._useSkill("dash");
 

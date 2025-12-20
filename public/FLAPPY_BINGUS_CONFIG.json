@@ -29,10 +29,13 @@
   },
   "skills": {
     "bindings": ["dash", "phase", "teleport", "slowField"],
-    "dash": { "cooldown": 1.15, "duration": 0.18, "speed": 900, "bounceRetain": 0.86, "maxBounces": 2 },
+    "loadout": { "dashBehavior": "dashRicochet", "slowFieldBehavior": "slowField" },
+    "dashRicochet": { "cooldown": 1.15, "duration": 0.22, "speed": 900, "bounceRetain": 0.86, "maxBounces": -1 },
+    "dashDestroy": { "cooldown": 1.6, "duration": 0.18, "speed": 900, "shatterParticles": 36 },
     "phase": { "cooldown": 2.75, "duration": 0.7 },
     "teleport": { "cooldown": 2.1, "range": 1000, "effectDuration": 0.35, "burstParticles": 34 },
-    "slowField": { "cooldown": 10, "duration": 2, "radius": 420, "slowFactor": 0.29 }
+    "slowField": { "cooldown": 10, "duration": 2, "radius": 420, "slowFactor": 0.29 },
+    "slowExplosion": { "cooldown": 20, "radius": 282, "particleCount": 48 }
   },
   "catalysts": {
     "orbs": {

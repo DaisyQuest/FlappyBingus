@@ -125,7 +125,7 @@ describe("Game core loop hooks", () => {
     canvas.width = 100; canvas.height = 100;
     const { Game } = await import("../game.js");
     const cfg = cloneCfg();
-    cfg.skills.dash.cooldown = 0.5;
+    cfg.skills.dashRicochet.cooldown = 0.5;
     cfg.skills.phase.cooldown = 0.25;
     cfg.skills.teleport.cooldown = 0.75;
     cfg.skills.teleport.burstParticles = 2;
@@ -150,7 +150,7 @@ describe("Game core loop hooks", () => {
     game.player.x = 50; game.player.y = 50; game.player.r = 10;
 
     game._useSkill("dash");
-    expect(game.cds.dash).toBeCloseTo(cfg.skills.dash.cooldown);
+    expect(game.cds.dash).toBeCloseTo(cfg.skills.dashRicochet.cooldown);
     expect(game.player.dashVX).toBeGreaterThan(0);
     expect(game.parts.length).toBeGreaterThanOrEqual(18);
 
