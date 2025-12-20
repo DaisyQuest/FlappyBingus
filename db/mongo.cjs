@@ -66,6 +66,27 @@ function normalizeTotal(v) {
   return Math.max(0, Math.floor(n));
 }
 
+function buildReplayMeta(replayDoc, { bestScore = 0, savedAt = Date.now() } = {}) {
+  if (!replayDoc || typeof replayDoc !== "object") {
+    return {
+      savedAt,
+      score: clampScore(bestScore),
+      seed: "",
+      tickCount: 0,
+      durationMs: 0,
+      actionCount: 0
+    };
+  }
+  return {
+    savedAt,
+    score: clampScore(replayDoc.score ?? bestScore),
+    seed: typeof replayDoc.seed === "string" ? replayDoc.seed : "",
+    tickCount: normalizeCount(replayDoc.tickCount ?? replayDoc.ticks?.length),
+    durationMs: normalizeTotal(replayDoc.durationMs),
+    actionCount: normalizeCount(replayDoc.actionCount)
+  };
+}
+
 async function safeClose(client) {
   if (!client) return;
   try {
@@ -246,18 +267,73 @@ class MongoDataStore {
     return res.value;
   }
 
+  async saveBestReplay(key, replayDoc, score) {
+    await this.ensureConnected();
+    if (!key) throw new Error("user_key_required");
+    if (!replayDoc || typeof replayDoc !== "object") throw new Error("replay_required");
+
+    const now = Date.now();
+    const bestScore = clampScore(score);
+    const safeReplay = {
+      version: normalizeCount(replayDoc.version) || 1,
+      seed: typeof replayDoc.seed === "string" ? replayDoc.seed : "",
+      rngTape: Array.isArray(replayDoc.rngTape) ? replayDoc.rngTape.map((v) => Number(v) || 0) : [],
+      ticks: Array.isArray(replayDoc.ticks) ? replayDoc.ticks : [],
+      tickCount: normalizeCount(replayDoc.tickCount ?? replayDoc.ticks?.length),
+      actionCount: normalizeCount(replayDoc.actionCount),
+      durationMs: normalizeTotal(replayDoc.durationMs),
+      recordedAt: normalizeTotal(replayDoc.recordedAt || now),
+      score: bestScore,
+      ended: true
+    };
+    const meta = buildReplayMeta(safeReplay, { bestScore, savedAt: now });
+
+    const res = await this.usersCollection().findOneAndUpdate(
+      { key, bestScore },
+      { $set: { bestReplay: safeReplay, bestReplayMeta: meta, updatedAt: now } },
+      { returnDocument: "after" }
+    );
+    return res.value;
+  }
+
+  async getReplayForUser(username) {
+    await this.ensureConnected();
+    const name = typeof username === "string" ? username : String(username ?? "");
+    if (!name.trim()) return null;
+    const doc = await this.usersCollection().findOne(
+      { username: name },
+      { projection: { username: 1, bestScore: 1, bestReplay: 1, bestReplayMeta: 1 } }
+    );
+    if (!doc?.bestReplay) return null;
+    return {
+      username: doc.username,
+      bestScore: clampScore(doc.bestScore),
+      bestReplay: doc.bestReplay,
+      bestReplayMeta: doc.bestReplayMeta || null
+    };
+  }
+
   async topHighscores(limit) {
     await this.ensureConnected();
     const lim = Math.max(1, Math.min(200, limit | 0 || 20));
     const docs = await this.usersCollection()
-      .find({}, { projection: { username: 1, bestScore: 1, updatedAt: 1 } })
+      .find({}, { projection: { username: 1, bestScore: 1, updatedAt: 1, bestReplayMeta: 1 } })
       .sort({ bestScore: -1, updatedAt: -1, username: 1 })
       .limit(lim)
       .toArray();
     return docs.map((d) => ({
       username: d.username,
       bestScore: Number(d.bestScore) || 0,
-      updatedAt: Number(d.updatedAt) || 0
+      updatedAt: Number(d.updatedAt) || 0,
+      hasReplay: Boolean(d.bestReplayMeta),
+      replay: d.bestReplayMeta
+        ? {
+            seed: typeof d.bestReplayMeta.seed === "string" ? d.bestReplayMeta.seed : "",
+            tickCount: normalizeCount(d.bestReplayMeta.tickCount),
+            durationMs: normalizeTotal(d.bestReplayMeta.durationMs),
+            actionCount: normalizeCount(d.bestReplayMeta.actionCount)
+          }
+        : null
     }));
   }
 
@@ -297,4 +373,4 @@ class MongoDataStore {
   }
 }
 
-module.exports = { MongoDataStore, resolveMongoConfig, maskConnectionString };
+module.exports = { MongoDataStore, resolveMongoConfig, maskConnectionString, buildReplayMeta };
