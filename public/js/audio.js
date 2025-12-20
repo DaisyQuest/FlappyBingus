@@ -15,6 +15,25 @@ let sfxGain = null;
 let musicSource = null;
 let musicPlaying = false;
 
+// Persist desired volumes even before the audio context is created so UI updates
+// made from the menu apply once audioInit() runs.
+let desiredMusic = 0.7;
+let desiredSfx = 0.8;
+let muted = false;
+
+function clamp01(v) {
+  return Math.max(0, Math.min(1, Number.isFinite(v) ? v : 0));
+}
+
+function applyVolumeGains() {
+  if (!musicGain || !sfxGain) return;
+  const musicLevel = muted ? 0 : desiredMusic;
+  const sfxLevel = muted ? 0 : desiredSfx;
+
+  musicGain.gain.value = musicLevel;
+  sfxGain.gain.value = sfxLevel;
+}
+
 async function getCtx() {
   if (!ctx) {
     const AC = window.AudioContext || window.webkitAudioContext;
@@ -22,12 +41,10 @@ async function getCtx() {
     musicGain = ctx.createGain();
     sfxGain = ctx.createGain();
 
-    // Sensible defaults; tweak to taste
-    musicGain.gain.value = 0.35;
-    sfxGain.gain.value = 0.65;
-
     musicGain.connect(ctx.destination);
     sfxGain.connect(ctx.destination);
+
+    applyVolumeGains();
   }
   // Ensure resumed after user gesture
   if (ctx.state === "suspended") await ctx.resume();
@@ -53,10 +70,29 @@ export async function audioInit({ musicUrl, boopUrl, niceUrl, bounceUrl } = {}) 
 }
 
 export function setMusicVolume(v01) {
-  if (musicGain) musicGain.gain.value = Math.max(0, Math.min(1, v01));
+  desiredMusic = clamp01(v01);
+  applyVolumeGains();
 }
 export function setSfxVolume(v01) {
-  if (sfxGain) sfxGain.gain.value = Math.max(0, Math.min(1, v01));
+  desiredSfx = clamp01(v01);
+  applyVolumeGains();
+}
+
+export function setMuted(on) {
+  muted = !!on;
+  applyVolumeGains();
+}
+
+export function getVolumeState() {
+  return {
+    music: desiredMusic,
+    sfx: desiredSfx,
+    muted,
+    applied: {
+      music: musicGain?.gain.value ?? null,
+      sfx: sfxGain?.gain.value ?? null
+    }
+  };
 }
 
 export function musicStartLoop() {

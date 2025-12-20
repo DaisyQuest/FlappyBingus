@@ -7,6 +7,47 @@ vi.mock("../audio.js", () => ({
   sfxDashBounce: vi.fn()
 }));
 
+const createGameForAudio = async () => {
+  // Game reads window globals at module evaluation time
+  const prevWindow = globalThis.window;
+  globalThis.window = {
+    devicePixelRatio: 1,
+    visualViewport: { width: 800, height: 600 },
+    innerWidth: 800,
+    innerHeight: 600,
+    addEventListener: () => {},
+    removeEventListener: () => {}
+  };
+  const { Game } = await import("../game.js");
+  const audio = await import("../audio.js");
+
+  const canvas = { style: {}, getContext: () => ({ setTransform: () => {} }) };
+  const ctx = { setTransform: () => {}, imageSmoothingEnabled: false };
+  const cfg = {
+    player: { sizeScale: 1, sizeMin: 24, sizeMax: 64 },
+    catalysts: { orbs: { intervalMin: 1, intervalMax: 1 } },
+    scoring: { perfect: { windowScale: 0.075 } }
+  };
+
+  const game = new Game({
+    canvas,
+    ctx,
+    config: cfg,
+    playerImg: { naturalWidth: 10, naturalHeight: 10 },
+    input: { snapshot: () => ({ move: { x: 0, y: 0 }, cursor: {} }) },
+    getTrailId: () => "classic",
+    getBinds: () => ({}),
+    onGameOver: () => {}
+  });
+
+  const cleanup = () => {
+    if (prevWindow === undefined) delete globalThis.window;
+    else globalThis.window = prevWindow;
+  };
+
+  return { game, audio, cleanup };
+};
+
 describe("Pipe", () => {
   it("marks pipes as entered when crossing bounds and reports off-screen", () => {
     const pipe = new Pipe(-70, 0, 64, 50, 80, 0);
@@ -59,5 +100,36 @@ describe("FloatText", () => {
     expect(text.life).toBeCloseTo(0.8, 5);
     expect(text.vx).toBeLessThan(100);
     expect(text.vy).toBeGreaterThan(-50); // magnitude decreased by drag factor
+  });
+});
+
+describe("Game audio enable/disable", () => {
+  it("suppresses SFX when audioEnabled is false", async () => {
+    const { game, audio, cleanup } = await createGameForAudio();
+    const { sfxOrbBoop, sfxPerfectNice, sfxDashBounce } = audio;
+
+    sfxOrbBoop.mockClear();
+    sfxPerfectNice.mockClear();
+    sfxDashBounce.mockClear();
+
+    game.setAudioEnabled(false);
+    game._orbPickupSfx();
+    game._perfectNiceSfx();
+    game._dashBounceSfx(1.1);
+
+    expect(sfxOrbBoop).not.toHaveBeenCalled();
+    expect(sfxPerfectNice).not.toHaveBeenCalled();
+    expect(sfxDashBounce).not.toHaveBeenCalled();
+
+    game.setAudioEnabled(true);
+    game._orbPickupSfx();
+    game._perfectNiceSfx();
+    game._dashBounceSfx(1.1);
+
+    expect(sfxOrbBoop).toHaveBeenCalledTimes(1);
+    expect(sfxPerfectNice).toHaveBeenCalledTimes(1);
+    expect(sfxDashBounce).toHaveBeenCalledTimes(1);
+
+    cleanup();
   });
 });
