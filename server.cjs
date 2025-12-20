@@ -79,6 +79,69 @@ function nowMs() {
 }
 
 // --------- Helpers ----------
+const RATE_LIMIT_CONFIG = Object.freeze({
+  default: { limit: 120, windowMs: 60_000 },
+  "/api/me": { limit: 60, windowMs: 60_000 },
+  "/api/register": { limit: 20, windowMs: 60_000 },
+  "/api/score": { limit: 30, windowMs: 60_000 },
+  "/api/cosmetics/trail": { limit: 30, windowMs: 60_000 },
+  "/api/binds": { limit: 30, windowMs: 60_000 },
+  "/api/highscores": { limit: 90, windowMs: 60_000 }
+});
+
+const _rateLimitState = new Map();
+let _lastRateLimitSweep = nowMs();
+const RATE_LIMIT_SWEEP_INTERVAL_MS = 5 * 60_000;
+
+function getClientAddress(req) {
+  const xff = req.headers["x-forwarded-for"];
+  if (typeof xff === "string" && xff.length) {
+    const first = xff.split(",")[0].trim();
+    if (first) return first;
+  }
+  return req.socket?.remoteAddress || "unknown";
+}
+
+function sweepRateLimits(now = nowMs()) {
+  for (const [key, entry] of _rateLimitState) {
+    if (now >= entry.reset) _rateLimitState.delete(key);
+  }
+  _lastRateLimitSweep = now;
+}
+
+function takeRateLimitToken(key, cfg) {
+  const now = nowMs();
+  if (now - _lastRateLimitSweep >= RATE_LIMIT_SWEEP_INTERVAL_MS) sweepRateLimits(now);
+
+  const entry = _rateLimitState.get(key);
+  if (!entry || now >= entry.reset) {
+    _rateLimitState.set(key, { count: 1, reset: now + cfg.windowMs });
+    return { limited: false, retryAfterMs: cfg.windowMs };
+  }
+
+  if (entry.count >= cfg.limit) return { limited: true, retryAfterMs: entry.reset - now };
+  entry.count += 1;
+  return { limited: false, retryAfterMs: entry.reset - now };
+}
+
+function respondRateLimited(res, retryAfterMs) {
+  sendJson(
+    res,
+    429,
+    { ok: false, error: "rate_limited" },
+    { "Retry-After": String(Math.max(1, Math.ceil(retryAfterMs / 1000))) }
+  );
+}
+
+function rateLimit(req, res, name) {
+  const cfg = { ...RATE_LIMIT_CONFIG.default, ...(RATE_LIMIT_CONFIG[name] || {}) };
+  const key = `${name}:${getClientAddress(req)}`;
+  const result = takeRateLimitToken(key, cfg);
+  if (!result.limited) return false;
+  respondRateLimited(res, result.retryAfterMs);
+  return true;
+}
+
 const MIME = {
   ".html": "text/html; charset=utf-8",
   ".js": "text/javascript; charset=utf-8",
@@ -631,6 +694,7 @@ async function route(req, res) {
 
   // Me
   if (pathname === "/api/me" && req.method === "GET") {
+    if (rateLimit(req, res, "/api/me")) return;
     if (!(await ensureDatabase(res))) return;
     const u = await getUserFromReq(req);
     sendJson(res, 200, { ok: true, user: publicUser(u), trails: TRAILS });
@@ -639,6 +703,7 @@ async function route(req, res) {
 
   // Register/login by username
   if (pathname === "/api/register" && req.method === "POST") {
+    if (rateLimit(req, res, "/api/register")) return;
     if (!(await ensureDatabase(res))) return;
     let body;
     try {
@@ -665,6 +730,7 @@ async function route(req, res) {
 
   // Submit score (updates best score + progression)
   if (pathname === "/api/score" && req.method === "POST") {
+    if (rateLimit(req, res, "/api/score")) return;
     if (!(await ensureDatabase(res))) return;
     const u = await getUserFromReq(req);
     if (!u) return unauthorized(res);
@@ -694,6 +760,7 @@ async function route(req, res) {
 
   // Set selected trail cosmetic
   if (pathname === "/api/cosmetics/trail" && req.method === "POST") {
+    if (rateLimit(req, res, "/api/cosmetics/trail")) return;
     if (!(await ensureDatabase(res))) return;
     const u = await getUserFromReq(req);
     if (!u) return unauthorized(res);
@@ -720,6 +787,7 @@ async function route(req, res) {
 
   // Set keybinds
   if (pathname === "/api/binds" && req.method === "POST") {
+    if (rateLimit(req, res, "/api/binds")) return;
     if (!(await ensureDatabase(res))) return;
     const u = await getUserFromReq(req);
     if (!u) return unauthorized(res);
@@ -742,6 +810,7 @@ async function route(req, res) {
 
   // Highscores JSON
   if (pathname === "/api/highscores" && req.method === "GET") {
+    if (rateLimit(req, res, "/api/highscores")) return;
     if (!(await ensureDatabase(res))) return;
     const limit = Number(url.searchParams.get("limit") || 20);
     sendJson(res, 200, { ok: true, highscores: await topHighscores(limit) });
