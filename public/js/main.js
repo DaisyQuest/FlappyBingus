@@ -37,7 +37,14 @@ import {
 import { Input } from "./input.js";
 
 // NEW: Audio (you must add public/js/audio.js from my prior message)
-import { audioInit, musicStartLoop, musicStop } from "./audio.js";
+import {
+  audioInit,
+  musicStartLoop,
+  musicStop,
+  setMusicVolume,
+  setSfxVolume,
+  setMuted
+} from "./audio.js";
 
 // ---- DOM ----
 const canvas = document.getElementById("c");
@@ -76,6 +83,10 @@ const overPB = document.getElementById("overPB");
 const seedInput = document.getElementById("seedInput");
 const seedRandomBtn = document.getElementById("seedRandomBtn");
 const seedHint = document.getElementById("seedHint");
+
+const musicSlider = document.getElementById("musicVolume");
+const sfxSlider = document.getElementById("sfxVolume");
+const muteToggle = document.getElementById("muteToggle");
 
 const watchReplayBtn = document.getElementById("watchReplay");
 const exportGifBtn = document.getElementById("exportGif");
@@ -196,6 +207,44 @@ const AUDIO = Object.freeze({
   niceUrl: "/audio/nice.mp3",
   bounceUrl: "/audio/dash-bounce.mp3"
 });
+
+// Volume UI defaults (match HTML defaults in flappybingus.html)
+const DEFAULT_MUSIC = 0.7;
+const DEFAULT_SFX = 0.8;
+
+function sliderValueTo01(el, fallback01) {
+  const raw = el ? Number.parseFloat(el.value) : Number.NaN;
+  const pct = Number.isFinite(raw) ? raw : (fallback01 ?? 0) * 100;
+  return clamp(pct / 100, 0, 1);
+}
+
+function applyVolumeFromUI() {
+  const music = sliderValueTo01(musicSlider, DEFAULT_MUSIC);
+  const sfx = sliderValueTo01(sfxSlider, DEFAULT_SFX);
+
+  setMusicVolume(music);
+  setSfxVolume(sfx);
+
+  const isMuted = !!(muteToggle && muteToggle.checked);
+  setMuted(isMuted);
+
+  if (game) {
+    const sfxAudible = !isMuted && sfx > 0;
+    game.setAudioEnabled(sfxAudible);
+  }
+}
+
+function primeVolumeUI() {
+  if (musicSlider && !musicSlider.value) musicSlider.value = String(Math.round(DEFAULT_MUSIC * 100));
+  if (sfxSlider && !sfxSlider.value) sfxSlider.value = String(Math.round(DEFAULT_SFX * 100));
+  if (muteToggle) muteToggle.checked = false;
+  applyVolumeFromUI();
+}
+
+const volumeChangeHandler = () => applyVolumeFromUI();
+musicSlider?.addEventListener("input", volumeChangeHandler);
+sfxSlider?.addEventListener("input", volumeChangeHandler);
+muteToggle?.addEventListener("change", volumeChangeHandler);
 
 // IMPORTANT: actions are NOT applied immediately.
 // They are enqueued and applied at the next simulation tick boundary.
@@ -662,7 +711,8 @@ bindWrap.addEventListener("click", (e) => {
 // NEW: ensure audio buffers are loaded + music starts ONLY when gameplay begins.
 async function ensureAudioReady() {
   try {
-await audioInit({ musicUrl: AUDIO.musicUrl, boopUrl: AUDIO.boopUrl, niceUrl: AUDIO.niceUrl, bounceUrl: AUDIO.bounceUrl });
+    await audioInit({ musicUrl: AUDIO.musicUrl, boopUrl: AUDIO.boopUrl, niceUrl: AUDIO.niceUrl, bounceUrl: AUDIO.bounceUrl });
+    applyVolumeFromUI();
 
   } catch (e) {
     // Non-fatal; game should still run without sound.
@@ -1055,6 +1105,8 @@ function frame(ts) {
       }
     });
   }
+
+  primeVolumeUI();
 
   exportMp4Btn?.addEventListener("click", async () => {
     try {
