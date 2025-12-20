@@ -6,20 +6,25 @@
 <head>
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;600;700;800&display=swap" rel="stylesheet">
   <title>Flappy Bingus</title>
   <style>
     :root{
-      --bg0:#050912;
-      --bg1:#0a1020;
-      --panel:rgba(14,18,30,.78);
-      --panel2:rgba(24,30,46,.6);
-      --panel-soft:rgba(255,255,255,.07);
-      --panel-strong:rgba(255,255,255,.12);
-      --text:rgba(255,255,255,.94);
-      --muted:rgba(255,255,255,.72);
-      --accent:rgba(160,220,255,.95);
-      --accent-strong:rgba(200,235,255,.95);
-      --accent2:rgba(167,139,255,.95);
+      --bg0:#0b0c2d;
+      --bg1:#151447;
+      --panel:rgba(24,24,68,.86);
+      --panel2:rgba(34,28,82,.76);
+      --panel-soft:rgba(255,255,255,.09);
+      --panel-strong:rgba(255,255,255,.16);
+      --text:rgba(251,249,255,.96);
+      --muted:rgba(235,232,255,.82);
+      --accent:rgba(158,222,255,.97);
+      --accent-strong:rgba(212,245,255,.98);
+      --accent2:rgba(202,168,255,.96);
+      --bubble:rgba(255,185,245,.85);
+      --deep-glow:rgba(132,193,255,.32);
       --danger:rgba(255,110,110,.95);
       --ok:rgba(120,255,180,.95);
       --glass:backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);
@@ -27,11 +32,11 @@
     html,body{
       height:100%;margin:0;overflow:hidden;
       background:
-        radial-gradient(circle at 20% 20%,rgba(255,255,255,.06),transparent 26%),
-        radial-gradient(circle at 80% 16%,rgba(255,255,255,.05),transparent 28%),
-        radial-gradient(circle at 60% 70%,rgba(255,255,255,.04),transparent 30%),
+        radial-gradient(circle at 14% 12%,rgba(255,189,255,.16),transparent 28%),
+        radial-gradient(circle at 78% 10%,rgba(180,210,255,.14),transparent 30%),
+        radial-gradient(circle at 68% 68%,rgba(132,180,255,.12),transparent 32%),
         linear-gradient(180deg,var(--bg0),var(--bg1));
-      font-family:"Inter",-apple-system,system-ui,Segoe UI,Roboto,Arial,sans-serif;
+      font-family:"Baloo 2","Inter",-apple-system,system-ui,Segoe UI,Roboto,Arial,sans-serif;
       color:var(--text);
       letter-spacing:.1px;
     }
@@ -40,37 +45,38 @@
     .screen{position:absolute;inset:0;display:grid;place-items:center;pointer-events:none;padding:16px}
     .panel{
       pointer-events:auto;width:min(1100px,calc(100vw - 28px));
-      padding:18px 18px 18px;border-radius:20px;
+      padding:18px;border-radius:24px;
       background:linear-gradient(160deg,var(--panel),var(--panel2));
-      border:1px solid rgba(255,255,255,.14);
-      box-shadow:0 20px 70px rgba(0,0,0,.58),0 0 60px rgba(140,200,255,.08);
-      backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);
+      border:1px solid rgba(255,255,255,.2);
+      box-shadow:0 20px 70px rgba(0,0,0,.58),0 0 70px rgba(140,200,255,.18);
+      backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);
     }
-    .menu-header{display:flex;flex-direction:column;gap:8px;padding:10px 14px 6px;align-items:center;text-align:center}
+    .menu-header{display:flex;flex-direction:column;gap:8px;padding:14px 18px 10px;align-items:center;text-align:center}
     .title{
-      font-weight:900;letter-spacing:.8px;line-height:1.02;
-      font-size:clamp(46px,6vw,86px);margin:0;
-      color:#f9fbff;
+      font-weight:900;letter-spacing:.8px;line-height:1.1;
+      font-size:clamp(48px,6.2vw,92px);margin:0;
+      color:#f9fbff;padding:8px 18px;
       max-width:100%;overflow-wrap:break-word;
       text-shadow:
         0 12px 32px rgba(0,0,0,.35),
-        0 0 18px rgba(200,230,255,.5),
-        0 0 36px rgba(120,190,255,.35);
-      background:linear-gradient(120deg,#fff,#dff3ff,#f6f0ff);
+        0 0 18px rgba(200,230,255,.55),
+        0 0 36px rgba(120,190,255,.42);
+      background:linear-gradient(120deg,#fff,#dff3ff,#ffe5ff);
       -webkit-background-clip:text;color:transparent;
       filter:drop-shadow(0 6px 10px rgba(0,0,0,.18));
       text-align:center;
+      display:inline-flex;align-items:center;justify-content:center;
     }
     .title::first-letter{font-size:1.04em}
-    .title-cloud{position:relative;display:inline-block}
+    .title-cloud{position:relative;display:inline-block;padding:6px 10px;border-radius:30px;background:rgba(255,255,255,.05);box-shadow:0 10px 28px rgba(0,0,0,.24)}
     .title-cloud::after{
       content:"";
-      position:absolute;inset:15% -6px -10%;border-radius:50%;
+      position:absolute;inset:10% -6px -6%;border-radius:50%;
       background:radial-gradient(circle at 30% 30%,rgba(255,255,255,.24),transparent 50%),
                  radial-gradient(circle at 70% 40%,rgba(255,255,255,.18),transparent 48%);
       filter:blur(14px);opacity:.75;pointer-events:none;
     }
-    .sub{color:var(--muted);font-size:15px;line-height:1.55;margin:0;max-width:840px}
+    .sub{color:var(--muted);font-size:15px;line-height:1.55;margin:0;max-width:840px;text-shadow:0 6px 14px rgba(0,0,0,.25)}
     .menu-shell{display:grid;grid-template-columns:1.1fr .9fr;gap:14px;align-items:start;padding:8px}
     @media (max-width: 900px){ .menu-shell{grid-template-columns:1fr} }
     .card{
@@ -80,21 +86,37 @@
     }
     .card-soft{background:rgba(255,255,255,.05);border-color:rgba(255,255,255,.1)}
     .row{display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:flex-start}
-    .top-actions{gap:12px}
+    .top-actions{gap:12px;justify-content:center}
     button{
-      appearance:none;border:1px solid rgba(255,255,255,.2);background:linear-gradient(180deg,rgba(255,255,255,.12),rgba(255,255,255,.05));
-      color:var(--text);padding:12px 16px;border-radius:14px;font-weight:900;font-size:16px;cursor:pointer;
-      box-shadow:0 10px 24px rgba(0,0,0,.35),0 0 0 1px rgba(255,255,255,.06);
-      transition:transform .08s ease,box-shadow .14s ease,background .16s ease,translate .08s ease;
+      appearance:none;border:1px solid rgba(255,255,255,.25);background:linear-gradient(180deg,rgba(255,255,255,.16),rgba(255,255,255,.06));
+      color:var(--text);padding:12px 16px;border-radius:16px;font-weight:900;font-size:16px;cursor:pointer;
+      box-shadow:0 12px 28px rgba(0,0,0,.38),0 0 0 1px rgba(255,255,255,.08);
+      transition:transform .08s ease,box-shadow .18s ease,background .16s ease,translate .08s ease,filter .14s ease;
     }
-    button:hover{background:linear-gradient(180deg,rgba(255,255,255,.18),rgba(255,255,255,.08));transform:translateY(-1px);box-shadow:0 14px 28px rgba(0,0,0,.32),0 0 0 1px rgba(255,255,255,.12)}
+    button:hover{background:linear-gradient(180deg,rgba(255,255,255,.22),rgba(255,255,255,.1));transform:translateY(-1px);box-shadow:0 16px 32px rgba(0,0,0,.32),0 0 0 1px rgba(255,255,255,.14);filter:drop-shadow(0 8px 18px rgba(255,200,255,.18))}
     button:active{transform:translateY(0);translate:0 1px}
-    button.primary{border-color:rgba(170,230,255,.5);background:linear-gradient(180deg,rgba(180,230,255,.36),rgba(140,210,255,.16));color:#0d1a27}
-    button.primary:hover{background:linear-gradient(180deg,rgba(205,240,255,.6),rgba(150,210,255,.2))}
+    button.primary{border-color:rgba(170,230,255,.65);background:linear-gradient(180deg,rgba(180,230,255,.46),rgba(140,210,255,.22));color:#0d1a27;text-shadow:0 1px 0 rgba(255,255,255,.4)}
+    button.primary:hover{background:linear-gradient(180deg,rgba(205,240,255,.7),rgba(150,210,255,.28))}
     button[disabled]{opacity:.58;cursor:not-allowed;transform:none;translate:0}
     button:focus-visible,input:focus-visible,select:focus-visible{
       outline:2px solid rgba(180,230,255,.9);outline-offset:2px;box-shadow:0 0 0 4px rgba(180,230,255,.2)
     }
+    .cta-btn{padding:14px 26px;min-width:160px;font-size:17px;letter-spacing:.3px}
+    .cta-btn.wide{min-width:190px}
+    .cta-btn.sparkle{position:relative;overflow:hidden;isolation:isolate;box-shadow:0 14px 32px rgba(0,0,0,.38),0 0 0 1px rgba(255,255,255,.12)}
+    .cta-btn.sparkle::after{
+      content:"";position:absolute;inset:-40% -30%;pointer-events:none;
+      background:
+        radial-gradient(10px 10px at 20% 30%,rgba(255,255,255,.88),transparent 55%),
+        radial-gradient(8px 8px at 60% 40%,rgba(200,240,255,.9),transparent 60%),
+        radial-gradient(12px 12px at 80% 70%,rgba(255,200,255,.8),transparent 55%),
+        radial-gradient(9px 9px at 30% 80%,rgba(180,220,255,.8),transparent 60%);
+      opacity:0;transform:translateY(10px);
+      transition:opacity .16s ease,transform .18s ease;
+      mix-blend-mode:screen;
+      animation:sparkle-drift 2.2s linear infinite;
+    }
+    .cta-btn.sparkle:hover::after{opacity:1;transform:translateY(0)}
     .pill{display:inline-flex;gap:8px;align-items:center;font-size:13px;color:var(--muted);
       border:1px solid rgba(255,255,255,.14);background:rgba(255,255,255,.07);padding:8px 12px;border-radius:999px;box-shadow:0 10px 22px rgba(0,0,0,.28)}
     .dot{width:9px;height:9px;border-radius:999px;background:rgba(255,200,120,.95);box-shadow:0 0 14px rgba(255,200,120,.35)}
@@ -122,7 +144,7 @@
     .hint.good{color:rgba(120,255,160,.80)}
     .hint.bad{color:rgba(255,110,110,.85)}
     .hint.warn{color:rgba(255,210,120,.88)}
-    .section-title{font-weight:900;letter-spacing:.4px;font-size:15px;margin-bottom:6px;color:#eef6ff}
+    .section-title{font-weight:900;letter-spacing:.4px;font-size:15px;margin-bottom:6px;color:#eef6ff;text-transform:uppercase;letter-spacing:.6px}
     .soft-divider{height:1px;background:linear-gradient(90deg,transparent,rgba(255,255,255,.22),transparent);margin:10px 0}
 
     .hs-card{position:relative;overflow:hidden}
@@ -146,15 +168,16 @@
     .bindBtn{padding:8px 11px;border-radius:10px;font-size:13px}
     .bindRow.listen{border-color:rgba(160,220,255,.50);box-shadow:0 0 0 3px rgba(160,220,255,.16) inset}
 
-    .tab-toggle{display:flex;gap:10px;align-items:center;padding:10px 14px}
+    .tab-toggle{display:flex;gap:10px;align-items:center;justify-content:center;padding:8px 10px;margin-top:4px}
     .tab-toggle label{
-      padding:10px 16px;border-radius:12px;font-weight:800;cursor:pointer;border:1px solid rgba(255,255,255,.08);
-      background:rgba(255,255,255,.05);color:var(--muted);transition:all .12s ease;box-shadow:0 8px 22px rgba(0,0,0,.25)
+      padding:12px 18px;border-radius:14px;font-weight:900;cursor:pointer;border:1px solid rgba(255,255,255,.1);
+      background:linear-gradient(180deg,rgba(255,255,255,.14),rgba(255,255,255,.06));color:var(--muted);transition:all .14s ease;box-shadow:0 10px 22px rgba(0,0,0,.25)
     }
-    .tab-toggle label:hover{color:var(--text);border-color:rgba(255,255,255,.14);transform:translateY(-1px)}
+    .tab-pill{min-width:150px;text-align:center;letter-spacing:.35px}
+    .tab-toggle label:hover{color:var(--text);border-color:rgba(255,255,255,.16);transform:translateY(-1px)}
     .tab-radio{position:absolute;opacity:0;pointer-events:none}
-    #viewMain:checked ~ .tab-toggle label[for="viewMain"]{background:linear-gradient(180deg,rgba(200,235,255,.4),rgba(140,200,255,.18));color:#0c1826;border-color:rgba(200,235,255,.8);box-shadow:0 10px 26px rgba(0,0,0,.32)}
-    #viewSettings:checked ~ .tab-toggle label[for="viewSettings"]{background:linear-gradient(180deg,rgba(200,235,255,.4),rgba(140,200,255,.18));color:#0c1826;border-color:rgba(200,235,255,.8);box-shadow:0 10px 26px rgba(0,0,0,.32)}
+    #viewMain:checked ~ .menu-shell label[for="viewMain"]{background:linear-gradient(180deg,rgba(200,235,255,.5),rgba(140,200,255,.2));color:#0c1826;border-color:rgba(200,235,255,.8);box-shadow:0 10px 26px rgba(0,0,0,.32)}
+    #viewSettings:checked ~ .menu-shell label[for="viewSettings"]{background:linear-gradient(180deg,rgba(255,198,255,.52),rgba(180,150,255,.26));color:#0c1826;border-color:rgba(255,220,255,.85);box-shadow:0 10px 26px rgba(140,80,200,.32)}
 
     .view-area{position:relative}
     .tab-panel{display:none;animation:floatIn .28s ease;min-height:280px}
@@ -164,9 +187,9 @@
     .panel-settings{grid-template-columns:1fr;gap:14px}
 
     .info-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px}
-    .info-card{border-radius:14px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);padding:12px 12px 10px;box-shadow:0 8px 22px rgba(0,0,0,.22)}
+    .info-card{border-radius:14px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.08);padding:12px 12px 10px;box-shadow:0 12px 26px rgba(0,0,0,.24)}
     .info-card .lbl{font-size:12.5px}
-    .howto{font-size:13.5px;line-height:1.55;color:var(--muted)}
+    .howto{font-size:13.5px;line-height:1.55;color:var(--muted);display:flex;justify-content:center}
     .badge{display:inline-flex;align-items:center;gap:6px;padding:6px 10px;border-radius:999px;background:rgba(255,255,255,.1);color:var(--text);font-weight:800;font-size:12px;border:1px solid rgba(255,255,255,.16)}
     .pills-row{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
     .compact{font-size:12.5px;color:var(--muted)}
@@ -186,17 +209,27 @@
     .mute-row{display:flex;align-items:center;gap:10px;font-weight:800;color:var(--text);padding:8px 10px;border-radius:12px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.09)}
     .muted-note{font-size:12px;color:rgba(255,255,255,.65);margin-top:4px}
 
-    .howto-card{display:grid;grid-template-columns:1fr;gap:6px}
+    .howto-card{display:grid;grid-template-columns:1fr;gap:10px;align-items:center;text-align:center;padding:16px;background:linear-gradient(180deg,rgba(255,255,255,.08),rgba(180,180,255,.08));border:1px solid rgba(255,255,255,.12)}
+    .howto-card .section-title{font-size:16px;letter-spacing:.8px}
+    .howto-list{list-style:disc;margin:0;padding:0 0 0 18px;display:inline-flex;flex-direction:column;gap:6px;text-align:left}
+    .howto-list li{color:var(--text);font-weight:800;text-shadow:0 6px 12px rgba(0,0,0,.24)}
+    .howto-list li::marker{color:var(--bubble)}
 
     .light-aurora{position:absolute;inset:-12% -8%;background:
-      radial-gradient(60% 50% at 20% 30%,rgba(120,190,255,.16),transparent),
-      radial-gradient(50% 40% at 80% 10%,rgba(180,140,255,.16),transparent),
-      radial-gradient(60% 50% at 70% 80%,rgba(120,200,180,.12),transparent);
-      filter:blur(28px);opacity:.7;pointer-events:none;z-index:0}
+      radial-gradient(60% 50% at 20% 30%,rgba(120,190,255,.18),transparent),
+      radial-gradient(50% 40% at 80% 10%,rgba(210,160,255,.2),transparent),
+      radial-gradient(60% 50% at 70% 80%,rgba(255,170,220,.14),transparent);
+      filter:blur(30px);opacity:.82;pointer-events:none;z-index:0}
     .content-layer{position:relative;z-index:1}
     @keyframes floatIn{
       from{opacity:0;transform:translateY(8px)}
       to{opacity:1;transform:translateY(0)}
+    }
+    @keyframes sparkle-drift{
+      0%{transform:translateY(8px) rotate(0deg)}
+      40%{transform:translateY(-4px) rotate(1deg)}
+      70%{transform:translateY(2px) rotate(-1deg)}
+      100%{transform:translateY(8px) rotate(0deg)}
     }
 
     .side-stack{display:flex;flex-direction:column;gap:12px}
@@ -220,10 +253,6 @@
 
         <input type="radio" name="view" id="viewMain" class="tab-radio" checked/>
         <input type="radio" name="view" id="viewSettings" class="tab-radio"/>
-        <div class="tab-toggle" aria-label="Main sections">
-          <label for="viewMain">Main</label>
-          <label for="viewSettings">Settings</label>
-        </div>
 
         <div class="menu-shell">
           <div class="card card-soft">
@@ -231,36 +260,47 @@
               <div class="panel-main tab-panel">
                 <div class="info-grid">
                   <div class="info-card">
-                    <div class="section-title">Ready to fly</div>
-                    <div class="row top-actions">
-                      <button id="start" class="primary" disabled>Start</button>
-                      <button id="tutorial" disabled>Tutorial</button>
-                    </div>
-                    <div class="soft-divider"></div>
-                    <div class="field">
-                      <div class="section-title" style="font-size:14px;margin:0">Cosmetic Trail</div>
-                      <div class="minirow trail-row">
+                <div class="section-title">Ready to fly</div>
+                <div class="row top-actions">
+                  <button id="start" class="primary cta-btn wide sparkle" disabled>Start</button>
+                  <button id="tutorial" class="cta-btn wide" disabled>Tutorial</button>
+                </div>
+                <div class="soft-divider"></div>
+                <div class="field">
+                  <div class="section-title" style="font-size:14px;margin:0">Cosmetic Trail</div>
+                  <div class="minirow trail-row">
                         <select id="trailSelect"></select>
                       </div>
                       <div id="trailHint" class="hint">Unlock trails by improving your personal best.</div>
                     </div>
                   </div>
 
-                  <div class="info-card howto-card">
-                    <div class="section-title">How to play</div>
-                    <div class="howto">
-                      <div class="compact">Move with <span class="kbd">W</span><span class="kbd">A</span><span class="kbd">S</span><span class="kbd">D</span>. Orbs award points and combo; if any orb despawns the combo breaks.</div>
-                      <div class="compact">Perfect Thread: drift through the exact center of a gap as it crosses you.</div>
-                      <div class="compact">Practice in Tutorial, then Start when the sky calls.</div>
-                    </div>
-                  </div>
+              <div class="info-card howto-card">
+                <div class="section-title">How to play</div>
+                <div class="howto">
+                  <ul class="howto-list">
+                    <li>Move with <span class="kbd">W</span><span class="kbd">A</span><span class="kbd">S</span><span class="kbd">D</span></li>
+                    <li>Use abilities to stay alive</li>
+                    <li>Gain points by surviving</li>
+                    <li>Orbs award bonus points</li>
+                    <li>Perfect gaps award bonus points</li>
+                    <li>Practice in Tutorial</li>
+                  </ul>
                 </div>
               </div>
+            </div>
+            <div class="tab-toggle" aria-label="Settings navigation">
+              <label for="viewSettings" class="tab-pill">Settings</label>
+            </div>
+          </div>
 
-              <div class="panel-settings tab-panel">
-                <div class="info-grid">
-                  <div class="info-card">
-                    <div class="section-title">Status</div>
+          <div class="panel-settings tab-panel">
+            <div class="tab-toggle" aria-label="Back to main menu">
+              <label for="viewMain" class="tab-pill">← Back to Main</label>
+            </div>
+            <div class="info-grid">
+              <div class="info-card">
+                <div class="section-title">Status</div>
                     <div class="minirow">
                       <div id="bootPill" class="pill"><span class="dot"></span><span id="bootText">Loading…</span></div>
                     </div>
