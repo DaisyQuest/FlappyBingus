@@ -20,11 +20,19 @@ export function normalizeTrailSelection({
   fallbackId = "classic"
 }) {
   const unlocked = unlockedIds instanceof Set ? unlockedIds : new Set(unlockedIds || []);
-  const candidates = [currentId, userSelectedId, selectValue, fallbackId];
-  for (const id of candidates) {
-    if (id && unlocked.has(id)) return id;
-  }
-  return fallbackId;
+  const normalizedCurrent = currentId && unlocked.has(currentId) ? currentId : null;
+  const normalizedUserSelected = userSelectedId && unlocked.has(userSelectedId) ? userSelectedId : null;
+  const normalizedSelect = selectValue && unlocked.has(selectValue) ? selectValue : null;
+
+  // Prefer the user's persisted choice when the local state only reflects
+  // the default (e.g., record-holder trail after a fresh reload).
+  if (normalizedCurrent && normalizedCurrent !== fallbackId) return normalizedCurrent;
+  if (normalizedUserSelected) return normalizedUserSelected;
+  if (normalizedSelect) return normalizedSelect;
+  if (normalizedCurrent) return normalizedCurrent;
+
+  const [firstUnlocked] = unlocked;
+  return firstUnlocked || fallbackId;
 }
 
 /**
