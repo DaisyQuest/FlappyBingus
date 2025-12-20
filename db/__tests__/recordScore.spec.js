@@ -12,12 +12,27 @@ class FakeCollection {
     }
 
     const upserting = !this.doc && options?.upsert;
-    if (upserting) {
+
+    if (upserting && !Array.isArray(update)) {
+      // For non-pipeline upserts, clone $setOnInsert directly.
       this.doc = { ...(update.$setOnInsert || {}) };
+    } else if (upserting && Array.isArray(update)) {
+      // For pipeline upserts, start from an empty document.
+      this.doc = {};
     } else if (!this.doc) {
       return { value: null };
     }
 
+    if (Array.isArray(update)) {
+      this.applyPipelineUpdate(update);
+    } else {
+      this.applyClassicUpdate(update);
+    }
+
+    return { value: { ...this.doc } };
+  }
+
+  applyClassicUpdate(update) {
     if (update.$set) {
       this.doc = { ...this.doc, ...update.$set };
     }
@@ -32,8 +47,42 @@ class FakeCollection {
         this.doc[k] = Math.max(current, v);
       }
     }
+  }
 
-    return { value: { ...this.doc } };
+  applyPipelineUpdate(stages) {
+    for (const stage of stages) {
+      if (stage.$set) {
+        const next = {};
+        for (const [key, expr] of Object.entries(stage.$set)) {
+          next[key] = this.evaluateExpression(expr);
+        }
+        this.doc = { ...this.doc, ...next };
+      }
+    }
+  }
+
+  evaluateExpression(expr) {
+    if (expr && typeof expr === "object") {
+      if (Object.prototype.hasOwnProperty.call(expr, "$ifNull")) {
+        const [first, fallback] = expr.$ifNull;
+        const firstVal = this.evaluateExpression(first);
+        return firstVal == null ? this.evaluateExpression(fallback) : firstVal;
+      }
+      if (Object.prototype.hasOwnProperty.call(expr, "$add")) {
+        const values = expr.$add.map((v) => this.evaluateExpression(v));
+        return values.reduce((sum, v) => sum + v, 0);
+      }
+      if (Object.prototype.hasOwnProperty.call(expr, "$max")) {
+        const values = expr.$max.map((v) => this.evaluateExpression(v));
+        return Math.max(...values);
+      }
+    }
+
+    if (typeof expr === "string" && expr.startsWith("$")) {
+      return this.doc[expr.slice(1)];
+    }
+
+    return expr;
   }
 }
 
@@ -101,6 +150,31 @@ describe("MongoDataStore.recordScore", () => {
     });
   });
 
+  it("upserts and seeds counters when provided in payload", async () => {
+    const now = 4_000;
+    vi.spyOn(Date, "now").mockReturnValue(now);
+
+    const store = new MongoDataStore({ uri: "mongodb://test", dbName: "db" });
+    store.ensureConnected = vi.fn();
+    const collection = new FakeCollection(null);
+    store.usersCollection = () => collection;
+
+    const user = { key: "mel", username: "Mel", totalScore: 10, runs: 5, bestScore: 8, createdAt: 10 };
+    const result = await store.recordScore(user, 7);
+
+    expect(result).toEqual({
+      key: "mel",
+      username: "Mel",
+      selectedTrail: "classic",
+      keybinds: null,
+      runs: 6,
+      totalScore: 17,
+      bestScore: 8,
+      createdAt: 10,
+      updatedAt: now
+    });
+  });
+
   it("handles missing counters by starting from zero", async () => {
     const now = 3_000;
     vi.spyOn(Date, "now").mockReturnValue(now);
@@ -134,5 +208,4 @@ describe("MongoDataStore.recordScore", () => {
       updatedAt: now
     });
   });
-
 });

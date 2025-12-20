@@ -184,37 +184,45 @@ class MongoDataStore {
     }
   }
 
-async recordScore(user, score) {
-  await this.ensureConnected();
-  if (!user || !user.key) throw new Error("user_key_required");
+  async recordScore(user, score) {
+    await this.ensureConnected();
+    if (!user || !user.key) throw new Error("user_key_required");
 
-  const now = Date.now();
-  const safeScore = clampScore(score);
-  const collection = this.usersCollection();
+    const now = Date.now();
+    const safeScore = clampScore(score);
 
-  const res = await collection.findOneAndUpdate(
-    { key: user.key },
-    {
-      $setOnInsert: {
-        key: user.key,
-        username: user.username || user.key,
-        selectedTrail: user.selectedTrail || DEFAULT_TRAIL,
-        keybinds: user.keybinds || null,
-        createdAt: user.createdAt || now,
-        runs: 0,
-        totalScore: 0,
-        bestScore: 0
-      },
-      $inc: { runs: 1, totalScore: safeScore },
-      $max: { bestScore: safeScore },
-      $set: { updatedAt: now }
-    },
-    { returnDocument: "after", upsert: true }
-  );
+    // Seed values from payload (only used if the doc is missing those fields)
+    const safeRuns = normalizeCount(user.runs);
+    const safeTotalScore = normalizeTotal(user.totalScore);
+    const safeBestScore = clampScore(user.bestScore);
 
-  if (!res.value) throw new Error("record_score_failed");
-  return res.value;
-}
+    const collection = this.usersCollection();
+
+    const res = await collection.findOneAndUpdate(
+      { key: user.key },
+      [
+        {
+          $set: {
+            key: { $ifNull: ["$key", user.key] },
+            username: { $ifNull: ["$username", user.username || user.key] },
+            selectedTrail: { $ifNull: ["$selectedTrail", user.selectedTrail || DEFAULT_TRAIL] },
+            keybinds: { $ifNull: ["$keybinds", user.keybinds || null] },
+            createdAt: { $ifNull: ["$createdAt", user.createdAt || now] },
+
+            runs: { $add: [{ $ifNull: ["$runs", safeRuns] }, 1] },
+            totalScore: { $add: [{ $ifNull: ["$totalScore", safeTotalScore] }, safeScore] },
+            bestScore: { $max: [{ $ifNull: ["$bestScore", safeBestScore] }, safeScore] },
+
+            updatedAt: now
+          }
+        }
+      ],
+      { returnDocument: "after", upsert: true }
+    );
+
+    if (!res.value) throw new Error("record_score_failed");
+    return res.value;
+  }
 
   async setTrail(key, trailId) {
     await this.ensureConnected();
