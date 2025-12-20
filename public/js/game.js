@@ -36,6 +36,11 @@ export class Game {
 
     this.W = 1; this.H = 1; this.DPR = 1;
 
+    // Offscreen background (dots + vignette) to avoid repainting thousands of primitives per frame
+    this.bgCanvas = null;
+    this.bgCtx = null;
+    this.bgDirty = true;
+
     this.bgDots = [];
 
     this.player = {
@@ -215,10 +220,74 @@ export class Game {
         s: 4 + Math.random() * (22 - 4)
       });
     }
+
+    this.bgDirty = true;
+    this._refreshBackgroundLayer();
+  }
+
+  _refreshBackgroundLayer() {
+    // Lazily allocate the offscreen buffer (supports both DOM and OffscreenCanvas)
+    const canvasFactory = () => {
+      if (typeof OffscreenCanvas !== "undefined") return new OffscreenCanvas(1, 1);
+      if (typeof document !== "undefined") return document.createElement("canvas");
+      return null;
+    };
+
+    if (!this.bgCanvas) this.bgCanvas = canvasFactory();
+    if (!this.bgCanvas) return; // Fallback: will render directly to the main canvas
+
+    const w = Math.max(1, Math.round(this.W));
+    const h = Math.max(1, Math.round(this.H));
+
+    // Resize invalidates the context state; reacquire each time we resize
+    if (this.bgCanvas.width !== w || this.bgCanvas.height !== h) {
+      this.bgCanvas.width = w;
+      this.bgCanvas.height = h;
+      this.bgCtx = null;
+    }
+
+    if (!this.bgCtx) this.bgCtx = this.bgCanvas.getContext("2d", { alpha: false });
+    const bctx = this.bgCtx;
+    if (!bctx) return;
+
+    bctx.setTransform(1, 0, 0, 1, 0, 0);
+    bctx.clearRect(0, 0, w, h);
+
+    // background fill
+    bctx.fillStyle = "#07101a";
+    bctx.fillRect(0, 0, w, h);
+
+    // vignette
+    const vg = bctx.createRadialGradient(
+      this.W * 0.5, this.H * 0.45, Math.min(this.W, this.H) * 0.12,
+      this.W * 0.5, this.H * 0.5, Math.max(this.W, this.H) * 0.75
+    );
+    vg.addColorStop(0, "rgba(0,0,0,0)");
+    vg.addColorStop(1, "rgba(0,0,0,.44)");
+    bctx.fillStyle = vg;
+    bctx.fillRect(0, 0, w, h);
+
+    // static dots
+    bctx.save();
+    bctx.globalAlpha = 0.75;
+    bctx.fillStyle = "rgba(255,255,255,.20)";
+    for (const p of this.bgDots) {
+      bctx.beginPath();
+      bctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+      bctx.fill();
+    }
+    bctx.restore();
+
+    this.bgDirty = false;
   }
 
   _margin() {
     return clamp(Math.min(this.W, this.H) * 0.25, 110, 240);
+  }
+
+  _isVisibleRect(x, y, w, h, margin = 0) {
+    const m = Math.max(0, margin);
+    return (x + w >= -m) && (x <= this.W + m) && (y + h >= -m) && (y <= this.H + m);
   }
 
   _difficulty01() {
@@ -861,35 +930,39 @@ if (dist <= thresh) {
   render() {
     const ctx = this.ctx;
 
-    // background
-    ctx.fillStyle = "#07101a";
-    ctx.fillRect(0, 0, this.W, this.H);
-
-    // vignette
-    const vg = ctx.createRadialGradient(this.W * 0.5, this.H * 0.45, Math.min(this.W, this.H) * 0.12, this.W * 0.5, this.H * 0.5, Math.max(this.W, this.H) * 0.75);
-    vg.addColorStop(0, "rgba(0,0,0,0)");
-    vg.addColorStop(1, "rgba(0,0,0,.44)");
-    ctx.fillStyle = vg;
-    ctx.fillRect(0, 0, this.W, this.H);
-
-    // dots
-    ctx.save();
-    ctx.globalAlpha = 0.75;
-    ctx.fillStyle = "rgba(255,255,255,.20)";
-    for (const p of this.bgDots) {
-      ctx.beginPath();
-      ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
-      ctx.fill();
+    // background (cached offscreen)
+    if (this.bgDirty) this._refreshBackgroundLayer();
+    if (this.bgCanvas) {
+      ctx.drawImage(this.bgCanvas, 0, 0, this.W, this.H);
+    } else {
+      ctx.fillStyle = "#07101a";
+      ctx.fillRect(0, 0, this.W, this.H);
     }
-    ctx.restore();
 
     // world
     const pc = this._pipeColor();
-    for (const p of this.pipes) this._drawPipe(p, pc);
-    for (const o of this.orbs) this._drawOrb(o);
+    const visPad = Math.max(32, Math.min(this.W, this.H) * 0.12);
+    for (const p of this.pipes) {
+      if (!this._isVisibleRect(p.x, p.y, p.w, p.h, visPad)) continue;
+      this._drawPipe(p, pc);
+    }
 
-    for (const p of this.parts) p.draw(ctx);
-    for (const t of this.floats) t.draw(ctx);
+    for (const o of this.orbs) {
+      if (!this._isVisibleRect(o.x - o.r, o.y - o.r, o.r * 2, o.r * 2, 28)) continue;
+      this._drawOrb(o);
+    }
+
+    for (const p of this.parts) {
+      const s = Math.max(1, p.size || 1);
+      if (!this._isVisibleRect(p.x - s * 2, p.y - s * 2, s * 4, s * 4, visPad)) continue;
+      p.draw(ctx);
+    }
+
+    for (const t of this.floats) {
+      const fh = Math.max(8, t.size || 18);
+      if (!this._isVisibleRect(t.x - fh, t.y - fh, fh * 2, fh * 2, visPad)) continue;
+      t.draw(ctx);
+    }
 
     this._drawPlayer();
 
