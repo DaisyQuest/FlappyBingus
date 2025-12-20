@@ -768,7 +768,7 @@ async function route(req, res) {
   if (pathname === "/api/cosmetics/trail" && req.method === "POST") {
     if (rateLimit(req, res, "/api/cosmetics/trail")) return;
     if (!(await ensureDatabase(res))) return;
-    const u = await getUserFromReq(req);
+    const u = await getUserFromReq(req, { withRecordHolder: true });
     if (!u) return unauthorized(res);
 
     let body;
@@ -781,11 +781,11 @@ async function route(req, res) {
     const exists = TRAILS.some((t) => t.id === trailId);
     if (!exists) return badRequest(res, "invalid_trail");
 
-    const unlocked = unlockedTrails(u.bestScore | 0, { recordHolder: Boolean(u?.isRecordHolder) });
+    const recordHolder = Boolean(u?.isRecordHolder);
+    const unlocked = unlockedTrails(u.bestScore | 0, { recordHolder });
     if (!unlocked.includes(trailId)) return badRequest(res, "trail_locked");
 
     const updated = await dataStore.setTrail(u.key, trailId);
-    const recordHolder = Boolean(u?.isRecordHolder);
     ensureUserSchema(updated, { recordHolder });
 
     sendJson(res, 200, { ok: true, user: publicUser(updated, { recordHolder }), trails: TRAILS });
@@ -908,7 +908,7 @@ async function route(req, res) {
 }
 
 // --------- Server start ----------
-(async () => {
+async function startServer() {
   if (!fssync.existsSync(PUBLIC_DIR)) {
     console.warn(`[bingus] PUBLIC_DIR missing: ${PUBLIC_DIR}`);
   }
@@ -933,4 +933,20 @@ async function route(req, res) {
     console.log(`[bingus] mongo target ${mongoConfig.maskedUri} (db ${mongoConfig.dbName})`);
     console.log(`[bingus] NOTE: put your client file at ${path.join(PUBLIC_DIR, "js", "main.js")} so /js/main.js works`);
   });
-})();
+}
+
+if (require.main === module) {
+  startServer();
+}
+
+module.exports = {
+  TRAILS,
+  unlockedTrails,
+  ensureUserSchema,
+  publicUser,
+  isRecordHolder,
+  normalizeUsername,
+  keyForUsername,
+  route,
+  startServer
+};
