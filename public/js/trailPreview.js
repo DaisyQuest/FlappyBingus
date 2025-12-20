@@ -1,6 +1,7 @@
 // =====================
 // FILE: public/js/trailPreview.js
 // =====================
+import { DEFAULT_CONFIG } from "./config.js";
 import { clamp, createSeededRand } from "./util.js";
 import { Part } from "./entities.js";
 import { trailStyleFor } from "./trailStyles.js";
@@ -23,7 +24,7 @@ export class TrailPreview {
     this.trailAcc = 0;
     this.trailGlintAcc = 0;
     this.trailSparkAcc = 0;
-    this.player = { x: 0, y: 0, vx: 0, vy: 0, prevX: 0, prevY: 0, r: 18, phase: 0 };
+    this.player = { x: 0, y: 0, vx: 0, vy: 0, prevX: 0, prevY: 0, r: 18, w: 0, h: 0, phase: 0 };
 
     this.W = 320;
     this.H = 180;
@@ -69,6 +70,7 @@ export class TrailPreview {
     this.ctx.setTransform?.(dpr, 0, 0, dpr, 0, 0);
     this.ctx.lineJoin = "round";
     this.ctx.lineCap = "round";
+    this._computePlayerSize();
   }
 
   start() {
@@ -114,6 +116,7 @@ export class TrailPreview {
   }
 
   _updatePlayer(dt) {
+    this._computePlayerSize();
     const orbitPhase = this.player.phase * 0.92;
     const drift = Math.sin(this.player.phase * 0.45) * 0.35;
     const swing = Math.cos(this.player.phase * 0.24) * 0.18;
@@ -142,11 +145,24 @@ export class TrailPreview {
     this.player.phase += dt * 0.95;
     this.player.x = this.W * targetX;
     this.player.y = this.H * targetY;
-    this.player.r = Math.max(12, Math.min(this.W, this.H) * 0.08);
+    const radiusScale = DEFAULT_CONFIG.player.radiusScale;
+    const minRadius = Math.max(6, Math.min(this.player.w, this.player.h) * radiusScale);
+    this.player.r = minRadius;
 
     const invDt = dt > 1e-4 ? 1 / dt : 0;
     this.player.vx = (this.player.x - this.player.prevX) * invDt;
     this.player.vy = (this.player.y - this.player.prevY) * invDt;
+  }
+
+  _computePlayerSize() {
+    const cfg = DEFAULT_CONFIG.player;
+    const base = Math.min(this.W, this.H);
+    const target = clamp(base * cfg.sizeScale, cfg.sizeMin, cfg.sizeMax);
+    const iw = this.playerImg?.naturalWidth || 1;
+    const ih = this.playerImg?.naturalHeight || 1;
+    this.player.w = target;
+    this.player.h = target * (ih / iw);
+    this.player.r = Math.min(this.player.w, this.player.h) * cfg.radiusScale;
   }
 
   _emitTrail(dt) {
@@ -297,12 +313,14 @@ export class TrailPreview {
     const p = this.player;
     ctx.save?.();
     ctx.translate?.(p.x, p.y);
-    const size = p.r * 2.4;
+    const defaultScale = DEFAULT_CONFIG.player.radiusScale || 1;
+    const sizeX = p.w || (p.r / defaultScale);
+    const sizeY = p.h || (p.r / defaultScale);
     const ang = Math.atan2(p.vy, p.vx) * 0.18;
     if (ctx.rotate) ctx.rotate(ang);
 
     if (this.playerImg?.complete && this.playerImg?.naturalWidth > 0) {
-      ctx.drawImage?.(this.playerImg, -size * 0.5, -size * 0.5, size, size);
+      ctx.drawImage?.(this.playerImg, -sizeX * 0.5, -sizeY * 0.5, sizeX, sizeY);
     } else {
       const body = ctx.createRadialGradient?.(0, 0, p.r * 0.35, 0, 0, p.r * 1.4) || null;
       if (body) {
