@@ -10,7 +10,8 @@ const DEFAULT_CONFIG = {
   dashDuration: 0.2,
   phaseDuration: 0.35,
   maxFallSpeed: 900,
-  world: { width: 300, height: 300 }
+  world: { width: 300, height: 300 },
+  eventBufferSize: 500
 };
 
 /**
@@ -26,7 +27,7 @@ export class GameEngine {
       ...config,
       world: { ...DEFAULT_CONFIG.world, ...(config.world || {}) }
     };
-    this.events = new EventLog(clock);
+    this.events = new EventLog(clock, { maxSize: this.config.eventBufferSize });
 
     this.state = {
       tick: 0,

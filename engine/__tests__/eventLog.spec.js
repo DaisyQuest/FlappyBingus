@@ -32,4 +32,15 @@ describe("EventLog", () => {
     log.clear();
     expect(log.events).toHaveLength(0);
   });
+
+  it("caps history when maxSize is provided", () => {
+    const log = new EventLog(createFixedClock(0), { maxSize: 2 });
+    log.emit("a");
+    log.emit("b");
+    log.emit("c");
+
+    expect(log.events).toHaveLength(2);
+    expect(log.events[0].type).toBe("b");
+    expect(log.events[1].type).toBe("c");
+  });
 });
