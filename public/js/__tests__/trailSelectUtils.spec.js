@@ -29,6 +29,32 @@ describe("trailSelectUtils", () => {
     expect(result).toBe("classic");
   });
 
+  it("prefers the user's saved selection when local state is still the fallback", () => {
+    const unlocked = new Set(["classic", "world_record"]);
+    const result = normalizeTrailSelection({
+      currentId: "classic",
+      userSelectedId: "world_record",
+      selectValue: "classic",
+      unlockedIds: unlocked,
+      fallbackId: "classic"
+    });
+
+    expect(result).toBe("world_record");
+  });
+
+  it("falls back to the first unlocked trail when nothing else qualifies", () => {
+    const unlocked = new Set(["aurora"]);
+    const result = normalizeTrailSelection({
+      currentId: null,
+      userSelectedId: null,
+      selectValue: null,
+      unlockedIds: unlocked,
+      fallbackId: "classic"
+    });
+
+    expect(result).toBe("aurora");
+  });
+
   it("rebuilds select options and preserves the safest unlocked value", () => {
     const dom = new JSDOM("<select></select>");
     const select = dom.window.document.querySelector("select");
