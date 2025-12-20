@@ -332,6 +332,7 @@ describe("Skill usage", () => {
     game.cds.dash = 1;
     game._useSkill("dash");
     expect(game.player.dashT).toBe(0);
+    expect(game.floats.some((f) => f.txt.startsWith("DASH"))).toBe(true);
 
     game.cds.dash = 0;
     game._useSkill("dash");
@@ -358,6 +359,41 @@ describe("Skill usage", () => {
     game._useSkill("slowField");
     expect(game.slowField).toBeTruthy();
     expect(game.floats.some((f) => f.txt === "SLOW FIELD")).toBe(true);
+  });
+
+  it("shows cooldown popups with colors based on remaining time", () => {
+    const { game } = buildGame({ skills: { dash: { cooldown: 3, duration: 0.2, speed: 200 } } });
+    game.player.r = 6;
+
+    game.cds.dash = 3;
+    game._useSkill("dash");
+    const justUsed = game.floats.at(-1);
+    expect(justUsed.txt).toBe("DASH 3.0s");
+    expect(justUsed.color).toBe("rgba(120,20,20,.95)");
+    expect(game.cds.dash).toBeCloseTo(3);
+
+    game.cds.dash = 1.5;
+    game._useSkill("dash");
+    const midCooldown = game.floats.at(-1);
+    expect(midCooldown.color).toBe("rgba(255,215,120,.95)");
+    expect(midCooldown.txt).toBe("DASH 1.5s");
+
+    game.cds.dash = 0.2;
+    game._useSkill("dash");
+    const nearlyReady = game.floats.at(-1);
+    expect(nearlyReady.color).toBe("rgba(110,200,110,.95)");
+    expect(nearlyReady.wobble).toBeGreaterThan(midCooldown.wobble);
+    expect(nearlyReady.txt).toBe("DASH 0.2s");
+  });
+
+  it("shows cooldown popups even when the configured cooldown is zero", () => {
+    const { game } = buildGame({ skills: { dash: { cooldown: 0, duration: 0.2, speed: 200 } } });
+    game.cds.dash = 0.4;
+    game._useSkill("dash");
+    const popup = game.floats.at(-1);
+    expect(popup.color).toBe("rgba(120,20,20,.95)");
+    expect(popup.wobble).toBeGreaterThan(0);
+    expect(popup.txt).toBe("DASH 0.4s");
   });
 });
 
@@ -621,6 +657,60 @@ describe("Player movement and trail emission", () => {
     expect(game.trailAcc).toBeLessThan(1);
     expect(game.trailGlintAcc).toBeLessThan(1);
     expect(game.trailSparkAcc).toBeLessThan(1);
+  });
+
+  it("emits an aura and lengthened particles for a mesmerizing trail cloud", () => {
+    setRandSource(() => 0.5);
+    const { game } = buildGame();
+    game.player.x = 100; game.player.y = 120;
+    game.player.vx = 0; game.player.vy = 0;
+    game.player.r = 20;
+    game.getTrailId = () => "custom";
+    const style = {
+      rate: 3,
+      life: [1, 1],
+      size: [2, 2],
+      speed: [10, 10],
+      drag: 0,
+      add: false,
+      jitterScale: 0.4,
+      distanceScale: 3,
+      lifeScale: 2,
+      glint: { rate: Number.MIN_VALUE, life: [1, 1], size: [1, 1], speed: [1, 1] },
+      sparkle: { rate: Number.MIN_VALUE, life: [1, 1], size: [1, 1], speed: [1, 1] },
+      aura: {
+        rate: 2,
+        life: [2, 2],
+        size: [3, 3],
+        speed: [4, 4],
+        orbit: [5, 5],
+        add: false,
+        drag: 2,
+        twinkle: false
+      }
+    };
+    vi.spyOn(game, "_trailStyle").mockReturnValue(style);
+
+    try {
+      const prev = game.parts.length;
+      game._emitTrail(1);
+
+      const produced = game.parts.slice(prev);
+      const baseParts = produced.slice(0, 3);
+      const auraParts = produced.slice(3);
+
+      expect(produced).toHaveLength(5);
+      expect(baseParts.every((p) => p.life === 2)).toBe(true);
+      expect(baseParts.every((p) => Math.abs(p.size - 2.16) < 1e-3)).toBe(true);
+      expect(baseParts.every((p) => p.drag === 0)).toBe(true);
+      expect(auraParts.every((p) => p.life === 4)).toBe(true);
+      expect(auraParts.every((p) => Math.abs(p.size - 3.24) < 1e-3)).toBe(true);
+      expect(auraParts.every((p) => p.twinkle === false)).toBe(true);
+      expect(game.trailAuraAcc).toBeLessThan(1);
+      expect(game.trailAcc).toBeLessThan(1);
+    } finally {
+      setRandSource();
+    }
   });
 });
 

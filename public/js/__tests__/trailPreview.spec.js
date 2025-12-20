@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import { DEFAULT_CONFIG } from "../config.js";
 import { TrailPreview } from "../trailPreview.js";
 import { clamp } from "../util.js";
+import * as trailStyles from "../trailStyles.js";
 
 const makeCtx = ({ linearGradient, radialGradient } = {}) => {
   const gradient = { addColorStop: vi.fn() };
@@ -207,6 +208,7 @@ describe("TrailPreview", () => {
     preview.trailAcc = 5;
     preview.trailGlintAcc = 3;
     preview.trailSparkAcc = 2;
+    preview.trailAuraAcc = 4;
 
     preview.setTrail("aurora");
 
@@ -215,6 +217,7 @@ describe("TrailPreview", () => {
     expect(preview.trailAcc).toBe(1);
     expect(preview.trailGlintAcc).toBe(1);
     expect(preview.trailSparkAcc).toBe(1);
+    expect(preview.trailAuraAcc).toBe(1);
   });
 
   it("stops running when the rendering context disappears mid-frame", () => {
@@ -236,6 +239,105 @@ describe("TrailPreview", () => {
 
     expect(preview.running).toBe(false);
     expect(cancel).toHaveBeenCalledWith(99);
+  });
+
+  it("emits an enveloping aura with lengthened particles for a vivid preview", () => {
+    const { canvas } = makeCanvas();
+    const preview = new TrailPreview({
+      canvas,
+      playerImg: {},
+      requestFrame: null,
+      cancelFrame: null,
+      now: () => 0
+    });
+    preview.player.x = 40;
+    preview.player.y = 50;
+    preview.player.r = 10;
+    preview.player.phase = Math.asin(0.5) / 1.6;
+    preview._rand = () => 0.5;
+
+    const style = {
+      rate: 3,
+      life: [1, 1],
+      size: [2, 2],
+      speed: [10, 10],
+      drag: 0,
+      add: false,
+      jitterScale: 0.4,
+      distanceScale: 3,
+      lifeScale: 2,
+      glint: { rate: Number.MIN_VALUE, life: [1, 1], size: [1, 1], speed: [1, 1] },
+      sparkle: { rate: Number.MIN_VALUE, life: [1, 1], size: [1, 1], speed: [1, 1] },
+      aura: {
+        rate: 2,
+        life: [2, 2],
+        size: [3, 3],
+        speed: [4, 4],
+        orbit: [5, 5],
+        add: false,
+        drag: 2,
+        twinkle: false
+      }
+    };
+
+    const styleSpy = vi.spyOn(trailStyles, "trailStyleFor").mockReturnValue(style);
+
+    preview._emitTrail(1);
+
+    const produced = preview.parts.slice(-5);
+    const baseParts = produced.slice(0, 3);
+    const auraParts = produced.slice(3);
+
+    expect(produced).toHaveLength(5);
+    expect(baseParts.every((p) => p.life === 2)).toBe(true);
+    expect(baseParts.every((p) => Math.abs(p.size - 2.16) < 1e-3)).toBe(true);
+    expect(auraParts.every((p) => p.life === 4)).toBe(true);
+    expect(auraParts.every((p) => Math.abs(p.size - 3.24) < 1e-3)).toBe(true);
+    expect(auraParts.every((p) => p.twinkle === false)).toBe(true);
+    expect(preview.trailAuraAcc).toBeLessThan(1);
+    expect(preview.trailAcc).toBeLessThan(1);
+
+    styleSpy.mockRestore();
+  });
+
+  it("scales secondary effects with flow so bright particles do not overpower color", () => {
+    const { canvas } = makeCanvas();
+    const preview = new TrailPreview({
+      canvas,
+      playerImg: {},
+      requestFrame: null,
+      cancelFrame: null,
+      now: () => 0
+    });
+    preview.player.phase = -Math.PI / 3.2; // flow = 0.4
+    preview._rand = () => 0.5;
+
+    const style = {
+      rate: 10,
+      life: [1, 1],
+      size: [1, 1],
+      speed: [1, 1],
+      drag: 0,
+      add: false,
+      glint: { rate: 8, life: [1, 1], size: [1, 1], speed: [1, 1], add: false },
+      sparkle: { rate: 6, life: [1, 1], size: [1, 1], speed: [1, 1], add: false },
+      aura: { rate: 0 }
+    };
+    const styleSpy = vi.spyOn(trailStyles, "trailStyleFor").mockReturnValue(style);
+
+    preview._emitTrail(1);
+
+    const produced = preview.parts.slice(-13);
+    const baseCount = Math.floor(style.rate * 0.4);
+    const glintCount = Math.floor(style.glint.rate * 0.4);
+    const sparkleCount = Math.floor(style.sparkle.rate * 0.4);
+
+    expect(produced).toHaveLength(baseCount + glintCount + sparkleCount);
+    expect(baseCount).toBe(4);
+    expect(glintCount).toBe(3);
+    expect(sparkleCount).toBe(2);
+
+    styleSpy.mockRestore();
   });
 
   it("caps the number of particles to keep previews lightweight", () => {
