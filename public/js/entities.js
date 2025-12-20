@@ -34,6 +34,7 @@ export class Gate {
     this.gapCenter = gapCenter; this.gapHalf = gapHalf; this.thick = thick;
     this.entered = false;
     this.cleared = false;
+    this.perfected = false;
   }
   update(dt, W, H) {
     this.prev = this.pos;
@@ -46,8 +47,9 @@ export class Gate {
       }
     }
   }
-  crossed(playerAxis) {
-    if (this.cleared || !this.entered) return false;
+  crossed(playerAxis, { allowCleared = false } = {}) {
+    if (this.perfected) return false;
+    if ((this.cleared && !allowCleared) || !this.entered) return false;
     if (this.v > 0) return (this.prev < playerAxis && this.pos >= playerAxis);
     if (this.v < 0) return (this.prev > playerAxis && this.pos <= playerAxis);
     return false;

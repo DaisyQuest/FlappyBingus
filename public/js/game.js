@@ -7,6 +7,7 @@ import {
   hexToRgb, lerpC, rgb, shade, hsla
 } from "./util.js";
 import { ACTIONS, humanizeBind } from "./keybinds.js";
+import { resolveGapPerfect } from "./perfectGaps.js";
 
 // NEW: orb pickup SFX (pitch shifts by combo)
 import { sfxOrbBoop, sfxPerfectNice, sfxDashBounce } from "./audio.js";
@@ -904,39 +905,34 @@ export class Game {
     if (this.cfg.scoring.perfect.enabled) {
       const bonus = Math.max(0, Number(this.cfg.scoring.perfect.bonus) || 0);
       const wS = clamp(Number(this.cfg.scoring.perfect.windowScale) || 0.075, 0, 1);
+      const flashDuration = Number(this.cfg.scoring.perfect.flashDuration) || 0.55;
 
       for (const g of this.gates) {
-        if (g.cleared) continue;
+        if (g.perfected) continue;
         const pAxis = (g.axis === "x") ? this.player.x : this.player.y;
-        if (g.crossed(pAxis)) {
-          g.cleared = true;
-          const perpPrev = (g.axis === "x") ? prevPlayerY : prevPlayerX;
-          const perpCurr = (g.axis === "x") ? this.player.y : this.player.x;
-          const denom = g.pos - g.prev;
-          const alpha = denom === 0 ? 0 : clamp((pAxis - g.prev) / denom, 0, 1);
-          const perp = lerp(perpPrev, perpCurr, alpha);
-          const dist = Math.abs(perp - g.gapCenter);
-          const thresh = Math.max(3, g.gapHalf * wS) * 1.10; // NEW: 5% leniency
-          if (dist <= thresh) {
-            this._perfectNiceSfx();
-            const streak = (this.perfectCombo | 0) + 1;
-            const pts = bonus * streak;
-            this.perfectCombo = streak;
-            if (g.gapId && this._gapMeta) {
-              const meta = this._gapMeta.get(g.gapId);
-              if (meta) meta.perfected = true;
-            }
-            this.score += pts;
-            const fd = clamp(Number(this.cfg.scoring.perfect.flashDuration) || 0.55, 0.15, 2.0);
-            this.perfectT = fd; this.perfectMax = fd;
-            this.floats.push(new FloatText(`+${pts}`, this.player.x, this.player.y - this.player.r * 2.0, "rgba(255,255,255,.95)"));
+        const perpPrev = (g.axis === "x") ? prevPlayerY : prevPlayerX;
+        const perpCurr = (g.axis === "x") ? this.player.y : this.player.x;
 
-            for (let k = 0; k < 28; k++) {
-              const a = rand(0, Math.PI * 2), sp = rand(60, 320);
-              const prt = new Part(this.player.x, this.player.y, Math.cos(a) * sp, Math.sin(a) * sp, rand(0.20, 0.45), rand(1.0, 2.2), "rgba(255,255,255,.85)", true);
-              prt.drag = 8.5;
-              this.parts.push(prt);
-            }
+        const res = resolveGapPerfect({
+          gate: g,
+          game: this,
+          playerAxis: pAxis,
+          prevPerpAxis: perpPrev,
+          currPerpAxis: perpCurr,
+          bonus,
+          flashDuration,
+          windowScale: wS
+        });
+
+        if (res.awarded) {
+          const pts = res.points || 0;
+          this.floats.push(new FloatText(`+${pts}`, this.player.x, this.player.y - this.player.r * 2.0, "rgba(255,255,255,.95)"));
+
+          for (let k = 0; k < 28; k++) {
+            const a = rand(0, Math.PI * 2), sp = rand(60, 320);
+            const prt = new Part(this.player.x, this.player.y, Math.cos(a) * sp, Math.sin(a) * sp, rand(0.20, 0.45), rand(1.0, 2.2), "rgba(255,255,255,.85)", true);
+            prt.drag = 8.5;
+            this.parts.push(prt);
           }
         }
       }
