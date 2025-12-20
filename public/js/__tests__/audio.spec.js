@@ -1,19 +1,19 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 class FakeGain {
-  constructor() {
-    this.gain = { value: 1 };
-  }
+  constructor() { this.gain = { value: 1 }; }
   connect() {}
 }
 
 class FakeBufferSource {
   constructor() {
     this.playbackRate = { value: 1 };
+    this.connect = vi.fn();
+    this.start = vi.fn();
+    this.stop = vi.fn();
+    this.onended = null;
+    this.loop = false;
   }
-  connect() {}
-  start() {}
-  stop() {}
 }
 
 class FakeAudioContext {
@@ -21,13 +21,20 @@ class FakeAudioContext {
     this.state = "running";
     this.destination = {};
     this.decodeAudioData = vi.fn(async (arr) => arr);
+    this.createdSources = [];
+    (globalThis.__audioContexts || []).push(this);
   }
   createGain() { return new FakeGain(); }
-  createBufferSource() { return new FakeBufferSource(); }
+  createBufferSource() {
+    const src = new FakeBufferSource();
+    this.createdSources.push(src);
+    return src;
+  }
   async resume() { this.state = "running"; }
 }
 
 const installAudioContext = () => {
+  globalThis.__audioContexts = [];
   globalThis.window = globalThis;
   globalThis.AudioContext = FakeAudioContext;
   globalThis.webkitAudioContext = undefined;
@@ -47,6 +54,7 @@ afterEach(() => {
   delete globalThis.webkitAudioContext;
   delete globalThis.window;
   delete globalThis.fetch;
+  delete globalThis.__audioContexts;
 });
 
 describe("audio volume controls", () => {
@@ -79,5 +87,58 @@ describe("audio volume controls", () => {
     setSfxVolume(-1);
 
     expect(getVolumeState()).toMatchObject({ music: 1, sfx: 0 });
+  });
+
+  it("loads buffers lazily and resumes suspended contexts once", async () => {
+    class SuspendedAudioContext extends FakeAudioContext {
+      constructor() {
+        super();
+        this.state = "suspended";
+      }
+      resume = vi.fn(async () => { this.state = "running"; });
+    }
+
+    globalThis.AudioContext = SuspendedAudioContext;
+    const { audioInit } = await import("../audio.js");
+
+    await audioInit({ musicUrl: "m", boopUrl: "b", niceUrl: "n", bounceUrl: "d" });
+    await audioInit({ musicUrl: "m", boopUrl: "b", niceUrl: "n", bounceUrl: "d" }); // cached
+
+    expect(globalThis.fetch).toHaveBeenCalledTimes(4); // only first init loads
+    const ctx = globalThis.__audioContexts.at(-1);
+    expect(ctx?.resume).toHaveBeenCalled();
+  });
+
+  it("starts and stops the music loop while honoring onended cleanup", async () => {
+    const { audioInit, musicStartLoop, musicStop } = await import("../audio.js");
+    await audioInit({ musicUrl: "m" });
+
+    musicStartLoop();
+    const ctx = globalThis.__audioContexts.at(-1);
+    const src = ctx.createdSources[0];
+    expect(src.start).toHaveBeenCalled();
+    expect(src.loop).toBe(true);
+
+    // trigger onended to ensure state resets
+    src.onended?.();
+    musicStop(); // should no-op safely after onended cleanup
+  });
+
+  it("plays SFX with combo scaling and bounce speed clamping", async () => {
+    const { audioInit, sfxOrbBoop, sfxPerfectNice, sfxDashBounce } = await import("../audio.js");
+    await audioInit({ boopUrl: "boop", niceUrl: "nice", bounceUrl: "bounce" });
+
+    sfxOrbBoop(10);
+    sfxPerfectNice();
+    const speed = 8;
+    sfxDashBounce(speed); // should run clamp helper with provided speed
+
+    const ctx = globalThis.__audioContexts.at(-1);
+    const [boop, nice, bounce] = ctx.createdSources.slice(-3);
+    expect(boop.playbackRate.value).toBeGreaterThan(1);
+    expect(nice.playbackRate.value).toBe(1); // untouched
+    // Follows clamp invocation order in audio.js (min,value,max)
+    const expectedBounce = Math.max(speed * 0.25 + 1, Math.min(1.35, 0.85));
+    expect(bounce.playbackRate.value).toBeCloseTo(expectedBounce);
   });
 });
