@@ -12,6 +12,7 @@ const { URL } = require("node:url");
 
 const { MongoDataStore, resolveMongoConfig } = require("./db/mongo.cjs");
 const { createScoreService, clampScoreDefault } = require("./services/scoreService.cjs");
+const { buildTrailPreviewCatalog } = require("./services/trailCatalog.cjs");
 
 // --------- Config (env overrides) ----------
 const PORT = Number(process.env.PORT || 3000);
@@ -818,6 +819,12 @@ async function route(req, res) {
     if (!(await ensureDatabase(res))) return;
     const limit = Number(url.searchParams.get("limit") || 20);
     sendJson(res, 200, { ok: true, highscores: await topHighscores(limit) });
+    return;
+  }
+
+  if (pathname === "/trail_previews" && req.method === "GET") {
+    const catalog = buildTrailPreviewCatalog(TRAILS);
+    sendJson(res, 200, catalog);
     return;
   }
 

@@ -389,8 +389,8 @@ function fillTrailSelect() {
     fallbackId: "classic"
   });
 
-  rebuildTrailOptions(trailSelect, net.trails, unlocked, selected);
-  applyTrailSelection(selected);
+  const applied = rebuildTrailOptions(trailSelect, net.trails, unlocked, selected);
+  applyTrailSelection(applied);
   pbText.textContent = String(best);
 
   if (!net.user) {

@@ -6,7 +6,8 @@ const CLIENT_RATE_LIMITS = Object.freeze({
   "/api/score": { limit: 5, windowMs: 10_000 },
   "/api/cosmetics/trail": { limit: 6, windowMs: 10_000 },
   "/api/binds": { limit: 8, windowMs: 10_000 },
-  "/api/highscores": { limit: 10, windowMs: 5_000 }
+  "/api/highscores": { limit: 10, windowMs: 5_000 },
+  "/trail_previews": { limit: 4, windowMs: 5_000 }
 });
 
 const _clientRateState = new Map();
@@ -70,4 +71,9 @@ export async function apiSetKeybinds(keybinds) {
 export async function apiGetHighscores(limit = 20) {
   if (hitClientRateLimit("/api/highscores")) return null;
   return requestJson(`/api/highscores?limit=${encodeURIComponent(String(limit))}`, { method: "GET" });
+}
+
+export async function apiGetTrailPreviews() {
+  if (hitClientRateLimit("/trail_previews")) return null;
+  return requestJson("/trail_previews", { method: "GET" });
 }
