@@ -81,6 +81,7 @@ export class Part {
     this.life = life; this.max = life; this.size = size;
     this.color = color; this.add = add;
     this.drag = 0;
+    this.twinkle = false;
   }
   update(dt) {
     this.life -= dt;
@@ -99,10 +100,25 @@ export class Part {
     ctx.save();
     if (this.add) ctx.globalCompositeOperation = "lighter";
     ctx.globalAlpha = a;
-    ctx.fillStyle = this.color;
-    ctx.beginPath();
-    ctx.arc(this.x, this.y, Math.max(0.7, this.size * (0.6 + 0.6 * (1 - t))), 0, Math.PI * 2);
-    ctx.fill();
+    const r = Math.max(0.7, this.size * (0.6 + 0.6 * (1 - t)));
+    if (this.twinkle) {
+      ctx.strokeStyle = this.color;
+      ctx.lineWidth = Math.max(0.65, r * 0.35);
+      ctx.beginPath(); ctx.moveTo(this.x - r * 1.4, this.y); ctx.lineTo(this.x + r * 1.4, this.y); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(this.x, this.y - r * 1.4); ctx.lineTo(this.x, this.y + r * 1.4); ctx.stroke();
+      ctx.lineWidth = Math.max(0.5, r * 0.25);
+      ctx.beginPath(); ctx.moveTo(this.x - r * 0.9, this.y - r * 0.9); ctx.lineTo(this.x + r * 0.9, this.y + r * 0.9); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(this.x - r * 0.9, this.y + r * 0.9); ctx.lineTo(this.x + r * 0.9, this.y - r * 0.9); ctx.stroke();
+      ctx.fillStyle = this.color;
+      ctx.beginPath();
+      ctx.arc(this.x, this.y, r * 0.55, 0, Math.PI * 2);
+      ctx.fill();
+    } else {
+      ctx.fillStyle = this.color;
+      ctx.beginPath();
+      ctx.arc(this.x, this.y, r, 0, Math.PI * 2);
+      ctx.fill();
+    }
     ctx.restore();
   }
 }

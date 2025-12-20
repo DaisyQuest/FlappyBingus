@@ -85,6 +85,8 @@ export class Game {
     // trail emission
     this.trailAcc = 0;
     this.trailHue = 0;
+    this.trailGlintAcc = 0;
+    this.trailSparkAcc = 0;
 
     // NEW: allow main.js to disable SFX during replay/export if desired
     this.audioEnabled = true;
@@ -189,6 +191,8 @@ export class Game {
 
     this.trailAcc = 0;
     this.trailHue = 0;
+    this.trailGlintAcc = 0;
+    this.trailSparkAcc = 0;
     this.lastDashReflect = null;
 
     this._resetPlayer();
@@ -650,6 +654,24 @@ export class Game {
       const h = (base + (hue * 0.4 + i * 9) % spread) % 360;
       return hsla(h, sat, light, alpha);
     };
+    const sparkleDefaults = {
+      rate: 40,
+      life: [0.28, 0.46],
+      size: [1.0, 2.4],
+      speed: [20, 55],
+      drag: 12.5,
+      add: true,
+      color: ({ hue, rand: r }) => hsla((hue * 0.65 + r(0, 120)) % 360, 100, 86, 0.9)
+    };
+    const glintDefaults = {
+      rate: 34,
+      life: [0.18, 0.32],
+      size: [1.2, 3.0],
+      speed: [55, 155],
+      drag: 11.2,
+      add: true,
+      color: ({ hue, rand: r }) => hsla((hue + r(-18, 42)) % 360, 100, 78, 0.9)
+    };
 
     const styles = {
       classic: { rate: 55, life: [0.18, 0.32], size: [0.8, 2.0], speed: [25, 120], drag: 11.5, add: true, color: () => "rgba(140,220,255,.62)" },
@@ -685,18 +707,31 @@ export class Game {
       dragonfire: { rate: 115, life: [0.20, 0.36], size: [11, 16], speed: [60, 200], drag: 8.8, add: true, color: paletteColor(["rgba(255,80,0,.94)", "rgba(255,0,66,.94)", "rgba(255,180,0,.9)"]) }
     };
 
-    return styles[id] || styles.classic;
+    const st = styles[id] || styles.classic;
+    return {
+      ...st,
+      sparkle: st.sparkle || sparkleDefaults,
+      glint: st.glint || glintDefaults
+    };
   }
 
   _emitTrail(dt) {
     const id = this.getTrailId();
     const st = this._trailStyle(id);
+    const glint = st.glint || {};
+    const sparkle = st.sparkle || {};
 
     this.trailHue = (this.trailHue + dt * (st.hueRate || 220)) % 360;
     this.trailAcc += dt * st.rate;
+    this.trailGlintAcc += dt * (glint.rate || st.rate * 0.55);
+    this.trailSparkAcc += dt * (sparkle.rate || 34);
 
     const n = this.trailAcc | 0;
     this.trailAcc -= n;
+    const g = this.trailGlintAcc | 0;
+    this.trailGlintAcc -= g;
+    const s = this.trailSparkAcc | 0;
+    this.trailSparkAcc -= s;
 
     const p = this.player;
 
@@ -705,6 +740,7 @@ export class Game {
     const backY = (v.len > 12) ? -v.y : -p.lastY;
     const bx = p.x + backX * p.r * 0.95;
     const by = p.y + backY * p.r * 0.95;
+    const backA = Math.atan2(backY, backX);
 
     for (let i = 0; i < n; i++) {
       const jitter = rand(0, Math.PI * 2);
@@ -723,6 +759,48 @@ export class Game {
 
       const prt = new Part(bx + jx, by + jy, vx, vy, life, size, color, st.add);
       prt.drag = st.drag;
+      this.parts.push(prt);
+    }
+
+    for (let i = 0; i < g; i++) {
+      const spin = rand(-0.9, 0.9);
+      const off = rand(p.r * 0.12, p.r * 0.58);
+      const px = bx + Math.cos(backA + Math.PI + spin) * off;
+      const py = by + Math.sin(backA + Math.PI + spin) * off;
+
+      const sp = rand(glint.speed?.[0] || 55, glint.speed?.[1] || 155);
+      const vx = backX * sp * 0.42 + Math.cos(backA + Math.PI + spin) * sp * 0.58;
+      const vy = backY * sp * 0.42 + Math.sin(backA + Math.PI + spin) * sp * 0.58;
+
+      const life = rand(glint.life?.[0] || 0.18, glint.life?.[1] || 0.32);
+      const size = rand(glint.size?.[0] || 1.2, glint.size?.[1] || 3.0);
+
+      const color = glint.color ? glint.color({ i, hue: this.trailHue, rand }) : "rgba(255,255,255,.9)";
+
+      const prt = new Part(px, py, vx, vy, life, size, color, glint.add !== false);
+      prt.drag = glint.drag ?? st.drag ?? 11.2;
+      prt.twinkle = true;
+      this.parts.push(prt);
+    }
+
+    for (let i = 0; i < s; i++) {
+      const ang = rand(0, Math.PI * 2);
+      const orbit = rand(p.r * 0.45, p.r * 1.05);
+      const px = p.x + Math.cos(ang) * orbit;
+      const py = p.y + Math.sin(ang) * orbit;
+
+      const sp = rand(sparkle.speed?.[0] || 20, sparkle.speed?.[1] || 55);
+      const wobble = rand(-0.55, 0.55);
+      const vx = Math.cos(ang + wobble) * sp * 0.65;
+      const vy = Math.sin(ang + wobble) * sp * 0.65;
+
+      const life = rand(sparkle.life?.[0] || 0.28, sparkle.life?.[1] || 0.46);
+      const size = rand(sparkle.size?.[0] || 1.0, sparkle.size?.[1] || 2.4);
+      const color = sparkle.color ? sparkle.color({ i, hue: this.trailHue, rand }) : "rgba(255,255,255,.88)";
+
+      const prt = new Part(px, py, vx, vy, life, size, color, sparkle.add !== false);
+      prt.drag = sparkle.drag ?? 12.5;
+      prt.twinkle = true;
       this.parts.push(prt);
     }
   }
