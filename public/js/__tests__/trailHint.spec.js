@@ -28,6 +28,17 @@ describe("buildTrailHint", () => {
     expect(hint.text).toContain("99");
   });
 
+  it("highlights record-holder exclusivity when applicable", () => {
+    const hint = buildTrailHint({
+      online: true,
+      user: { username: "pilot", isRecordHolder: false },
+      bestScore: 9999,
+      trails: [{ id: "classic", minScore: 0 }, { id: "world_record", minScore: 0, requiresRecordHolder: true }]
+    });
+
+    expect(hint.text).toContain("World Record Cherry Blossom");
+  });
+
   it("celebrates when all trails are unlocked", () => {
     const hint = buildTrailHint({
       online: true,

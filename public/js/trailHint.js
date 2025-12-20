@@ -10,6 +10,10 @@ function coerceScore(v) {
 
 export function buildTrailHint({ online, user, bestScore, trails } = {}) {
   const best = coerceScore(bestScore);
+  const isRecordHolder = Boolean(user?.isRecordHolder);
+  const recordLocked = Array.isArray(trails)
+    ? trails.some((t) => t?.requiresRecordHolder)
+    : false;
   const hasLockedTrails = Array.isArray(trails)
     ? trails.some((t) => Number.isFinite(t?.minScore) && t.minScore > best)
     : false;
@@ -25,6 +29,13 @@ export function buildTrailHint({ online, user, bestScore, trails } = {}) {
     return {
       className: "hint warn",
       text: "Guest mode: unlocks are based on your local best cookie. Register to save progression globally."
+    };
+  }
+
+  if (recordLocked && !isRecordHolder) {
+    return {
+      className: "hint",
+      text: "Hold the #1 score to claim the World Record Cherry Blossom trail."
     };
   }
 

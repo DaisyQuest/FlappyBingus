@@ -6,7 +6,8 @@ import { createScoreService, clampScoreDefault, mapRecordScoreError } from "../s
 function buildDeps(overrides = {}) {
   const dataStore = overrides.dataStore || { recordScore: vi.fn() };
   const ensureUserSchema = overrides.ensureUserSchema || vi.fn();
-  const publicUser = overrides.publicUser || vi.fn((u) => ({ name: u.username, bestScore: u.bestScore }));
+  const publicUser = overrides.publicUser
+    || vi.fn((u, opts) => ({ name: u.username, bestScore: u.bestScore, recordHolder: !!opts?.recordHolder }));
   const listHighscores = overrides.listHighscores || vi.fn(async () => [{ username: "a", bestScore: 1 }]);
   const trails = overrides.trails || [{ id: "classic" }];
   return { dataStore, ensureUserSchema, publicUser, listHighscores, trails };
@@ -45,18 +46,32 @@ describe("scoreService", () => {
     const res = await svc.submitScore(user, 123.9);
 
     expect(deps.dataStore.recordScore).toHaveBeenCalledWith(user, 123);
-    expect(deps.ensureUserSchema).toHaveBeenCalledWith(updated);
+    expect(deps.ensureUserSchema).toHaveBeenCalledWith(updated, { recordHolder: false });
     expect(deps.listHighscores).toHaveBeenCalled();
     expect(res).toEqual({
       ok: true,
       status: 200,
       body: {
         ok: true,
-        user: { name: "User", bestScore: 123 },
+        user: { name: "User", bestScore: 123, recordHolder: false },
         trails: deps.trails,
         highscores: [{ username: "a", bestScore: 1 }]
       }
     });
+  });
+
+  it("marks the submitting user as the record holder when appropriate", async () => {
+    const user = { key: "u", username: "champ" };
+    const updated = { ...user, bestScore: 9000 };
+    deps.dataStore.recordScore.mockResolvedValue(updated);
+    deps.listHighscores = vi.fn(async () => [{ username: "champ", bestScore: 9000 }]);
+    deps.publicUser = vi.fn((u, opts) => ({ user: u.username, recordHolder: opts?.recordHolder }));
+
+    const svc = createScoreService(deps);
+    const res = await svc.submitScore(user, 9000);
+
+    expect(deps.ensureUserSchema).toHaveBeenCalledWith(updated, { recordHolder: true });
+    expect(res.body.user).toEqual({ user: "champ", recordHolder: true });
   });
 
   it("maps recordScore failures to service errors", async () => {
