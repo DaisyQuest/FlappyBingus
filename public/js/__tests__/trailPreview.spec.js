@@ -227,4 +227,34 @@ describe("TrailPreview", () => {
     preview._updateParts(0.016);
     expect(preview.parts.length).toBeLessThanOrEqual(480);
   });
+
+  it("keeps the preview orbit away from the panel center to avoid long occlusion", () => {
+    const { canvas } = makeCanvas();
+    canvas.clientWidth = 1280;
+    canvas.clientHeight = 720;
+    const preview = new TrailPreview({
+      canvas,
+      playerImg: {},
+      requestFrame: null,
+      cancelFrame: null,
+      now: () => 0
+    });
+    preview.resize();
+
+    const positions = [];
+    for (let i = 0; i < 240; i++) {
+      preview._updatePlayer(1 / 60);
+      positions.push({ x: preview.player.x, y: preview.player.y });
+    }
+
+    const cx = preview.W * 0.5;
+    const cy = preview.H * 0.5;
+    const minRadius = positions.reduce((acc, pos) => Math.min(acc, Math.hypot(pos.x - cx, pos.y - cy)), Infinity);
+    const centerBoxHits = positions.filter((pos) => (
+      Math.abs(pos.x - cx) < preview.W * 0.16 && Math.abs(pos.y - cy) < preview.H * 0.16
+    )).length;
+
+    expect(minRadius).toBeGreaterThan(preview.W * 0.18);
+    expect(centerBoxHits).toBe(0);
+  });
 });

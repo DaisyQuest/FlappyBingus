@@ -23,7 +23,7 @@ describe("uiLayout", () => {
     expect(ui.menu?.id).toBe("menu");
     expect(ui.over?.id).toBe("over");
     expect(ui.start?.textContent).toContain("Start");
-    const overlay = mount.querySelector(".panel .trail-preview-overlay");
+    const overlay = mount.querySelector("#menu .trail-preview-overlay");
     expect(overlay?.querySelectorAll(".trail-preview-canvas")?.length).toBe(1);
     expect(overlay?.querySelectorAll(".trail-preview-glow")?.length).toBe(1);
     const selectPanel = mount.querySelector(".trail-select-panel");
@@ -82,16 +82,17 @@ describe("uiLayout", () => {
 
   it("layers the trail preview behind panel content while keeping menus interactive", () => {
     buildGameUI({ document, mount });
-    const panel = mount.querySelector(".panel");
-    const overlay = panel?.querySelector(".trail-preview-overlay");
+    const screen = mount.querySelector("#menu.screen");
+    const overlay = screen?.querySelector(":scope > .trail-preview-overlay");
+    const panel = screen?.querySelector(":scope > .panel");
     const aurora = panel?.querySelector(".light-aurora");
     const content = panel?.querySelector(".content-layer");
 
-    expect(panel?.firstElementChild).toBe(overlay);
+    expect(screen?.firstElementChild).toBe(overlay);
+    expect(overlay?.contains(panel)).toBe(false);
+    expect(panel?.contains(overlay)).toBe(false);
     expect(panel?.contains(aurora)).toBe(true);
     expect(panel?.contains(content)).toBe(true);
-    expect(overlay?.contains(content)).toBe(false);
-    expect(overlay?.contains(aurora)).toBe(false);
   });
 
   it("preserves a single #wrap when mounted on body without a custom mount", () => {
