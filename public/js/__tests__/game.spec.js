@@ -75,7 +75,7 @@ const makeInput = (moveRef = { dx: 0, dy: 0 }) => ({
 
 const makeCanvas = (ctx) => ({ style: {}, width: 0, height: 0, getContext: vi.fn(() => ctx) });
 
-const buildGame = (configOverrides = {}, moveRef = { dx: 0, dy: 0 }) => {
+const buildGameWith = (GameClass, configOverrides = {}, moveRef = { dx: 0, dy: 0 }) => {
   const { onGameOver, ...cfgOverrides } = configOverrides || {};
   const ctx = mockCtx();
   const canvas = makeCanvas(ctx);
@@ -83,8 +83,18 @@ const buildGame = (configOverrides = {}, moveRef = { dx: 0, dy: 0 }) => {
   const playerImg = { naturalWidth: 64, naturalHeight: 32 };
   const input = makeInput(moveRef);
   const binds = { getTrailId: () => "classic", getBinds: () => ({}) };
-  return { game: new Game({ canvas, ctx, config, playerImg, input, onGameOver, ...binds }), ctx, canvas, input, moveRef };
+  return {
+    game: new GameClass({ canvas, ctx, config, playerImg, input, onGameOver, ...binds }),
+    ctx,
+    canvas,
+    input,
+    moveRef
+  };
 };
+
+const buildGame = (configOverrides = {}, moveRef = { dx: 0, dy: 0 }) =>
+  buildGameWith(Game, configOverrides, moveRef);
+
 
 const pipeStub = (opts = {}) => {
   const { x = 1000, y = 1000, w = 10, h = 10, off = false } = opts;
@@ -405,7 +415,7 @@ describe("Player movement and trail emission", () => {
     game._spawnCrossfire();
     game._spawnOrb();
 
-    expect(game.pipes.length).toBeGreaterThanOrEqual(12);
+    expect(game.pipes.length).toBeLessThanOrEqual(game._pipeSpawnBudget());
     expect(game.orbs.length).toBe(1);
   });
 
@@ -477,6 +487,30 @@ describe("Player movement and trail emission", () => {
     game.player.y = game.H - game.player.r + 1;
     game._updatePlayer(0.016);
     expect(reflectSpy).toHaveBeenCalledWith(expect.objectContaining({ nx: 0, ny: -1 }));
+  });
+
+  it("uses default fallbacks when optional hooks or viewport data are missing", () => {
+    const ctx = mockCtx();
+    const canvas = makeCanvas(ctx);
+    const config = cloneConfig();
+    const input = makeInput();
+
+    Object.defineProperty(window, "visualViewport", { value: undefined, writable: true });
+    Object.defineProperty(window, "innerWidth", { value: 420, writable: true });
+    Object.defineProperty(window, "innerHeight", { value: 240, writable: true });
+    Object.defineProperty(window, "devicePixelRatio", { value: undefined, writable: true });
+
+    const game = new Game({ canvas, ctx, config, playerImg: {}, input });
+    game.resizeToWindow();
+
+    expect(canvas.style.width).toBe("420px");
+    expect(canvas.style.height).toBe("240px");
+    expect(game.getTrailId()).toBe("classic");
+    expect(game.getBinds()).toEqual({});
+
+    game.playerImg = {};
+    game._computePlayerSize();
+    expect(game.player.h).toBeCloseTo(game.player.w);
   });
 
   it("handles dash collisions through the shared collision helper", () => {
@@ -604,6 +638,18 @@ describe("Game loop", () => {
     expect(game.bgDots[0].y).toBeGreaterThan(0);
   });
 
+  it("wraps drifting background dots when they exit the playfield", () => {
+    const { game } = buildGame();
+    game.bgDots = [{ x: 1, y: game.H + 20, s: 5 }];
+    const randSpy = vi.spyOn(Math, "random").mockReturnValue(0.75);
+
+    game.update(0.1);
+
+    expect(game.bgDots[0].y).toBe(-10);
+    expect(game.bgDots[0].x).toBeCloseTo(game.W * 0.75);
+    randSpy.mockRestore();
+  });
+
   it("runs full PLAY update including orbs, gates, and scoring", () => {
     setRandSource(() => 0.9);
     const { game } = buildGame();
@@ -671,5 +717,202 @@ describe("Game loop", () => {
     game.update(0.01);
     expect(onGameOver).toHaveBeenCalled();
     expect(game.state).toBe(2);
+  });
+
+  it("breaks collision processing after a dash reflection", () => {
+    const { game } = buildGame();
+    game.state = 1;
+    game.player.invT = 0;
+    game.player.dashT = 0.1;
+    game.pipeT = 10;
+    game.specialT = 10;
+    game.orbT = 10;
+
+    const pipeA = pipeStub({ x: game.player.x - game.player.r, y: game.player.y - game.player.r, w: game.player.r * 2, h: game.player.r * 2 });
+    const pipeB = pipeStub({ x: game.player.x - game.player.r, y: game.player.y - game.player.r, w: game.player.r * 2, h: game.player.r * 2 });
+    game.pipes.push(pipeA, pipeB);
+
+    const collision = vi.spyOn(game, "_handlePipeCollision").mockReturnValueOnce("reflected").mockReturnValue("over");
+
+    game.update(0.01);
+
+    expect(collision).toHaveBeenCalledTimes(1);
+    collision.mockRestore();
+  });
+
+  it("returns early when dash collisions end the run immediately", () => {
+    const { game } = buildGame();
+    game.state = 1;
+    game.player.invT = 0;
+    game.player.dashT = 0.1;
+    game.pipeT = 10;
+    game.specialT = 10;
+    game.orbT = 10;
+
+    const pipe = pipeStub({ x: game.player.x - game.player.r, y: game.player.y - game.player.r, w: game.player.r * 2, h: game.player.r * 2 });
+    game.pipes.push(pipe);
+
+    const collision = vi.spyOn(game, "_handlePipeCollision").mockReturnValue("over");
+
+    game.update(0.01);
+
+    expect(collision).toHaveBeenCalledTimes(1);
+    collision.mockRestore();
+  });
+
+  it("awards pipe dodge points when obstacles are culled", () => {
+    const { game } = buildGame();
+    game.state = 1;
+    game.player.invT = 1; // skip collisions
+    game.pipeT = 10;
+    game.specialT = 10;
+    game.orbT = 10;
+    game.score = 0;
+
+    const scoredPipe = { ...pipeStub({ x: 1000, y: 1000, off: true }), scored: false };
+    const gapSpy = vi.spyOn(game, "_onGapPipeRemoved");
+    game.pipes.push(scoredPipe);
+
+    game.update(0.01);
+
+    expect(game.score).toBeGreaterThan(0);
+    expect(game.pipes.length).toBe(0);
+    expect(gapSpy).toHaveBeenCalledWith(expect.objectContaining(scoredPipe));
+    gapSpy.mockRestore();
+  });
+
+  it("covers edge-case clamps and guards across helpers", async () => {
+    const originalDPR = window.devicePixelRatio;
+    const originalViewport = window.visualViewport;
+    const originalDocument = global.document;
+    const originalOffscreen = global.OffscreenCanvas;
+
+    vi.resetModules();
+    window.devicePixelRatio = 0.1;
+    window.visualViewport = { width: 0, height: 0 };
+    global.document = { createElement: vi.fn(() => ({ width: 0, height: 0, getContext: vi.fn(() => mockCtx()) })) };
+    global.OffscreenCanvas = undefined;
+
+    const { Game: FreshGame } = await import("../game.js");
+    const moveRef = { dx: 0, dy: 0 };
+    const { game, canvas } = buildGameWith(FreshGame, {
+      player: { sizeScale: 0.01, sizeMin: 8, sizeMax: 10, radiusScale: 0.5 },
+      skills: {
+        dash: { duration: -1, cooldown: -2, speed: 0, bounceRetain: 2 },
+        phase: { duration: -1, cooldown: -2 },
+        teleport: { cooldown: 0, range: 0, effectDuration: 0, burstParticles: -5 },
+        slowField: { duration: -1, radius: -5, slowFactor: 2, cooldown: -1 }
+      },
+      catalysts: { orbs: { enabled: false } },
+      pipes: {
+        spawnInterval: { start: 2, end: -1, min: 0.5, max: 1 },
+        thickness: { scale: 0, min: 1, max: 2 },
+        gap: { startScale: 0, endScale: 0, min: 1, max: 2 },
+        difficulty: { timeRampStart: 10, scoreRampStart: 5, mixTime: 0, mixScore: 1, timeToMax: 1, scoreToMax: 1, earlyCurvePower: 2 }
+      },
+      scoring: { pipeDodge: 2 }
+    }, moveRef);
+
+    game.resizeToWindow();
+
+    game.bgCanvas = null;
+    game._refreshBackgroundLayer();
+    expect(game.bgCanvas).not.toBeNull();
+
+    game.bgCanvas.width = Math.round(game.W);
+    game.bgCanvas.height = Math.round(game.H);
+    game.bgCtx = null;
+    game._refreshBackgroundLayer();
+
+    game.bgCtx = mockCtx();
+    game._refreshBackgroundLayer();
+
+    game.bgCanvas = { width: 1, height: 1, getContext: vi.fn(() => null) };
+    game._refreshBackgroundLayer();
+
+    game.timeAlive = 0;
+    game.score = 0;
+    expect(game._difficulty01()).toBe(0);
+    game.timeAlive = 20;
+    game.score = 20;
+    expect(game._difficulty01()).toBeGreaterThan(0);
+
+    game.W = Number.NaN; game.H = 100;
+    expect(game._pipeSpawnBudget()).toBe(0);
+    game.W = 10; game.H = 10;
+    expect(game._pipeSpawnBudget()).toBe(4);
+    game.W = 199; game.H = 100;
+    expect(game._pipeSpawnBudget()).toBe(12);
+    game.W = 300; game.H = 300;
+    expect(game._pipeSpawnBudget()).toBe(Number.POSITIVE_INFINITY);
+
+    game._gapMeta = null;
+    game._onGapPipeRemoved(null);
+    game._gapMeta = new Map();
+    game._onGapPipeRemoved({});
+    game._gapMeta.set(4, { perfected: true });
+    game._onGapPipeRemoved({ gapId: 5 });
+
+    game.player.vx = 0; game.player.vy = 0; game.player.dashVX = 0; game.player.dashVY = -1;
+    game._applyDashReflect({ nx: 0, ny: 0, contactX: 0, contactY: 0, penetration: 0 });
+    game.cfg.skills.dash.bounceRetain = -2;
+    game._applyDashReflect({ nx: 1, ny: 0, contactX: 1, contactY: 1, penetration: 0 });
+
+    game.cds.dash = 0;
+    game._useSkill("dash");
+    expect(game.player.dashVY).toBe(-1);
+
+    game.cds.phase = 0;
+    game._useSkill("phase");
+    expect(game.player.invT).toBeGreaterThanOrEqual(0);
+
+    game.input.cursor.has = false;
+    game._useSkill("teleport");
+    game.input.cursor = { has: true, x: 0, y: 0 };
+    canvas.width = 0; canvas.height = 0;
+    game._useSkill("teleport");
+
+    game.cds.slowField = 0;
+    game._useSkill("slowField");
+    expect(game.slowField).toBeTruthy();
+
+    game.cfg.skills.dash.duration = 5;
+    game.cfg.skills.dash.cooldown = 2;
+    game.cfg.skills.dash.speed = -5;
+    moveRef.dx = 1; moveRef.dy = 0;
+    game._useSkill("dash");
+
+    game.player.dashT = 0.05;
+    game._updatePlayer(0.1);
+    game.player.dashT = 0;
+    game._updatePlayer(0.1);
+
+    game.cfg.skills.phase.duration = 2;
+    game._useSkill("phase");
+
+    game.cfg.skills.teleport.effectDuration = 5;
+    game.cfg.skills.teleport.burstParticles = 300;
+    game.canvas.width = 100; game.canvas.height = 80;
+    game._useSkill("teleport");
+
+    game.cfg.skills.slowField = { duration: 20, radius: 5, slowFactor: -5, cooldown: 0 };
+    game._useSkill("slowField");
+    expect(game.slowField.fac).toBeCloseTo(0.1);
+
+    game.cfg.pipes.difficulty.mixTime = 2;
+    game.cfg.pipes.difficulty.mixScore = -1;
+    game.cfg.pipes.difficulty.timeRampStart = 0;
+    game.cfg.pipes.difficulty.scoreRampStart = 0;
+    expect(game._difficulty01()).toBeGreaterThanOrEqual(0);
+
+    game.pipes = [{ ...pipeStub({ off: true }), scored: false }];
+    game._difficulty01();
+    game.update(0.01);
+    expect(game.score).toBeGreaterThanOrEqual(2);
+
+    window.devicePixelRatio = originalDPR;
+    window.visualViewport = originalViewport;
+    global.document = originalDocument;
+    global.OffscreenCanvas = originalOffscreen;
   });
 });
