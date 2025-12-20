@@ -729,6 +729,9 @@ export class Game {
       if (this.slowField.t <= 0) this.slowField = null;
     }
 
+    const prevPlayerX = this.player.x;
+    const prevPlayerY = this.player.y;
+
     this._updatePlayer(dt);
     this._emitTrail(dt);
 
@@ -805,11 +808,15 @@ export class Game {
         const pAxis = (g.axis === "x") ? this.player.x : this.player.y;
         if (g.crossed(pAxis)) {
           g.cleared = true;
-          const perp = (g.axis === "x") ? this.player.y : this.player.x;
+          const perpPrev = (g.axis === "x") ? prevPlayerY : prevPlayerX;
+          const perpCurr = (g.axis === "x") ? this.player.y : this.player.x;
+          const denom = g.pos - g.prev;
+          const alpha = denom === 0 ? 0 : clamp((pAxis - g.prev) / denom, 0, 1);
+          const perp = lerp(perpPrev, perpCurr, alpha);
           const dist = Math.abs(perp - g.gapCenter);
           const thresh = Math.max(3, g.gapHalf * wS) * 1.10; // NEW: 5% leniency
-if (dist <= thresh) {
-  this._perfectNiceSfx();
+          if (dist <= thresh) {
+            this._perfectNiceSfx();
             this.score += bonus;
             const fd = clamp(Number(this.cfg.scoring.perfect.flashDuration) || 0.55, 0.15, 2.0);
             this.perfectT = fd; this.perfectMax = fd;
