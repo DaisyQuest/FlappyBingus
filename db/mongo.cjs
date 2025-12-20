@@ -2,6 +2,9 @@
 
 const { MongoClient } = require("mongodb");
 
+const MAX_SCORE = 1_000_000_000;
+const DEFAULT_TRAIL = "classic";
+
 function maskConnectionString(uri) {
   if (!uri) return "";
   try {
@@ -43,6 +46,24 @@ function resolveMongoConfig() {
     maskedUri: maskConnectionString(uri),
     serverSelectionTimeoutMS: Number(process.env.MONGODB_TIMEOUT_MS || 5000)
   };
+}
+
+function clampScore(v) {
+  const n = Number(v);
+  if (!Number.isFinite(n)) return 0;
+  return Math.max(0, Math.min(MAX_SCORE, Math.floor(n)));
+}
+
+function normalizeCount(v) {
+  const n = Number(v);
+  if (!Number.isFinite(n)) return 0;
+  return Math.max(0, Math.floor(n));
+}
+
+function normalizeTotal(v) {
+  const n = Number(v);
+  if (!Number.isFinite(n)) return 0;
+  return Math.max(0, Math.floor(n));
 }
 
 async function safeClose(client) {
@@ -163,19 +184,40 @@ class MongoDataStore {
     }
   }
 
-  async recordScore(key, score) {
+  async recordScore(user, score) {
     await this.ensureConnected();
+    if (!user || !user.key) throw new Error("user_key_required");
+
     const now = Date.now();
-    const res = await this.usersCollection().findOneAndUpdate(
-      { key },
-      {
-        $inc: { runs: 1, totalScore: score },
-        $max: { bestScore: score },
-        $set: { updatedAt: now }
-      },
+    const safeScore = clampScore(score);
+    const collection = this.usersCollection();
+
+    const existing = await collection.findOne({ key: user.key });
+    const runs = normalizeCount(existing?.runs ?? user.runs) + 1;
+    const totalScore = normalizeTotal(existing?.totalScore ?? user.totalScore) + safeScore;
+    const bestScore = Math.max(clampScore(existing?.bestScore ?? user.bestScore), safeScore);
+
+    const res = await collection.findOneAndUpdate(
+      { key: user.key },
+      { $set: { runs, totalScore, bestScore, updatedAt: now } },
       { returnDocument: "after" }
     );
-    return res.value;
+    if (res.value) return res.value;
+
+    // If the document went missing, recreate it from the request user + defaults.
+    const created = {
+      key: user.key,
+      username: user.username || user.key,
+      selectedTrail: user.selectedTrail || DEFAULT_TRAIL,
+      keybinds: user.keybinds || null,
+      runs,
+      totalScore,
+      bestScore,
+      createdAt: user.createdAt || now,
+      updatedAt: now
+    };
+    const insert = await collection.insertOne(created);
+    return await collection.findOne({ _id: insert.insertedId });
   }
 
   async setTrail(key, trailId) {
