@@ -108,4 +108,115 @@ describe("resolveGapPerfect", () => {
     expect(gate.perfected).toBe(true);
     expect(game._gapMeta.get(33).perfected).toBe(true);
   });
+
+  it("interpolates perpendicular motion for angled crossings", () => {
+    const game = makeGame();
+    const gate = prepGate({ axis: "x", prev: 10, pos: 50, v: 200, gapCenter: 160, gapHalf: 24, gapId: 44 });
+    game._gapMeta.set(44, { perfected: false });
+
+    const res = resolveGapPerfect({
+      gate,
+      game,
+      playerAxis: 30, // midway along gate travel
+      prevPerpAxis: 120,
+      currPerpAxis: 200, // angled upward while crossing
+      bonus: 8,
+      windowScale: 0.18,
+      leniency: 0.10
+    });
+
+    expect(res.awarded).toBe(true);
+    expect(res.perp).toBeCloseTo(160, 5); // interpolated center
+    expect(game.score).toBe(8);
+    expect(game.perfectCombo).toBe(1);
+    expect(game._perfectNiceSfx).toHaveBeenCalledTimes(1);
+  });
+
+  it("honors minimum window on tiny gaps while still permitting leniency", () => {
+    const game = makeGame();
+    const gate = prepGate({ axis: "y", prev: 12, pos: -6, v: -90, gapCenter: 75, gapHalf: 2, gapId: 55 });
+    game._gapMeta.set(55, { perfected: false });
+
+    const res = resolveGapPerfect({
+      gate,
+      game,
+      playerAxis: 8,
+      prevPerpAxis: 76.5,
+      currPerpAxis: 76.5,
+      bonus: 5,
+      windowScale: 0.01 // would be <3 without minWindow
+    });
+
+    expect(res.awarded).toBe(true);
+    expect(res.threshold).toBeGreaterThan(3); // minimum window applied then leniency
+    expect(game.score).toBe(5);
+    expect(game.perfectCombo).toBe(1);
+  });
+
+  it("supports re-entry from the opposite direction with allowCleared", () => {
+    const game = makeGame();
+    const gate = prepGate({ axis: "y", prev: 220, pos: 180, v: -160, gapCenter: 140, gapHalf: 30, gapId: 66 });
+    game._gapMeta.set(66, { perfected: false });
+
+    // First crossing from above: barely misses the perfect window.
+    const first = resolveGapPerfect({
+      gate,
+      game,
+      playerAxis: 200,
+      prevPerpAxis: 168,
+      currPerpAxis: 168,
+      bonus: 7,
+      windowScale: 0.20
+    });
+    expect(first.awarded).toBe(false);
+    expect(game.perfectCombo).toBe(0);
+
+    // Gate keeps moving upward; player dives back down through the same gap.
+    gate.prev = 140; gate.pos = 100;
+    const second = resolveGapPerfect({
+      gate,
+      game,
+      playerAxis: 120,
+      prevPerpAxis: 140,
+      currPerpAxis: 140,
+      bonus: 7,
+      windowScale: 0.20
+    });
+    expect(second.awarded).toBe(true);
+    expect(game.score).toBe(7);
+    expect(game.perfectCombo).toBe(1);
+  });
+
+  it("does not double-award after a perfected gap, even if recrossed at different speed", () => {
+    const game = makeGame();
+    const gate = prepGate({ axis: "x", prev: -30, pos: 10, v: 400, gapCenter: 180, gapHalf: 36, gapId: 77 });
+    game._gapMeta.set(77, { perfected: false });
+
+    const first = resolveGapPerfect({
+      gate,
+      game,
+      playerAxis: 0,
+      prevPerpAxis: 180,
+      currPerpAxis: 180,
+      bonus: 9,
+      windowScale: 0.22
+    });
+    expect(first.awarded).toBe(true);
+    expect(game.score).toBe(9);
+    expect(game.perfectCombo).toBe(1);
+
+    gate.prev = 40; gate.pos = 120; // fast forward past player again
+    const second = resolveGapPerfect({
+      gate,
+      game,
+      playerAxis: 100,
+      prevPerpAxis: 182,
+      currPerpAxis: 182,
+      bonus: 9,
+      windowScale: 0.22
+    });
+    expect(second.awarded).toBe(false);
+    expect(game.score).toBe(9);
+    expect(game.perfectCombo).toBe(1);
+  });
 });

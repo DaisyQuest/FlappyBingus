@@ -16,7 +16,9 @@ export function resolveGapPerfect({
   minWindow = MIN_WINDOW
 }) {
   const gapHalf = gate?.gapHalf ?? 0;
-  const threshold = Math.max(minWindow, gapHalf * clamp(windowScale ?? 0, 0, 1)) * (1 + leniency);
+  const safeWindowScale = clamp(Number(windowScale) || 0, 0, 1);
+  const safeLeniency = Math.max(0, Number(leniency) || 0);
+  const threshold = Math.max(minWindow, gapHalf * safeWindowScale) * (1 + safeLeniency);
 
   if (!gate || !game || gate.perfected) {
     return { crossed: false, perfect: false, awarded: false, threshold, distance: Infinity };
