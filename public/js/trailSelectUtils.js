@@ -36,12 +36,14 @@ export function normalizeTrailSelection({
  * @param {string} selectedId
  */
 export function rebuildTrailOptions(selectEl, trails, unlockedIds, selectedId, fallbackId = "classic") {
-  if (!selectEl || !trails) return;
+  if (!selectEl || !trails) return fallbackId;
   const unlocked = unlockedIds instanceof Set ? unlockedIds : new Set(unlockedIds || []);
   const doc = selectEl.ownerDocument || document;
   selectEl.innerHTML = "";
 
+  const availableIds = new Set();
   for (const t of trails) {
+    availableIds.add(t.id);
     const opt = doc.createElement("option");
     opt.value = t.id;
     const locked = !unlocked.has(t.id);
@@ -50,6 +52,11 @@ export function rebuildTrailOptions(selectEl, trails, unlockedIds, selectedId, f
     selectEl.appendChild(opt);
   }
 
-  const safeSel = unlocked.has(selectedId) ? selectedId : (unlocked.values().next().value || fallbackId);
+  const fallbackChoice = availableIds.has(fallbackId) ? fallbackId : (trails[0]?.id || fallbackId);
+  const firstUnlocked = trails.find((t) => unlocked.has(t.id))?.id;
+  const safeSel = (availableIds.has(selectedId) && unlocked.has(selectedId))
+    ? selectedId
+    : (firstUnlocked || fallbackChoice);
   selectEl.value = safeSel;
+  return safeSel;
 }

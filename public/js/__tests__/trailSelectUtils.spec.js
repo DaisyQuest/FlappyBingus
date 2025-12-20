@@ -43,4 +43,32 @@ describe("trailSelectUtils", () => {
     expect(select?.options[1]?.disabled).toBe(true);
     expect(select?.value).toBe("classic");
   });
+
+  it("returns the applied selection so callers can sync UI state", () => {
+    const dom = new JSDOM("<select></select>");
+    const select = dom.window.document.querySelector("select");
+    const trails = [
+      { id: "classic", name: "Classic", minScore: 0 },
+      { id: "sunset", name: "Sunset", minScore: 400 }
+    ];
+
+    const applied = rebuildTrailOptions(select, trails, new Set(["sunset"]), "sunset", "classic");
+
+    expect(applied).toBe("sunset");
+    expect(select?.value).toBe("sunset");
+  });
+
+  it("falls back to the first available trail when the preferred ids are missing", () => {
+    const dom = new JSDOM("<select></select>");
+    const select = dom.window.document.querySelector("select");
+    const trails = [
+      { id: "aurora", name: "Aurora", minScore: 700 },
+      { id: "cosmic", name: "Cosmic", minScore: 1200 }
+    ];
+
+    const applied = rebuildTrailOptions(select, trails, new Set(["aurora"]), "does-not-exist", "classic");
+
+    expect(applied).toBe("aurora");
+    expect(select?.value).toBe("aurora");
+  });
 });

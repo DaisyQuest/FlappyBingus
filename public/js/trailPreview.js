@@ -93,7 +93,10 @@ export class TrailPreview {
 
   _tick(ts) {
     if (!this.running) return;
-    if (!this.ctx) return;
+    if (!this.ctx) {
+      this.stop();
+      return;
+    }
 
     const now = (typeof ts === "number" ? ts : this._now());
     const prev = this.lastTs || now;

@@ -163,4 +163,68 @@ describe("TrailPreview", () => {
     expect(gradientLessCtx.fillStyle).toBe("rgba(220,230,255,.9)");
     expect(gradientLessCtx.arc).toHaveBeenCalled();
   });
+
+  it("resets transient state when switching trails to avoid stale artifacts", () => {
+    const { canvas } = makeCanvas();
+    const preview = new TrailPreview({
+      canvas,
+      playerImg: {},
+      requestFrame: null,
+      cancelFrame: null,
+      now: () => 0
+    });
+
+    preview.parts = [{ life: 1, update: vi.fn() }];
+    preview.trailAcc = 5;
+    preview.trailGlintAcc = 3;
+    preview.trailSparkAcc = 2;
+
+    preview.setTrail("aurora");
+
+    expect(preview.trailId).toBe("aurora");
+    expect(preview.parts.length).toBe(0);
+    expect(preview.trailAcc).toBe(1);
+    expect(preview.trailGlintAcc).toBe(1);
+    expect(preview.trailSparkAcc).toBe(1);
+  });
+
+  it("stops running when the rendering context disappears mid-frame", () => {
+    const { canvas } = makeCanvas();
+    let rafCallback = null;
+    const cancel = vi.fn();
+    const raf = vi.fn((cb) => { rafCallback = cb; return 99; });
+    const preview = new TrailPreview({
+      canvas,
+      playerImg: {},
+      requestFrame: raf,
+      cancelFrame: cancel,
+      now: () => 0
+    });
+
+    preview.start();
+    preview.ctx = null;
+    rafCallback?.(16);
+
+    expect(preview.running).toBe(false);
+    expect(cancel).toHaveBeenCalledWith(99);
+  });
+
+  it("caps the number of particles to keep previews lightweight", () => {
+    const { canvas } = makeCanvas();
+    const preview = new TrailPreview({
+      canvas,
+      playerImg: {},
+      requestFrame: null,
+      cancelFrame: null,
+      now: () => 0
+    });
+
+    preview.parts = Array.from({ length: 600 }, () => ({
+      life: 1,
+      update: vi.fn(function update(dt) { this.life -= dt * 0.1; })
+    }));
+
+    preview._updateParts(0.016);
+    expect(preview.parts.length).toBeLessThanOrEqual(480);
+  });
 });
