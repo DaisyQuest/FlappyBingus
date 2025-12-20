@@ -18,6 +18,7 @@ import {
 
 import { Game } from "./game.js";
 import { GameDriver } from "/engine/gameDriver.js";
+import { TrailPreview } from "./trailPreview.js";
 
 // Tutorial
 import { Tutorial } from "./tutorial.js";
@@ -61,7 +62,7 @@ const userHint = document.getElementById("userHint");
 
 const trailSelect = document.getElementById("trailSelect");
 const trailHint = document.getElementById("trailHint");
-const trailPreview = document.getElementById("trailPreview");
+const trailPreviewCanvas = document.getElementById("trailPreviewCanvas");
 
 const bindWrap = document.getElementById("bindWrap");
 const bindHint = document.getElementById("bindHint");
@@ -164,8 +165,9 @@ let CFG = null;
 // assets
 const playerImg = new Image();
 playerImg.src = "file.png";
-playerImg.onload = () => { boot.imgReady = true; boot.imgOk = true; refreshBootUI(); };
-playerImg.onerror = () => { boot.imgReady = true; boot.imgOk = false; refreshBootUI(); };
+playerImg.onload = () => { boot.imgReady = true; boot.imgOk = true; refreshBootUI(); initTrailPreview(); };
+playerImg.onerror = () => { boot.imgReady = true; boot.imgOk = false; refreshBootUI(); initTrailPreview(); };
+let trailPreviewRenderer = null;
 
 // ---- Input + Game ----
 const ctx = canvas.getContext("2d", { alpha: false });
@@ -197,6 +199,17 @@ const AUDIO = Object.freeze({
   niceUrl: "/audio/nice.mp3",
   bounceUrl: "/audio/dash-bounce.mp3"
 });
+
+// ---- Trail preview (shared trail logic) ----
+function initTrailPreview() {
+  if (trailPreviewRenderer || !trailPreviewCanvas) return;
+  trailPreviewRenderer = new TrailPreview({
+    canvas: trailPreviewCanvas,
+    playerImg,
+    getTrailId: () => trailSelect.value || "classic"
+  });
+  trailPreviewRenderer.start();
+}
 
 // IMPORTANT: actions are NOT applied immediately.
 // They are enqueued and applied at the next simulation tick boundary.
@@ -319,7 +332,6 @@ function fillTrailSelect() {
 
   trailText.textContent = safeSel;
   pbText.textContent = String(best);
-  updateTrailPreview(safeSel);
 
   if (!net.user) {
     trailHint.className = "hint warn";
@@ -560,7 +572,6 @@ async function playReplay({ captureMode = "none" } = {}) {
 trailSelect.addEventListener("change", async () => {
   const id = trailSelect.value;
   trailText.textContent = id;
-  updateTrailPreview(id);
 
   if (!net.user) return;
 
