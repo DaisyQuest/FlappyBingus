@@ -37,13 +37,15 @@ export class GameDriver {
     game,
     engine = new GameEngine({ rng: createRng(1), clock: createFixedClock(0) }),
     syncRandSource,
-    mapState = defaultMapState
+    mapState = defaultMapState,
+    captureSnapshots = true
   }) {
     if (!game || typeof game.update !== "function") throw new Error("Game with update(dt) is required.");
     this.game = game;
     this.engine = engine;
     this.snapshots = [];
     this.mapState = mapState;
+    this.captureSnapshots = captureSnapshots !== false;
 
     if (typeof syncRandSource === "function" && engine.rng?.next) {
       syncRandSource(() => engine.rng.next());
@@ -85,7 +87,9 @@ export class GameDriver {
     if (typeof this.mapState === "function") {
       this.mapState(this.engine.state, this.game);
     }
-    this.snapshots.push(this.engine.getSnapshot());
+    if (this.captureSnapshots) {
+      this.snapshots.push(this.engine.getSnapshot());
+    }
   }
 
   /**

@@ -237,6 +237,7 @@ let game = new Game({
 let driver = new GameDriver({
   game,
   syncRandSource: setRandSource,
+  captureSnapshots: false,
   mapState(engineState, g) {
     engineState.time = g.timeAlive ?? engineState.time;
     engineState.tick = (engineState.tick ?? 0) + 1;

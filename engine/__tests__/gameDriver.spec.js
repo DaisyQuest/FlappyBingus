@@ -84,4 +84,13 @@ describe("GameDriver", () => {
     expect(snap.state.score.total).toBeGreaterThan(0);
     expect(snap.state.player.x).toBeGreaterThan(0);
   });
+
+  it("can disable snapshot retention for live loops", () => {
+    const game = createStubGame();
+    const mapState = vi.fn();
+    const driver = new GameDriver({ game, engine: new GameEngine({}), mapState, captureSnapshots: false });
+    driver.step(0.01, ["jump"]);
+    expect(driver.snapshots).toHaveLength(0);
+    expect(mapState).toHaveBeenCalledTimes(1);
+  });
 });
