@@ -26,7 +26,12 @@ const START_TIME = Date.now();
 
 // Mongo configuration: MONGODB_URI (supports {PASSWORD} placeholder), MONGODB_PASSWORD, MONGODB_DB
 const mongoConfig = resolveMongoConfig();
-const dataStore = new MongoDataStore(mongoConfig);
+let dataStore = new MongoDataStore(mongoConfig);
+
+// Test-only: allow swapping the datastore to avoid network calls.
+function _setDataStoreForTests(mock) {
+  dataStore = mock;
+}
 
 // Cookie that holds username (per requirements)
 const USER_COOKIE = "sugar";
@@ -376,13 +381,13 @@ function buildUserDefaults(username, key) {
   };
 }
 
-async function getOrCreateUser(username) {
+async function getOrCreateUser(username, { recordHolder = false } = {}) {
   const norm = normalizeUsername(username);
   if (!norm) return null;
   const key = keyForUsername(norm);
   const defaults = buildUserDefaults(norm, key);
   const u = await dataStore.upsertUser(norm, key, defaults);
-  ensureUserSchema(u);
+  ensureUserSchema(u, { recordHolder });
   return u;
 }
 
@@ -723,8 +728,8 @@ async function route(req, res) {
     const username = normalizeUsername(body.username);
     if (!username) return badRequest(res, "invalid_username");
 
-    const u = await getOrCreateUser(username);
-    const recordHolder = await isRecordHolder(u?.username);
+    const recordHolder = await isRecordHolder(username);
+    const u = await getOrCreateUser(username, { recordHolder });
     ensureUserSchema(u, { recordHolder });
     if (u) u.isRecordHolder = recordHolder;
 
@@ -947,6 +952,8 @@ module.exports = {
   isRecordHolder,
   normalizeUsername,
   keyForUsername,
+  getOrCreateUser,
+  _setDataStoreForTests,
   route,
   startServer
 };
