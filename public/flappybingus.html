@@ -46,11 +46,12 @@
       box-shadow:0 20px 70px rgba(0,0,0,.58),0 0 60px rgba(140,200,255,.08);
       backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);
     }
-    .menu-header{display:flex;flex-direction:column;gap:8px;padding:10px 14px 6px}
+    .menu-header{display:flex;flex-direction:column;gap:8px;padding:10px 14px 6px;align-items:center;text-align:center}
     .title{
       font-weight:900;letter-spacing:.8px;line-height:1.02;
       font-size:clamp(46px,6vw,86px);margin:0;
       color:#f9fbff;
+      max-width:100%;overflow-wrap:break-word;
       text-shadow:
         0 12px 32px rgba(0,0,0,.35),
         0 0 18px rgba(200,230,255,.5),
@@ -58,6 +59,7 @@
       background:linear-gradient(120deg,#fff,#dff3ff,#f6f0ff);
       -webkit-background-clip:text;color:transparent;
       filter:drop-shadow(0 6px 10px rgba(0,0,0,.18));
+      text-align:center;
     }
     .title::first-letter{font-size:1.04em}
     .title-cloud{position:relative;display:inline-block}
@@ -113,6 +115,9 @@
     }
     input[type="text"]::placeholder{color:rgba(255,255,255,.45)}
     .minirow{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+    .user-row{flex-wrap:nowrap}
+    .user-row input{flex:1;min-width:0}
+    .user-row button{white-space:nowrap}
     .hint{font-size:12.5px;color:rgba(255,255,255,.66);line-height:1.35}
     .hint.good{color:rgba(120,255,160,.80)}
     .hint.bad{color:rgba(255,110,110,.85)}
@@ -193,6 +198,9 @@
       from{opacity:0;transform:translateY(8px)}
       to{opacity:1;transform:translateY(0)}
     }
+
+    .side-stack{display:flex;flex-direction:column;gap:12px}
+    .trail-row{flex-wrap:nowrap}
   </style>
 </head>
 <body>
@@ -206,7 +214,7 @@
         <div class="menu-header">
           <div class="title-cloud"><div class="title">Flappy Bingus</div></div>
           <p class="sub">
-            A dreamy flight through neon skies. Register to track progress and trails, then tap the Tutorial to learn perfect gaps, scoring, and survival.
+            Thank you for playing!
           </p>
         </div>
 
@@ -227,29 +235,14 @@
                     <div class="row top-actions">
                       <button id="start" class="primary" disabled>Start</button>
                       <button id="tutorial" disabled>Tutorial</button>
-                      <div id="bootPill" class="pill"><span class="dot"></span><span id="bootText">Loading…</span></div>
                     </div>
                     <div class="soft-divider"></div>
                     <div class="field">
-                      <div class="lbl">Username</div>
-                      <div class="minirow">
-                        <input id="usernameInput" type="text" maxlength="18" placeholder="3–18 chars: letters, numbers, space, _ or -"/>
-                        <button id="saveUserBtn">Save</button>
+                      <div class="section-title" style="font-size:14px;margin:0">Cosmetic Trail</div>
+                      <div class="minirow trail-row">
+                        <select id="trailSelect"></select>
                       </div>
-                      <div id="userHint" class="hint">Not signed in.</div>
-                    </div>
-                  </div>
-
-                  <div class="info-card">
-                    <div class="section-title">Cosmetic Trail</div>
-                    <div class="field">
-                      <div class="lbl">Trail</div>
-                      <select id="trailSelect"></select>
                       <div id="trailHint" class="hint">Unlock trails by improving your personal best.</div>
-                    </div>
-                    <div class="pills-row">
-                      <div class="badge">Personal best <span class="kbd" id="pbText">0</span></div>
-                      <div class="badge">Trail <span class="kbd" id="trailText">classic</span></div>
                     </div>
                   </div>
 
@@ -266,6 +259,13 @@
 
               <div class="panel-settings tab-panel">
                 <div class="info-grid">
+                  <div class="info-card">
+                    <div class="section-title">Status</div>
+                    <div class="minirow">
+                      <div id="bootPill" class="pill"><span class="dot"></span><span id="bootText">Loading…</span></div>
+                    </div>
+                  </div>
+
                   <div class="info-card">
                     <div class="section-title">Level Seed</div>
                     <div class="field">
@@ -307,13 +307,30 @@
             </div>
           </div>
 
-          <div class="card hs-card">
-            <div class="row" style="margin-top:0;justify-content:space-between;gap:10px">
-              <div style="font-weight:950;letter-spacing:.3px;font-size:15px;color:#eef6ff">High Scores</div>
-              <a href="/highscores" style="color:var(--accent-strong);text-decoration:none;font-weight:900;font-size:13px">Full list</a>
+          <div class="side-stack">
+            <div class="card card-soft">
+              <div class="section-title">Your Profile</div>
+              <div class="field">
+                <div class="lbl">Username</div>
+                <div class="minirow user-row">
+                  <input id="usernameInput" type="text" maxlength="18" placeholder="3–18 chars: letters, numbers, space, _ or -"/>
+                  <button id="saveUserBtn">Save</button>
+                </div>
+                <div id="userHint" class="hint">Not signed in.</div>
+                <div class="pills-row" style="margin-top:6px">
+                  <div class="badge">Personal best <span class="kbd" id="pbText">0</span></div>
+                </div>
+              </div>
             </div>
-            <div style="height:6px"></div>
-            <div id="hsWrap" class="hint">Loading leaderboard…</div>
+
+            <div class="card hs-card">
+              <div class="row" style="margin-top:0;justify-content:space-between;gap:10px">
+                <div style="font-weight:950;letter-spacing:.3px;font-size:15px;color:#eef6ff">High Scores</div>
+                <a href="/highscores" style="color:var(--accent-strong);text-decoration:none;font-weight:900;font-size:13px">Full list</a>
+              </div>
+              <div style="height:6px"></div>
+              <div id="hsWrap" class="hint">Loading leaderboard…</div>
+            </div>
           </div>
         </div>
       </div>
