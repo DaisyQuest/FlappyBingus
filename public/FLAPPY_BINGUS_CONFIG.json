@@ -11,10 +11,13 @@
   },
   "pipes": {
     "difficulty": {
-      "timeToMax": 600,
-      "scoreToMax": 1000,
+      "timeToMax": 1500,
+      "scoreToMax": 2400,
       "mixTime": 0.55,
-      "mixScore": 0.45
+      "mixScore": 0.45,
+      "scoreRampStart": 400,
+      "timeRampStart": 45,
+      "earlyCurvePower": 1.35
     },
     "spawnInterval": { "start": 0.78, "end": 0.23, "min": 0.18, "max": 0.9 },
     "speed": { "start": 240, "end": 560 },
@@ -41,7 +44,15 @@
       "radius": 12,
       "driftSpeedMin": 10,
       "driftSpeedMax": 45,
-      "safeDistance": 120
+      "safeDistance": 120,
+      "spawnSpread": {
+        "startFraction": 0.6,
+        "endFraction": 1,
+        "scoreToMax": 400,
+        "timeToMax": 140,
+        "mixScore": 0.7,
+        "mixTime": 0.3
+      }
     }
   },
   "scoring": {

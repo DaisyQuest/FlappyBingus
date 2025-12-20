@@ -357,11 +357,15 @@ export class Game {
     const t = this.timeAlive, s = this.score;
     const tc = Math.max(1e-3, Number(this.cfg.pipes.difficulty.timeToMax) || 38);
     const sc = Math.max(1e-3, Number(this.cfg.pipes.difficulty.scoreToMax) || 120);
+    const ts = clamp(Number(this.cfg.pipes.difficulty.timeRampStart) || 0, 0, 1e6);
+    const ss = clamp(Number(this.cfg.pipes.difficulty.scoreRampStart) || 0, 0, 1e9);
     const mt = clamp(Number(this.cfg.pipes.difficulty.mixTime) || 0.55, 0, 1);
     const ms = clamp(Number(this.cfg.pipes.difficulty.mixScore) || 0.45, 0, 1);
-    const dT = 1 - Math.exp(-(t / tc));
-    const dS = 1 - Math.exp(-(s / sc));
-    return clamp(mt * dT + ms * dS, 0, 1);
+    const dT = 1 - Math.exp(-((Math.max(0, t - ts)) / tc));
+    const dS = 1 - Math.exp(-((Math.max(0, s - ss)) / sc));
+    const blended = clamp(mt * dT + ms * dS, 0, 1);
+    const pow = Math.max(1, Number(this.cfg.pipes.difficulty.earlyCurvePower) || 1);
+    return clamp(Math.pow(blended, pow), 0, 1);
   }
 
   _spawnInterval() {
@@ -481,10 +485,29 @@ export class Game {
     const r = clamp(Number(o.radius) || 12, 6, 40);
     const life = clamp(Number(o.lifetime) || 10, 1, 60);
     const safe = clamp(Number(o.safeDistance) || 120, 0, 800);
+    const spread = o.spawnSpread || {};
+    const prog = (() => {
+      const tc = Math.max(1e-3, Number(spread.timeToMax) || 1);
+      const sc = Math.max(1e-3, Number(spread.scoreToMax) || 1);
+      const mt = clamp(Number(spread.mixTime) || 0.5, 0, 1);
+      const ms = clamp(Number(spread.mixScore) || 0.5, 0, 1);
+      const dT = 1 - Math.exp(-(Math.max(0, this.timeAlive) / tc));
+      const dS = 1 - Math.exp(-(Math.max(0, this.score) / sc));
+      return clamp(mt * dT + ms * dS, 0, 1);
+    })();
+    const startFrac = clamp(Number(spread.startFraction) || 1, 0.05, 1.0);
+    const endFrac = clamp(Number(spread.endFraction) || 1, 0.05, 1.0);
+    const frac = clamp(lerp(startFrac, endFrac, prog), 0.05, 1.0);
+    const mx = (this.W * (1 - frac)) * 0.5;
+    const my = (this.H * (1 - frac)) * 0.5;
+    let minX = r + 10 + mx, maxX = this.W - (r + 10) - mx;
+    let minY = r + 10 + my, maxY = this.H - (r + 10) - my;
+    if (minX >= maxX) { minX = r + 10; maxX = this.W - r - 10; }
+    if (minY >= maxY) { minY = r + 10; maxY = this.H - r - 10; }
 
     let x = this.W * 0.5, y = this.H * 0.5;
     for (let i = 0; i < 18; i++) {
-      const px = rand(r + 10, this.W - r - 10), py = rand(r + 10, this.H - r - 10);
+      const px = rand(minX, maxX), py = rand(minY, maxY);
       if (Math.hypot(px - this.player.x, py - this.player.y) >= (this.player.r + r + safe)) { x = px; y = py; break; }
     }
 
