@@ -46,52 +46,45 @@ import {
   setMuted
 } from "./audio.js";
 
+import { buildGameUI } from "./uiLayout.js";
+
 // ---- DOM ----
-const canvas = document.getElementById("c");
+const ui = buildGameUI();
 
-const menu = document.getElementById("menu");
-const over = document.getElementById("over");
-
-const startBtn = document.getElementById("start");
-const tutorialBtn = document.getElementById("tutorial");
-const restartBtn = document.getElementById("restart");
-const retrySeedBtn = document.getElementById("retrySeed");
-
-const toMenuBtn = document.getElementById("toMenu");
-
-const bootPill = document.getElementById("bootPill");
-const bootText = document.getElementById("bootText");
-
-const usernameInput = document.getElementById("usernameInput");
-const saveUserBtn = document.getElementById("saveUserBtn");
-const userHint = document.getElementById("userHint");
-
-const trailSelect = document.getElementById("trailSelect");
-const trailHint = document.getElementById("trailHint");
-
-const bindWrap = document.getElementById("bindWrap");
-const bindHint = document.getElementById("bindHint");
-
-const hsWrap = document.getElementById("hsWrap");
-
-const pbText = document.getElementById("pbText");
-const trailText = document.getElementById("trailText");
-
-const finalEl = document.getElementById("final");
-const overPB = document.getElementById("overPB");
-
-const seedInput = document.getElementById("seedInput");
-const seedRandomBtn = document.getElementById("seedRandomBtn");
-const seedHint = document.getElementById("seedHint");
-
-const musicSlider = document.getElementById("musicVolume");
-const sfxSlider = document.getElementById("sfxVolume");
-const muteToggle = document.getElementById("muteToggle");
-
-const watchReplayBtn = document.getElementById("watchReplay");
-const exportGifBtn = document.getElementById("exportGif");
-const exportMp4Btn = document.getElementById("exportMp4");
-const replayStatus = document.getElementById("replayStatus");
+const {
+  canvas,
+  menu,
+  over,
+  start: startBtn,
+  tutorial: tutorialBtn,
+  restart: restartBtn,
+  retrySeed: retrySeedBtn,
+  toMenu: toMenuBtn,
+  bootPill,
+  bootText,
+  usernameInput,
+  saveUserBtn,
+  userHint,
+  trailSelect,
+  trailHint,
+  bindWrap,
+  bindHint,
+  hsWrap,
+  pbText,
+  trailText,
+  final: finalEl,
+  overPB,
+  seedInput,
+  seedRandomBtn,
+  seedHint,
+  musicVolume: musicSlider,
+  sfxVolume: sfxSlider,
+  muteToggle,
+  watchReplay: watchReplayBtn,
+  exportGif: exportGifBtn,
+  exportMp4: exportMp4Btn,
+  replayStatus
+} = ui;
 
 // ---- Local best fallback cookie (legacy support) ----
 const LOCAL_BEST_COOKIE = "chocolate_chip";
