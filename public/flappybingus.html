@@ -9,75 +9,190 @@
   <title>Flappy Bingus</title>
   <style>
     :root{
-      --bg0:#070b12;
-      --bg1:#0b1220;
-      --panel:rgba(10,14,20,.84);
-      --panel2:rgba(10,14,20,.62);
-      --text:rgba(255,255,255,.92);
-      --muted:rgba(255,255,255,.68);
-      --accent:rgba(120,210,255,.95);
-      --danger:rgba(255,90,90,.95);
-      --ok:rgba(120,255,160,.95);
+      --bg0:#050912;
+      --bg1:#0a1020;
+      --panel:rgba(14,18,30,.78);
+      --panel2:rgba(24,30,46,.6);
+      --panel-soft:rgba(255,255,255,.07);
+      --panel-strong:rgba(255,255,255,.12);
+      --text:rgba(255,255,255,.94);
+      --muted:rgba(255,255,255,.72);
+      --accent:rgba(160,220,255,.95);
+      --accent-strong:rgba(200,235,255,.95);
+      --accent2:rgba(167,139,255,.95);
+      --danger:rgba(255,110,110,.95);
+      --ok:rgba(120,255,180,.95);
+      --glass:backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);
     }
-    html,body{height:100%;margin:0;overflow:hidden;background:linear-gradient(180deg,var(--bg0),var(--bg1));font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;color:var(--text)}
+    html,body{
+      height:100%;margin:0;overflow:hidden;
+      background:
+        radial-gradient(circle at 20% 20%,rgba(255,255,255,.06),transparent 26%),
+        radial-gradient(circle at 80% 16%,rgba(255,255,255,.05),transparent 28%),
+        radial-gradient(circle at 60% 70%,rgba(255,255,255,.04),transparent 30%),
+        linear-gradient(180deg,var(--bg0),var(--bg1));
+      font-family:"Inter",-apple-system,system-ui,Segoe UI,Roboto,Arial,sans-serif;
+      color:var(--text);
+      letter-spacing:.1px;
+    }
     #wrap{position:fixed;inset:0}
-    canvas{position:absolute;inset:0;width:100%;height:100%;display:block;background:#070b12}
-    .screen{position:absolute;inset:0;display:grid;place-items:center;pointer-events:none}
-    .panel{pointer-events:auto;width:min(980px,calc(100vw - 28px));padding:18px 18px 16px;border-radius:16px;
-      background:linear-gradient(180deg,var(--panel),var(--panel2));
-      border:1px solid rgba(255,255,255,.12);
-      box-shadow:0 18px 60px rgba(0,0,0,.55);
-      backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);}
-    .title{font-weight:950;letter-spacing:.6px;line-height:1.02;font-size:clamp(44px,6vw,74px);margin:6px 0 8px;text-shadow:0 10px 30px rgba(0,0,0,.45)}
-    .sub{color:var(--muted);font-size:14.5px;line-height:1.45;margin:0 0 12px}
-    .grid{display:grid;grid-template-columns:1.25fr .75fr;gap:14px;align-items:start}
-    @media (max-width: 900px){ .grid{grid-template-columns:1fr} }
-    .card{border-radius:14px;border:1px solid rgba(255,255,255,.12);background:rgba(255,255,255,.06);padding:12px 12px 10px}
-    .row{display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between;margin-top:10px}
-    button{appearance:none;border:1px solid rgba(255,255,255,.18);background:rgba(255,255,255,.08);color:var(--text);
-      padding:12px 16px;border-radius:12px;font-weight:950;font-size:16px;cursor:pointer;
-      box-shadow:0 10px 24px rgba(0,0,0,.35);transition:transform .06s ease,background .12s ease}
-    button:hover{background:rgba(255,255,255,.12);transform:translateY(-1px)}
-    button:active{transform:translateY(0)}
-    button.primary{border-color:rgba(120,210,255,.35);background:rgba(120,210,255,.14)}
-    button.primary:hover{background:rgba(120,210,255,.18)}
-    button[disabled]{opacity:.55;cursor:not-allowed;transform:none}
+    canvas{position:absolute;inset:0;width:100%;height:100%;display:block;background:#050912;opacity:.9}
+    .screen{position:absolute;inset:0;display:grid;place-items:center;pointer-events:none;padding:16px}
+    .panel{
+      pointer-events:auto;width:min(1100px,calc(100vw - 28px));
+      padding:18px 18px 18px;border-radius:20px;
+      background:linear-gradient(160deg,var(--panel),var(--panel2));
+      border:1px solid rgba(255,255,255,.14);
+      box-shadow:0 20px 70px rgba(0,0,0,.58),0 0 60px rgba(140,200,255,.08);
+      backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);
+    }
+    .menu-header{display:flex;flex-direction:column;gap:8px;padding:10px 14px 6px}
+    .title{
+      font-weight:900;letter-spacing:.8px;line-height:1.02;
+      font-size:clamp(46px,6vw,86px);margin:0;
+      color:#f9fbff;
+      text-shadow:
+        0 12px 32px rgba(0,0,0,.35),
+        0 0 18px rgba(200,230,255,.5),
+        0 0 36px rgba(120,190,255,.35);
+      background:linear-gradient(120deg,#fff,#dff3ff,#f6f0ff);
+      -webkit-background-clip:text;color:transparent;
+      filter:drop-shadow(0 6px 10px rgba(0,0,0,.18));
+    }
+    .title::first-letter{font-size:1.04em}
+    .title-cloud{position:relative;display:inline-block}
+    .title-cloud::after{
+      content:"";
+      position:absolute;inset:15% -6px -10%;border-radius:50%;
+      background:radial-gradient(circle at 30% 30%,rgba(255,255,255,.24),transparent 50%),
+                 radial-gradient(circle at 70% 40%,rgba(255,255,255,.18),transparent 48%);
+      filter:blur(14px);opacity:.75;pointer-events:none;
+    }
+    .sub{color:var(--muted);font-size:15px;line-height:1.55;margin:0;max-width:840px}
+    .menu-shell{display:grid;grid-template-columns:1.1fr .9fr;gap:14px;align-items:start;padding:8px}
+    @media (max-width: 900px){ .menu-shell{grid-template-columns:1fr} }
+    .card{
+      border-radius:18px;border:1px solid var(--panel-strong);background:rgba(255,255,255,.06);
+      padding:14px 14px 12px;box-shadow:0 10px 34px rgba(0,0,0,.26);
+      backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);
+    }
+    .card-soft{background:rgba(255,255,255,.05);border-color:rgba(255,255,255,.1)}
+    .row{display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:flex-start}
+    .top-actions{gap:12px}
+    button{
+      appearance:none;border:1px solid rgba(255,255,255,.2);background:linear-gradient(180deg,rgba(255,255,255,.12),rgba(255,255,255,.05));
+      color:var(--text);padding:12px 16px;border-radius:14px;font-weight:900;font-size:16px;cursor:pointer;
+      box-shadow:0 10px 24px rgba(0,0,0,.35),0 0 0 1px rgba(255,255,255,.06);
+      transition:transform .08s ease,box-shadow .14s ease,background .16s ease,translate .08s ease;
+    }
+    button:hover{background:linear-gradient(180deg,rgba(255,255,255,.18),rgba(255,255,255,.08));transform:translateY(-1px);box-shadow:0 14px 28px rgba(0,0,0,.32),0 0 0 1px rgba(255,255,255,.12)}
+    button:active{transform:translateY(0);translate:0 1px}
+    button.primary{border-color:rgba(170,230,255,.5);background:linear-gradient(180deg,rgba(180,230,255,.36),rgba(140,210,255,.16));color:#0d1a27}
+    button.primary:hover{background:linear-gradient(180deg,rgba(205,240,255,.6),rgba(150,210,255,.2))}
+    button[disabled]{opacity:.58;cursor:not-allowed;transform:none;translate:0}
+    button:focus-visible,input:focus-visible,select:focus-visible{
+      outline:2px solid rgba(180,230,255,.9);outline-offset:2px;box-shadow:0 0 0 4px rgba(180,230,255,.2)
+    }
     .pill{display:inline-flex;gap:8px;align-items:center;font-size:13px;color:var(--muted);
-      border:1px solid rgba(255,255,255,.14);background:rgba(255,255,255,.06);padding:7px 10px;border-radius:999px}
-    .dot{width:8px;height:8px;border-radius:999px;background:rgba(255,200,120,.95);box-shadow:0 0 14px rgba(255,200,120,.35)}
-    .pill.ok .dot{background:var(--ok);box-shadow:0 0 14px rgba(120,255,160,.35)}
-    .pill.bad .dot{background:var(--danger);box-shadow:0 0 14px rgba(255,90,90,.35)}
+      border:1px solid rgba(255,255,255,.14);background:rgba(255,255,255,.07);padding:8px 12px;border-radius:999px;box-shadow:0 10px 22px rgba(0,0,0,.28)}
+    .dot{width:9px;height:9px;border-radius:999px;background:rgba(255,200,120,.95);box-shadow:0 0 14px rgba(255,200,120,.35)}
+    .pill.ok .dot{background:var(--ok);box-shadow:0 0 14px rgba(120,255,180,.35)}
+    .pill.bad .dot{background:var(--danger);box-shadow:0 0 14px rgba(255,110,110,.35)}
     .pill.neutral .dot{background:rgba(170,170,170,.9);box-shadow:0 0 14px rgba(170,170,170,.25)}
-    .stats{margin-top:10px;padding-top:10px;border-top:1px solid rgba(255,255,255,.12);color:var(--muted);font-size:13.5px;line-height:1.55}
-    .kbd{display:inline-block;padding:2px 7px;border-radius:8px;border:1px solid rgba(255,255,255,.18);
-      background:rgba(255,255,255,.06);color:rgba(255,255,255,.85);font-weight:900}
+    .stats{margin-top:8px;padding-top:10px;border-top:1px solid rgba(255,255,255,.12);color:var(--muted);font-size:13.8px;line-height:1.55}
+    .kbd{display:inline-block;padding:2px 7px;border-radius:9px;border:1px solid rgba(255,255,255,.18);
+      background:rgba(255,255,255,.08);color:rgba(255,255,255,.9);font-weight:900;font-size:13px}
     .hidden{display:none!important}
 
     .field{display:flex;flex-direction:column;gap:6px}
-    .lbl{font-size:12px;color:rgba(255,255,255,.72);font-weight:900;letter-spacing:.3px}
+    .lbl{font-size:12px;color:rgba(255,255,255,.78);font-weight:800;letter-spacing:.35px;text-transform:uppercase}
     input[type="text"], select{
-      appearance:none;width:100%;padding:10px 12px;border-radius:12px;border:1px solid rgba(255,255,255,.18);
+      appearance:none;width:100%;padding:11px 12px;border-radius:12px;border:1px solid rgba(255,255,255,.18);
       background:rgba(0,0,0,.25);color:rgba(255,255,255,.92);font-weight:800;outline:none;
+      box-shadow:inset 0 2px 6px rgba(0,0,0,.26);
     }
     input[type="text"]::placeholder{color:rgba(255,255,255,.45)}
-    .minirow{display:flex;gap:8px;align-items:center}
-    .hint{font-size:12.5px;color:rgba(255,255,255,.60);line-height:1.35}
+    .minirow{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+    .hint{font-size:12.5px;color:rgba(255,255,255,.66);line-height:1.35}
     .hint.good{color:rgba(120,255,160,.80)}
-    .hint.bad{color:rgba(255,90,90,.80)}
-    .hint.warn{color:rgba(255,210,120,.85)}
+    .hint.bad{color:rgba(255,110,110,.85)}
+    .hint.warn{color:rgba(255,210,120,.88)}
+    .section-title{font-weight:900;letter-spacing:.4px;font-size:15px;margin-bottom:6px;color:#eef6ff}
+    .soft-divider{height:1px;background:linear-gradient(90deg,transparent,rgba(255,255,255,.22),transparent);margin:10px 0}
 
+    .hs-card{position:relative;overflow:hidden}
+    .hs-card::before{
+      content:"";position:absolute;inset:-20% 20% auto -10%;height:160px;
+      background:radial-gradient(circle at 20% 60%,rgba(255,255,255,.08),transparent 40%),
+                 radial-gradient(circle at 60% 30%,rgba(180,220,255,.1),transparent 45%);
+      filter:blur(16px);opacity:.9;pointer-events:none;
+    }
     .hsTable{width:100%;border-collapse:collapse;font-size:13.5px}
     .hsTable th,.hsTable td{padding:8px 8px;border-bottom:1px solid rgba(255,255,255,.10);text-align:left}
     .hsTable th{color:rgba(255,255,255,.78);font-weight:950}
     .mono{font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace}
 
-    .bindList{display:flex;flex-direction:column;gap:8px;margin-top:4px}
+    .bindList{display:flex;flex-direction:column;gap:8px;margin-top:6px}
     .bindRow{display:grid;grid-template-columns:1fr auto auto;gap:8px;align-items:center;
-      padding:9px 10px;border-radius:12px;border:1px solid rgba(255,255,255,.10);background:rgba(0,0,0,.18)}
-    .bindName{font-weight:950;letter-spacing:.2px}
+      padding:10px 12px;border-radius:12px;border:1px solid rgba(255,255,255,.10);background:rgba(0,0,0,.2);
+      box-shadow:inset 0 1px 0 rgba(255,255,255,.06)}
+    .bindName{font-weight:900;letter-spacing:.2px}
     .bindKey{justify-self:end}
-    .bindBtn{padding:8px 10px;border-radius:10px;font-size:13px}
-    .bindRow.listen{border-color:rgba(120,210,255,.40);box-shadow:0 0 0 3px rgba(120,210,255,.12) inset}
+    .bindBtn{padding:8px 11px;border-radius:10px;font-size:13px}
+    .bindRow.listen{border-color:rgba(160,220,255,.50);box-shadow:0 0 0 3px rgba(160,220,255,.16) inset}
+
+    .tab-toggle{display:flex;gap:10px;align-items:center;padding:10px 14px}
+    .tab-toggle label{
+      padding:10px 16px;border-radius:12px;font-weight:800;cursor:pointer;border:1px solid rgba(255,255,255,.08);
+      background:rgba(255,255,255,.05);color:var(--muted);transition:all .12s ease;box-shadow:0 8px 22px rgba(0,0,0,.25)
+    }
+    .tab-toggle label:hover{color:var(--text);border-color:rgba(255,255,255,.14);transform:translateY(-1px)}
+    .tab-radio{position:absolute;opacity:0;pointer-events:none}
+    #viewMain:checked ~ .tab-toggle label[for="viewMain"]{background:linear-gradient(180deg,rgba(200,235,255,.4),rgba(140,200,255,.18));color:#0c1826;border-color:rgba(200,235,255,.8);box-shadow:0 10px 26px rgba(0,0,0,.32)}
+    #viewSettings:checked ~ .tab-toggle label[for="viewSettings"]{background:linear-gradient(180deg,rgba(200,235,255,.4),rgba(140,200,255,.18));color:#0c1826;border-color:rgba(200,235,255,.8);box-shadow:0 10px 26px rgba(0,0,0,.32)}
+
+    .view-area{position:relative}
+    .tab-panel{display:none;animation:floatIn .28s ease;min-height:280px}
+    #viewMain:checked ~ .menu-shell .view-area .panel-main{display:grid}
+    #viewSettings:checked ~ .menu-shell .view-area .panel-settings{display:grid}
+    .panel-main{grid-template-columns:1fr;gap:14px}
+    .panel-settings{grid-template-columns:1fr;gap:14px}
+
+    .info-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px}
+    .info-card{border-radius:14px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);padding:12px 12px 10px;box-shadow:0 8px 22px rgba(0,0,0,.22)}
+    .info-card .lbl{font-size:12.5px}
+    .howto{font-size:13.5px;line-height:1.55;color:var(--muted)}
+    .badge{display:inline-flex;align-items:center;gap:6px;padding:6px 10px;border-radius:999px;background:rgba(255,255,255,.1);color:var(--text);font-weight:800;font-size:12px;border:1px solid rgba(255,255,255,.16)}
+    .pills-row{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
+    .compact{font-size:12.5px;color:var(--muted)}
+    .volume-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px}
+    .slider-row{display:flex;flex-direction:column;gap:8px;padding:10px;border-radius:12px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08)}
+    input[type="range"]{
+      -webkit-appearance:none;appearance:none;width:100%;height:8px;border-radius:999px;background:linear-gradient(90deg,rgba(160,220,255,.9),rgba(167,139,255,.9));
+      box-shadow:inset 0 1px 2px rgba(0,0,0,.4);outline:none
+    }
+    input[type="range"]::-webkit-slider-thumb{
+      -webkit-appearance:none;appearance:none;width:18px;height:18px;border-radius:50%;
+      background:#fdfdff;border:2px solid rgba(160,220,255,.9);box-shadow:0 6px 12px rgba(0,0,0,.25)
+    }
+    input[type="range"]::-moz-range-thumb{
+      width:18px;height:18px;border-radius:50%;background:#fdfdff;border:2px solid rgba(160,220,255,.9);box-shadow:0 6px 12px rgba(0,0,0,.25)
+    }
+    .mute-row{display:flex;align-items:center;gap:10px;font-weight:800;color:var(--text);padding:8px 10px;border-radius:12px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.09)}
+    .muted-note{font-size:12px;color:rgba(255,255,255,.65);margin-top:4px}
+
+    .howto-card{display:grid;grid-template-columns:1fr;gap:6px}
+
+    .light-aurora{position:absolute;inset:-12% -8%;background:
+      radial-gradient(60% 50% at 20% 30%,rgba(120,190,255,.16),transparent),
+      radial-gradient(50% 40% at 80% 10%,rgba(180,140,255,.16),transparent),
+      radial-gradient(60% 50% at 70% 80%,rgba(120,200,180,.12),transparent);
+      filter:blur(28px);opacity:.7;pointer-events:none;z-index:0}
+    .content-layer{position:relative;z-index:1}
+    @keyframes floatIn{
+      from{opacity:0;transform:translateY(8px)}
+      to{opacity:1;transform:translateY(0)}
+    }
   </style>
 </head>
 <body>
@@ -86,74 +201,120 @@
 
   <div id="menu" class="screen">
     <div class="panel">
-      <div class="title">Flappy Bingus</div>
-      <p class="sub">
-        Register a username to track progression, unlock trails, and appear on the global leaderboard.
-        New? Play the <span class="kbd">Tutorial</span> to learn movement, scoring, perfect gaps, and every skill.
-      </p>
-
-      <div class="grid">
-        <div class="card">
-          <div class="row" style="margin-top:0">
-            <button id="start" class="primary" disabled>Start</button>
-            <button id="tutorial" disabled>Tutorial</button>
-            <div id="bootPill" class="pill"><span class="dot"></span><span id="bootText">Loading…</span></div>
-          </div>
-
-          <div style="height:10px"></div>
-
-          <div class="field">
-            <div class="lbl">Username</div>
-            <div class="minirow">
-              <input id="usernameInput" type="text" maxlength="18" placeholder="3–18 chars: letters, numbers, space, _ or -"/>
-              <button id="saveUserBtn">Save</button>
-            </div>
-            <div id="userHint" class="hint">Not signed in.</div>
-          </div>
-
-          <div style="height:10px"></div>
-<div style="height:10px"></div>
-
-<div class="field">
-  <div class="lbl">Level Seed (optional)</div>
-  <div class="minirow">
-    <input id="seedInput" type="text" maxlength="48" placeholder="Leave blank for random (share seed to play same level)"/>
-    <button id="seedRandomBtn">Random</button>
-  </div>
-  <div id="seedHint" class="hint">If two players use the same seed, pipe/orb spawns will match.</div>
-</div>
-          <div class="field">
-            <div class="lbl">Cosmetic Trail</div>
-            <select id="trailSelect"></select>
-            <div id="trailHint" class="hint">Unlock trails by improving your personal best.</div>
-          </div>
-
-          <div style="height:10px"></div>
-
-          <div class="field">
-            <div class="lbl">Skill Keybinds</div>
-            <div id="bindWrap" class="bindList"></div>
-            <div id="bindHint" class="hint">Click Rebind, then press a key or click a mouse button. Press Esc to cancel.</div>
-          </div>
-
-          <div class="stats">
-            Move: <span class="kbd">W</span> <span class="kbd">A</span> <span class="kbd">S</span> <span class="kbd">D</span>.
-            <br/>
-            Orbs give points + combo. If any orb despawns, combo breaks.
-            <br/>
-            Perfect Thread: pass the exact center of a gap when it crosses you.
-            <br/>
-            Personal best: <span class="kbd" id="pbText">0</span> • Trail: <span class="kbd" id="trailText">classic</span>
-          </div>
+      <div class="light-aurora"></div>
+      <div class="content-layer">
+        <div class="menu-header">
+          <div class="title-cloud"><div class="title">Flappy Bingus</div></div>
+          <p class="sub">
+            A dreamy flight through neon skies. Register to track progress and trails, then tap the Tutorial to learn perfect gaps, scoring, and survival.
+          </p>
         </div>
 
-        <div class="card">
-          <div class="row" style="margin-top:0">
-            <div style="font-weight:950;letter-spacing:.3px">High Scores</div>
-            <a href="/highscores" style="color:rgba(120,210,255,.95);text-decoration:none;font-weight:900;font-size:13px">Full list</a>
+        <input type="radio" name="view" id="viewMain" class="tab-radio" checked/>
+        <input type="radio" name="view" id="viewSettings" class="tab-radio"/>
+        <div class="tab-toggle" aria-label="Main sections">
+          <label for="viewMain">Main</label>
+          <label for="viewSettings">Settings</label>
+        </div>
+
+        <div class="menu-shell">
+          <div class="card card-soft">
+            <div class="view-area">
+              <div class="panel-main tab-panel">
+                <div class="info-grid">
+                  <div class="info-card">
+                    <div class="section-title">Ready to fly</div>
+                    <div class="row top-actions">
+                      <button id="start" class="primary" disabled>Start</button>
+                      <button id="tutorial" disabled>Tutorial</button>
+                      <div id="bootPill" class="pill"><span class="dot"></span><span id="bootText">Loading…</span></div>
+                    </div>
+                    <div class="soft-divider"></div>
+                    <div class="field">
+                      <div class="lbl">Username</div>
+                      <div class="minirow">
+                        <input id="usernameInput" type="text" maxlength="18" placeholder="3–18 chars: letters, numbers, space, _ or -"/>
+                        <button id="saveUserBtn">Save</button>
+                      </div>
+                      <div id="userHint" class="hint">Not signed in.</div>
+                    </div>
+                  </div>
+
+                  <div class="info-card">
+                    <div class="section-title">Cosmetic Trail</div>
+                    <div class="field">
+                      <div class="lbl">Trail</div>
+                      <select id="trailSelect"></select>
+                      <div id="trailHint" class="hint">Unlock trails by improving your personal best.</div>
+                    </div>
+                    <div class="pills-row">
+                      <div class="badge">Personal best <span class="kbd" id="pbText">0</span></div>
+                      <div class="badge">Trail <span class="kbd" id="trailText">classic</span></div>
+                    </div>
+                  </div>
+
+                  <div class="info-card howto-card">
+                    <div class="section-title">How to play</div>
+                    <div class="howto">
+                      <div class="compact">Move with <span class="kbd">W</span><span class="kbd">A</span><span class="kbd">S</span><span class="kbd">D</span>. Orbs award points and combo; if any orb despawns the combo breaks.</div>
+                      <div class="compact">Perfect Thread: drift through the exact center of a gap as it crosses you.</div>
+                      <div class="compact">Practice in Tutorial, then Start when the sky calls.</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="panel-settings tab-panel">
+                <div class="info-grid">
+                  <div class="info-card">
+                    <div class="section-title">Level Seed</div>
+                    <div class="field">
+                      <div class="lbl">Seed (optional)</div>
+                      <div class="minirow">
+                        <input id="seedInput" type="text" maxlength="48" placeholder="Leave blank for random (share seed to play same level)"/>
+                        <button id="seedRandomBtn">Random</button>
+                      </div>
+                      <div id="seedHint" class="hint">If two players use the same seed, pipe/orb spawns will match.</div>
+                    </div>
+                  </div>
+
+                  <div class="info-card">
+                    <div class="section-title">Volume</div>
+                    <div class="volume-grid">
+                      <div class="slider-row">
+                        <div class="lbl">Music Volume</div>
+                        <input type="range" min="0" max="100" value="70" aria-label="Music volume"/>
+                      </div>
+                      <div class="slider-row">
+                        <div class="lbl">SFX Volume</div>
+                        <input type="range" min="0" max="100" value="80" aria-label="SFX volume"/>
+                      </div>
+                    </div>
+                    <div class="mute-row">
+                      <input type="checkbox" id="muteToggle" aria-label="Mute audio"/>
+                      <label for="muteToggle" style="cursor:pointer">Mute everything</label>
+                    </div>
+                    <div class="muted-note">Audio controls are in progress – coming soon.</div>
+                  </div>
+
+                  <div class="info-card">
+                    <div class="section-title">Skill Keybinds</div>
+                    <div id="bindWrap" class="bindList"></div>
+                    <div id="bindHint" class="hint">Click Rebind, then press a key or click a mouse button. Press Esc to cancel.</div>
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
-          <div style="height:8px"></div>
-          <div id="hsWrap" class="hint">Loading leaderboard…</div>
+
+          <div class="card hs-card">
+            <div class="row" style="margin-top:0;justify-content:space-between;gap:10px">
+              <div style="font-weight:950;letter-spacing:.3px;font-size:15px;color:#eef6ff">High Scores</div>
+              <a href="/highscores" style="color:var(--accent-strong);text-decoration:none;font-weight:900;font-size:13px">Full list</a>
+            </div>
+            <div style="height:6px"></div>
+            <div id="hsWrap" class="hint">Loading leaderboard…</div>
+          </div>
         </div>
       </div>
     </div>
