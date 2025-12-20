@@ -86,7 +86,7 @@ async function tryFetchJson(url) {
 }
 
 export async function loadConfig() {
-  const candidates = ["flappy_bingus_config.json", "config.json"];
+  const candidates = ["FLAPPY_BINGUS_CONFIG.json", "flappy_bingus_config.json", "config.json"];
   let cfg = clone(DEFAULT_CONFIG);
   let source = "defaults";
   let ok = false;
