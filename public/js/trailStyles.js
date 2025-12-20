@@ -21,7 +21,7 @@ const sparkleDefaults = Object.freeze({
   speed: [20, 55],
   drag: 12.5,
   add: true,
-  color: ({ hue, rand: r }) => hsla((hue * 0.65 + r(0, 120)) % 360, 100, 86, 0.9)
+  color: ({ hue, rand: r }) => hsla((hue * 0.65 + r(0, 120)) % 360, 100, 82, 0.86)
 });
 
 const glintDefaults = Object.freeze({
@@ -31,7 +31,7 @@ const glintDefaults = Object.freeze({
   speed: [55, 155],
   drag: 11.2,
   add: true,
-  color: ({ hue, rand: r }) => hsla((hue + r(-18, 42)) % 360, 100, 78, 0.9)
+  color: ({ hue, rand: r }) => hsla((hue + r(-18, 42)) % 360, 100, 74, 0.86)
 });
 
 const bandColor = ({ base, variance = 8, sat = 88, light = 62, alpha = 0.8 }) => ({ rand: r }) =>
@@ -68,22 +68,22 @@ const TRAIL_STYLES = Object.freeze({
     add: true,
     color: petalColor,
     sparkle: {
-      rate: 54,
-      life: [0.48, 0.82],
-      size: [6, 12],
-      speed: [22, 84],
+      rate: 46,
+      life: [0.50, 0.86],
+      size: [5, 11],
+      speed: [22, 82],
       drag: 9.8,
-      add: true,
-      color: ({ rand: r }) => (r(0, 1) > 0.5 ? "rgba(255,240,252,.94)" : "rgba(241,182,211,.92)")
+      add: false,
+      color: ({ rand: r }) => hsla((332 + r(-12, 12)) % 360, 86, 86, 0.9)
     },
     glint: {
-      rate: 46,
-      life: [0.32, 0.52],
-      size: [8, 14],
-      speed: [32, 110],
-      drag: 8.8,
-      add: true,
-      color: ({ rand: r }) => hsla((325 + r(-10, 10)) % 360, 82, 90, 0.92)
+      rate: 38,
+      life: [0.34, 0.54],
+      size: [7, 12],
+      speed: [32, 118],
+      drag: 8.9,
+      add: false,
+      color: ({ rand: r }) => hsla((328 + r(-10, 12)) % 360, 84, 88, 0.9)
     },
     hueRate: 120
   }

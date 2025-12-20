@@ -34,4 +34,20 @@ describe("trailStyles", () => {
     expect(style.sparkle.size[1]).toBeGreaterThan(style.sparkle.size[0]);
     expect(style.glint.size[1]).toBeGreaterThan(style.glint.size[0]);
   });
+
+  it("keeps the record-holder palette saturated instead of washing out to white", () => {
+    const style = trailStyleFor("world_record");
+    const rand = () => 0.5;
+    const glintColor = style.glint.color({ i: 0, hue: 140, rand });
+    const sparkleColor = style.sparkle.color({ i: 0, hue: 140, rand });
+
+    expect(style.sparkle.add).toBe(false);
+    expect(style.glint.add).toBe(false);
+    expect(style.glint.rate).toBeLessThan(46);
+    expect(style.sparkle.rate).toBeLessThan(54);
+    expect(glintColor).toContain("hsla");
+    expect(sparkleColor).toContain("hsla");
+    expect(glintColor).not.toContain("255,255,255");
+    expect(sparkleColor).not.toContain("255,255,255");
+  });
 });

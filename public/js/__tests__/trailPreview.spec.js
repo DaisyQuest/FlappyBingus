@@ -300,6 +300,46 @@ describe("TrailPreview", () => {
     styleSpy.mockRestore();
   });
 
+  it("scales secondary effects with flow so bright particles do not overpower color", () => {
+    const { canvas } = makeCanvas();
+    const preview = new TrailPreview({
+      canvas,
+      playerImg: {},
+      requestFrame: null,
+      cancelFrame: null,
+      now: () => 0
+    });
+    preview.player.phase = -Math.PI / 3.2; // flow = 0.4
+    preview._rand = () => 0.5;
+
+    const style = {
+      rate: 10,
+      life: [1, 1],
+      size: [1, 1],
+      speed: [1, 1],
+      drag: 0,
+      add: false,
+      glint: { rate: 8, life: [1, 1], size: [1, 1], speed: [1, 1], add: false },
+      sparkle: { rate: 6, life: [1, 1], size: [1, 1], speed: [1, 1], add: false },
+      aura: { rate: 0 }
+    };
+    const styleSpy = vi.spyOn(trailStyles, "trailStyleFor").mockReturnValue(style);
+
+    preview._emitTrail(1);
+
+    const produced = preview.parts.slice(-13);
+    const baseCount = Math.floor(style.rate * 0.4);
+    const glintCount = Math.floor(style.glint.rate * 0.4);
+    const sparkleCount = Math.floor(style.sparkle.rate * 0.4);
+
+    expect(produced).toHaveLength(baseCount + glintCount + sparkleCount);
+    expect(baseCount).toBe(4);
+    expect(glintCount).toBe(3);
+    expect(sparkleCount).toBe(2);
+
+    styleSpy.mockRestore();
+  });
+
   it("caps the number of particles to keep previews lightweight", () => {
     const { canvas } = makeCanvas();
     const preview = new TrailPreview({
