@@ -12,12 +12,15 @@ export function validateScenario(scenario) {
   scenario.steps.forEach((step, idx) => {
     if (typeof step.at !== "number" || step.at < 0) throw new Error(`Step ${idx} has invalid 'at' time.`);
     if (!step.action || typeof step.action !== "string") throw new Error(`Step ${idx} missing 'action'.`);
-    if (!["step", "emit"].includes(step.action)) throw new Error(`Step ${idx} has unsupported action '${step.action}'.`);
+    if (!["step", "emit", "command"].includes(step.action)) throw new Error(`Step ${idx} has unsupported action '${step.action}'.`);
     if (step.action === "step" && (typeof step.dt !== "number" || step.dt <= 0)) {
       throw new Error(`Step ${idx} 'step' requires positive 'dt'.`);
     }
     if (step.action === "emit" && typeof step.type !== "string") {
       throw new Error(`Step ${idx} 'emit' requires string 'type'.`);
+    }
+    if (step.action === "command" && typeof step.name !== "string") {
+      throw new Error(`Step ${idx} 'command' requires string 'name'.`);
     }
   });
 }
@@ -54,6 +57,10 @@ export function runScenario({
       snapshots.push(engine.getSnapshot());
     } else if (step.action === "emit") {
       engine.emit(step.type, step.payload ?? {}, { stepIndex: i, at: step.at });
+      snapshots.push(engine.getSnapshot());
+    } else if (step.action === "command") {
+      if (typeof engine.command !== "function") throw new Error("Engine.command(action) is required for 'command' steps.");
+      engine.command(step.name, step.payload ?? {});
       snapshots.push(engine.getSnapshot());
     }
   }

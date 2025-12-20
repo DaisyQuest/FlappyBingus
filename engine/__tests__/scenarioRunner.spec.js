@@ -75,4 +75,22 @@ describe("runScenario", () => {
     expect(last.state.meta.seed).toBe(10);
     expect(last.state.time).toBeCloseTo(0.06, 5);
   });
+
+  it("executes command steps for ability flows", () => {
+    const result = runScenario({
+      scenario: {
+        name: "ability-sequence",
+        steps: [
+          { at: 0, action: "command", name: "jump" },
+          { at: 0.01, action: "command", name: "dash", payload: { direction: "right" } },
+          { at: 0.02, action: "step", dt: 0.02 }
+        ]
+      }
+    });
+
+    const first = result.snapshots[0];
+    expect(first.events.at(-1).type).toBe("player:jump");
+    const bounceOrDash = result.snapshots.at(-1).events.map((e) => e.type);
+    expect(bounceOrDash).toContain("dash:start");
+  });
 });
