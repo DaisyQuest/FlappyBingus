@@ -8,11 +8,12 @@ import {
   apiGetHighscores,
   apiSetTrail,
   apiSubmitScore,
-  apiSetKeybinds
+  apiSetKeybinds,
+  apiGetReplay
 } from "./api.js";
 
 import {
-  escapeHtml, clamp, getCookie, setCookie,
+  clamp, getCookie, setCookie,
   setRandSource, createSeededRand, createTapeRandRecorder, createTapeRandPlayer
 } from "./util.js";
 
@@ -51,6 +52,15 @@ import { TrailPreview } from "./trailPreview.js";
 import { normalizeTrailSelection, rebuildTrailOptions } from "./trailSelectUtils.js";
 import { buildTrailHint } from "./trailHint.js";
 import { DEFAULT_TRAILS, getUnlockedTrails, normalizeTrails, sortTrailsForDisplay } from "./trailProgression.js";
+import {
+  buildReplayPayload,
+  hydrateReplayFromServer,
+  describeReplayMeta,
+  formatDurationMs,
+  isReplayWithinLimits,
+  __replayLimits
+} from "./replayUtils.js";
+import { savePendingReplay, loadPendingReplay, clearPendingReplay } from "./replayQueue.js";
 
 // ---- DOM ----
 const ui = buildGameUI();
@@ -131,6 +141,8 @@ const net = {
   trails: DEFAULT_TRAILS.map((t) => ({ ...t })),
   highscores: []
 };
+
+let leaderboardReplayLoading = null;
 
 // keybinds: start from guest cookie; override from server user when available
 let binds = loadGuestBinds();
@@ -386,28 +398,119 @@ function renderHighscores() {
     return;
   }
 
-  hsWrap.className = "";
-  const table = document.createElement("table");
-  table.className = "hsTable";
+  hsWrap.className = "hsCardHost";
+  const list = document.createElement("div");
+  list.className = "hsCardList";
 
-  const thead = document.createElement("thead");
-  thead.innerHTML = `<tr><th>#</th><th>User</th><th class="mono">Best</th></tr>`;
-  table.appendChild(thead);
-
-  const tbody = document.createElement("tbody");
   hs.slice(0, 10).forEach((e, i) => {
-    const tr = document.createElement("tr");
-    const isMe = net.user && e.username === net.user.username;
-    tr.innerHTML =
-      `<td class="mono">${i + 1}</td>` +
-      `<td>${escapeHtml(e.username)}${isMe ? " (you)" : ""}</td>` +
-      `<td class="mono">${e.bestScore | 0}</td>`;
-    tbody.appendChild(tr);
+    const row = document.createElement("div");
+    row.className = "hsCardRow";
+
+    const rank = document.createElement("div");
+    rank.className = "hsRank";
+    rank.textContent = `#${i + 1}`;
+
+    const body = document.createElement("div");
+    body.className = "hsCardBody";
+
+    const title = document.createElement("div");
+    title.className = "hsUser";
+    title.textContent = e.username || "Unknown";
+    if (net.user && e.username === net.user.username) {
+      const me = document.createElement("span");
+      me.className = "hsYou";
+      me.textContent = " you";
+      title.append(" ", me);
+    }
+
+    const score = document.createElement("div");
+    score.className = "hsScore";
+    score.textContent = `${e.bestScore | 0} pts`;
+
+    const meta = document.createElement("div");
+    meta.className = "hsMeta";
+    meta.textContent = describeReplayMeta(e.replay, e.hasReplay);
+
+    body.append(title, score, meta);
+
+    const actions = document.createElement("div");
+    actions.className = "hsActions";
+    const watch = document.createElement("button");
+    watch.className = "hsWatchBtn";
+    watch.textContent = e.hasReplay ? "Watch replay" : "No replay yet";
+    watch.disabled = !e.hasReplay;
+    if (e.hasReplay) {
+      watch.addEventListener("click", () => watchHighscoreReplay(e, watch));
+    }
+    actions.append(watch);
+
+    row.append(rank, body, actions);
+    list.append(row);
   });
-  table.appendChild(tbody);
 
   hsWrap.innerHTML = "";
-  hsWrap.appendChild(table);
+  hsWrap.append(list);
+}
+
+async function watchHighscoreReplay(entry, button) {
+  if (!entry?.username) return;
+  if (leaderboardReplayLoading) return;
+  leaderboardReplayLoading = entry.username;
+
+  const resetButton = () => {
+    if (!button) return;
+    button.disabled = !entry.hasReplay;
+    button.textContent = entry.hasReplay ? "Watch replay" : "No replay yet";
+    button.classList.remove("ghost");
+  };
+
+  try {
+    if (button) {
+      button.disabled = true;
+      button.textContent = "Loading…";
+      button.classList.add("ghost");
+    }
+    if (replayStatus) {
+      replayStatus.className = "hint";
+      replayStatus.textContent = `Fetching ${entry.username}'s replay…`;
+    }
+    const res = await apiGetReplay(entry.username);
+    if (!res || !res.ok || !res.replay) {
+      if (replayStatus) {
+        replayStatus.className = "hint bad";
+        replayStatus.textContent = "Replay unavailable for that score.";
+      }
+      return;
+    }
+
+    const hydrated = hydrateReplayFromServer(res.replay);
+    if (!hydrated) {
+      if (replayStatus) {
+        replayStatus.className = "hint bad";
+        replayStatus.textContent = "Replay data was invalid.";
+      }
+      return;
+    }
+
+    const priorRun = activeRun;
+    activeRun = hydrated;
+    try {
+      if (replayStatus) {
+        replayStatus.className = "hint";
+        replayStatus.textContent = `Watching ${res.user?.username || entry.username}'s replay…`;
+      }
+      await playReplay({ captureMode: "none" });
+      if (replayStatus) {
+        replayStatus.className = "hint good";
+        replayStatus.textContent = "Replay finished.";
+      }
+    } finally {
+      activeRun = priorRun;
+    }
+  } finally {
+    leaderboardReplayLoading = null;
+    resetButton();
+  }
 }
 
 function renderBindUI(listeningActionId = null) {
@@ -438,6 +541,55 @@ function renderBindUI(listeningActionId = null) {
   }
 }
 
+async function submitPendingReplayIfAny() {
+  if (!net.user) return null;
+  const pending = loadPendingReplay(net.user.username);
+  if (!pending || !pending.payload) return null;
+
+  const score = Number(pending.payload.score);
+  let replay = pending.payload.replay || null;
+  if (!Number.isFinite(score)) {
+    clearPendingReplay(net.user.username);
+    return null;
+  }
+
+  const replayWithinLimit = !replay || isReplayWithinLimits(replay, __replayLimits.maxBytes);
+  if (replay && !replayWithinLimit) {
+    savePendingReplay(net.user.username, { score, replay: null });
+    replay = null;
+    if (replayStatus) {
+      replayStatus.className = "hint warn";
+      replayStatus.textContent = "Pending replay exceeded size limit; syncing score only.";
+    }
+  }
+
+  if (replayStatus) {
+    replayStatus.className = "hint";
+    replayStatus.textContent = replay ? "Uploading pending replay…" : "Syncing pending score…";
+  }
+
+  const res = await apiSubmitScore(score, replay);
+  if (res && res.ok && res.user) {
+    clearPendingReplay(net.user.username);
+    net.online = true;
+    net.user = res.user;
+    net.trails = normalizeTrails(res.trails || net.trails);
+    net.highscores = res.highscores || net.highscores;
+    if (replayStatus) {
+      replayStatus.className = "hint good";
+      replayStatus.textContent = replay ? "Pending replay uploaded." : "Pending score synced.";
+    }
+    return res;
+  }
+
+  if (!res) net.online = false;
+  if (replayStatus) {
+    replayStatus.className = "hint warn";
+    replayStatus.textContent = replay ? "Pending replay upload failed (will retry)." : "Pending score sync failed (will retry).";
+  }
+  return null;
+}
+
 // ---- Server refresh ----
 async function refreshProfileAndHighscores() {
   const me = await apiGetMe();
@@ -449,6 +601,10 @@ async function refreshProfileAndHighscores() {
     net.user = me.user || null;
     net.trails = normalizeTrails(me.trails || net.trails);
     if (net.user?.keybinds) binds = mergeBinds(DEFAULT_KEYBINDS, net.user.keybinds);
+  }
+
+  if (net.user) {
+    await submitPendingReplayIfAny();
   }
 
   const hs = await apiGetHighscores(20);
@@ -506,14 +662,23 @@ async function playReplay({ captureMode = "none" } = {}) {
   // NEW: ensure gameplay music is OFF during replay playback/capture
   musicStop();
 
-  setRandSource(createTapeRandPlayer(activeRun.rngTape));
-  if (!activeRun || !activeRun.ended || !activeRun.ticks || !activeRun.ticks.length) {
+  const hasReplay =
+    activeRun &&
+    activeRun.ended &&
+    Array.isArray(activeRun.ticks) &&
+    activeRun.ticks.length &&
+    Array.isArray(activeRun.rngTape) &&
+    activeRun.rngTape.length;
+
+  if (!hasReplay) {
     if (replayStatus) {
       replayStatus.className = "hint bad";
       replayStatus.textContent = "No replay available yet (finish a run first).";
     }
     return null;
   }
+
+  setRandSource(createTapeRandPlayer(activeRun.rngTape));
 
   replayDriving = true;
   try {
@@ -887,13 +1052,30 @@ async function onGameOver(finalScore) {
 
   over.classList.remove("hidden");
 
+  if (activeRun) {
+    activeRun.ended = true;
+  }
+
+  let replaySaved = false;
+  let replayError = null;
+  let replayQueued = false;
+
   if (net.user) {
-    const res = await apiSubmitScore(finalScore | 0);
+    const bestBefore = net.user ? (net.user.bestScore | 0) : 0;
+    const reachedBest = (finalScore | 0) >= bestBefore;
+    let replayPayload = reachedBest ? buildReplayPayload(activeRun, finalScore | 0) : null;
+    if (reachedBest && !replayPayload) {
+      replayError = "replay_too_large";
+    }
+    const res = await apiSubmitScore(finalScore | 0, replayPayload);
     if (res && res.ok && res.user) {
+      clearPendingReplay(net.user.username);
       net.online = true;
       net.user = res.user;
       net.trails = normalizeTrails(res.trails || net.trails);
       net.highscores = res.highscores || net.highscores;
+      replaySaved = Boolean(res.replaySaved);
+      replayError = res.replayError || replayError;
 
       fillTrailSelect();
       renderHighscores();
@@ -901,6 +1083,11 @@ async function onGameOver(finalScore) {
       overPB.textContent = String(net.user.bestScore | 0);
     } else {
       net.online = false;
+      replayError = replayError || "score_submit_failed";
+
+      if (replayPayload) {
+        replayQueued = Boolean(savePendingReplay(net.user.username, { score: finalScore | 0, replay: replayPayload }));
+      }
 
       // Try to re-hydrate the session so subsequent runs can still submit.
       await refreshProfileAndHighscores();
@@ -923,7 +1110,19 @@ async function onGameOver(finalScore) {
 
     if (replayStatus) {
       replayStatus.className = "hint good";
-      replayStatus.textContent = `Replay ready. Seed: ${activeRun.seed} • Ticks: ${activeRun.ticks.length}`;
+      if (replaySaved) {
+        replayStatus.textContent = "Replay saved to leaderboard.";
+      } else if (replayQueued) {
+        replayStatus.className = "hint warn";
+        replayStatus.textContent = "Replay upload queued; will retry when back online.";
+      } else if (replayError) {
+        replayStatus.className = "hint warn";
+        replayStatus.textContent = replayError === "replay_too_large"
+          ? "Replay too large to upload; you can still watch locally."
+          : "Replay could not be saved. You can still watch locally.";
+      } else {
+        replayStatus.textContent = `Replay ready. Seed: ${activeRun.seed} • Ticks: ${activeRun.ticks.length}`;
+      }
     }
     if (exportGifBtn) exportGifBtn.disabled = false;
     if (exportMp4Btn) exportMp4Btn.disabled = false;
@@ -1080,6 +1279,13 @@ function frame(ts) {
 
   requestAnimationFrame(frame);
 }
+
+export const __replayTestables = {
+  buildReplayPayload,
+  hydrateReplayFromServer,
+  describeReplayMeta,
+  formatDurationMs
+};
 
 // ---- Boot init ----
 (async function init() {

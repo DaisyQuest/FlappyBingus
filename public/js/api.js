@@ -7,6 +7,7 @@ const CLIENT_RATE_LIMITS = Object.freeze({
   "/api/cosmetics/trail": { limit: 6, windowMs: 10_000 },
   "/api/binds": { limit: 8, windowMs: 10_000 },
   "/api/highscores": { limit: 10, windowMs: 5_000 },
+  "/api/replay": { limit: 6, windowMs: 10_000 },
   "/trail_previews": { limit: 4, windowMs: 5_000 }
 });
 
@@ -53,9 +54,10 @@ export async function apiRegister(username) {
   return requestJson("/api/register", { method: "POST", body: JSON.stringify({ username }) });
 }
 
-export async function apiSubmitScore(score) {
+export async function apiSubmitScore(score, replay) {
   if (hitClientRateLimit("/api/score")) return null;
-  return requestJson("/api/score", { method: "POST", body: JSON.stringify({ score }) });
+  const payload = replay ? { score, replay } : { score };
+  return requestJson("/api/score", { method: "POST", body: JSON.stringify(payload) });
 }
 
 export async function apiSetTrail(trailId) {
@@ -76,4 +78,10 @@ export async function apiGetHighscores(limit = 20) {
 export async function apiGetTrailPreviews() {
   if (hitClientRateLimit("/trail_previews")) return null;
   return requestJson("/trail_previews", { method: "GET" });
+}
+
+export async function apiGetReplay(username) {
+  if (hitClientRateLimit("/api/replay")) return null;
+  const q = encodeURIComponent(String(username ?? ""));
+  return requestJson(`/api/replay?username=${q}`, { method: "GET" });
 }

@@ -12,7 +12,9 @@ function createScoreService(deps) {
     publicUser,
     listHighscores,
     trails,
-    clampScore = clampScoreDefault
+    clampScore = clampScoreDefault,
+    sanitizeReplayPayload = () => ({ ok: false, error: "replay_disabled" }),
+    saveReplayForBest = async () => null
   } = deps;
 
   if (!dataStore?.recordScore) throw new Error("recordScore_required");
@@ -20,7 +22,7 @@ function createScoreService(deps) {
   if (typeof publicUser !== "function") throw new Error("publicUser_required");
   if (typeof listHighscores !== "function") throw new Error("listHighscores_required");
 
-  async function submitScore(user, rawScore) {
+  async function submitScore(user, rawScore, { replay } = {}) {
     if (!user) return { ok: false, status: 401, error: "unauthorized" };
 
     if (rawScore === null || rawScore === undefined) {
@@ -34,21 +36,47 @@ function createScoreService(deps) {
     if (!Number.isFinite(parsed)) return { ok: false, status: 400, error: "invalid_score" };
 
     const score = clampScore(parsed);
+    const priorBest = Number(user.bestScore) || 0;
+    const replayCandidate = replay ? sanitizeReplayPayload(replay, { score }) : null;
 
     try {
       const updated = await dataStore.recordScore(user, score);
+      const bestAfter = updated.bestScore | 0;
+      const newPersonalBest = score >= bestAfter && bestAfter >= priorBest;
+      let replaySaved = false;
+      let replayError = null;
+      let bestUser = updated;
+
+      if (newPersonalBest) {
+        if (replayCandidate?.ok) {
+          try {
+            const saved = await saveReplayForBest(updated, replayCandidate.replay);
+            if (saved) {
+              bestUser = saved;
+              replaySaved = true;
+            }
+          } catch (err) {
+            replayError = err?.message || "replay_save_failed";
+          }
+        } else if (replay) {
+          replayError = replayCandidate?.error || "invalid_replay";
+        }
+      }
+
       const highscores = await listHighscores();
       const recordHolder = highscores?.[0]?.username === updated.username;
-      ensureUserSchema(updated, { recordHolder });
+      ensureUserSchema(bestUser, { recordHolder });
 
       return {
         ok: true,
         status: 200,
         body: {
           ok: true,
-          user: publicUser(updated, { recordHolder }),
+          user: publicUser(bestUser, { recordHolder }),
           trails,
-          highscores
+          highscores,
+          replaySaved,
+          replayError
         }
       };
     } catch (err) {
@@ -62,6 +90,9 @@ function createScoreService(deps) {
 
 function mapRecordScoreError(err) {
   const code = err?.message || err?.code || "";
+  if (code && typeof code === "string" && /ECONN|ENOTFOUND|ETIMEDOUT/.test(code)) {
+    return { status: 503, error: "database_unavailable" };
+  }
   if (code === "user_key_required") return { status: 401, error: "unauthorized" };
   return { status: 503, error: "score_persist_failed" };
 }
