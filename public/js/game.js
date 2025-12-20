@@ -531,9 +531,36 @@ export class Game {
     return "over";
   }
 
+  _cooldownColor(rem, max) {
+    const safeMax = Math.max(max, 1e-6);
+    const pct = clamp(rem / safeMax, 0, 1);
+    if (pct > 0.65) return "rgba(120,20,20,.95)";
+    if (pct < 0.25) return "rgba(110,200,110,.95)";
+    return "rgba(255,215,120,.95)";
+  }
+
+  _showCooldownFloat(name, rem, max) {
+    const p = this.player;
+    const color = this._cooldownColor(rem, max);
+    const readyPct = clamp(max > 1e-6 ? 1 - (rem / max) : 0, 0, 1);
+    const wobble = 1.5 + readyPct * 3.5;
+    const txt = `${name.toUpperCase()} ${rem.toFixed(1)}s`;
+    this.floats.push(new FloatText(txt, p.x, p.y - p.r * 1.4, color, {
+      wobble,
+      size: 16,
+      strokeWidth: 2.4,
+      glowColor: color
+    }));
+  }
+
   _useSkill(name) {
     if (!this.cfg.skills[name]) return;
-    if (this.cds[name] > 0) return;
+    const rem = Math.max(0, Number(this.cds[name]) || 0);
+    const max = Math.max(0, Number(this.cfg.skills[name]?.cooldown) || rem);
+    if (rem > 0) {
+      this._showCooldownFloat(name, rem, max);
+      return;
+    }
 
     const p = this.player;
 
