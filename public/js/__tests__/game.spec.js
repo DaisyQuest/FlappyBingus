@@ -370,6 +370,212 @@ describe("Player movement and trail emission", () => {
     expect(bounceSpy).toHaveBeenCalled();
   });
 
+  it("falls back gracefully when no canvas factory is available", () => {
+    const { game } = buildGame();
+    const originalDocument = global.document;
+    const originalOffscreen = global.OffscreenCanvas;
+
+    game.bgCanvas = null;
+    global.document = undefined;
+    global.OffscreenCanvas = undefined;
+
+    try {
+      game._refreshBackgroundLayer();
+      expect(game.bgCanvas).toBeNull();
+    } finally {
+      global.document = originalDocument;
+      global.OffscreenCanvas = originalOffscreen;
+    }
+  });
+
+  it("clamps thickness and gap sizes while exercising spawn wrappers", () => {
+    const { game } = buildGame();
+    game.W = 40;
+    game.H = 40;
+    game.cfg.pipes.thickness = { scale: 10, min: 5, max: 8 };
+    game.cfg.pipes.gap = { startScale: 0, endScale: 0, min: 12, max: 20 };
+
+    expect(game._thickness()).toBe(8);
+    expect(game._gapSize()).toBe(12);
+
+    game._spawnSinglePipe();
+    game._spawnWall();
+    game._spawnBurst();
+    game._spawnCrossfire();
+    game._spawnOrb();
+
+    expect(game.pipes.length).toBe(4);
+    expect(game.orbs.length).toBe(1);
+  });
+
+  it("drops perfect streak metadata when a non-perfected gap despawns", () => {
+    const { game } = buildGame();
+    game._gapMeta.set(7, { perfected: false });
+    game.perfectCombo = 5;
+
+    game._onGapPipeRemoved({ gapId: 7 });
+
+    expect(game.perfectCombo).toBe(0);
+    expect(game._gapMeta.size).toBe(0);
+  });
+
+  it("falls back to dash direction when a reflection normal is degenerate", () => {
+    const { game } = buildGame();
+    game.resizeToWindow();
+    game.pipeT = 10;
+    game.specialT = 10;
+    game.player.vx = 0;
+    game.player.vy = 0;
+    game.player.dashVX = 1;
+    game.player.dashVY = 0;
+
+    game._applyDashReflect({ nx: 0, ny: 0, contactX: game.player.x, contactY: game.player.y, penetration: 0 });
+
+    expect(game.player.vx).toBeGreaterThan(0);
+    expect(game.player.dashBounces).toBeGreaterThan(0);
+  });
+
+  it("reflects off walls while dashing when hitting playfield edges", () => {
+    const { game } = buildGame();
+    game.resizeToWindow();
+    const reflectSpy = vi.spyOn(game, "_applyDashReflect");
+    game.pipeT = 10;
+    game.specialT = 10;
+    game.player.dashT = 0.1;
+    game.player.invT = 0;
+    game.player.dashBounces = 0;
+    game.player.dashVX = -1;
+    game.player.dashVY = 0;
+    game.player.x = game.player.r - 1;
+    game.player.y = game.player.r + 2;
+
+    game._updatePlayer(0.016);
+    expect(reflectSpy).toHaveBeenCalledWith(expect.objectContaining({ nx: 1, ny: 0 }));
+
+    reflectSpy.mockClear();
+    game.player.dashBounces = 0;
+    game.player.x = game.W - game.player.r + 1;
+    game.player.y = game.player.r + 2;
+    game._updatePlayer(0.016);
+    expect(reflectSpy).toHaveBeenCalledWith(expect.objectContaining({ nx: -1, ny: 0 }));
+
+    reflectSpy.mockClear();
+    game.player.dashBounces = 0;
+    game.player.dashVX = 0;
+    game.player.dashVY = -1;
+    game.player.x = game.player.r + 4;
+    game.player.y = game.player.r - 1;
+    game._updatePlayer(0.016);
+    expect(reflectSpy).toHaveBeenCalledWith(expect.objectContaining({ nx: 0, ny: 1 }));
+
+    reflectSpy.mockClear();
+    game.player.dashBounces = 0;
+    game.player.dashVX = 0;
+    game.player.dashVY = 1;
+    game.player.x = game.player.r + 4;
+    game.player.y = game.H - game.player.r + 1;
+    game._updatePlayer(0.016);
+    expect(reflectSpy).toHaveBeenCalledWith(expect.objectContaining({ nx: 0, ny: -1 }));
+  });
+
+  it("handles dash collisions through the shared collision helper", () => {
+    const { game } = buildGame();
+    game.player.dashT = 0.1;
+    game.player.dashBounces = 0;
+    const reflectSpy = vi.spyOn(game, "_applyDashReflect");
+
+    const result = game._handlePipeCollision({ nx: 1, ny: 0 }, 2);
+
+    expect(result).toBe("reflected");
+    expect(reflectSpy).toHaveBeenCalled();
+    expect(game.state).toBe(0);
+  });
+
+  it("spawns special walls when the random draw exceeds crossfire thresholds", () => {
+    const { game } = buildGame();
+    game.resizeToWindow();
+    game.state = 1;
+    game.specialT = 0;
+    game.pipeT = 10;
+    game.cfg.catalysts.orbs.enabled = false;
+    setRandSource(() => 0.99);
+
+    game.update(0.1);
+
+    expect(game.pipes.find((p) => p.x === -200 && p.y === -200)).toBeTruthy();
+    expect(game.specialT).toBeGreaterThan(0);
+  });
+
+  it("applies slow-field speed multipliers only when pipes are inside the radius", () => {
+    const { game } = buildGame();
+    game.resizeToWindow();
+    game.state = 1;
+    game.pipeT = 10;
+    game.specialT = 10;
+    game.orbT = 10;
+    const pipeUpdate = vi.fn();
+    game.pipes.push({
+      cx: () => game.player.x,
+      cy: () => game.player.y,
+      update: pipeUpdate
+    });
+    game.slowField = { x: game.player.x, y: game.player.y, r: 100, fac: 0.3, t: 1, tm: 1 };
+
+    game.update(0.1);
+
+    expect(pipeUpdate).toHaveBeenCalledWith(0.1, 0.3, expect.any(Number), expect.any(Number));
+  });
+
+  it("ends the run when dash bounce limits are exceeded during collisions", () => {
+    const gameOver = vi.fn();
+    const { game } = buildGame({ onGameOver: gameOver });
+    game.resizeToWindow();
+    game.state = 1;
+    game.pipeT = 10;
+    game.specialT = 10;
+    game.orbT = 10;
+    game.player.invT = 0;
+    game.player.dashT = 0.1;
+    game.player.dashBounces = 5;
+    vi.spyOn(game, "_dashBounceMax").mockReturnValue(1);
+
+    // Use a stub pipe; don't depend on the Pipe class being in scope in this test file.
+    game.pipes.push(pipeStub({ x: game.player.x - game.player.r, y: game.player.y - game.player.r, w: game.player.r * 2, h: game.player.r * 2 }));
+
+    game.update(0.05);
+
+    expect(game.state).toBe(2);
+    expect(gameOver).toHaveBeenCalled();
+  });
+
+  it("reflects pipe collisions while dashing when bounce cap has not been reached", () => {
+    const { game } = buildGame();
+    game.resizeToWindow();
+    game.state = 1;
+    game.pipeT = 10;
+    game.specialT = 10;
+    game.orbT = 10;
+    game.player.invT = 0;
+    game.player.dashT = 0.2;
+    game.player.dashBounces = 0;
+    vi.spyOn(game, "_dashBounceMax").mockReturnValue(3);
+    const reflectSpy = vi.spyOn(game, "_applyDashReflect");
+    const onGameOver = vi.spyOn(game, "onGameOver");
+
+    game.pipes.push(pipeStub({
+      x: game.player.x - game.player.r,
+      y: game.player.y - game.player.r,
+      w: game.player.r * 2,
+      h: game.player.r * 2
+    }));
+
+    game.update(0.05);
+
+    expect(reflectSpy).toHaveBeenCalled();
+    expect(game.state).toBe(1);
+    expect(onGameOver).not.toHaveBeenCalled();
+  });
+
   it("emits trail, glint, and sparkle particles from style", () => {
     const { game } = buildGame();
     game.player.x = 50; game.player.y = 50;
@@ -402,6 +608,7 @@ describe("Game loop", () => {
     const { game } = buildGame();
     const onGameOver = vi.fn();
     game.onGameOver = onGameOver;
+
     game.resizeToWindow();
     game.state = 1;
     game.player.x = 50;
@@ -413,9 +620,12 @@ describe("Game loop", () => {
     game.specialT = 0;
     game.pipeT = 0;
     game.orbT = 0;
+
     const gate = gateStub({ gapId: 3 });
     game.gates.push(gate);
+
     vi.spyOn(perfectGaps, "resolveGapPerfect").mockReturnValue({ awarded: true, points: 7, streak: 2 });
+
     const firstOrb = { x: 50, y: 50, r: 5, update: vi.fn(), dead: () => false };
     const expiredOrb = { x: 0, y: 0, r: 5, update: vi.fn(), dead: () => true };
     game.orbs.push(firstOrb, expiredOrb);
@@ -423,14 +633,17 @@ describe("Game loop", () => {
     game.pipes.push(pipeStub({ off: true, gapId: 3, w: 5, h: 5 }));
     game._gapMeta.set(3, { perfected: false });
     game.gates.push(gateStub({ off: true }));
+
     game.parts.push({ life: 0, update: vi.fn() });
     game.floats.push({ life: 0, update: vi.fn() });
+
     game.pipes.push(...Array.from({ length: 281 }, () => pipeStub()));
     game.parts.push(...Array.from({ length: 1101 }, () => ({ life: 1, update: vi.fn() })));
     game.floats.push(...Array.from({ length: 81 }, () => ({ life: 1, update: vi.fn() })));
 
     const spawnWallSpy = vi.spyOn(spawn, "spawnWall");
     game.update(0.6);
+
     expect(spawnWallSpy).toHaveBeenCalled();
     expect(game.comboSparkAcc).toBeLessThan(1);
     expect(game.score).toBeGreaterThan(0);
