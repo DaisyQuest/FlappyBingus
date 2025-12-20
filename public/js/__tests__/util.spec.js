@@ -98,6 +98,13 @@ describe("collision helpers", () => {
     const topHit = circleRectInfo(5, 2, 2, 4, 4, 2, 2);
     expect(topHit?.ny).toBe(-1);
   });
+
+  it("handles perfectly centered overlaps without a clear normal by snapping to nearest face", () => {
+    const centered = circleRectInfo(5, 5, 3, 2, 4, 6, 2);
+    expect(centered?.nx).toBe(0);
+    expect(centered?.ny).toBe(1);
+    expect(centered?.penetration).toBeGreaterThan(0);
+  });
 });
 
 describe("color helpers", () => {
