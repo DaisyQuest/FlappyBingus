@@ -78,11 +78,12 @@ const makeCanvas = (ctx) => ({ style: {}, width: 0, height: 0, getContext: vi.fn
 const buildGameWith = (GameClass, configOverrides = {}, moveRef = { dx: 0, dy: 0 }) => {
   const ctx = mockCtx();
   const canvas = makeCanvas(ctx);
-  const config = cloneConfig(configOverrides);
+  const { onGameOver, ...cfgOverrides } = configOverrides || {};
+  const config = cloneConfig(cfgOverrides);
   const playerImg = { naturalWidth: 64, naturalHeight: 32 };
   const input = makeInput(moveRef);
   const binds = { getTrailId: () => "classic", getBinds: () => ({}) };
-  return { game: new GameClass({ canvas, ctx, config, playerImg, input, ...binds }), ctx, canvas, input, moveRef };
+  return { game: new GameClass({ canvas, ctx, config, playerImg, input, onGameOver, ...binds }), ctx, canvas, input, moveRef };
 };
 
 const buildGame = (configOverrides = {}, moveRef = { dx: 0, dy: 0 }) => buildGameWith(Game, configOverrides, moveRef);
