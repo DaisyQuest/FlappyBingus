@@ -4,6 +4,7 @@ const { MongoClient } = require("mongodb");
 
 const MAX_SCORE = 1_000_000_000;
 const DEFAULT_TRAIL = "classic";
+const MAX_REPLAY_CHUNK_BYTES = 15 * 1024 * 1024; // keep safely under MongoDB's 16MB BSON limit
 
 function maskConnectionString(uri) {
   if (!uri) return "";
@@ -66,6 +67,25 @@ function normalizeTotal(v) {
   return Math.max(0, Math.floor(n));
 }
 
+function normalizeChunkSize(bytes) {
+  const n = Number(bytes);
+  if (Number.isFinite(n) && n > 0) return Math.min(MAX_REPLAY_CHUNK_BYTES, Math.floor(n));
+  return MAX_REPLAY_CHUNK_BYTES;
+}
+
+function serializeReplayPayload(replay) {
+  if (replay === undefined) throw new Error("replay_required");
+  if (Buffer.isBuffer(replay)) return Buffer.from(replay);
+  if (typeof replay === "string") return Buffer.from(replay, "utf8");
+  try {
+    return Buffer.from(JSON.stringify(replay ?? null), "utf8");
+  } catch (err) {
+    const wrapped = new Error("replay_serialization_failed");
+    wrapped.cause = err;
+    throw wrapped;
+  }
+}
+
 async function safeClose(client) {
   if (!client) return;
   try {
@@ -107,6 +127,10 @@ class MongoDataStore {
       await db.command({ ping: 1 });
       await db.collection("users").createIndex({ key: 1 }, { unique: true });
       await db.collection("users").createIndex({ updatedAt: -1 });
+      await db.collection("replays").createIndex({ key: 1 }, { unique: true });
+      await db.collection("replays").createIndex({ updatedAt: -1 });
+      await db.collection("replay_chunks").createIndex({ key: 1, idx: 1 }, { unique: true });
+      await db.collection("replay_chunks").createIndex({ key: 1 });
       this.client = client;
       this.db = db;
       this.status.connected = true;
@@ -141,6 +165,16 @@ class MongoDataStore {
   usersCollection() {
     if (!this.db) throw new Error("db_not_connected");
     return this.db.collection("users");
+  }
+
+  replaysCollection() {
+    if (!this.db) throw new Error("db_not_connected");
+    return this.db.collection("replays");
+  }
+
+  replayChunksCollection() {
+    if (!this.db) throw new Error("db_not_connected");
+    return this.db.collection("replay_chunks");
   }
 
   async getUserByKey(key) {
@@ -224,6 +258,45 @@ class MongoDataStore {
     return res.value;
   }
 
+  async saveBestReplay(key, replay, { score, chunkSize } = {}) {
+    await this.ensureConnected();
+    if (!key) throw new Error("user_key_required");
+    const now = Date.now();
+    const payload = serializeReplayPayload(replay);
+    const totalBytes = payload.byteLength;
+    const maxChunk = normalizeChunkSize(chunkSize);
+    const chunks = [];
+    for (let i = 0; i < totalBytes; i += maxChunk) {
+      const slice = payload.subarray(i, Math.min(totalBytes, i + maxChunk));
+      chunks.push({ key, idx: chunks.length, data: slice, createdAt: now });
+    }
+
+    const chunksCollection = this.replayChunksCollection();
+    const metaCollection = this.replaysCollection();
+
+    await chunksCollection.deleteMany({ key });
+    if (chunks.length) await chunksCollection.insertMany(chunks, { ordered: true });
+
+    const res = await metaCollection.findOneAndUpdate(
+      { key },
+      {
+        $setOnInsert: { createdAt: now },
+        $set: {
+          key,
+          bestScore: clampScore(score),
+          totalBytes,
+          chunkSize: maxChunk,
+          chunkCount: chunks.length,
+          updatedAt: now
+        }
+      },
+      { returnDocument: "after", upsert: true }
+    );
+
+    if (!res.value) throw new Error("save_replay_failed");
+    return res.value;
+  }
+
   async setTrail(key, trailId) {
     await this.ensureConnected();
     const now = Date.now();
@@ -297,4 +370,11 @@ class MongoDataStore {
   }
 }
 
-module.exports = { MongoDataStore, resolveMongoConfig, maskConnectionString };
+module.exports = {
+  MongoDataStore,
+  resolveMongoConfig,
+  maskConnectionString,
+  normalizeChunkSize,
+  serializeReplayPayload,
+  MAX_REPLAY_CHUNK_BYTES
+};

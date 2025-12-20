@@ -35,6 +35,7 @@ function _setDataStoreForTests(mock) {
 
 // Cookie that holds username (per requirements)
 const USER_COOKIE = "sugar";
+const MAX_REPLAY_BODY_BYTES = 20 * 1024 * 1024;
 
 // Default skill keybinds (requested defaults):
 // Q = Invulnerability (phase)
@@ -753,12 +754,12 @@ async function route(req, res) {
 
     let body;
     try {
-      body = await readJsonBody(req);
+      body = await readJsonBody(req, MAX_REPLAY_BODY_BYTES);
     } catch {
       return badRequest(res, "invalid_json");
     }
 
-    const { status, body: responseBody, error } = await scoreService.submitScore(u, body.score);
+    const { status, body: responseBody, error } = await scoreService.submitScore(u, body.score, body.replay);
     if (status >= 200 && status < 300 && responseBody) {
       sendJson(res, status, responseBody);
     } else {

@@ -75,7 +75,7 @@ describe("api helpers", () => {
     const requests = [
       [apiGetMe, ["/api/me", { method: "GET" }]],
       [apiRegister, ["/api/register", { method: "POST", body: JSON.stringify({ username: "bingus" }) }]],
-      [apiSubmitScore, ["/api/score", { method: "POST", body: JSON.stringify({ score: 9001 }) }]],
+      [apiSubmitScore, ["/api/score", { method: "POST", body: JSON.stringify({ score: 9001, replay: { data: true } }) }]],
       [apiSetTrail, ["/api/cosmetics/trail", { method: "POST", body: JSON.stringify({ trailId: "classic" }) }]],
       [apiSetKeybinds, ["/api/binds", { method: "POST", body: JSON.stringify({ keybinds: { jump: "Space" } }) }]],
       [apiGetHighscores, ["/api/highscores?limit=25", { method: "GET" }]]
@@ -83,7 +83,7 @@ describe("api helpers", () => {
 
     await apiGetMe();
     await apiRegister("bingus");
-    await apiSubmitScore(9001);
+    await apiSubmitScore(9001, { data: true });
     await apiSetTrail("classic");
     await apiSetKeybinds({ jump: "Space" });
     await apiGetHighscores(25);

@@ -31,6 +31,8 @@ const makeCollection = (overrides = {}) => ({
   findOne: vi.fn(),
   findOneAndUpdate: vi.fn(),
   countDocuments: vi.fn(),
+  deleteMany: vi.fn(async () => ({})),
+  insertMany: vi.fn(async () => ({})),
   find: vi.fn(() => ({
     sort: vi.fn().mockReturnThis(),
     limit: vi.fn().mockReturnThis(),
@@ -157,6 +159,8 @@ describe("MongoDataStore connection lifecycle", () => {
     expect(db).toBe(connectBehavior.db);
     expect(store.status.connected).toBe(true);
     expect(store.status.lastPingMs).toBeGreaterThanOrEqual(0);
+    const collections = connectBehavior.db.collection.mock.calls.map((c) => c[0]);
+    expect(collections).toEqual(expect.arrayContaining(["users", "replays", "replay_chunks"]));
     const users = connectBehavior.db.collection.mock.results[0].value;
     expect(users.createIndex).toHaveBeenCalled();
   });
@@ -426,6 +430,67 @@ describe("MongoDataStore mutations and reads", () => {
 
     await store.recentUsers(0);
     expect(chain.limit).toHaveBeenCalledWith(5);
+  });
+});
+
+describe("replay persistence", () => {
+  it("serializes various replay inputs safely", async () => {
+    const { serializeReplayPayload } = await loadModule();
+    expect(serializeReplayPayload(Buffer.from("abc")).toString("utf8")).toBe("abc");
+    expect(serializeReplayPayload("abc").toString("utf8")).toBe("abc");
+    expect(serializeReplayPayload({ ticks: 1 }).toString("utf8")).toContain("\"ticks\":1");
+    expect(() => serializeReplayPayload()).toThrow("replay_required");
+
+    const circular = {};
+    circular.self = circular;
+    expect(() => serializeReplayPayload(circular)).toThrow("replay_serialization_failed");
+  });
+
+  it("chunks and saves best replays while capping chunk sizes", async () => {
+    const { MongoDataStore, MAX_REPLAY_CHUNK_BYTES } = await loadModule();
+    const chunkSize = 10;
+    const payload = Buffer.alloc(35, 7);
+    const chunksInserted = [];
+    const chunkColl = makeCollection({
+      insertMany: vi.fn(async (docs) => {
+        chunksInserted.push(...docs);
+        return { acknowledged: true };
+      })
+    });
+    const metaColl = makeCollection({
+      findOneAndUpdate: vi.fn(async (_filter, update) => ({
+        value: { ...(update.$setOnInsert || {}), ...(update.$set || {}) }
+      }))
+    });
+    const store = new MongoDataStore({ uri: "mongodb://ok", dbName: "db" });
+    store.ensureConnected = vi.fn();
+    store.replayChunksCollection = () => chunkColl;
+    store.replaysCollection = () => metaColl;
+
+    const res = await store.saveBestReplay("k", payload, { score: 500, chunkSize });
+
+    expect(chunkColl.deleteMany).toHaveBeenCalledWith({ key: "k" });
+    expect(chunksInserted).toHaveLength(4);
+    expect(chunksInserted[0].data.byteLength).toBe(chunkSize);
+    expect(chunksInserted.at(-1).data.byteLength).toBe(5);
+    expect(res.bestScore).toBe(500);
+    expect(res.totalBytes).toBe(payload.byteLength);
+    expect(res.chunkSize).toBe(chunkSize);
+    expect(res.chunkCount).toBe(4);
+
+    const capped = await store.saveBestReplay("k", payload, { score: 1_000_000_200, chunkSize: MAX_REPLAY_CHUNK_BYTES * 2 });
+    expect(capped.bestScore).toBe(1_000_000_000);
+    expect(capped.chunkSize).toBe(MAX_REPLAY_CHUNK_BYTES);
+  });
+
+  it("throws when saving a replay without a user key", async () => {
+    const { MongoDataStore } = await loadModule();
+    const store = new MongoDataStore({ uri: "mongodb://ok", dbName: "db" });
+    store.ensureConnected = vi.fn();
+    store.replayChunksCollection = () => makeCollection();
+    store.replaysCollection = () => makeCollection();
+
+    await expect(store.saveBestReplay("", { any: true })).rejects.toThrow("user_key_required");
   });
 });
 
