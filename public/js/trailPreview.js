@@ -114,8 +114,27 @@ export class TrailPreview {
   }
 
   _updatePlayer(dt) {
-    const targetX = 0.2 + 0.6 * (0.5 + 0.5 * Math.sin(this.player.phase * 1.2));
-    const targetY = 0.5 + 0.32 * Math.sin(this.player.phase * 0.9 + Math.cos(this.player.phase * 0.6) * 0.65);
+    const orbitPhase = this.player.phase * 0.92;
+    const drift = Math.sin(this.player.phase * 0.45) * 0.35;
+    const swing = Math.cos(this.player.phase * 0.24) * 0.18;
+    const baseRadiusX = 0.4 + 0.05 * Math.sin(this.player.phase * 0.6);
+    const baseRadiusY = 0.32 + 0.06 * Math.cos(this.player.phase * 0.82);
+
+    let targetX = 0.5 + Math.cos(orbitPhase + swing) * (baseRadiusX + drift * 0.04);
+    let targetY = 0.5 + Math.sin(orbitPhase * 0.88 + swing * 0.7) * (baseRadiusY + drift * 0.03);
+
+    const dx = targetX - 0.5;
+    const dy = targetY - 0.5;
+    const dist = Math.hypot(dx, dy);
+    const minGap = 0.22;
+    if (dist < minGap) {
+      const push = minGap / Math.max(dist, 1e-5);
+      targetX = 0.5 + dx * push;
+      targetY = 0.5 + dy * push;
+    }
+
+    targetX = clamp(targetX, 0.08, 0.92);
+    targetY = clamp(targetY, 0.08, 0.92);
 
     this.player.prevX = this.player.x || this.W * targetX;
     this.player.prevY = this.player.y || this.H * targetY;

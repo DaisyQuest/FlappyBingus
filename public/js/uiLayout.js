@@ -362,9 +362,9 @@ function createHighscoreCard(doc, refs) {
 
 function createMenuScreen(doc, refs) {
   const screen = createElement(doc, refs, "div", { id: "menu", className: "screen" });
+  const trailOverlay = createTrailPreviewOverlay(doc, refs);
   const panel = doc.createElement("div");
   panel.className = "panel";
-  const trailOverlay = createTrailPreviewOverlay(doc, refs);
   const aurora = doc.createElement("div");
   aurora.className = "light-aurora";
   const content = doc.createElement("div");
@@ -446,8 +446,8 @@ function createMenuScreen(doc, refs) {
 
   shell.append(mainCard, sideStack);
   content.append(header, viewMain, viewSettings, shell);
-  panel.append(trailOverlay, aurora, content);
-  screen.append(panel);
+  panel.append(aurora, content);
+  screen.append(trailOverlay, panel);
   return screen;
 }
 
