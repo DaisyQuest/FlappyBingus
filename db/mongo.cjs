@@ -190,9 +190,12 @@ class MongoDataStore {
 
     const now = Date.now();
     const safeScore = clampScore(score);
+
+    // Seed values from payload (only used if the doc is missing those fields)
     const safeRuns = normalizeCount(user.runs);
     const safeTotalScore = normalizeTotal(user.totalScore);
     const safeBestScore = clampScore(user.bestScore);
+
     const collection = this.usersCollection();
 
     const res = await collection.findOneAndUpdate(
@@ -205,9 +208,11 @@ class MongoDataStore {
             selectedTrail: { $ifNull: ["$selectedTrail", user.selectedTrail || DEFAULT_TRAIL] },
             keybinds: { $ifNull: ["$keybinds", user.keybinds || null] },
             createdAt: { $ifNull: ["$createdAt", user.createdAt || now] },
+
             runs: { $add: [{ $ifNull: ["$runs", safeRuns] }, 1] },
             totalScore: { $add: [{ $ifNull: ["$totalScore", safeTotalScore] }, safeScore] },
             bestScore: { $max: [{ $ifNull: ["$bestScore", safeBestScore] }, safeScore] },
+
             updatedAt: now
           }
         }
@@ -216,7 +221,6 @@ class MongoDataStore {
     );
 
     if (!res.value) throw new Error("record_score_failed");
-
     return res.value;
   }
 

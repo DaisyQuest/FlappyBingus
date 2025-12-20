@@ -12,10 +12,12 @@ class FakeCollection {
     }
 
     const upserting = !this.doc && options?.upsert;
+
     if (upserting && !Array.isArray(update)) {
       // For non-pipeline upserts, clone $setOnInsert directly.
       this.doc = { ...(update.$setOnInsert || {}) };
     } else if (upserting && Array.isArray(update)) {
+      // For pipeline upserts, start from an empty document.
       this.doc = {};
     } else if (!this.doc) {
       return { value: null };
