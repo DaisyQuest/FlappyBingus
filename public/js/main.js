@@ -47,6 +47,7 @@ import {
 } from "./audio.js";
 
 import { buildGameUI } from "./uiLayout.js";
+import { TrailPreview } from "./trailPreview.js";
 
 // ---- DOM ----
 const ui = buildGameUI();
@@ -67,6 +68,8 @@ const {
   userHint,
   trailSelect,
   trailHint,
+  trailPreviewCanvas,
+  trailPreviewName,
   bindWrap,
   bindHint,
   hsWrap,
@@ -163,12 +166,15 @@ let binds = loadGuestBinds();
 
 // config + assets
 let CFG = null;
+let trailPreview = null;
 
 // assets
 const playerImg = new Image();
 playerImg.src = "file.png";
 playerImg.onload = () => { boot.imgReady = true; boot.imgOk = true; refreshBootUI(); };
 playerImg.onerror = () => { boot.imgReady = true; boot.imgOk = false; refreshBootUI(); };
+
+trailPreview = trailPreviewCanvas ? new TrailPreview({ canvas: trailPreviewCanvas, playerImg }) : null;
 
 // ---- Input + Game ----
 const ctx = canvas.getContext("2d", { alpha: false });
@@ -296,9 +302,15 @@ tutorial = new Tutorial({
   onExit: () => toMenu()
 });
 
-window.addEventListener("resize", () => game.resizeToWindow());
+window.addEventListener("resize", () => {
+  game.resizeToWindow();
+  trailPreview?.resize();
+});
 // On some browsers, zoom changes fire visualViewport resize without window resize.
-window.visualViewport?.addEventListener("resize", () => game.resizeToWindow());
+window.visualViewport?.addEventListener("resize", () => {
+  game.resizeToWindow();
+  trailPreview?.resize();
+});
 
 // ---- Boot UI ----
 function refreshBootUI() {
@@ -335,6 +347,29 @@ function setUserHint() {
   userHint.textContent = `Signed in as ${net.user.username}. Runs: ${net.user.runs} • Total: ${net.user.totalScore}`;
 }
 
+function getTrailDisplayName(id) {
+  return net.trails.find(t => t.id === id)?.name || id;
+}
+
+function applyTrailSelection(id) {
+  if (trailText) {
+    trailText.textContent = id;
+  }
+  if (trailPreviewName) {
+    trailPreviewName.textContent = getTrailDisplayName(id);
+  }
+  trailPreview?.setTrail(id);
+}
+
+function resumeTrailPreview(selectedId = trailSelect?.value || "classic") {
+  applyTrailSelection(selectedId || "classic");
+  trailPreview?.start();
+}
+
+function pauseTrailPreview() {
+  trailPreview?.stop();
+}
+
 function getUnlockedTrails(bestScore) {
   const s = bestScore | 0;
   return net.trails.filter(t => s >= t.minScore).map(t => t.id);
@@ -358,9 +393,7 @@ function fillTrailSelect() {
   const safeSel = unlocked.has(selected) ? selected : "classic";
   trailSelect.value = safeSel;
 
-  if (trailText) {
-    trailText.textContent = safeSel;
-  }
+  applyTrailSelection(safeSel);
   pbText.textContent = String(best);
 
   if (!net.user) {
@@ -600,9 +633,8 @@ async function playReplay({ captureMode = "none" } = {}) {
 // ---- Cosmetics selection ----
 trailSelect.addEventListener("change", async () => {
   const id = trailSelect.value;
-  if (trailText) {
-    trailText.textContent = id;
-  }
+  applyTrailSelection(id);
+  trailPreview?.start();
 
   if (!net.user) return;
 
@@ -777,6 +809,7 @@ function toMenu() {
   over.classList.add("hidden");
   menu.classList.remove("hidden");
 
+  resumeTrailPreview(trailSelect?.value || net.user?.selectedTrail || "classic");
   game.setStateMenu();
   refreshProfileAndHighscores();
 }
@@ -784,6 +817,7 @@ function toMenu() {
 function startTutorial() {
   // Tutorial is gameplay-like: music on, UI hidden, no replay recording.
   musicStop();
+  pauseTrailPreview();
 
   setUIMode(false);
   if (rebindCleanup) rebindCleanup();
@@ -810,6 +844,7 @@ async function startGame({ mode = "new" } = {}) {
   // NEW: always start music for actual gameplay; keep it off for menus
   // (musicStartLoop is safe if audio isn't ready; it will no-op.)
   musicStop();
+  pauseTrailPreview();
 
   setUIMode(false);
   if (rebindCleanup) rebindCleanup();
@@ -1171,6 +1206,7 @@ function frame(ts) {
   await refreshProfileAndHighscores();
   refreshBootUI();
 
+  resumeTrailPreview(trailSelect?.value || net.user?.selectedTrail || "classic");
   requestAnimationFrame((t) => {
     lastTs = t;
     requestAnimationFrame(frame);
