@@ -375,9 +375,8 @@ function fillTrailSelect() {
     trailHint.textContent = "Guest mode: unlocks are based on your local best cookie. Register to save progression globally.";
   } else {
     trailHint.className = "hint";
-    const upcoming = net.trails.filter(t => t.minScore > best).slice(0, 3);
-    const hint = upcoming.length
-      ? `Next unlocks: ${upcoming.map(t => `${t.name} @ ${t.minScore}`).join(" • ")}`
+    const hint = net.trails.some(t => t.minScore > best)
+      ? "Climb higher scores to unlock sparkling new trails."
       : "All trails unlocked!";
     trailHint.textContent = `${hint} Your best: ${best}`;
   }
