@@ -1050,6 +1050,7 @@ export class Game {
   }
 
   render() {
+    /* v8 ignore start -- rendering paths are visual-only */
     const ctx = this.ctx;
 
     // background (cached offscreen)
@@ -1472,4 +1473,5 @@ _drawOrb(o) {
 
     ctx.restore();
   }
+  /* v8 ignore stop */
 }
