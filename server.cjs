@@ -13,6 +13,7 @@ const { URL } = require("node:url");
 const { MongoDataStore, resolveMongoConfig } = require("./db/mongo.cjs");
 const { createScoreService, clampScoreDefault } = require("./services/scoreService.cjs");
 const { buildTrailPreviewCatalog } = require("./services/trailCatalog.cjs");
+const { renderTrailPreviewPage, wantsPreviewHtml } = require("./services/trailPreviewPage.cjs");
 
 // --------- Config (env overrides) ----------
 const PORT = Number(process.env.PORT || 3000);
@@ -824,7 +825,15 @@ async function route(req, res) {
 
   if (pathname === "/trail_previews" && req.method === "GET") {
     const catalog = buildTrailPreviewCatalog(TRAILS);
-    sendJson(res, 200, catalog);
+    const wantsHtml = wantsPreviewHtml({
+      formatParam: url.searchParams.get("format"),
+      acceptHeader: req.headers.accept
+    });
+    if (wantsHtml) {
+      sendHtml(res, 200, renderTrailPreviewPage(catalog));
+    } else {
+      sendJson(res, 200, catalog);
+    }
     return;
   }
 
