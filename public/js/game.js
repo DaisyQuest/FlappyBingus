@@ -19,6 +19,7 @@ const STATE = Object.freeze({ MENU: 0, PLAY: 1, OVER: 2 });
 import { Pipe, Gate, Orb, Part, FloatText } from "./entities.js";
 import { spawnBurst, spawnCrossfire, spawnOrb, spawnSinglePipe, spawnWall } from "./spawn.js";
 import { dashBounceMax, orbPoints, tickCooldowns } from "./mechanics.js";
+import { buildScorePopupStyle } from "./uiStyles.js";
 
 export { Pipe, Gate, Orb, Part, FloatText };
 
@@ -926,7 +927,8 @@ export class Game {
 
         if (res.awarded) {
           const pts = res.points || 0;
-          this.floats.push(new FloatText(`+${pts}`, this.player.x, this.player.y - this.player.r * 2.0, "rgba(255,255,255,.95)"));
+          const perfectStyle = buildScorePopupStyle({ combo: res.streak || this.perfectCombo, variant: "perfect" });
+          this.floats.push(new FloatText(`+${pts}`, this.player.x, this.player.y - this.player.r * 2.0, perfectStyle.color, perfectStyle));
 
           for (let k = 0; k < 28; k++) {
             const a = rand(0, Math.PI * 2), sp = rand(60, 320);
@@ -974,10 +976,8 @@ export class Game {
         const pts = this._orbPoints(this.combo);
         this.score += pts;
 
-        const col = (this.combo >= (Number(this.cfg.ui.comboBar.glowAt) || 9999))
-          ? "rgba(255,255,255,.98)"
-          : "rgba(120,210,255,.95)";
-        this.floats.push(new FloatText(`+${pts}`, ob.x, ob.y, col));
+        const popupStyle = buildScorePopupStyle({ combo: this.combo, variant: "orb" });
+        this.floats.push(new FloatText(`+${pts}`, ob.x, ob.y, popupStyle.color, popupStyle));
 
         for (let k = 0; k < 18; k++) {
           const a = rand(0, Math.PI * 2), sp = rand(40, 240);
@@ -1278,11 +1278,31 @@ _drawOrb(o) {
 
     // score (top-left)
     ctx.save();
-    ctx.font = "900 18px system-ui,-apple-system,Segoe UI,Roboto,sans-serif";
     ctx.textAlign = "left"; ctx.textBaseline = "top";
-    ctx.shadowColor = "rgba(0,0,0,.55)"; ctx.shadowBlur = 12; ctx.shadowOffsetY = 2;
-    ctx.fillStyle = "rgba(255,255,255,.92)";
-    ctx.fillText(`Score: ${this.score | 0}`, 14, 14);
+    const scoreBg = ctx.createLinearGradient(0, 0, 0, 86);
+    scoreBg.addColorStop(0, "rgba(16,25,48,.75)");
+    scoreBg.addColorStop(1, "rgba(24,36,68,.35)");
+    ctx.shadowColor = "rgba(0,0,0,.60)"; ctx.shadowBlur = 18; ctx.shadowOffsetY = 4;
+    ctx.fillStyle = scoreBg;
+    this._roundRect(10, 8, 180, 74, 16); ctx.fill();
+    ctx.shadowBlur = 0;
+
+    const scoreGlow = ctx.createLinearGradient(0, 0, 0, 42);
+    scoreGlow.addColorStop(0, "rgba(255,255,255,.95)");
+    scoreGlow.addColorStop(1, "rgba(190,215,255,.95)");
+    ctx.font = "900 26px system-ui,-apple-system,Segoe UI,Roboto,sans-serif";
+    ctx.shadowColor = "rgba(0,0,0,.55)"; ctx.shadowBlur = 10; ctx.shadowOffsetY = 2;
+    ctx.strokeStyle = "rgba(0,0,0,.45)";
+    ctx.lineWidth = 2.2;
+    ctx.fillStyle = scoreGlow;
+    ctx.strokeText("Score", 18, 12);
+    ctx.fillText("Score", 18, 12);
+
+    ctx.font = "900 36px system-ui,-apple-system,Segoe UI,Roboto,sans-serif";
+    ctx.shadowColor = "rgba(180,215,255,.75)"; ctx.shadowBlur = 18; ctx.shadowOffsetY = 3;
+    ctx.fillStyle = "rgba(255,255,255,.98)";
+    ctx.strokeText(`${this.score | 0}`, 18, 38);
+    ctx.fillText(`${this.score | 0}`, 18, 38);
 
     // intensity (top-right)
     ctx.textAlign = "right";
