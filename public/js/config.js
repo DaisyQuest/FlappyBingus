@@ -6,7 +6,14 @@ import { clamp } from "./util.js";
 export const DEFAULT_CONFIG = {
   player: { maxSpeed: 420, accel: 2600, friction: 16, sizeScale: 0.055, sizeMin: 28, sizeMax: 54, radiusScale: 0.38 },
   pipes: {
-    difficulty: { timeToMax: 38, scoreToMax: 120, mixTime: 0.55, mixScore: 0.45 },
+    difficulty: {
+      timeToMax: 38,
+      scoreToMax: 120,
+      mixTime: 0.55,
+      mixScore: 0.45,
+      scoreRampStart: 400,
+      timeRampStart: 22
+    },
     spawnInterval: { start: 0.78, end: 0.23, min: 0.18, max: 0.90 },
     speed: { start: 240, end: 560 },
     thickness: { scale: 0.055, min: 28, max: 64 },
@@ -23,7 +30,25 @@ export const DEFAULT_CONFIG = {
     slowField: { cooldown: 4.50, duration: 1.80, radius: 210, slowFactor: 0.58 }
   },
   catalysts: {
-    orbs: { enabled: true, intervalMin: 0.95, intervalMax: 1.65, maxOnScreen: 6, lifetime: 10.0, radius: 12, driftSpeedMin: 10, driftSpeedMax: 45, safeDistance: 120 }
+    orbs: {
+      enabled: true,
+      intervalMin: 0.95,
+      intervalMax: 1.65,
+      maxOnScreen: 6,
+      lifetime: 10.0,
+      radius: 12,
+      driftSpeedMin: 10,
+      driftSpeedMax: 45,
+      safeDistance: 120,
+      spawnSpread: {
+        startFraction: 0.60,
+        endFraction: 1.0,
+        scoreToMax: 400,
+        timeToMax: 140,
+        mixScore: 0.70,
+        mixTime: 0.30
+      }
+    }
   },
   scoring: {
     pipeDodge: 1,
