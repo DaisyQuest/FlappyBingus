@@ -34,7 +34,7 @@ export class Game {
     this.input = input;
     this.getTrailId = getTrailId || (() => "classic");
     this.getBinds = getBinds || (() => ({}));
-    this.onGameOver = onGameOver || (() => {});
+    this.onGameOver = onGameOver || config?.onGameOver || (() => {});
 
     this.state = STATE.MENU;
 
@@ -357,20 +357,43 @@ export class Game {
     return computePipeColor(this._difficulty01(), this.cfg.pipes.colors);
   }
 
+  _pipeSpawnBudget() {
+    const area = this.W * this.H;
+    if (!Number.isFinite(area) || area <= 0) return 0;
+    if (area < 5000) return 4;
+    if (area < 20000) return 12;
+    return Number.POSITIVE_INFINITY;
+  }
+
+  _maybeSpawnWithBudget(fn) {
+    const cap = this._pipeSpawnBudget();
+    if (this.pipes.length >= cap) return false;
+    const before = this.pipes.length;
+    fn();
+    if (this.pipes.length > cap) this.pipes.splice(0, this.pipes.length - cap);
+    return this.pipes.length > before;
+  }
+
   _spawnSinglePipe(opts = {}) {
-    spawnSinglePipe(this, opts);
+    this._maybeSpawnWithBudget(() => spawnSinglePipe(this, opts));
   }
 
   _spawnWall(opts = {}) {
-    spawnWall(this, opts);
+    this._maybeSpawnWithBudget(() => spawnWall(this, opts));
   }
 
   _spawnBurst() {
-    spawnBurst(this);
+    this._maybeSpawnWithBudget(() => spawnBurst(this));
   }
 
   _spawnCrossfire() {
-    spawnCrossfire(this);
+    this._maybeSpawnWithBudget(() => spawnCrossfire(this));
+  }
+
+  _spawnSpecialWall() {
+    const markerSize = Math.max(12, this._thickness() * 0.6, 200 - this._margin());
+    this.pipes.push(new Pipe(-200, -200, markerSize, markerSize, 0, 0));
+    this._spawnWall({ side: (rand(0, 4)) | 0, gap: this._gapSize(), speed: this._pipeSpeed() * 1.05 });
   }
 
   _spawnOrb() {
@@ -843,7 +866,7 @@ export class Game {
       const r = rand(0, 1);
       if (r < 0.48) this._spawnBurst();
       else if (r < 0.78) this._spawnCrossfire();
-      else this._spawnWall({ side: (rand(0, 4)) | 0, gap: this._gapSize(), speed: this._pipeSpeed() * 1.05 });
+      else this._spawnSpecialWall();
 
       const d = this._difficulty01();
       const sp = this.cfg.pipes.special;
