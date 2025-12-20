@@ -236,4 +236,69 @@ describe("GameEngine", () => {
     expect(snap.state.time).toBeCloseTo(0.01, 5);
     expect(snap.state.tick).toBe(1);
   });
+
+  it("applies gravity the same frame a dash expires", () => {
+    const engine = new GameEngine({ config: { gravity: 1000, dashDuration: 0.01 } });
+    engine.command("dash", { direction: "up" });
+
+    const beforeVy = engine.state.player.vy;
+    const snap = engine.step(0.02); // dash ends during this frame
+    const afterVy = snap.state.player.vy;
+
+    expect(beforeVy).toBeLessThan(0);
+    expect(afterVy).toBeGreaterThan(beforeVy); // gravity applied after dash end
+    expect(snap.state.player.dash.active).toBe(false);
+    expect(snap.events.filter((e) => e.type === "dash:end")).toHaveLength(1);
+  });
+
+  it("clamps positions without bounce events when moving back into bounds", () => {
+    const engine = new GameEngine({ config: { gravity: 0, world: { width: 5, height: 5 } } });
+    engine.state.player = {
+      x: -1,
+      y: 6,
+      vx: 1,
+      vy: -1,
+      dash: { active: false, time: 0, direction: null },
+      invulnerable: false,
+      invulnTime: 0,
+      wallBounces: 0
+    };
+
+    const snap = engine.step(0.01);
+    expect(snap.state.player.x).toBe(0);
+    expect(snap.state.player.y).toBe(5);
+    expect(snap.state.player.vx).toBe(1);
+    expect(snap.state.player.vy).toBe(-1);
+    expect(snap.events.filter((e) => e.type === "dash:bounce")).toHaveLength(0);
+    expect(snap.state.player.wallBounces).toBe(0);
+  });
+
+  it("does not cap upward velocity when below the fall speed limit", () => {
+    const engine = new GameEngine({ config: { gravity: 100, maxFallSpeed: 200 } });
+    engine.state.player.vy = -150; // moving upward faster than gravity can fully negate in one tick
+    const snap = engine.step(0.05);
+
+    expect(snap.state.player.vy).toBeLessThan(0);
+    expect(snap.state.player.vy).toBeGreaterThan(-150); // gravity applied but not clamped to +200
+  });
+
+  it("preserves default world dimensions when partially overriding config", () => {
+    const engine = new GameEngine({ config: { world: { width: 120 } } });
+    const snap = engine.getSnapshot();
+
+    expect(snap.state.player.x).toBeCloseTo(60, 5); // width / 2
+    expect(snap.state.player.y).toBeCloseTo(150, 5); // default height / 2
+    expect(engine.config.world.height).toBe(300);
+  });
+
+  it("emits phase end only once even after multiple steps", () => {
+    const engine = new GameEngine({ config: { gravity: 0, phaseDuration: 0.01 } });
+    engine.command("phase");
+    engine.step(0.02);
+    engine.step(0.02);
+
+    const phaseEnds = engine.events.events.filter((e) => e.type === "ability:phase:end");
+    expect(phaseEnds).toHaveLength(1);
+    expect(engine.state.player.invulnerable).toBe(false);
+  });
 });
