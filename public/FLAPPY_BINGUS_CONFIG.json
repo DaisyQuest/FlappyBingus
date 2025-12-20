@@ -25,7 +25,7 @@
     "gap": { "startScale": 0.3, "endScale": 0.2, "min": 88, "max": 190 },
     "special": { "startCadence": 3.8, "endCadence": 2.3, "jitterMin": 0.2, "jitterMax": 0.7 },
     "patternWeights": { "wall": [0.18, 0.3], "aimed": [0.26, 0.4] },
-    "colors": { "green": "#34d399", "blue": "#60a5fa", "yellow": "#fbbf24", "red": "#fb7185" }
+    "colors": { "green": "#b7efb2", "blue": "#b3ebf2", "wisteria": "#c9a0dc", "red": "#ff746c" }
   },
   "skills": {
     "bindings": ["dash", "phase", "teleport", "slowField"],

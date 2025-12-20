@@ -20,6 +20,7 @@ import { Pipe, Gate, Orb, Part, FloatText } from "./entities.js";
 import { spawnBurst, spawnCrossfire, spawnOrb, spawnSinglePipe, spawnWall } from "./spawn.js";
 import { dashBounceMax, orbPoints, tickCooldowns } from "./mechanics.js";
 import { buildScorePopupStyle } from "./uiStyles.js";
+import { computePipeColor } from "./pipeColors.js";
 
 export { Pipe, Gate, Orb, Part, FloatText };
 
@@ -352,11 +353,7 @@ export class Game {
   }
 
   _pipeColor() {
-    const d = this._difficulty01(), col = this.cfg.pipes.colors;
-    const g = hexToRgb(col.green), b = hexToRgb(col.blue), y = hexToRgb(col.yellow), r = hexToRgb(col.red);
-    if (d < 0.33) return lerpC(g, b, d / 0.33);
-    if (d < 0.66) return lerpC(b, y, (d - 0.33) / 0.33);
-    return lerpC(y, r, (d - 0.66) / 0.34);
+    return computePipeColor(this._difficulty01(), this.cfg.pipes.colors);
   }
 
   _spawnSinglePipe(opts = {}) {
