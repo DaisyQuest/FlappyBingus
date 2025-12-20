@@ -28,6 +28,13 @@ describe("keybind helpers", () => {
     expect(normalizeBind({ type: "mouse", button: 0 })).toEqual({ type: "mouse", button: 0 });
   });
 
+  it("rejects malformed binds and tokens that cannot be represented", async () => {
+    const { normalizeBind, bindToken } = await import("../keybinds.js");
+    expect(normalizeBind({ type: "key", code: "a".repeat(40) })).toBeNull();
+    expect(normalizeBind({ type: "gamepad", button: 1 })).toBeNull();
+    expect(bindToken({ type: "unknown" })).toBe("");
+  });
+
   it("merges binds using defaults for invalid entries", async () => {
     const { mergeBinds, DEFAULT_KEYBINDS } = await import("../keybinds.js");
     const incoming = {
@@ -49,6 +56,8 @@ describe("keybind helpers", () => {
     expect(humanizeBind({ type: "key", code: "Digit5" })).toBe("5");
     expect(humanizeBind({ type: "key", code: "ShiftLeft" })).toBe("Shift");
     expect(humanizeBind(null)).toBe("Unbound");
+    expect(humanizeBind({ type: "key", code: "ArrowLeft" })).toContain("Arrow");
+    expect(humanizeBind({ type: "mouse", button: 5 })).toBe("Mouse 5");
   });
 
   it("swaps binds when rebinding to an already-used input", async () => {

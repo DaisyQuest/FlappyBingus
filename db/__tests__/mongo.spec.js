@@ -67,6 +67,19 @@ describe("config helpers", () => {
     expect(maskConnectionString("mongodb://localhost/db")).toBe("mongodb://localhost/db");
   });
 
+  it("falls back to regex masking when URL parsing fails", async () => {
+    const { maskConnectionString } = await loadModule();
+    const originalUrl = global.URL;
+    global.URL = vi.fn(() => { throw new Error("boom"); });
+
+    try {
+      const masked = maskConnectionString("mongodb://user:pass@localhost/db");
+      expect(masked).toBe("mongodb://***:***@localhost/db");
+    } finally {
+      global.URL = originalUrl;
+    }
+  });
+
   it("fills defaults and substitutes passwords when resolving config", async () => {
     const { resolveMongoConfig } = await loadModule();
     const prevDb = process.env.MONGODB_DB;
@@ -183,6 +196,43 @@ describe("MongoDataStore mutations and reads", () => {
 
     const count = await store.userCount();
     expect(count).toBe(42);
+  });
+
+  it("renames an existing user when the username changes", async () => {
+    const { MongoDataStore } = await loadModule();
+    const firstUser = { key: "abc", username: "Old" };
+    const renamedUser = { key: "abc", username: "New" };
+    const collection = {
+      findOne: vi.fn()
+        .mockResolvedValueOnce(firstUser)
+        .mockResolvedValueOnce(renamedUser),
+      updateOne: vi.fn(async () => ({}))
+    };
+    const store = new MongoDataStore({ uri: "mongodb://ok", dbName: "db" });
+    store.ensureConnected = vi.fn();
+    store.usersCollection = () => collection;
+
+    const result = await store.upsertUser("New", "abc", {});
+    expect(collection.updateOne).toHaveBeenCalledWith({ key: "abc" }, { $set: { username: "New", updatedAt: expect.any(Number) } });
+    expect(result).toEqual(renamedUser);
+  });
+
+  it("retries lookups when insert races trigger duplicate key errors", async () => {
+    const { MongoDataStore } = await loadModule();
+    const collection = {
+      findOne: vi.fn()
+        .mockResolvedValueOnce(null)
+        .mockResolvedValueOnce({ key: "dup", username: "Dup" }),
+      insertOne: vi.fn(async () => { throw { code: 11000 }; })
+    };
+    const store = new MongoDataStore({ uri: "mongodb://ok", dbName: "db" });
+    store.ensureConnected = vi.fn();
+    store.usersCollection = () => collection;
+
+    const result = await store.upsertUser("Dup", "dup", {});
+    expect(collection.insertOne).toHaveBeenCalled();
+    expect(collection.findOne).toHaveBeenCalledTimes(2);
+    expect(result).toEqual({ key: "dup", username: "Dup" });
   });
 });
 

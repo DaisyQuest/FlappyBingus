@@ -208,4 +208,13 @@ describe("MongoDataStore.recordScore", () => {
       updatedAt: now
     });
   });
+
+  it("throws when attempting to record a score without a user key", async () => {
+    const store = new MongoDataStore({ uri: "mongodb://test", dbName: "db" });
+    store.ensureConnected = vi.fn();
+    store.usersCollection = vi.fn(() => { throw new Error("should not reach collection"); });
+
+    await expect(store.recordScore({}, 5)).rejects.toThrow("user_key_required");
+    expect(store.usersCollection).not.toHaveBeenCalled();
+  });
 });
