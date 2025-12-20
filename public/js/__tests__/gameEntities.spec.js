@@ -1,14 +1,10 @@
 import { describe, expect, it, vi } from "vitest";
 import { Pipe, Gate, Orb, FloatText } from "../entities.js";
+import { DEFAULT_CONFIG } from "../config.js";
 
-vi.mock("../audio.js", () => ({
-  sfxOrbBoop: vi.fn(),
-  sfxPerfectNice: vi.fn(),
-  sfxDashBounce: vi.fn()
-}));
+const clone = (obj) => JSON.parse(JSON.stringify(obj));
 
-const createGameForAudio = async () => {
-  // Game reads window globals at module evaluation time
+const stubWindow = () => {
   const prevWindow = globalThis.window;
   globalThis.window = {
     devicePixelRatio: 1,
@@ -18,15 +14,49 @@ const createGameForAudio = async () => {
     addEventListener: () => {},
     removeEventListener: () => {}
   };
+  return () => {
+    if (prevWindow === undefined) delete globalThis.window;
+    else globalThis.window = prevWindow;
+  };
+};
+
+vi.mock("../audio.js", () => ({
+  sfxOrbBoop: vi.fn(),
+  sfxPerfectNice: vi.fn(),
+  sfxDashBounce: vi.fn()
+}));
+
+const createGame = async (cfg = DEFAULT_CONFIG) => {
+  const restoreWindow = stubWindow();
+  const { Game } = await import("../game.js");
+  const cfgCopy = clone(cfg);
+  const canvas = { style: {}, getContext: () => ({ setTransform: () => {} }), width: 800, height: 600 };
+  const ctx = { setTransform: () => {}, imageSmoothingEnabled: false };
+  const game = new Game({
+    canvas,
+    ctx,
+    config: cfgCopy,
+    playerImg: { naturalWidth: 10, naturalHeight: 10 },
+    input: { getMove: () => ({ dx: 0, dy: 0 }), cursor: { has: false } },
+    getTrailId: () => "classic",
+    getBinds: () => ({}),
+    onGameOver: () => {}
+  });
+  return { game, restoreWindow };
+};
+
+const createGameForAudio = async () => {
+  const restoreWindow = stubWindow();
   const { Game } = await import("../game.js");
   const audio = await import("../audio.js");
 
   const canvas = { style: {}, getContext: () => ({ setTransform: () => {} }) };
   const ctx = { setTransform: () => {}, imageSmoothingEnabled: false };
   const cfg = {
-    player: { sizeScale: 1, sizeMin: 24, sizeMax: 64 },
-    catalysts: { orbs: { intervalMin: 1, intervalMax: 1 } },
-    scoring: { perfect: { windowScale: 0.075 } }
+    ...clone(DEFAULT_CONFIG),
+    player: { ...DEFAULT_CONFIG.player, sizeScale: 1, sizeMin: 24, sizeMax: 64 },
+    catalysts: { ...DEFAULT_CONFIG.catalysts, orbs: { intervalMin: 1, intervalMax: 1 } },
+    scoring: { ...DEFAULT_CONFIG.scoring, perfect: { ...DEFAULT_CONFIG.scoring.perfect, windowScale: 0.075 } }
   };
 
   const game = new Game({
@@ -41,8 +71,7 @@ const createGameForAudio = async () => {
   });
 
   const cleanup = () => {
-    if (prevWindow === undefined) delete globalThis.window;
-    else globalThis.window = prevWindow;
+    restoreWindow();
   };
 
   return { game, audio, cleanup };
@@ -100,6 +129,81 @@ describe("FloatText", () => {
     expect(text.life).toBeCloseTo(0.8, 5);
     expect(text.vx).toBeLessThan(100);
     expect(text.vy).toBeGreaterThan(-50); // magnitude decreased by drag factor
+  });
+});
+
+describe("Game score popups", () => {
+  it("anchors popups to the player's top-right while clamping on-screen", async () => {
+    const { game, restoreWindow } = await createGame(clone(DEFAULT_CONFIG));
+    try {
+      game.W = 200;
+      game.H = 200;
+      game.player.x = 80;
+      game.player.y = 90;
+      game.player.r = 20;
+
+      const anchor = game._scorePopupAnchor();
+
+      expect(anchor.x).toBeGreaterThan(game.player.x);
+      expect(anchor.y).toBeLessThan(game.player.y);
+      expect(anchor.x).toBeLessThanOrEqual(game.W - 14);
+      expect(anchor.y).toBeGreaterThanOrEqual(14);
+    } finally {
+      restoreWindow();
+    }
+  });
+
+  it("positions orb pickup popups at the anchor instead of behind the player", async () => {
+    const { game, restoreWindow } = await createGame(clone(DEFAULT_CONFIG));
+    try {
+      game.W = 320;
+      game.H = 240;
+      game.startRun();
+      game.player.x = 100;
+      game.player.y = 120;
+      game.player.r = 18;
+      game.pipeT = game.specialT = game.orbT = 999;
+      const anchor = game._scorePopupAnchor();
+
+      game.orbs = [new Orb(game.player.x, game.player.y, 0, 0, 10, 1)];
+      game.update(0);
+
+      const popup = game.floats.find((f) => f.txt.startsWith("+"));
+      expect(popup).toBeTruthy();
+      expect(popup?.x).toBeCloseTo(anchor.x, 5);
+      expect(popup?.y).toBeCloseTo(anchor.y, 5);
+    } finally {
+      restoreWindow();
+    }
+  });
+
+  it("renders perfect-gap popups at the same anchored offset", async () => {
+    const { game, restoreWindow } = await createGame(clone(DEFAULT_CONFIG));
+    try {
+      game.W = 320;
+      game.H = 240;
+      game.startRun();
+      game.player.x = 100;
+      game.player.y = 120;
+      game.player.r = 16;
+      game.pipeT = game.specialT = game.orbT = 999;
+
+      const gate = new Gate("x", 90, 1000, game.player.y, 18, 10);
+      game.gates = [gate];
+      const anchor = game._scorePopupAnchor();
+
+      const dt = 0.02;
+      game.update(dt);
+
+      const popup = game.floats.find((f) => f.txt.startsWith("+"));
+      expect(popup).toBeTruthy();
+      expect(Math.abs((popup?.x ?? 0) - anchor.x)).toBeLessThan(2);
+      expect(Math.abs((popup?.y ?? 0) - anchor.y)).toBeLessThan(2);
+      expect(popup?.x).toBeGreaterThan(game.player.x);
+      expect(popup?.y).toBeLessThan(game.player.y);
+    } finally {
+      restoreWindow();
+    }
   });
 });
 
