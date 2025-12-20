@@ -53,6 +53,7 @@ import { normalizeTrailSelection, rebuildTrailOptions } from "./trailSelectUtils
 import { buildTrailHint } from "./trailHint.js";
 import { DEFAULT_TRAILS, getUnlockedTrails, normalizeTrails, sortTrailsForDisplay } from "./trailProgression.js";
 import { buildReplayPayload, hydrateReplayFromServer, describeReplayMeta, formatDurationMs } from "./replayUtils.js";
+import { savePendingReplay, loadPendingReplay, clearPendingReplay } from "./replayQueue.js";
 
 // ---- DOM ----
 const ui = buildGameUI();
@@ -533,6 +534,45 @@ function renderBindUI(listeningActionId = null) {
   }
 }
 
+async function submitPendingReplayIfAny() {
+  if (!net.user) return null;
+  const pending = loadPendingReplay(net.user.username);
+  if (!pending || !pending.payload) return null;
+
+  const score = Number(pending.payload.score);
+  const replay = pending.payload.replay;
+  if (!Number.isFinite(score) || !replay) {
+    clearPendingReplay(net.user.username);
+    return null;
+  }
+
+  if (replayStatus) {
+    replayStatus.className = "hint";
+    replayStatus.textContent = "Uploading pending replay…";
+  }
+
+  const res = await apiSubmitScore(score, replay);
+  if (res && res.ok && res.user) {
+    clearPendingReplay(net.user.username);
+    net.online = true;
+    net.user = res.user;
+    net.trails = normalizeTrails(res.trails || net.trails);
+    net.highscores = res.highscores || net.highscores;
+    if (replayStatus) {
+      replayStatus.className = "hint good";
+      replayStatus.textContent = "Pending replay uploaded.";
+    }
+    return res;
+  }
+
+  if (!res) net.online = false;
+  if (replayStatus) {
+    replayStatus.className = "hint warn";
+    replayStatus.textContent = "Pending replay upload failed (will retry).";
+  }
+  return null;
+}
+
 // ---- Server refresh ----
 async function refreshProfileAndHighscores() {
   const me = await apiGetMe();
@@ -544,6 +584,10 @@ async function refreshProfileAndHighscores() {
     net.user = me.user || null;
     net.trails = normalizeTrails(me.trails || net.trails);
     if (net.user?.keybinds) binds = mergeBinds(DEFAULT_KEYBINDS, net.user.keybinds);
+  }
+
+  if (net.user) {
+    await submitPendingReplayIfAny();
   }
 
   const hs = await apiGetHighscores(20);
@@ -997,6 +1041,7 @@ async function onGameOver(finalScore) {
 
   let replaySaved = false;
   let replayError = null;
+  let replayQueued = false;
 
   if (net.user) {
     const bestBefore = net.user ? (net.user.bestScore | 0) : 0;
@@ -1004,6 +1049,7 @@ async function onGameOver(finalScore) {
     const replayPayload = reachedBest ? buildReplayPayload(activeRun, finalScore | 0) : null;
     const res = await apiSubmitScore(finalScore | 0, replayPayload);
     if (res && res.ok && res.user) {
+      clearPendingReplay(net.user.username);
       net.online = true;
       net.user = res.user;
       net.trails = normalizeTrails(res.trails || net.trails);
@@ -1018,6 +1064,10 @@ async function onGameOver(finalScore) {
     } else {
       net.online = false;
       replayError = "score_submit_failed";
+
+      if (replayPayload) {
+        replayQueued = Boolean(savePendingReplay(net.user.username, { score: finalScore | 0, replay: replayPayload }));
+      }
 
       // Try to re-hydrate the session so subsequent runs can still submit.
       await refreshProfileAndHighscores();
@@ -1042,6 +1092,9 @@ async function onGameOver(finalScore) {
       replayStatus.className = "hint good";
       if (replaySaved) {
         replayStatus.textContent = "Replay saved to leaderboard.";
+      } else if (replayQueued) {
+        replayStatus.className = "hint warn";
+        replayStatus.textContent = "Replay upload queued; will retry when back online.";
       } else if (replayError) {
         replayStatus.className = "hint warn";
         replayStatus.textContent = "Replay could not be saved. You can still watch locally.";
