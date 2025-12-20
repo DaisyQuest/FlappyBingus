@@ -6,6 +6,7 @@ import {
   circleRectInfo, circleCircle,
   hexToRgb, lerpC, rgb, shade, hsla
 } from "./util.js";
+import { RenderProfile, BackgroundLayer } from "./rendering.js";
 import { ACTIONS, humanizeBind } from "./keybinds.js";
 
 // NEW: orb pickup SFX (pitch shifts by combo)
@@ -37,6 +38,9 @@ export class Game {
     this.W = 1; this.H = 1; this.DPR = 1;
 
     this.bgDots = [];
+    this.renderProfile = new RenderProfile("high");
+    this.backgroundLayer = new BackgroundLayer("#07101a");
+    this.maxParts = 1100;
 
     this.player = {
       x: 0, y: 0, vx: 0, vy: 0,
@@ -79,6 +83,16 @@ export class Game {
 
     // NEW: allow main.js to disable SFX during replay/export if desired
     this.audioEnabled = true;
+
+    this._applyCapsFromDetail();
+  }
+
+  setDetailLevel(level) {
+    const changed = this.renderProfile.setLevel(level);
+    if (changed) {
+      this._applyCapsFromDetail();
+      this._initBackground(true);
+    }
   }
 
   // NEW: toggle game SFX without touching music
@@ -127,7 +141,7 @@ export class Game {
     this.canvas._norm = norm;
 
     this._computePlayerSize();
-    this._initBackground();
+    this._initBackground(true);
   }
 
   setStateMenu() {
@@ -203,9 +217,10 @@ export class Game {
     p.r = Math.min(p.w, p.h) * this.cfg.player.radiusScale;
   }
 
-  _initBackground() {
+  _initBackground(rebuildLayer = false) {
     this.bgDots.length = 0;
-    const n = Math.floor(clamp((this.W * this.H) / 11000, 80, 220));
+    const base = clamp((this.W * this.H) / 11000, 80, 220);
+    const n = this.renderProfile.backgroundCount(base);
     for (let i = 0; i < n; i++) {
       // IMPORTANT: visuals only -> do NOT use seeded rand()
       this.bgDots.push({
@@ -215,6 +230,20 @@ export class Game {
         s: 4 + Math.random() * (22 - 4)
       });
     }
+    if (rebuildLayer) this._rebuildBackgroundLayer();
+  }
+
+  _rebuildBackgroundLayer() {
+    this.backgroundLayer.rebuild({
+      width: this.W,
+      height: this.H,
+      dots: this.bgDots,
+      profile: this.renderProfile
+    });
+  }
+
+  _applyCapsFromDetail() {
+    this.maxParts = this.renderProfile.particleLimit(1100);
   }
 
   _margin() {
@@ -310,7 +339,7 @@ export class Game {
 
   _spawnDashReflectFx(x, y, nx, ny, power = 1) {
     const dir = Math.atan2(ny || 0, nx || 0);
-    const sparkCount = 16;
+    const sparkCount = this.renderProfile.particleCount(16);
     const strength = clamp(power, 0.4, 1.6);
 
     for (let i = 0; i < sparkCount; i++) {
@@ -854,34 +883,14 @@ if (dist <= thresh) {
 
     // caps
     if (this.pipes.length > 280) this.pipes.splice(0, this.pipes.length - 280);
-    if (this.parts.length > 1100) this.parts.splice(0, this.parts.length - 1100);
+    if (this.parts.length > this.maxParts) this.parts.splice(0, this.parts.length - this.maxParts);
     if (this.floats.length > 80) this.floats.splice(0, this.floats.length - 80);
   }
 
   render() {
     const ctx = this.ctx;
 
-    // background
-    ctx.fillStyle = "#07101a";
-    ctx.fillRect(0, 0, this.W, this.H);
-
-    // vignette
-    const vg = ctx.createRadialGradient(this.W * 0.5, this.H * 0.45, Math.min(this.W, this.H) * 0.12, this.W * 0.5, this.H * 0.5, Math.max(this.W, this.H) * 0.75);
-    vg.addColorStop(0, "rgba(0,0,0,0)");
-    vg.addColorStop(1, "rgba(0,0,0,.44)");
-    ctx.fillStyle = vg;
-    ctx.fillRect(0, 0, this.W, this.H);
-
-    // dots
-    ctx.save();
-    ctx.globalAlpha = 0.75;
-    ctx.fillStyle = "rgba(255,255,255,.20)";
-    for (const p of this.bgDots) {
-      ctx.beginPath();
-      ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
-      ctx.fill();
-    }
-    ctx.restore();
+    this.backgroundLayer.draw(ctx);
 
     // world
     const pc = this._pipeColor();
@@ -916,8 +925,8 @@ if (dist <= thresh) {
     const edge = shade(base, 0.72), hi = shade(base, 1.12);
 
     ctx.save();
-    ctx.shadowColor = "rgba(0,0,0,.45)";
-    ctx.shadowBlur = 10;
+    ctx.shadowColor = this.renderProfile.shadowColor("rgba(0,0,0,.45)");
+    ctx.shadowBlur = this.renderProfile.shadowBlur(10);
     ctx.shadowOffsetY = 3;
 
     const g = (p.w >= p.h)
@@ -977,8 +986,8 @@ _drawOrb(o) {
   ctx.save();
 
   // Glow matches the core color
-  ctx.shadowColor = `rgba(${core.r|0},${core.g|0},${core.b|0},.50)`;
-  ctx.shadowBlur = 18;
+  ctx.shadowColor = this.renderProfile.shadowColor(`rgba(${core.r|0},${core.g|0},${core.b|0},.50)`);
+  ctx.shadowBlur = this.renderProfile.shadowBlur(18);
 
   // Outer shell
   ctx.fillStyle = "rgba(255,255,255,.88)";
@@ -988,7 +997,7 @@ _drawOrb(o) {
 
   // Inner core (traffic-light color)
   ctx.shadowBlur = 0;
-  ctx.globalAlpha = 0.78;
+  ctx.globalAlpha = this.renderProfile.glowAlpha(0.78);
   ctx.fillStyle = rgb(core, 0.85);
   ctx.beginPath();
   ctx.arc(o.x, o.y, r * 0.55, 0, Math.PI * 2);
@@ -1013,8 +1022,8 @@ _drawOrb(o) {
     const p = this.player;
 
     ctx.save();
-    ctx.shadowBlur = 18;
-    ctx.shadowColor = (p.invT > 0) ? "rgba(160,220,255,.35)" : "rgba(120,210,255,.22)";
+    ctx.shadowBlur = this.renderProfile.shadowBlur(18);
+    ctx.shadowColor = this.renderProfile.shadowColor((p.invT > 0) ? "rgba(160,220,255,.35)" : "rgba(120,210,255,.22)");
 
     if (this.playerImg && this.playerImg.naturalWidth > 0) {
       ctx.drawImage(this.playerImg, p.x - p.w * 0.5, p.y - p.h * 0.5, p.w, p.h);
@@ -1028,7 +1037,7 @@ _drawOrb(o) {
     if (p.dashImpactFlash > 0) {
       const a = clamp(p.dashImpactFlash / 0.16, 0, 1);
       ctx.save();
-      ctx.globalAlpha = a * 0.55;
+      ctx.globalAlpha = this.renderProfile.glowAlpha(a * 0.55);
       ctx.fillStyle = "rgba(255,200,120,.90)";
       ctx.beginPath(); ctx.arc(p.x, p.y, p.r * 1.15, 0, Math.PI * 2); ctx.fill();
       ctx.restore();
