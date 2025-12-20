@@ -536,7 +536,7 @@ async function serveStatic(reqPath, res) {
     const decodedEngine = safeDecodePath(reqPath.slice("/".length)); // remove leading slash
     if (decodedEngine == null) return notFound(res);
     const engineRoot = path.resolve(process.cwd(), "engine");
-    const resolvedEngine = path.resolve(engineRoot, decodedEngine.replace(/^engine[\\/]/, ""));
+    const resolvedEngine = path.resolve(engineRoot, decodedEngine);
     if (!resolvedEngine.startsWith(engineRoot + path.sep) && resolvedEngine !== engineRoot) {
       return notFound(res);
     }
