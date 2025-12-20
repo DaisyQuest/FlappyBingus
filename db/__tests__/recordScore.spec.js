@@ -134,4 +134,5 @@ describe("MongoDataStore.recordScore", () => {
       updatedAt: now
     });
   });
+
 });

@@ -184,35 +184,37 @@ class MongoDataStore {
     }
   }
 
-  async recordScore(user, score) {
-    await this.ensureConnected();
-    if (!user || !user.key) throw new Error("user_key_required");
+async recordScore(user, score) {
+  await this.ensureConnected();
+  if (!user || !user.key) throw new Error("user_key_required");
 
-    const now = Date.now();
-    const safeScore = clampScore(score);
-    const collection = this.usersCollection();
+  const now = Date.now();
+  const safeScore = clampScore(score);
+  const collection = this.usersCollection();
 
-    const res = await collection.findOneAndUpdate(
-      { key: user.key },
-      {
-        $setOnInsert: {
-          key: user.key,
-          username: user.username || user.key,
-          selectedTrail: user.selectedTrail || DEFAULT_TRAIL,
-          keybinds: user.keybinds || null,
-          createdAt: user.createdAt || now
-        },
-        $inc: { runs: 1, totalScore: safeScore },
-        $max: { bestScore: safeScore },
-        $set: { updatedAt: now }
+  const res = await collection.findOneAndUpdate(
+    { key: user.key },
+    {
+      $setOnInsert: {
+        key: user.key,
+        username: user.username || user.key,
+        selectedTrail: user.selectedTrail || DEFAULT_TRAIL,
+        keybinds: user.keybinds || null,
+        createdAt: user.createdAt || now,
+        runs: 0,
+        totalScore: 0,
+        bestScore: 0
       },
-      { returnDocument: "after", upsert: true }
-    );
+      $inc: { runs: 1, totalScore: safeScore },
+      $max: { bestScore: safeScore },
+      $set: { updatedAt: now }
+    },
+    { returnDocument: "after", upsert: true }
+  );
 
-    if (!res.value) throw new Error("record_score_failed");
-
-    return res.value;
-  }
+  if (!res.value) throw new Error("record_score_failed");
+  return res.value;
+}
 
   async setTrail(key, trailId) {
     await this.ensureConnected();
