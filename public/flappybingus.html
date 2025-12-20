@@ -9,15 +9,15 @@
   <title>Flappy Bingus</title>
   <style>
     :root{
-      --bg0:#100826;
-      --bg1:#1c0f3d;
-      --glass-edge:rgba(255,255,255,.2);
-      --panel:rgba(22,13,52,.78);
-      --panel2:rgba(44,24,88,.64);
-      --panel-soft:rgba(255,255,255,.08);
-      --panel-strong:rgba(255,255,255,.16);
-      --text:rgba(247,241,255,.96);
-      --muted:rgba(236,221,255,.78);
+      --bg0:#0e0822;
+      --bg1:#1a0e38;
+      --glass-edge:rgba(255,255,255,.24);
+      --panel:rgba(22,13,52,.7);
+      --panel2:rgba(44,24,88,.54);
+      --panel-soft:rgba(255,255,255,.1);
+      --panel-strong:rgba(255,255,255,.18);
+      --text:rgba(247,241,255,.97);
+      --muted:rgba(236,221,255,.82);
       --accent:#9d7fb6;
       --accent-strong:#8d6ea7;
       --accent2:#71527e;
@@ -27,12 +27,12 @@
       --danger:rgba(255,110,110,.95);
       --ok:rgba(120,255,180,.95);
       --glass:backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);
-      --panel-glow:0 24px 80px rgba(0,0,0,.6),0 0 90px rgba(157,127,182,.22),0 0 0 1px rgba(255,255,255,.08);
+      --panel-glow:0 18px 60px rgba(0,0,0,.48),0 0 70px rgba(157,127,182,.2),0 0 0 1px rgba(255,255,255,.08);
     }
     html,body{
       height:100%;margin:0;overflow:hidden;
       background:
-        linear-gradient(180deg,rgba(18,11,42,.75),rgba(18,11,42,.9)),
+        linear-gradient(180deg,rgba(18,11,42,.72),rgba(18,11,42,.88)),
         radial-gradient(circle at 12% 20%,rgba(157,127,182,.26),transparent 40%),
         radial-gradient(circle at 76% 10%,rgba(141,110,167,.22),transparent 38%),
         radial-gradient(circle at 70% 78%,rgba(64,41,80,.22),transparent 46%),
@@ -42,49 +42,50 @@
       letter-spacing:.1px;
     }
     #wrap{position:fixed;inset:0}
-    canvas{position:absolute;inset:0;width:100%;height:100%;display:block;background:#0b071a;opacity:.78;mix-blend-mode:screen}
-    .screen{position:absolute;inset:0;display:grid;place-items:center;pointer-events:none;padding:18px}
+    canvas{position:absolute;inset:0;width:100%;height:100%;display:block;background:#0b071a;opacity:.6;mix-blend-mode:screen}
+    .screen{position:absolute;inset:0;display:grid;place-items:center;pointer-events:none;padding:16px}
     .panel{
-      pointer-events:auto;width:min(1180px,calc(100vw - 28px));
-      padding:24px;border-radius:30px;
-      background:linear-gradient(160deg,rgba(22,13,52,.82),rgba(44,24,88,.58));
+      pointer-events:auto;width:min(960px,calc(100vw - 24px));
+      padding:20px;border-radius:28px;
+      background:linear-gradient(160deg,rgba(22,13,52,.74),rgba(44,24,88,.5));
       border:1px solid var(--glass-edge);
       box-shadow:var(--panel-glow);
-      backdrop-filter:blur(22px);-webkit-backdrop-filter:blur(22px);
+      backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);
       position:relative;overflow:hidden;
     }
-    .menu-header{display:flex;flex-direction:column;gap:10px;padding:12px 14px 8px;position:relative;z-index:1}
+    .menu-header{display:flex;flex-direction:column;gap:10px;padding:10px 12px 6px;position:relative;z-index:1;align-items:center;text-align:center}
+    .title-pill{
+      padding:14px 20px;border-radius:999px;border:1px solid rgba(255,255,255,.18);
+      background:linear-gradient(120deg,rgba(255,255,255,.22),rgba(255,255,255,.12));
+      box-shadow:0 14px 32px rgba(0,0,0,.32),0 0 40px rgba(157,127,182,.24);
+      display:inline-flex;align-items:center;justify-content:center;width:min(720px,100%);
+    }
     .title{
-      font-weight:900;letter-spacing:.9px;line-height:1.02;
-      font-size:clamp(48px,6vw,84px);margin:0;
+      font-weight:900;letter-spacing:.9px;line-height:1.05;
+      font-size:clamp(46px,5.8vw,76px);margin:0;
       text-shadow:
-        0 14px 42px rgba(0,0,0,.4),
-        0 0 26px rgba(200,230,255,.45),
-        0 0 78px rgba(157,127,182,.35);
+        0 12px 38px rgba(0,0,0,.42),
+        0 0 24px rgba(200,230,255,.42),
+        0 0 58px rgba(157,127,182,.32);
       background:linear-gradient(120deg,#fff,#f3e9ff,#d8caff);
       -webkit-background-clip:text;color:transparent;
-      filter:drop-shadow(0 8px 12px rgba(0,0,0,.2));
+      filter:drop-shadow(0 6px 10px rgba(0,0,0,.22));
     }
     .title::first-letter{font-size:1.04em}
-    .title-cloud{position:relative;display:inline-block}
-    .title-cloud::after{
-      content:"";
-      position:absolute;inset:12% -8px -6%;border-radius:50%;
-      background:radial-gradient(circle at 30% 30%,rgba(255,255,255,.26),transparent 50%),
-                 radial-gradient(circle at 70% 40%,rgba(255,255,255,.2),transparent 48%);
-      filter:blur(18px);opacity:.82;pointer-events:none;
-    }
-    .sub{color:var(--muted);font-size:16px;line-height:1.6;margin:0;max-width:860px;text-shadow:0 8px 28px rgba(0,0,0,.38)}
-    .menu-shell{display:grid;grid-template-columns:1.1fr .9fr;gap:18px;align-items:start;padding:10px}
-    @media (max-width: 980px){ .menu-shell{grid-template-columns:1fr} }
+    .sub{color:var(--muted);font-size:15px;line-height:1.55;margin:0;max-width:720px;text-shadow:0 8px 24px rgba(0,0,0,.36)}
+    .hero-inputs{display:flex;flex-direction:column;gap:12px;align-items:center;margin-top:6px;width:min(640px,100%);padding:10px 12px;border-radius:18px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.12);box-shadow:0 10px 26px rgba(0,0,0,.28)}
+    .input-row{width:100%;display:grid;grid-template-columns:1fr auto;gap:10px}
+    .input-row.single{grid-template-columns:1fr}
+    .menu-shell{display:grid;grid-template-columns:1fr 1fr;gap:12px;align-items:start;padding:6px;margin-top:12px}
+    @media (max-width: 900px){ .menu-shell{grid-template-columns:1fr} .title-pill{min-width:0} }
     .card{
-      border-radius:22px;border:1px solid var(--panel-strong);background:rgba(255,255,255,.07);
-      padding:16px 16px 14px;box-shadow:0 16px 40px rgba(0,0,0,.32),0 0 48px rgba(157,127,182,.14);
+      border-radius:18px;border:1px solid var(--panel-strong);background:rgba(255,255,255,.08);
+      padding:14px 14px 12px;box-shadow:0 14px 34px rgba(0,0,0,.32),0 0 38px rgba(157,127,182,.14);
       backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);
     }
-    .card-soft{background:rgba(255,255,255,.06);border-color:rgba(255,255,255,.14)}
+    .card-soft{background:rgba(255,255,255,.07);border-color:rgba(255,255,255,.14)}
     .row{display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:flex-start}
-    .top-actions{gap:12px}
+    .top-actions{gap:10px}
     button{
       appearance:none;border:1px solid rgba(255,255,255,.2);background:linear-gradient(180deg,rgba(255,255,255,.16),rgba(255,255,255,.08));
       color:var(--text);padding:12px 16px;border-radius:16px;font-weight:900;font-size:16px;cursor:pointer;
@@ -239,121 +240,79 @@
       <div class="light-aurora"></div>
       <div class="content-layer">
         <div class="menu-header">
-          <div class="title-cloud"><div class="title">Flappy Bingus</div></div>
+          <div class="title-pill"><div class="title">Flappy Bingus</div></div>
           <p class="sub">
-            A dreamy flight through neon skies. Register to track progress and trails, then tap the Tutorial to learn perfect gaps, scoring, and survival. Glide through violet glass, with every edge softly rounded and glowing.
+            A dreamy flight through neon skies. Register, pick a trail, and fly. Softer glass with a brighter background keeps the clouds visible.
           </p>
-          <div class="hero-pills">
-            <div class="pill neutral"><span class="dot"></span><span>Clouds &amp; sky inspired palette</span></div>
-            <div class="pill ok"><span class="dot"></span><span>Smooth glass overlay</span></div>
-          </div>
         </div>
 
-        <input type="radio" name="view" id="viewMain" class="tab-radio" checked/>
-        <input type="radio" name="view" id="viewSettings" class="tab-radio"/>
-        <div class="tab-toggle" aria-label="Main sections">
-          <label for="viewMain">Main</label>
-          <label for="viewSettings">Settings</label>
+        <div class="hero-inputs">
+          <div class="input-row">
+            <input id="usernameInput" type="text" maxlength="18" placeholder="3–18 chars: letters, numbers, space, _ or -"/>
+            <button id="saveUserBtn">Save</button>
+          </div>
+          <div class="hint" id="userHint" style="width:100%;text-align:left">Not signed in.</div>
+          <div class="input-row">
+            <select id="trailSelect"></select>
+            <div class="pill note" style="justify-content:center;min-width:120px"><span class="dot"></span><span class="tiny-label">Live preview</span></div>
+          </div>
+          <div class="hint" id="trailHint" style="width:100%;text-align:left">Unlock trails by improving your personal best.</div>
+          <div class="pills-row" style="width:100%">
+            <div class="badge">Personal best <span class="kbd" id="pbText">0</span></div>
+            <div class="badge">Trail <span class="kbd" id="trailText">classic</span></div>
+          </div>
         </div>
 
         <div class="menu-shell">
           <div class="card card-soft">
-            <div class="view-area">
-              <div class="panel-main tab-panel">
-                <div class="info-grid hero-grid">
-                  <div class="info-card overlay-card">
-                    <div class="section-title">Ready to fly</div>
-                    <div class="row top-actions">
-                      <button id="start" class="primary" disabled>Start</button>
-                      <button id="tutorial" disabled>Tutorial</button>
-                      <div id="bootPill" class="pill"><span class="dot"></span><span id="bootText">Loading…</span></div>
-                    </div>
-                    <div class="soft-divider"></div>
-                    <div class="field stack">
-                      <div class="lbl">Username</div>
-                      <div class="minirow">
-                        <input id="usernameInput" type="text" maxlength="18" placeholder="3–18 chars: letters, numbers, space, _ or -"/>
-                        <button id="saveUserBtn">Save</button>
-                      </div>
-                      <div id="userHint" class="hint">Not signed in.</div>
-                    </div>
-                    <div class="field stack" style="margin-top:6px">
-                      <div class="lbl">Trail Select</div>
-                      <div class="minirow">
-                        <select id="trailSelect"></select>
-                        <div class="pill note"><span class="dot"></span><span class="tiny-label">Live preview</span></div>
-                      </div>
-                      <div id="trailHint" class="hint">Unlock trails by improving your personal best.</div>
-                      <div class="pills-row">
-                        <div class="badge">Personal best <span class="kbd" id="pbText">0</span></div>
-                        <div class="badge">Trail <span class="kbd" id="trailText">classic</span></div>
-                      </div>
-                    </div>
-                    <div class="soft-divider"></div>
-                    <div class="section-title">Sky palette</div>
-                    <div class="hint" style="margin-bottom:6px">Extracted directly from the cloud background to keep the UI in harmony.</div>
-                    <div class="swatch-row">
-                      <div class="swatch" style="--swatch:#9d7fb6"><span>#9d7fb6</span><span>Plum glow</span></div>
-                      <div class="swatch" style="--swatch:#8d6ea7"><span>#8d6ea7</span><span>Violet haze</span></div>
-                      <div class="swatch" style="--swatch:#71527e"><span>#71527e</span><span>Amethyst</span></div>
-                      <div class="swatch" style="--swatch:#57385d"><span>#57385d</span><span>Royal dusk</span></div>
-                      <div class="swatch" style="--swatch:#402950"><span>#402950</span><span>Nightfall</span></div>
-                      <div class="swatch" style="--swatch:#1f1241"><span>#1f1241</span><span>Deep sky</span></div>
-                    </div>
-                    <div class="hint">Transparency, blur, and glow lean directly on these hues.</div>
-                    <div class="howto-card mini-card">
-                      <div class="section-title">How to play</div>
-                      <div class="howto">
-                        <div class="compact">Move with <span class="kbd">W</span><span class="kbd">A</span><span class="kbd">S</span><span class="kbd">D</span>. Orbs award points and combo; if any orb despawns the combo breaks.</div>
-                        <div class="compact">Perfect Thread: drift through the exact center of a gap as it crosses you.</div>
-                        <div class="compact">Practice in Tutorial, then Start when the sky calls.</div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <div class="panel-settings tab-panel">
-                <div class="info-grid">
-                  <div class="info-card">
-                    <div class="section-title">Level Seed</div>
-                    <div class="field">
-                      <div class="lbl">Seed (optional)</div>
-                      <div class="minirow">
-                        <input id="seedInput" type="text" maxlength="48" placeholder="Leave blank for random (share seed to play same level)"/>
-                        <button id="seedRandomBtn">Random</button>
-                      </div>
-                      <div id="seedHint" class="hint">If two players use the same seed, pipe/orb spawns will match.</div>
-                    </div>
-                  </div>
-
-                  <div class="info-card">
-                    <div class="section-title">Volume</div>
-                    <div class="volume-grid">
-                      <div class="slider-row">
-                        <div class="lbl">Music Volume</div>
-                        <input type="range" min="0" max="100" value="70" aria-label="Music volume"/>
-                      </div>
-                      <div class="slider-row">
-                        <div class="lbl">SFX Volume</div>
-                        <input type="range" min="0" max="100" value="80" aria-label="SFX volume"/>
-                      </div>
-                    </div>
-                    <div class="mute-row">
-                      <input type="checkbox" id="muteToggle" aria-label="Mute audio"/>
-                      <label for="muteToggle" style="cursor:pointer">Mute everything</label>
-                    </div>
-                    <div class="muted-note">Audio controls are in progress – coming soon.</div>
-                  </div>
-
-                  <div class="info-card">
-                    <div class="section-title">Skill Keybinds</div>
-                    <div id="bindWrap" class="bindList"></div>
-                    <div id="bindHint" class="hint">Click Rebind, then press a key or click a mouse button. Press Esc to cancel.</div>
-                  </div>
-                </div>
+            <div class="section-title">Ready to fly</div>
+            <div class="row top-actions" style="justify-content:center">
+              <button id="start" class="primary" disabled style="min-width:140px">Start</button>
+              <button id="tutorial" disabled style="min-width:140px">Tutorial</button>
+              <button id="seedRandomBtn" style="min-width:140px">Random Seed</button>
+            </div>
+            <div class="row" style="justify-content:center;margin-top:8px">
+              <div id="bootPill" class="pill"><span class="dot"></span><span id="bootText">Loading…</span></div>
+            </div>
+            <div class="soft-divider"></div>
+            <div class="howto-card mini-card">
+              <div class="section-title">How to play</div>
+              <div class="howto">
+                <div class="compact">Move with <span class="kbd">W</span><span class="kbd">A</span><span class="kbd">S</span><span class="kbd">D</span>. Orbs award points and combo; if any orb despawns the combo breaks.</div>
+                <div class="compact">Perfect Thread: drift through the exact center of a gap as it crosses you.</div>
+                <div class="compact">Practice in Tutorial, then Start when the sky calls.</div>
               </div>
             </div>
+            <details class="mini-card" style="margin-top:10px">
+              <summary class="section-title" style="cursor:pointer">More settings</summary>
+              <div class="field" style="margin-top:6px">
+                <div class="lbl">Seed (optional)</div>
+                <div class="minirow">
+                  <input id="seedInput" type="text" maxlength="48" placeholder="Leave blank for random (share seed to play same level)"/>
+                </div>
+                <div id="seedHint" class="hint">If two players use the same seed, pipe/orb spawns will match.</div>
+              </div>
+              <div class="soft-divider"></div>
+              <div class="volume-grid">
+                <div class="slider-row">
+                  <div class="lbl">Music Volume</div>
+                  <input type="range" min="0" max="100" value="70" aria-label="Music volume"/>
+                </div>
+                <div class="slider-row">
+                  <div class="lbl">SFX Volume</div>
+                  <input type="range" min="0" max="100" value="80" aria-label="SFX volume"/>
+                </div>
+              </div>
+              <div class="mute-row">
+                <input type="checkbox" id="muteToggle" aria-label="Mute audio"/>
+                <label for="muteToggle" style="cursor:pointer">Mute everything</label>
+              </div>
+              <div class="muted-note">Audio controls are in progress – coming soon.</div>
+              <div class="soft-divider"></div>
+              <div class="section-title">Skill Keybinds</div>
+              <div id="bindWrap" class="bindList"></div>
+              <div id="bindHint" class="hint">Click Rebind, then press a key or click a mouse button. Press Esc to cancel.</div>
+            </details>
           </div>
 
           <div class="card hs-card">
