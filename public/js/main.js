@@ -49,6 +49,7 @@ import {
 import { buildGameUI } from "./uiLayout.js";
 import { TrailPreview } from "./trailPreview.js";
 import { normalizeTrailSelection, rebuildTrailOptions } from "./trailSelectUtils.js";
+import { buildTrailHint } from "./trailHint.js";
 
 // ---- DOM ----
 const ui = buildGameUI();
@@ -393,15 +394,15 @@ function fillTrailSelect() {
   applyTrailSelection(applied);
   pbText.textContent = String(best);
 
-  if (!net.user) {
-    trailHint.className = "hint warn";
-    trailHint.textContent = "Guest mode: unlocks are based on your local best cookie. Register to save progression globally.";
-  } else {
-    trailHint.className = "hint";
-    const hint = net.trails.some(t => t.minScore > best)
-      ? "Climb higher scores to unlock sparkling new trails."
-      : "All trails unlocked!";
-    trailHint.textContent = `${hint} Your best: ${best}`;
+  const hint = buildTrailHint({
+    online: net.online,
+    user: net.user,
+    bestScore: best,
+    trails: net.trails
+  });
+  if (trailHint) {
+    trailHint.className = hint.className;
+    trailHint.textContent = hint.text;
   }
 }
 

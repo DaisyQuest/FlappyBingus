@@ -117,32 +117,43 @@ export class TrailPreview {
 
   _updatePlayer(dt) {
     this._computePlayerSize();
-    const orbitPhase = this.player.phase * 0.92;
-    const drift = Math.sin(this.player.phase * 0.45) * 0.35;
-    const swing = Math.cos(this.player.phase * 0.24) * 0.18;
-    const baseRadiusX = 0.4 + 0.05 * Math.sin(this.player.phase * 0.6);
-    const baseRadiusY = 0.32 + 0.06 * Math.cos(this.player.phase * 0.82);
+    const phase = this.player.phase;
+    const orbitPhase = phase * 0.86;
+    const weave = Math.sin(phase * 0.38) * 0.1;
+    const sway = Math.sin(phase * 0.24) * 0.08;
+    const arc = Math.cos(phase * 0.52) * 0.06;
 
-    let targetX = 0.5 + Math.cos(orbitPhase + swing) * (baseRadiusX + drift * 0.04);
-    let targetY = 0.5 + Math.sin(orbitPhase * 0.88 + swing * 0.7) * (baseRadiusY + drift * 0.03);
+    const xWave = Math.sin(orbitPhase) * (0.28 + 0.04 * arc);
+    const xSkew = Math.sin(orbitPhase * 0.6 + arc) * 0.07;
+    const yWave = Math.sin(orbitPhase * 0.9 + weave) * (0.24 + 0.04 * sway);
+    const yLift = Math.cos(orbitPhase * 0.58 - weave) * 0.07;
+    const baseY = 0.56 + Math.sin(phase * 0.18) * 0.04;
+
+    let targetX = 0.5 + xWave + xSkew;
+    let targetY = baseY + yWave + yLift;
+
+    const marginX = 0.16;
+    const marginY = 0.18;
+    targetX = clamp(targetX, marginX, 1 - marginX);
+    targetY = clamp(targetY, marginY, 1 - marginY);
 
     const dx = targetX - 0.5;
     const dy = targetY - 0.5;
     const dist = Math.hypot(dx, dy);
-    const minGap = 0.22;
-    if (dist < minGap) {
-      const push = minGap / Math.max(dist, 1e-5);
-      targetX = 0.5 + dx * push;
-      targetY = 0.5 + dy * push;
+    const safeDx = dist > 1e-5 ? dx : 0.01;
+    const safeDy = dist > 1e-5 ? dy : 0.008;
+    const safeDist = Math.max(dist, Math.hypot(safeDx, safeDy));
+    const minGap = 0.18;
+    if (safeDist < minGap) {
+      const push = minGap / safeDist;
+      targetX = clamp(0.5 + safeDx * push, marginX, 1 - marginX);
+      targetY = clamp(0.5 + safeDy * push, marginY, 1 - marginY);
     }
-
-    targetX = clamp(targetX, 0.08, 0.92);
-    targetY = clamp(targetY, 0.08, 0.92);
 
     this.player.prevX = this.player.x || this.W * targetX;
     this.player.prevY = this.player.y || this.H * targetY;
 
-    this.player.phase += dt * 0.95;
+    this.player.phase += dt * 0.92;
     this.player.x = this.W * targetX;
     this.player.y = this.H * targetY;
     const radiusScale = DEFAULT_CONFIG.player.radiusScale;
