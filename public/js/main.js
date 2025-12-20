@@ -61,6 +61,7 @@ const userHint = document.getElementById("userHint");
 
 const trailSelect = document.getElementById("trailSelect");
 const trailHint = document.getElementById("trailHint");
+const trailPreview = document.getElementById("trailPreview");
 
 const bindWrap = document.getElementById("bindWrap");
 const bindHint = document.getElementById("bindHint");
@@ -318,6 +319,7 @@ function fillTrailSelect() {
 
   trailText.textContent = safeSel;
   pbText.textContent = String(best);
+  updateTrailPreview(safeSel);
 
   if (!net.user) {
     trailHint.className = "hint warn";
@@ -558,6 +560,7 @@ async function playReplay({ captureMode = "none" } = {}) {
 trailSelect.addEventListener("change", async () => {
   const id = trailSelect.value;
   trailText.textContent = id;
+  updateTrailPreview(id);
 
   if (!net.user) return;
 
@@ -648,6 +651,20 @@ function beginRebind(actionId) {
     window.removeEventListener("keydown", onKeyDownCapture, { capture: true });
     window.removeEventListener("pointerdown", onPointerDownCapture, { capture: true });
   };
+}
+
+function colorFromId(id) {
+  let h = 0;
+  for (let i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) % 360;
+  const h2 = (h + 36) % 360;
+  return [`hsl(${h},70%,64%)`, `hsl(${h2},72%,58%)`];
+}
+
+function updateTrailPreview(id) {
+  if (!trailPreview) return;
+  const [c1, c2] = colorFromId(id || "classic");
+  trailPreview.style.background = `linear-gradient(130deg, ${c1}, ${c2})`;
+  trailPreview.textContent = id || "classic";
 }
 
 bindWrap.addEventListener("click", (e) => {

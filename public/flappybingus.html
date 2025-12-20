@@ -27,27 +27,22 @@
       --danger:rgba(255,110,110,.95);
       --ok:rgba(120,255,180,.95);
       --glass:backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);
-      --panel-glow:0 18px 60px rgba(0,0,0,.48),0 0 70px rgba(157,127,182,.2),0 0 0 1px rgba(255,255,255,.08);
+      --panel-glow:0 12px 40px rgba(0,0,0,.35),0 0 50px rgba(157,127,182,.18),0 0 0 1px rgba(255,255,255,.08);
     }
     html,body{
       height:100%;margin:0;overflow:hidden;
-      background:
-        linear-gradient(180deg,rgba(18,11,42,.72),rgba(18,11,42,.88)),
-        radial-gradient(circle at 12% 20%,rgba(157,127,182,.26),transparent 40%),
-        radial-gradient(circle at 76% 10%,rgba(141,110,167,.22),transparent 38%),
-        radial-gradient(circle at 70% 78%,rgba(64,41,80,.22),transparent 46%),
-        url("/file.png") center/cover no-repeat fixed;
+      background:url("/background.png") center/cover no-repeat fixed;
       font-family:"Inter",-apple-system,system-ui,Segoe UI,Roboto,Arial,sans-serif;
       color:var(--text);
       letter-spacing:.1px;
     }
     #wrap{position:fixed;inset:0}
-    canvas{position:absolute;inset:0;width:100%;height:100%;display:block;background:#0b071a;opacity:.6;mix-blend-mode:screen}
+    canvas{position:absolute;inset:0;width:100%;height:100%;display:block;background:transparent;opacity:1;mix-blend-mode:normal}
     .screen{position:absolute;inset:0;display:grid;place-items:center;pointer-events:none;padding:16px}
     .panel{
       pointer-events:auto;width:min(960px,calc(100vw - 24px));
       padding:20px;border-radius:28px;
-      background:linear-gradient(160deg,rgba(22,13,52,.74),rgba(44,24,88,.5));
+      background:linear-gradient(160deg,rgba(22,13,52,.64),rgba(44,24,88,.42));
       border:1px solid var(--glass-edge);
       box-shadow:var(--panel-glow);
       backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);
@@ -57,7 +52,7 @@
     .title-pill{
       padding:14px 20px;border-radius:999px;border:1px solid rgba(255,255,255,.18);
       background:linear-gradient(120deg,rgba(255,255,255,.22),rgba(255,255,255,.12));
-      box-shadow:0 14px 32px rgba(0,0,0,.32),0 0 40px rgba(157,127,182,.24);
+      box-shadow:0 12px 30px rgba(0,0,0,.28),0 0 36px rgba(157,127,182,.22);
       display:inline-flex;align-items:center;justify-content:center;width:min(720px,100%);
     }
     .title{
@@ -211,6 +206,12 @@
       background:linear-gradient(130deg,var(--swatch),rgba(255,255,255,.12));
       color:#120b2a;font-weight:900;font-size:13px;border:1px solid rgba(255,255,255,.16);box-shadow:0 8px 22px rgba(0,0,0,.24)}
     .swatch span{color:#fff;text-shadow:0 1px 3px rgba(0,0,0,.2)}
+    .trail-preview{
+      width:100%;min-height:60px;border-radius:14px;border:1px solid rgba(255,255,255,.14);
+      background:linear-gradient(130deg,#9d7fb6,#8d6ea7);color:#0b0615;
+      display:flex;align-items:center;justify-content:center;font-weight:900;text-transform:capitalize;
+      box-shadow:0 10px 24px rgba(0,0,0,.28),0 0 30px rgba(157,127,182,.2)
+    }
     .pill.note{background:rgba(255,255,255,.08);border-color:rgba(255,255,255,.18)}
     .stack{gap:10px}
     .split-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px;align-items:start}
@@ -256,6 +257,7 @@
             <select id="trailSelect"></select>
             <div class="pill note" style="justify-content:center;min-width:120px"><span class="dot"></span><span class="tiny-label">Live preview</span></div>
           </div>
+          <div id="trailPreview" class="trail-preview" aria-live="polite">classic</div>
           <div class="hint" id="trailHint" style="width:100%;text-align:left">Unlock trails by improving your personal best.</div>
           <div class="pills-row" style="width:100%">
             <div class="badge">Personal best <span class="kbd" id="pbText">0</span></div>
