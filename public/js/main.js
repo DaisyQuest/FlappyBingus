@@ -17,6 +17,7 @@ import {
 } from "./util.js";
 
 import { Game } from "./game.js";
+import { GameDriver } from "/engine/gameDriver.js";
 
 // Tutorial
 import { Tutorial } from "./tutorial.js";
@@ -219,7 +220,7 @@ const input = new Input(canvas, () => binds, (actionId) => {
 });
 input.install();
 
-const game = new Game({
+let game = new Game({
   canvas,
   ctx,
   config: null,
@@ -231,6 +232,17 @@ const game = new Game({
   },
   getBinds: () => binds,
   onGameOver: (score) => onGameOver(score)
+});
+
+let driver = new GameDriver({
+  game,
+  syncRandSource: setRandSource,
+  mapState(engineState, g) {
+    engineState.time = g.timeAlive ?? engineState.time;
+    engineState.tick = (engineState.tick ?? 0) + 1;
+    engineState.score = { ...(engineState.score || {}), total: g.score ?? 0 };
+    engineState.player = { ...(engineState.player || {}), x: g.player?.x, y: g.player?.y, vx: g.player?.vx, vy: g.player?.vy };
+  }
 });
 
 // Tutorial wires into the same game instance.
@@ -985,7 +997,11 @@ function frame(ts) {
       // Step simulation
       if (tutorial?.active) tutorial.beforeSimTick(SIM_DT);
       if (!(tutorial?.active && tutorial.pauseSim)) {
-        game.update(SIM_DT);
+        if (driver) {
+          driver.step(SIM_DT, actions);
+        } else {
+          game.update(SIM_DT);
+        }
         if (tutorial?.active) tutorial.afterSimTick(SIM_DT);
       }
       acc -= SIM_DT;
