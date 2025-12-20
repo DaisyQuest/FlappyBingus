@@ -363,7 +363,9 @@ export class Game {
     const ms = clamp(Number(this.cfg.pipes.difficulty.mixScore) || 0.45, 0, 1);
     const dT = 1 - Math.exp(-((Math.max(0, t - ts)) / tc));
     const dS = 1 - Math.exp(-((Math.max(0, s - ss)) / sc));
-    return clamp(mt * dT + ms * dS, 0, 1);
+    const blended = clamp(mt * dT + ms * dS, 0, 1);
+    const pow = Math.max(1, Number(this.cfg.pipes.difficulty.earlyCurvePower) || 1);
+    return clamp(Math.pow(blended, pow), 0, 1);
   }
 
   _spawnInterval() {
