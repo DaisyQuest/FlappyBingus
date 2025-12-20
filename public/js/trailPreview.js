@@ -198,11 +198,14 @@ export class TrailPreview {
     const jitterScale = st.jitterScale ?? TRAIL_JITTER_SCALE;
 
     const flow = 0.8 + 0.4 * Math.sin(this.player.phase * 1.6);
+    const glintFlow = glint.flowScale ?? flow;
+    const sparkFlow = sparkle.flowScale ?? flow;
+    const auraFlow = aura.flowScale ?? flow;
     this.trailHue = (this.trailHue + dt * (st.hueRate || 220)) % 360;
     this.trailAcc += dt * st.rate * flow;
-    this.trailGlintAcc += dt * (glint.rate || st.rate * 0.55);
-    this.trailSparkAcc += dt * (sparkle.rate || 34);
-    this.trailAuraAcc += dt * auraRate;
+    this.trailGlintAcc += dt * (glint.rate || st.rate * 0.55) * glintFlow;
+    this.trailSparkAcc += dt * (sparkle.rate || 34) * sparkFlow;
+    this.trailAuraAcc += dt * auraRate * auraFlow;
 
     const n = this.trailAcc | 0;
     this.trailAcc -= n;

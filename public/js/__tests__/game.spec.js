@@ -360,6 +360,7 @@ describe("Skill usage", () => {
     game.cds.dash = 1;
     game._useSkill("dash");
     expect(game.player.dashT).toBe(0);
+    expect(game.floats.some((f) => f.txt.startsWith("DASH"))).toBe(true);
 
     game.cds.dash = 0;
     game._useSkill("dash");
@@ -408,6 +409,39 @@ describe("Skill usage", () => {
     expect(game.pipes).toContain(far);
     expect(game.pipes).not.toContain(near);
     expect(audio.sfxSlowExplosion).toHaveBeenCalled();
+  it("shows cooldown popups with colors based on remaining time", () => {
+    const { game } = buildGame({ skills: { dash: { cooldown: 3, duration: 0.2, speed: 200 } } });
+    game.player.r = 6;
+
+    game.cds.dash = 3;
+    game._useSkill("dash");
+    const justUsed = game.floats.at(-1);
+    expect(justUsed.txt).toBe("DASH 3.0s");
+    expect(justUsed.color).toBe("rgba(120,20,20,.95)");
+    expect(game.cds.dash).toBeCloseTo(3);
+
+    game.cds.dash = 1.5;
+    game._useSkill("dash");
+    const midCooldown = game.floats.at(-1);
+    expect(midCooldown.color).toBe("rgba(255,215,120,.95)");
+    expect(midCooldown.txt).toBe("DASH 1.5s");
+
+    game.cds.dash = 0.2;
+    game._useSkill("dash");
+    const nearlyReady = game.floats.at(-1);
+    expect(nearlyReady.color).toBe("rgba(110,200,110,.95)");
+    expect(nearlyReady.wobble).toBeGreaterThan(midCooldown.wobble);
+    expect(nearlyReady.txt).toBe("DASH 0.2s");
+  });
+
+  it("shows cooldown popups even when the configured cooldown is zero", () => {
+    const { game } = buildGame({ skills: { dash: { cooldown: 0, duration: 0.2, speed: 200 } } });
+    game.cds.dash = 0.4;
+    game._useSkill("dash");
+    const popup = game.floats.at(-1);
+    expect(popup.color).toBe("rgba(120,20,20,.95)");
+    expect(popup.wobble).toBeGreaterThan(0);
+    expect(popup.txt).toBe("DASH 0.4s");
   });
 });
 
