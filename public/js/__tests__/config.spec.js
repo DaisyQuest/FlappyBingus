@@ -1,14 +1,14 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 const stubFetch = (responses) => {
-  const mock = vi.fn();
+  const mock = vi.fn(() => Promise.reject(new Error("unexpected fetch call")));
   for (const res of responses) {
     if (res instanceof Error) {
       mock.mockRejectedValueOnce(res);
     } else {
       mock.mockResolvedValueOnce({
         ok: res.ok ?? true,
-        text: async () => JSON.stringify(res.body ?? {}),
+        text: async () => JSON.stringify(res.body ?? {})
       });
     }
   }
@@ -23,7 +23,7 @@ afterEach(() => {
 
 describe("loadConfig", () => {
   it("returns defaults when remote config is unavailable", async () => {
-    stubFetch([new Error("nope"), new Error("still nope")]);
+    stubFetch([new Error("nope"), new Error("still nope"), new Error("really nope")]);
     const { loadConfig, DEFAULT_CONFIG } = await import("../config.js");
 
     const { config, ok, source } = await loadConfig();
@@ -44,13 +44,13 @@ describe("loadConfig", () => {
       ui: { comboBar: { glowAt: 2, sparkleRate: 99 } }
     };
 
-    // First candidate fails; second succeeds
-    stubFetch([new Error("missing"), { body: merged }]);
+    // First two candidates fail; third succeeds
+    stubFetch([new Error("missing"), new Error("still missing"), { body: merged }]);
     const { loadConfig, DEFAULT_CONFIG } = await import("../config.js");
 
     const { config, ok, source } = await loadConfig();
     expect(ok).toBe(true);
-    expect(source).toBe("config.json"); // second candidate
+    expect(source).toBe("config.json"); // third candidate
 
     expect(config.pipes.spawnInterval.start).toBeCloseTo(DEFAULT_CONFIG.pipes.spawnInterval.max);
     expect(config.pipes.spawnInterval.end).toBeCloseTo(DEFAULT_CONFIG.pipes.spawnInterval.min);
@@ -67,5 +67,21 @@ describe("loadConfig", () => {
     expect(config.scoring.perfect.enabled).toBe(false);
     expect(config.scoring.perfect.bonus).toBe(42);
     expect(config.ui.comboBar.sparkleRate).toBe(99);
+  });
+
+  it("prioritizes the uppercase production config file when present", async () => {
+    const body = { scoring: { pipeDodge: 7 }, pipes: { speed: { start: 123 } } };
+    const fetchMock = stubFetch([{ body }]);
+    const { loadConfig } = await import("../config.js");
+
+    const { config, ok, source } = await loadConfig();
+    expect(ok).toBe(true);
+    expect(source).toBe("FLAPPY_BINGUS_CONFIG.json");
+    expect(fetchMock).toHaveBeenCalledWith(
+      "FLAPPY_BINGUS_CONFIG.json",
+      expect.objectContaining({ cache: "no-store" })
+    );
+    expect(config.scoring.pipeDodge).toBe(7);
+    expect(config.pipes.speed.start).toBe(123);
   });
 });
