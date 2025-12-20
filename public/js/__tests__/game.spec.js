@@ -401,8 +401,8 @@ describe("Player movement and trail emission", () => {
 
   it("clamps thickness and gap sizes while exercising spawn wrappers", () => {
     const { game } = buildGame();
-    game.W = 40;
-    game.H = 40;
+    game.W = 120;
+    game.H = 120;
     game.cfg.pipes.thickness = { scale: 10, min: 5, max: 8 };
     game.cfg.pipes.gap = { startScale: 0, endScale: 0, min: 12, max: 20 };
 
