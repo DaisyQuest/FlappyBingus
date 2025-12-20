@@ -185,6 +185,7 @@ const ctx = canvas.getContext("2d", { alpha: false });
 // Deterministic sim clock
 const SIM_DT = 1 / 120;
 const MAX_FRAME = 1 / 20;
+const MAX_SIM_STEPS_PER_FRAME = 5;
 let acc = 0;
 let lastTs = 0;
 
@@ -995,7 +996,8 @@ function frame(ts) {
   if (!replayDriving) {
     acc += dt;
 
-    while (acc >= SIM_DT) {
+    let steps = 0;
+    while (acc >= SIM_DT && steps < MAX_SIM_STEPS_PER_FRAME) {
       // Capture input snapshot for THIS tick
       const snap = input.snapshot();
 
@@ -1050,12 +1052,16 @@ function frame(ts) {
         if (tutorial?.active) tutorial.afterSimTick(SIM_DT);
       }
       acc -= SIM_DT;
+      steps += 1;
 
       if (game.state === 2 /* OVER */) {
         if (activeRun) activeRun.pendingActions.length = 0;
         break;
       }
     }
+
+    // Drop any runaway accumulation to avoid catch-up stutters on slow devices.
+    if (acc >= SIM_DT) acc = 0;
 
     game.render();
     if (tutorial?.active) tutorial.renderOverlay(ctx);
