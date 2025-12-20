@@ -72,6 +72,10 @@ export class Game {
 
     this.perfectT = 0;
     this.perfectMax = 0;
+    this.perfectCombo = 0;
+
+    this._gapMeta = new Map(); // gapId -> { perfected }
+    this._nextGapId = 1;
 
     this.lastDashReflect = null;
     this.slowField = null; // {x,y,r,fac,t,tm}
@@ -97,7 +101,8 @@ export class Game {
     // combo already incremented by the time we call this
     sfxOrbBoop(this.combo | 0);
   }
-    _perfectNiceSfx() {
+
+  _perfectNiceSfx() {
     if (!this.audioEnabled) return;
     sfxPerfectNice();
   }
@@ -174,6 +179,10 @@ export class Game {
 
     this.perfectT = 0;
     this.perfectMax = 0;
+    this.perfectCombo = 0;
+
+    this._gapMeta.clear();
+    this._nextGapId = 1;
 
     this.slowField = null;
     this.cds = { dash: 0, phase: 0, teleport: 0, slowField: 0 };
@@ -362,6 +371,21 @@ export class Game {
     if (this.combo > 0) this.floats.push(new FloatText("COMBO BROKE", x, y, "rgba(255,90,90,.95)"));
     this.combo = 0;
     this.comboBreakFlash = 0.35;
+  }
+
+  _resetPerfectCombo() {
+    this.perfectCombo = 0;
+  }
+
+  _onGapPipeRemoved(pipe) {
+    if (!this._gapMeta) return;
+    const gid = pipe?.gapId;
+    if (!gid) return;
+    const meta = this._gapMeta.get(gid);
+    if (!meta) return;
+
+    this._gapMeta.delete(gid);
+    if (!meta.perfected) this._resetPerfectCombo();
   }
 
   _tickCooldowns(dt) {
@@ -817,10 +841,17 @@ export class Game {
           const thresh = Math.max(3, g.gapHalf * wS) * 1.10; // NEW: 5% leniency
           if (dist <= thresh) {
             this._perfectNiceSfx();
-            this.score += bonus;
+            const streak = (this.perfectCombo | 0) + 1;
+            const pts = bonus * streak;
+            this.perfectCombo = streak;
+            if (g.gapId && this._gapMeta) {
+              const meta = this._gapMeta.get(g.gapId);
+              if (meta) meta.perfected = true;
+            }
+            this.score += pts;
             const fd = clamp(Number(this.cfg.scoring.perfect.flashDuration) || 0.55, 0.15, 2.0);
             this.perfectT = fd; this.perfectMax = fd;
-            this.floats.push(new FloatText(`+${bonus}`, this.player.x, this.player.y - this.player.r * 2.0, "rgba(255,255,255,.95)"));
+            this.floats.push(new FloatText(`+${pts}`, this.player.x, this.player.y - this.player.r * 2.0, "rgba(255,255,255,.95)"));
 
             for (let k = 0; k < 28; k++) {
               const a = rand(0, Math.PI * 2), sp = rand(60, 320);
@@ -917,6 +948,7 @@ export class Game {
           p.scored = true;
           this.score += Math.max(0, Number(this.cfg.scoring.pipeDodge) || 0);
         }
+        this._onGapPipeRemoved(p);
         this.pipes.splice(i, 1);
       }
     }
