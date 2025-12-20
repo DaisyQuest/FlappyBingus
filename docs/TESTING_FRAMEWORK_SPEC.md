@@ -49,6 +49,7 @@ This document outlines the requirements and design direction for a modular, head
 - [ ] Performance & determinism checks:
   - Guardrails ensuring that tests fail fast if the engine reads `performance.now`/`Date.now` directly instead of injected clocks.
   - Verify deterministic outputs across multiple runs with the same seed by hashing event logs/snapshots.
+  - Provide a bridge driver that can advance the legacy `Game` via the headless engine for parity tests.
 
 ## Reporting & CI
 - [ ] Unified result object per suite capturing: seed, scenario name, pass/fail, failure reason, assertion data, snapshot excerpts, and timing.
