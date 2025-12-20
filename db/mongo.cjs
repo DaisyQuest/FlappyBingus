@@ -192,32 +192,29 @@ class MongoDataStore {
     const safeScore = clampScore(score);
     const collection = this.usersCollection();
 
-    const existing = await collection.findOne({ key: user.key });
-    const runs = normalizeCount(existing?.runs ?? user.runs) + 1;
-    const totalScore = normalizeTotal(existing?.totalScore ?? user.totalScore) + safeScore;
-    const bestScore = Math.max(clampScore(existing?.bestScore ?? user.bestScore), safeScore);
-
     const res = await collection.findOneAndUpdate(
       { key: user.key },
-      { $set: { runs, totalScore, bestScore, updatedAt: now } },
-      { returnDocument: "after" }
+      {
+        $setOnInsert: {
+          key: user.key,
+          username: user.username || user.key,
+          selectedTrail: user.selectedTrail || DEFAULT_TRAIL,
+          keybinds: user.keybinds || null,
+          runs: normalizeCount(user.runs),
+          totalScore: normalizeTotal(user.totalScore),
+          bestScore: clampScore(user.bestScore),
+          createdAt: user.createdAt || now
+        },
+        $inc: { runs: 1, totalScore: safeScore },
+        $max: { bestScore: safeScore },
+        $set: { updatedAt: now }
+      },
+      { returnDocument: "after", upsert: true }
     );
-    if (res.value) return res.value;
 
-    // If the document went missing, recreate it from the request user + defaults.
-    const created = {
-      key: user.key,
-      username: user.username || user.key,
-      selectedTrail: user.selectedTrail || DEFAULT_TRAIL,
-      keybinds: user.keybinds || null,
-      runs,
-      totalScore,
-      bestScore,
-      createdAt: user.createdAt || now,
-      updatedAt: now
-    };
-    const insert = await collection.insertOne(created);
-    return await collection.findOne({ _id: insert.insertedId });
+    if (!res.value) throw new Error("record_score_failed");
+
+    return res.value;
   }
 
   async setTrail(key, trailId) {
