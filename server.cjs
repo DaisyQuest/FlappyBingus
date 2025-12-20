@@ -531,6 +531,25 @@ function renderStatusPage(status) {
 
 // --------- Static serving ----------
 async function serveStatic(reqPath, res) {
+  // Serve engine modules for browser imports (for headless bridge + parity tests)
+  if (reqPath.startsWith("/engine/")) {
+    const decodedEngine = safeDecodePath(reqPath.slice("/".length)); // remove leading slash
+    if (decodedEngine == null) return notFound(res);
+    const engineRoot = path.resolve(process.cwd(), "engine");
+    const resolvedEngine = path.resolve(engineRoot, decodedEngine.replace(/^engine[\\/]/, ""));
+    if (!resolvedEngine.startsWith(engineRoot + path.sep) && resolvedEngine !== engineRoot) {
+      return notFound(res);
+    }
+    try {
+      const data = await fs.readFile(resolvedEngine);
+      const ext = path.extname(resolvedEngine).toLowerCase();
+      const type = MIME[ext] || "text/plain; charset=utf-8";
+      return send(res, 200, { "Content-Type": type, "Cache-Control": "no-store" }, data);
+    } catch {
+      // fall through to default static handler (404)
+    }
+  }
+
   // Map root to flappybingus.html
   if (reqPath === "/") reqPath = "/flappybingus.html";
 
