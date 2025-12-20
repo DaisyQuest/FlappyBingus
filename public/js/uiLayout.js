@@ -107,8 +107,44 @@ function createTrailCard(doc, refs) {
 
   const trailRow = doc.createElement("div");
   trailRow.className = "minirow trail-row";
+  const trailShell = doc.createElement("div");
+  trailShell.className = "trail-preview-shell";
+
+  const trailCanvas = createElement(doc, refs, "canvas", {
+    id: "trailPreviewCanvas",
+    className: "trail-preview-canvas"
+  });
+
+  const trailGlow = doc.createElement("div");
+  trailGlow.className = "trail-preview-glow";
+
+  const trailOverlay = doc.createElement("div");
+  trailOverlay.className = "trail-preview-overlay";
+
+  const trailMeta = doc.createElement("div");
+  trailMeta.className = "trail-preview-meta";
+  const trailLabel = doc.createElement("div");
+  trailLabel.className = "lbl";
+  trailLabel.textContent = "Trail preview";
+  const trailName = createElement(doc, refs, "div", {
+    id: "trailPreviewName",
+    className: "trail-preview-name",
+    text: "Classic"
+  });
+  trailMeta.append(trailLabel, trailName);
+
+  const selectWrap = doc.createElement("div");
+  selectWrap.className = "trail-select-wrap";
   const select = createElement(doc, refs, "select", { id: "trailSelect" });
-  trailRow.append(select);
+  selectWrap.append(select);
+
+  const trailNote = doc.createElement("div");
+  trailNote.className = "trail-preview-note";
+  trailNote.textContent = "Pick a trail and watch the particles fly before you start.";
+
+  trailOverlay.append(trailMeta, selectWrap, trailNote);
+  trailShell.append(trailCanvas, trailGlow, trailOverlay);
+  trailRow.append(trailShell);
 
   const trailHint = createElement(doc, refs, "div", {
     id: "trailHint",

@@ -19,6 +19,7 @@ describe("uiLayout", () => {
 
     expect(mount.querySelectorAll("#wrap").length).toBe(1);
     expect(ui.canvas).toBeInstanceOf(window.HTMLCanvasElement);
+    expect(ui.trailPreviewCanvas).toBeInstanceOf(window.HTMLCanvasElement);
     expect(ui.menu?.id).toBe("menu");
     expect(ui.over?.id).toBe("over");
     expect(ui.start?.textContent).toContain("Start");
@@ -32,6 +33,7 @@ describe("uiLayout", () => {
     expect(ui.exportGif?.disabled).toBe(true);
     expect(ui.exportMp4?.disabled).toBe(true);
     expect(ui.trailText?.textContent).toBe("classic");
+    expect(ui.trailPreviewName?.textContent).toBe("Classic");
     expect(ui.seedInput?.maxLength).toBe(48);
     expect(ui.musicVolume?.value).toBe("70");
     expect(ui.sfxVolume?.value).toBe("80");
@@ -48,6 +50,8 @@ describe("uiLayout", () => {
       "hsWrap",
       "pbText",
       "trailText",
+      "trailPreviewCanvas",
+      "trailPreviewName",
       "final",
       "overPB",
       "seedInput",
