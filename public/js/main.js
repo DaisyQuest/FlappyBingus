@@ -1,19 +1,21 @@
 // =====================
 // FILE: public/js/main.js
 // =====================
-import { loadConfig } from "./config.js";
+import { loadConfig, DEFAULT_CONFIG } from "./config.js";
 import {
   apiGetMe,
   apiRegister,
   apiGetHighscores,
   apiSetTrail,
   apiSubmitScore,
-  apiSetKeybinds
+  apiSetKeybinds,
+  apiSetSettings
 } from "./api.js";
 
 import {
   escapeHtml, clamp, getCookie, setCookie,
-  setRandSource, createSeededRand, createTapeRandRecorder, createTapeRandPlayer
+  setRandSource, createSeededRand, createTapeRandRecorder, createTapeRandPlayer,
+  readJsonCookie, writeJsonCookie
 } from "./util.js";
 
 import { Game } from "./game.js";
@@ -33,6 +35,7 @@ import {
   keyEventToBind,
   pointerEventToBind
 } from "./keybinds.js";
+import { DEFAULT_SKILL_SETTINGS, normalizeSkillSettings, skillBehaviorOptions } from "./skillSettings.js";
 
 import { Input } from "./input.js";
 
@@ -88,7 +91,9 @@ const {
   watchReplay: watchReplayBtn,
   exportGif: exportGifBtn,
   exportMp4: exportMp4Btn,
-  replayStatus
+  replayStatus,
+  dashBehavior: dashBehaviorSelect,
+  slowBehavior: slowBehaviorSelect
 } = ui;
 
 // ---- Local best fallback cookie (legacy support) ----
@@ -117,6 +122,13 @@ function genRandomSeed() {
   return `${u[0].toString(16)}-${u[1].toString(16)}`;
 }
 
+function readSkillSettingsCookie() {
+  return readJsonCookie(SKILL_SETTINGS_COOKIE);
+}
+function writeSkillSettingsCookie(v) {
+  writeJsonCookie(SKILL_SETTINGS_COOKIE, v, 3650);
+}
+
 function setUIMode(isUI) {
   // When UI is shown, let clicks go to HTML controls
   canvas.style.pointerEvents = isUI ? "none" : "auto";
@@ -134,6 +146,10 @@ const net = {
 
 // keybinds: start from guest cookie; override from server user when available
 let binds = loadGuestBinds();
+
+// skill settings (persisted per-user or via cookie)
+let skillSettings = { ...DEFAULT_SKILL_SETTINGS };
+const SKILL_SETTINGS_COOKIE = "skill_settings";
 
 // config + assets
 let CFG = null;
@@ -176,7 +192,10 @@ const AUDIO = Object.freeze({
   musicUrl: "/audio/music.mp3",
   boopUrl: "/audio/orb-boop.mp3",
   niceUrl: "/audio/nice.mp3",
-  bounceUrl: "/audio/dash-bounce.mp3"
+  bounceUrl: "/audio/dash-bounce.mp3",
+  shatterUrl: "/audio/dash-shatter.mp3",
+  slowFieldUrl: "/audio/slow-field.mp3",
+  slowExplosionUrl: "/audio/slow-explosion.mp3"
 });
 
 // Volume UI defaults (match HTML defaults in flappybingus.html)
@@ -438,17 +457,61 @@ function renderBindUI(listeningActionId = null) {
   }
 }
 
+function fillSkillBehaviorOptions() {
+  const opts = skillBehaviorOptions();
+  const apply = (select, entries) => {
+    if (!select || !Array.isArray(entries)) return;
+    select.innerHTML = "";
+    for (const opt of entries) {
+      const o = document.createElement("option");
+      o.value = opt.id;
+      o.textContent = opt.label;
+      select.appendChild(o);
+    }
+  };
+  apply(dashBehaviorSelect, opts.dash);
+  apply(slowBehaviorSelect, opts.slowField);
+}
+
+function applySkillSettingsUI(settings = skillSettings) {
+  if (dashBehaviorSelect) dashBehaviorSelect.value = settings.dashBehavior;
+  if (slowBehaviorSelect) slowBehaviorSelect.value = settings.slowFieldBehavior;
+}
+
+async function applySkillSettings(settings, { persistCookie = true, syncServer = false } = {}) {
+  const baseCfg = CFG || DEFAULT_CONFIG;
+  const normalized = normalizeSkillSettings(settings || skillSettings || baseCfg.skills?.loadout, baseCfg);
+  skillSettings = normalized;
+  game.setSkillSettings(skillSettings);
+  applySkillSettingsUI(skillSettings);
+  if (persistCookie) writeSkillSettingsCookie(skillSettings);
+
+  if (syncServer && net.user) {
+    const res = await apiSetSettings(skillSettings);
+    if (!res) {
+      net.online = false;
+      setUserHint();
+    } else if (res.ok && res.user) {
+      net.online = true;
+      net.user = res.user;
+    }
+  }
+}
+
 // ---- Server refresh ----
 async function refreshProfileAndHighscores() {
   const me = await apiGetMe();
   if (!me) {
     net.online = false;
     net.user = null;
+    await applySkillSettings(readSkillSettingsCookie() || skillSettings, { persistCookie: true, syncServer: false });
   } else {
     net.online = true;
     net.user = me.user || null;
     net.trails = normalizeTrails(me.trails || net.trails);
     if (net.user?.keybinds) binds = mergeBinds(DEFAULT_KEYBINDS, net.user.keybinds);
+    const incomingSettings = net.user?.settings || readSkillSettingsCookie() || skillSettings;
+    await applySkillSettings(incomingSettings, { persistCookie: true, syncServer: false });
   }
 
   const hs = await apiGetHighscores(20);
@@ -705,11 +768,26 @@ bindWrap.addEventListener("click", (e) => {
   beginRebind(actionId);
 });
 
+dashBehaviorSelect?.addEventListener("change", async () => {
+  await applySkillSettings({ ...skillSettings, dashBehavior: dashBehaviorSelect.value }, { syncServer: true });
+});
+slowBehaviorSelect?.addEventListener("change", async () => {
+  await applySkillSettings({ ...skillSettings, slowFieldBehavior: slowBehaviorSelect.value }, { syncServer: true });
+});
+
 // ---- Menu/game over buttons ----
 // NEW: ensure audio buffers are loaded + music starts ONLY when gameplay begins.
 async function ensureAudioReady() {
   try {
-    await audioInit({ musicUrl: AUDIO.musicUrl, boopUrl: AUDIO.boopUrl, niceUrl: AUDIO.niceUrl, bounceUrl: AUDIO.bounceUrl });
+    await audioInit({
+      musicUrl: AUDIO.musicUrl,
+      boopUrl: AUDIO.boopUrl,
+      niceUrl: AUDIO.niceUrl,
+      bounceUrl: AUDIO.bounceUrl,
+      shatterUrl: AUDIO.shatterUrl,
+      slowFieldUrl: AUDIO.slowFieldUrl,
+      slowExplosionUrl: AUDIO.slowExplosionUrl
+    });
     applyVolumeFromUI();
 
   } catch (e) {
@@ -805,6 +883,7 @@ function startTutorial() {
   over.classList.add("hidden");
 
   acc = 0;
+  game.setSkillSettings(skillSettings);
   tutorial.start();
   musicStartLoop();
   window.focus();
@@ -854,6 +933,7 @@ async function startGame({ mode = "new" } = {}) {
   if (exportGifBtn) exportGifBtn.disabled = true;
   if (exportMp4Btn) exportMp4Btn.disabled = true;
 
+  game.setSkillSettings(skillSettings);
   menu.classList.add("hidden");
   over.classList.add("hidden");
 
@@ -1167,7 +1247,9 @@ function frame(ts) {
   boot.cfgOk = cfgRes.ok;
   boot.cfgSrc = cfgRes.source;
 
-  game.cfg = CFG;
+  game.setConfig(CFG);
+  fillSkillBehaviorOptions();
+  await applySkillSettings(readSkillSettingsCookie() || CFG?.skills?.loadout || skillSettings, { persistCookie: true, syncServer: false });
 
   game.resizeToWindow();
   game.setStateMenu();

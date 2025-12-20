@@ -271,6 +271,38 @@ function createVolumeCard(doc, refs) {
   return card;
 }
 
+function createSkillSettingsCard(doc, refs) {
+  const card = doc.createElement("div");
+  card.className = "info-card";
+
+  const title = doc.createElement("div");
+  title.className = "section-title";
+  title.textContent = "Skill Behaviors";
+
+  const dashRow = doc.createElement("div");
+  dashRow.className = "row space-between align-center";
+  const dashLabel = doc.createElement("div");
+  dashLabel.className = "lbl";
+  dashLabel.textContent = "Dash behavior";
+  const dashSelect = createElement(doc, refs, "select", { id: "dashBehavior", className: "select" });
+  dashRow.append(dashLabel, dashSelect);
+
+  const slowRow = doc.createElement("div");
+  slowRow.className = "row space-between align-center";
+  const slowLabel = doc.createElement("div");
+  slowLabel.className = "lbl";
+  slowLabel.textContent = "Slow field behavior";
+  const slowSelect = createElement(doc, refs, "select", { id: "slowBehavior", className: "select" });
+  slowRow.append(slowLabel, slowSelect);
+
+  const hint = doc.createElement("div");
+  hint.className = "hint";
+  hint.textContent = "Choose how Dash and Slow Field resolve collisions.";
+
+  card.append(title, dashRow, slowRow, hint);
+  return card;
+}
+
 function createBindCard(doc, refs) {
   const card = doc.createElement("div");
   card.className = "info-card";
@@ -433,6 +465,7 @@ function createMenuScreen(doc, refs) {
     createStatusCard(doc, refs),
     createSeedCard(doc, refs),
     createVolumeCard(doc, refs),
+    createSkillSettingsCard(doc, refs),
     createBindCard(doc, refs)
   );
   settingsPanel.append(toMain, settingsGrid);

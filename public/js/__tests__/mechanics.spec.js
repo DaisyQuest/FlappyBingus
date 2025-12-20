@@ -16,7 +16,12 @@ describe("dashBounceMax", () => {
 
   it("uses configured integer and clamps non-negative", () => {
     expect(dashBounceMax({ skills: { dash: { maxBounces: 3.7 } } })).toBe(3);
-    expect(dashBounceMax({ skills: { dash: { maxBounces: -1 } } })).toBe(0);
+    expect(dashBounceMax({ skills: { dash: { maxBounces: 0 } } })).toBe(0);
+  });
+
+  it("treats negative values in skill config as unlimited", () => {
+    expect(dashBounceMax({ maxBounces: -5 })).toBe(Number.POSITIVE_INFINITY);
+    expect(dashBounceMax({ skills: { dash: { maxBounces: -2 } } })).toBe(Number.POSITIVE_INFINITY);
   });
 });
 

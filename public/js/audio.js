@@ -8,6 +8,9 @@ let musicBuffer = null;
 let boopBuffer = null;
 let niceBuffer = null;
 let bounceBuffer = null;
+let shatterBuffer = null;
+let slowFieldBuffer = null;
+let slowExplosionBuffer = null;
 
 let musicGain = null;
 let sfxGain = null;
@@ -53,12 +56,17 @@ async function getCtx() {
 
 async function loadBuffer(url) {
   const c = await getCtx();
-  const res = await fetch(url, { cache: "force-cache" });
-  const arr = await res.arrayBuffer();
-  return await c.decodeAudioData(arr);
+  try {
+    const res = await fetch(url, { cache: "force-cache" });
+    const arr = await res.arrayBuffer();
+    return await c.decodeAudioData(arr);
+  } catch (err) {
+    console.warn("audio decode failed for", url, err);
+    return null;
+  }
 }
 
-export async function audioInit({ musicUrl, boopUrl, niceUrl, bounceUrl } = {}) {
+export async function audioInit({ musicUrl, boopUrl, niceUrl, bounceUrl, shatterUrl, slowFieldUrl, slowExplosionUrl } = {}) {
   // Must be called from a user gesture (Start / Restart click)
   await getCtx();
 
@@ -67,6 +75,9 @@ export async function audioInit({ musicUrl, boopUrl, niceUrl, bounceUrl } = {}) 
   if (boopUrl && !boopBuffer) boopBuffer = await loadBuffer(boopUrl);
   if (niceUrl && !niceBuffer) niceBuffer = await loadBuffer(niceUrl); // NEW
   if (bounceUrl && !bounceBuffer) bounceBuffer = await loadBuffer(bounceUrl);
+  if (shatterUrl && !shatterBuffer) shatterBuffer = await loadBuffer(shatterUrl);
+  if (slowFieldUrl && !slowFieldBuffer) slowFieldBuffer = await loadBuffer(slowFieldUrl);
+  if (slowExplosionUrl && !slowExplosionBuffer) slowExplosionBuffer = await loadBuffer(slowExplosionUrl);
 }
 
 export function setMusicVolume(v01) {
@@ -173,5 +184,38 @@ export function sfxDashBounce(speed = 1) {
   src.connect(g);
   g.connect(sfxGain);
 
+  src.start(0);
+}
+
+export function sfxDashShatter() {
+  if (!ctx || !shatterBuffer || !sfxGain) return;
+  const src = ctx.createBufferSource();
+  src.buffer = shatterBuffer;
+  const g = ctx.createGain();
+  g.gain.value = 0.9;
+  src.connect(g);
+  g.connect(sfxGain);
+  src.start(0);
+}
+
+export function sfxSlowField() {
+  if (!ctx || !slowFieldBuffer || !sfxGain) return;
+  const src = ctx.createBufferSource();
+  src.buffer = slowFieldBuffer;
+  const g = ctx.createGain();
+  g.gain.value = 0.75;
+  src.connect(g);
+  g.connect(sfxGain);
+  src.start(0);
+}
+
+export function sfxSlowExplosion() {
+  if (!ctx || !slowExplosionBuffer || !sfxGain) return;
+  const src = ctx.createBufferSource();
+  src.buffer = slowExplosionBuffer;
+  const g = ctx.createGain();
+  g.gain.value = 0.95;
+  src.connect(g);
+  g.connect(sfxGain);
   src.start(0);
 }

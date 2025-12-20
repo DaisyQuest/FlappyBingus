@@ -207,6 +207,7 @@ class MongoDataStore {
             username: { $ifNull: ["$username", user.username || user.key] },
             selectedTrail: { $ifNull: ["$selectedTrail", user.selectedTrail || DEFAULT_TRAIL] },
             keybinds: { $ifNull: ["$keybinds", user.keybinds || null] },
+            settings: { $ifNull: ["$settings", user.settings || null] },
             createdAt: { $ifNull: ["$createdAt", user.createdAt || now] },
 
             runs: { $add: [{ $ifNull: ["$runs", safeRuns] }, 1] },
@@ -241,6 +242,17 @@ class MongoDataStore {
     const res = await this.usersCollection().findOneAndUpdate(
       { key },
       { $set: { keybinds: binds, updatedAt: now } },
+      { returnDocument: "after" }
+    );
+    return res.value;
+  }
+
+  async setSettings(key, settings) {
+    await this.ensureConnected();
+    const now = Date.now();
+    const res = await this.usersCollection().findOneAndUpdate(
+      { key },
+      { $set: { settings, updatedAt: now } },
       { returnDocument: "after" }
     );
     return res.value;

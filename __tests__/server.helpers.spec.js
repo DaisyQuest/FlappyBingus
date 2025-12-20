@@ -12,6 +12,7 @@ const baseUser = () => ({
   bestScore: 5000,
   selectedTrail: "world_record",
   keybinds: {},
+  settings: { dashBehavior: "dashDestroy", slowFieldBehavior: "slowExplosion" },
   runs: 10,
   totalScore: 42_000
 });
@@ -41,5 +42,15 @@ describe("server helpers (trails)", () => {
     expect(publicRecordHolder.unlockedTrails).toContain("world_record");
     expect(publicGuest.isRecordHolder).toBe(false);
     expect(publicGuest.unlockedTrails).not.toContain("world_record");
+  });
+
+  it("normalizes skill settings for public users", () => {
+    const u = baseUser();
+    u.settings = { dashBehavior: "unknown", slowFieldBehavior: "slowField" };
+    server.ensureUserSchema(u, { recordHolder: false });
+
+    const publicUser = server.publicUser(u, { recordHolder: false });
+    expect(publicUser.settings.dashBehavior).toBe("dashRicochet");
+    expect(publicUser.settings.slowFieldBehavior).toBe("slowField");
   });
 });

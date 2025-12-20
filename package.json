@@ -8,6 +8,7 @@
     "node": ">=24"
   },
   "scripts": {
+    "test": "npm run test:headless",
     "start": "node server.cjs",
     "test:headless": "vitest run",
     "test:headless:watch": "vitest watch",

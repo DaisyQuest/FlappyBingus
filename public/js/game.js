@@ -8,9 +8,11 @@ import {
 } from "./util.js";
 import { ACTIONS, humanizeBind } from "./keybinds.js";
 import { resolveGapPerfect } from "./perfectGaps.js";
+import { DEFAULT_CONFIG } from "./config.js";
 
 // NEW: orb pickup SFX (pitch shifts by combo)
-import { sfxOrbBoop, sfxPerfectNice, sfxDashBounce } from "./audio.js";
+import { sfxOrbBoop, sfxPerfectNice, sfxDashBounce, sfxDashShatter, sfxSlowExplosion, sfxSlowField } from "./audio.js";
+import { dashBounceLimit, normalizeSkillSettings, resolveSkillSlots } from "./skillSettings.js";
 
 const BASE_DPR = Math.max(0.25, window.devicePixelRatio || 1);
 
@@ -34,12 +36,13 @@ export class Game {
   constructor({ canvas, ctx, config, playerImg, input, getTrailId, getBinds, onGameOver }) {
     this.canvas = canvas;
     this.ctx = ctx;
-    this.cfg = config;
+    this.cfg = config || JSON.parse(JSON.stringify(DEFAULT_CONFIG));
     this.playerImg = playerImg;
     this.input = input;
     this.getTrailId = getTrailId || (() => "classic");
     this.getBinds = getBinds || (() => ({}));
     this.onGameOver = onGameOver || config?.onGameOver || (() => {});
+    this.skillSettings = normalizeSkillSettings(this.cfg?.skills?.loadout, this.cfg);
 
     this.state = STATE.MENU;
 
@@ -105,6 +108,24 @@ export class Game {
   // NEW: toggle game SFX without touching music
   setAudioEnabled(on) {
     this.audioEnabled = !!on;
+  }
+
+  setConfig(cfg) {
+    if (cfg) this.cfg = cfg;
+    this.skillSettings = normalizeSkillSettings(this.skillSettings || this.cfg?.skills?.loadout, this.cfg);
+  }
+
+  setSkillSettings(settings) {
+    this.skillSettings = normalizeSkillSettings(settings || this.skillSettings, this.cfg);
+  }
+
+  _skillSlots() {
+    return resolveSkillSlots(this.cfg, this.skillSettings);
+  }
+
+  _skillSlot(actionId) {
+    const slots = this._skillSlots();
+    return slots[actionId] || null;
   }
 
   // NEW: orb pickup sound, pitched by combo
@@ -437,7 +458,7 @@ export class Game {
   }
 
   _dashBounceMax() {
-    return dashBounceMax(this.cfg);
+    return dashBounceLimit(this._skillSlot("dash"));
   }
 
   _dashBounceSfx(speed = 0) {
@@ -468,9 +489,10 @@ export class Game {
 
   _applyDashReflect(hit) {
     const p = this.player;
+    const dashCfg = this._skillSlot("dash")?.config || {};
     const nx = hit?.nx || 0, ny = hit?.ny || 0;
-    const keep = clamp(Number(this.cfg?.skills?.dash?.bounceRetain) || 0.86, 0, 1);
-    const baseSpeed = Math.max(Math.hypot(p.vx, p.vy), Number(this.cfg?.skills?.dash?.speed) || 0);
+    const keep = clamp(Number(dashCfg?.bounceRetain) || 0.86, 0, 1);
+    const baseSpeed = Math.max(Math.hypot(p.vx, p.vy), Number(dashCfg?.speed) || 0);
     const dot = p.vx * nx + p.vy * ny;
     let rx = p.vx - 2 * dot * nx;
     let ry = p.vy - 2 * dot * ny;
@@ -511,12 +533,41 @@ export class Game {
       (hit?.contactX != null) ? hit.contactX : p.x,
       (hit?.contactY != null) ? hit.contactY : p.y,
       nx, ny,
-      speed / Math.max(1, Number(this.cfg?.skills?.dash?.speed) || 1)
+      speed / Math.max(1, Number(dashCfg?.speed) || 1)
     );
   }
 
-  _handlePipeCollision(hit, bounceCap) {
+  _applyDashDestroy(hit, pipe, index) {
+    const p = this.player;
+    const dashCfg = this._skillSlot("dash")?.config || {};
+    const nx = hit?.nx || 0, ny = hit?.ny || 0;
+    const push = (hit?.penetration || 0) + 0.6;
+    p.x += nx * push;
+    p.y += ny * push;
+
+    const pad = p.r + 2;
+    p.x = clamp(p.x, pad, this.W - pad);
+    p.y = clamp(p.y, pad, this.H - pad);
+
+    if (pipe && typeof index === "number") {
+      this._onGapPipeRemoved(pipe);
+      this.pipes.splice(index, 1);
+    }
+
+    const shards = Number(dashCfg.shatterParticles) || 30;
+    this._spawnPipeShatterFx({ shatterParticles: shards, ...pipe }, { ox: hit?.contactX ?? p.x, oy: hit?.contactY ?? p.y });
+    if (this.audioEnabled) sfxDashShatter();
+    this.player.dashT = 0;
+    this.player.dashImpactFlash = Math.max(p.dashImpactFlash, 0.24);
+  }
+
+  _handlePipeCollision(hit, bounceCap, pipe, index) {
+    const dashSlot = this._skillSlot("dash");
     if (this.player.dashT > 0) {
+      if (dashSlot?.id === "dashDestroy") {
+        this._applyDashDestroy(hit, pipe, index);
+        return "destroyed";
+      }
       if (this.player.dashBounces < bounceCap) {
         this._applyDashReflect(hit);
         return "reflected";
@@ -532,130 +583,234 @@ export class Game {
   }
 
   _useSkill(name) {
-    if (!this.cfg.skills[name]) return;
+    const slot = this._skillSlot(name);
+    if (!slot) return;
     if (this.cds[name] > 0) return;
 
+    if (slot.id === "dashRicochet") return this._activateDashRicochet(slot.config || {});
+    if (slot.id === "dashDestroy") return this._activateDashDestroy(slot.config || {});
+    if (slot.id === "phase") return this._activatePhase(slot.config || {});
+    if (slot.id === "teleport") return this._activateTeleport(slot.config || {});
+    if (slot.id === "slowExplosion") return this._activateSlowExplosion(slot.config || {});
+    if (slot.id === "slowField") return this._activateSlowField(slot.config || {});
+  }
+
+  _dashDirection() {
+    const mv = this.input.getMove();
+    const n = norm2(mv.dx, mv.dy);
+    const dx = (n.len > 0) ? n.x : this.player.lastX;
+    const dy = (n.len > 0) ? n.y : this.player.lastY;
+    const nn = norm2(dx, dy);
+    return nn.len > 0 ? nn : { x: 0, y: -1, len: 1 };
+  }
+
+  _spawnDashStartFx(px, py, dirX, dirY) {
+    for (let i = 0; i < 18; i++) {
+      const a = rand(0, Math.PI * 2), sp = rand(40, 260);
+      const vx = Math.cos(a) * sp - dirX * 220;
+      const vy = Math.sin(a) * sp - dirY * 220;
+      const prt = new Part(px, py, vx, vy, rand(0.18, 0.34), rand(1.0, 2.2), "rgba(255,255,255,.80)", true);
+      prt.drag = 9.5;
+      this.parts.push(prt);
+    }
+  }
+
+  _activateDashRicochet(cfg) {
     const p = this.player;
+    const dur = clamp(Number(cfg.duration) || 0, 0, 1.5);
+    const dir = this._dashDirection();
 
-    if (name === "dash") {
-      const d = this.cfg.skills.dash;
-      const dur = clamp(Number(d.duration) || 0, 0, 1.2);
+    p.dashVX = dir.x;
+    p.dashVY = dir.y;
+    p.dashT = dur;
+    p.dashBounces = 0;
+    p.dashImpactFlash = 0;
 
-      // dash direction = current move input or last direction
-      const mv = this.input.getMove();
-      const n = norm2(mv.dx, mv.dy);
-      const dx = (n.len > 0) ? n.x : p.lastX;
-      const dy = (n.len > 0) ? n.y : p.lastY;
-      const nn = norm2(dx, dy);
+    this.cds.dash = Math.max(0, Number(cfg.cooldown) || 0);
+    this._spawnDashStartFx(p.x, p.y, p.dashVX, p.dashVY);
+  }
 
-      p.dashVX = (nn.len > 0) ? nn.x : 0;
-      p.dashVY = (nn.len > 0) ? nn.y : -1;
-      p.dashT = dur;
-      p.dashBounces = 0;
-      p.dashImpactFlash = 0;
+  _activateDashDestroy(cfg) {
+    const p = this.player;
+    const dur = clamp(Number(cfg.duration) || 0, 0, 1.5);
+    const dir = this._dashDirection();
 
-      this.cds.dash = Math.max(0, Number(d.cooldown) || 0);
+    p.dashVX = dir.x;
+    p.dashVY = dir.y;
+    p.dashT = dur;
+    p.dashBounces = 0;
+    p.dashImpactFlash = 0;
 
-      for (let i = 0; i < 18; i++) {
-        const a = rand(0, Math.PI * 2), sp = rand(40, 260);
-        const vx = Math.cos(a) * sp - p.dashVX * 220;
-        const vy = Math.sin(a) * sp - p.dashVY * 220;
-        const prt = new Part(p.x, p.y, vx, vy, rand(0.18, 0.34), rand(1.0, 2.2), "rgba(255,255,255,.80)", true);
-        prt.drag = 9.5;
-        this.parts.push(prt);
+    this.cds.dash = Math.max(0, Number(cfg.cooldown) || 0);
+    this._spawnDashStartFx(p.x, p.y, p.dashVX, p.dashVY);
+  }
+
+  _activatePhase(cfg) {
+    const p = this.player;
+    const dur = clamp(Number(cfg.duration) || 0, 0, 2.0);
+    p.invT = Math.max(p.invT, dur);
+    this.cds.phase = Math.max(0, Number(cfg.cooldown) || 0);
+    this.floats.push(new FloatText("PHASE", p.x, p.y - p.r * 1.6, "rgba(160,220,255,.95)"));
+  }
+
+  _activateTeleport(cfg) {
+    const p = this.player;
+    const t = cfg || {};
+    const ed = clamp(Number(t.effectDuration) || 0.35, 0.1, 1.2);
+    const burst = Math.floor(clamp(Number(t.burstParticles) || 0, 0, 240));
+
+    const cur = (this.input && this.input.cursor) ? this.input.cursor : this.cursor;
+    if (!cur || !cur.has) return;
+
+    const pad = p.r + 2;
+    const ox = p.x, oy = p.y;
+
+    const cw = this.canvas?.width || this.W;
+    const ch = this.canvas?.height || this.H;
+
+    const sx = (cw > 0) ? (this.W / cw) : 1;
+    const sy = (ch > 0) ? (this.H / ch) : 1;
+
+    const tx = cur.x * sx;
+    const ty = cur.y * sy;
+
+    const nx = clamp(tx, pad, this.W - pad);
+    const ny = clamp(ty, pad, this.H - pad);
+
+    for (let i = 0; i < burst; i++) {
+      const a0 = rand(0, Math.PI * 2), sp0 = rand(80, 420);
+      const p0 = new Part(
+        ox, oy,
+        Math.cos(a0) * sp0, Math.sin(a0) * sp0,
+        rand(0.22, 0.50), rand(1.0, 2.2),
+        "rgba(210,170,255,.92)", true
+      );
+      p0.drag = 7.5;
+      this.parts.push(p0);
+
+      const a1 = rand(0, Math.PI * 2), sp1 = rand(80, 420);
+      const p1 = new Part(
+        nx, ny,
+        Math.cos(a1) * sp1, Math.sin(a1) * sp1,
+        rand(0.22, 0.55), rand(1.0, 2.4),
+        "rgba(255,255,255,.82)", true
+      );
+      p1.drag = 7.0;
+      this.parts.push(p1);
+    }
+
+    p.x = nx; p.y = ny;
+    p.vx *= 0.25; p.vy *= 0.25;
+
+    this.cds.teleport = Math.max(0, Number(t.cooldown) || 0);
+    this.floats.push(new FloatText("TELEPORT", p.x, p.y - p.r * 1.7, "rgba(230,200,255,.95)"));
+
+    for (let i = 0; i < 26; i++) {
+      const a = rand(0, Math.PI * 2), sp = rand(40, 160);
+      const prt = new Part(
+        nx, ny,
+        Math.cos(a) * sp, Math.sin(a) * sp,
+        ed, rand(0.9, 1.7),
+        "rgba(255,255,255,.45)", true
+      );
+      prt.drag = 10;
+      this.parts.push(prt);
+    }
+  }
+
+  _activateSlowField(cfg) {
+    const p = this.player;
+    const s = cfg || {};
+    const dur = clamp(Number(s.duration) || 0, 0, 8.0);
+    const rad = clamp(Number(s.radius) || 0, 40, 900);
+    const fac = clamp(Number(s.slowFactor) || 0.6, 0.10, 1.0);
+
+    this.slowField = { x: p.x, y: p.y, r: rad, fac, t: dur, tm: dur };
+    this.cds.slowField = Math.max(0, Number(s.cooldown) || 0);
+    this.floats.push(new FloatText("SLOW FIELD", p.x, p.y - p.r * 1.8, "rgba(120,210,255,.95)"));
+    if (this.audioEnabled) sfxSlowField();
+  }
+
+  _spawnPipeShatterFx(pipe, { ox, oy } = {}) {
+    const baseX = ox ?? (pipe?.x + (pipe?.w || 0) * 0.5);
+    const baseY = oy ?? (pipe?.y + (pipe?.h || 0) * 0.5);
+    const count = Math.max(8, Math.floor(Number(pipe?.shatterParticles) || 30));
+    for (let i = 0; i < count; i++) {
+      const a = rand(0, Math.PI * 2);
+      const sp = rand(120, 360);
+      const size = rand(1.0, 2.8);
+      const prt = new Part(
+        baseX,
+        baseY,
+        Math.cos(a) * sp,
+        Math.sin(a) * sp,
+        rand(0.25, 0.55),
+        size,
+        "rgba(255,255,255,.85)",
+        true
+      );
+      prt.drag = rand(6, 12);
+      prt.twinkle = true;
+      this.parts.push(prt);
+    }
+  }
+
+  _activateSlowExplosion(cfg) {
+    const p = this.player;
+    const radius = clamp(Number(cfg.radius) || 0, 20, 1200);
+    const cooldown = Math.max(0, Number(cfg.cooldown) || 0);
+    const particleCount = Math.max(12, Math.floor(Number(cfg.particleCount) || 34));
+
+    this.slowField = null;
+    const destroyed = [];
+    for (let i = this.pipes.length - 1; i >= 0; i--) {
+      const pipe = this.pipes[i];
+      if (!pipe) continue;
+      const cx = clamp(p.x, pipe.x, pipe.x + pipe.w);
+      const cy = clamp(p.y, pipe.y, pipe.y + pipe.h);
+      const dx = cx - p.x;
+      const dy = cy - p.y;
+      if ((dx * dx + dy * dy) <= radius * radius) {
+        destroyed.push({ pipe, index: i });
+        this._onGapPipeRemoved(pipe);
+        this.pipes.splice(i, 1);
       }
     }
 
-    if (name === "phase") {
-      const ph = this.cfg.skills.phase;
-      const dur = clamp(Number(ph.duration) || 0, 0, 2.0);
-      p.invT = Math.max(p.invT, dur);
-      this.cds.phase = Math.max(0, Number(ph.cooldown) || 0);
-      this.floats.push(new FloatText("PHASE", p.x, p.y - p.r * 1.6, "rgba(160,220,255,.95)"));
+    this.cds.slowField = cooldown;
+    this.floats.push(new FloatText("EXPLOSION", p.x, p.y - p.r * 1.8, "rgba(255,200,160,.95)"));
+
+    const ring = new Part(p.x, p.y, 0, 0, 0.35, radius * 0.08, "rgba(255,200,170,.55)", true);
+    ring.drag = 0;
+    this.parts.push(ring);
+
+    for (let i = 0; i < particleCount; i++) {
+      const a = rand(0, Math.PI * 2);
+      const sp = rand(160, 360);
+      const prt = new Part(
+        p.x,
+        p.y,
+        Math.cos(a) * sp,
+        Math.sin(a) * sp,
+        rand(0.22, 0.48),
+        rand(1.6, 3.0),
+        "rgba(255,230,180,.9)",
+        true
+      );
+      prt.drag = rand(8, 14);
+      this.parts.push(prt);
     }
 
-    if (name === "teleport") {
-      const t = this.cfg.skills.teleport;
-
-      const ed = clamp(Number(t.effectDuration) || 0.35, 0.1, 1.2);
-      const burst = Math.floor(clamp(Number(t.burstParticles) || 0, 0, 240));
-
-      const cur = (this.input && this.input.cursor) ? this.input.cursor : this.cursor;
-      if (!cur || !cur.has) return;
-
-      const pad = p.r + 2;
-      const ox = p.x, oy = p.y;
-
-      // --- KEY FIX: map cursor -> world space ---
-      const cw = this.canvas?.width || this.W;
-      const ch = this.canvas?.height || this.H;
-
-      const sx = (cw > 0) ? (this.W / cw) : 1;
-      const sy = (ch > 0) ? (this.H / ch) : 1;
-
-      const tx = cur.x * sx;
-      const ty = cur.y * sy;
-
-      const nx = clamp(tx, pad, this.W - pad);
-      const ny = clamp(ty, pad, this.H - pad);
-      // --- END FIX ---
-
-      for (let i = 0; i < burst; i++) {
-        const a0 = rand(0, Math.PI * 2), sp0 = rand(80, 420);
-        const p0 = new Part(
-          ox, oy,
-          Math.cos(a0) * sp0, Math.sin(a0) * sp0,
-          rand(0.22, 0.50), rand(1.0, 2.2),
-          "rgba(210,170,255,.92)", true
-        );
-        p0.drag = 7.5;
-        this.parts.push(p0);
-
-        const a1 = rand(0, Math.PI * 2), sp1 = rand(80, 420);
-        const p1 = new Part(
-          nx, ny,
-          Math.cos(a1) * sp1, Math.sin(a1) * sp1,
-          rand(0.22, 0.55), rand(1.0, 2.4),
-          "rgba(255,255,255,.82)", true
-        );
-        p1.drag = 7.0;
-        this.parts.push(p1);
-      }
-
-      p.x = nx; p.y = ny;
-      p.vx *= 0.25; p.vy *= 0.25;
-
-      this.cds.teleport = Math.max(0, Number(t.cooldown) || 0);
-      this.floats.push(new FloatText("TELEPORT", p.x, p.y - p.r * 1.7, "rgba(230,200,255,.95)"));
-
-      for (let i = 0; i < 26; i++) {
-        const a = rand(0, Math.PI * 2), sp = rand(40, 160);
-        const prt = new Part(
-          nx, ny,
-          Math.cos(a) * sp, Math.sin(a) * sp,
-          ed, rand(0.9, 1.7),
-          "rgba(255,255,255,.45)", true
-        );
-        prt.drag = 10;
-        this.parts.push(prt);
-      }
+    for (const entry of destroyed) {
+      this._spawnPipeShatterFx(entry.pipe, { ox: p.x, oy: p.y });
     }
-
-    if (name === "slowField") {
-      const s = this.cfg.skills.slowField;
-
-      const dur = clamp(Number(s.duration) || 0, 0, 8.0);
-      const rad = clamp(Number(s.radius) || 0, 40, 900);
-      const fac = clamp(Number(s.slowFactor) || 0.6, 0.10, 1.0);
-
-      this.slowField = { x: p.x, y: p.y, r: rad, fac, t: dur, tm: dur };
-      this.cds.slowField = Math.max(0, Number(s.cooldown) || 0);
-      this.floats.push(new FloatText("SLOW FIELD", p.x, p.y - p.r * 1.8, "rgba(120,210,255,.95)"));
-    }
+    if (this.audioEnabled) sfxSlowExplosion();
   }
 
   _updatePlayer(dt) {
     const p = this.player;
+    const dashSlot = this._skillSlot("dash");
+    const dashCfg = dashSlot?.config || {};
 
     if (p.invT > 0) p.invT = Math.max(0, p.invT - dt);
     if (p.dashT > 0) p.dashT = Math.max(0, p.dashT - dt);
@@ -666,7 +821,7 @@ export class Game {
     if (n.len > 0) { p.lastX = n.x; p.lastY = n.y; }
 
     if (p.dashT > 0) {
-      const dashSpeed = Math.max(0, Number(this.cfg.skills.dash.speed) || 0);
+      const dashSpeed = Math.max(0, Number(dashCfg.speed) || 0);
       p.vx = p.dashVX * dashSpeed;
       p.vy = p.dashVY * dashSpeed;
     } else {
@@ -1018,15 +1173,17 @@ export class Game {
     // collision (phase = invuln)
     if (this.player.invT <= 0) {
       const bounceCap = this._dashBounceMax();
-      for (const p of this.pipes) {
+      for (let i = 0; i < this.pipes.length; i++) {
+        const p = this.pipes[i];
         const hit = circleRectInfo(this.player.x, this.player.y, this.player.r, p.x, p.y, p.w, p.h);
         if (!hit) continue;
 
         if (this.player.dashT > 0) {
-          const res = this._handlePipeCollision(hit, bounceCap);
+          const res = this._handlePipeCollision(hit, bounceCap, p, i);
           if (res === "reflected") break; // Only process one reflection per frame to avoid ping-pong chaos.
+          if (res === "destroyed") { i--; continue; }
           if (res === "over") return;
-        } else if (this._handlePipeCollision(hit, bounceCap) === "over") {
+        } else if (this._handlePipeCollision(hit, bounceCap, p, i) === "over") {
           return;
         }
       }
@@ -1453,7 +1610,8 @@ _drawOrb(o) {
       ctx.fillText(keyLabel, x + 8, y + 7);
 
       const rem = Math.max(0, this.cds[action] || 0);
-      const max = Math.max(0, Number(this.cfg.skills[action]?.cooldown) || 0);
+      const slot = this._skillSlot(action);
+      const max = Math.max(0, Number(slot?.config?.cooldown) || 0);
       const ready = rem <= 1e-6;
 
       // icon

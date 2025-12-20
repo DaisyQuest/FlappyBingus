@@ -29,6 +29,8 @@ describe("uiLayout", () => {
     const selectPanel = mount.querySelector(".trail-select-panel");
     expect(selectPanel?.querySelectorAll("select")?.length).toBe(1);
     expect(selectPanel?.textContent.trim()).toBe("");
+    expect(ui.dashBehavior).toBeInstanceOf(window.HTMLSelectElement);
+    expect(ui.slowBehavior).toBeInstanceOf(window.HTMLSelectElement);
   });
 
   it("exposes interactive controls with expected defaults", () => {
@@ -67,7 +69,9 @@ describe("uiLayout", () => {
       "watchReplay",
       "exportGif",
       "exportMp4",
-      "replayStatus"
+      "replayStatus",
+      "dashBehavior",
+      "slowBehavior"
     ];
 
     for (const key of requiredRefs) {
