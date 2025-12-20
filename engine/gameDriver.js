@@ -13,12 +13,17 @@ const EPS = 1e-9;
 export class GameDriver {
   constructor({
     game,
-    engine = new GameEngine({ rng: createRng(1), clock: createFixedClock(0) })
+    engine = new GameEngine({ rng: createRng(1), clock: createFixedClock(0) }),
+    syncRandSource
   }) {
     if (!game || typeof game.update !== "function") throw new Error("Game with update(dt) is required.");
     this.game = game;
     this.engine = engine;
     this.snapshots = [];
+
+    if (typeof syncRandSource === "function" && engine.rng?.next) {
+      syncRandSource(() => engine.rng.next());
+    }
   }
 
   /**

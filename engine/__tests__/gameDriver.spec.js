@@ -48,4 +48,15 @@ describe("GameDriver", () => {
   it("requires a game with update", () => {
     expect(() => new GameDriver({ game: null })).toThrow();
   });
+
+  it("syncs rand source when provided", () => {
+    const sync = vi.fn();
+    const driver = new GameDriver({ game: createStubGame(), engine: new GameEngine({}), syncRandSource: sync });
+    expect(sync).toHaveBeenCalledTimes(1);
+    expect(typeof sync.mock.calls[0][0]).toBe("function");
+    // invoke to ensure it calls engine rng
+    const randFn = sync.mock.calls[0][0];
+    const v = randFn();
+    expect(typeof v).toBe("number");
+  });
 });
