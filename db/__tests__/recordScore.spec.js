@@ -100,4 +100,39 @@ describe("MongoDataStore.recordScore", () => {
       updatedAt: now
     });
   });
+
+  it("handles missing counters by starting from zero", async () => {
+    const now = 3_000;
+    vi.spyOn(Date, "now").mockReturnValue(now);
+
+    const store = new MongoDataStore({ uri: "mongodb://test", dbName: "db" });
+    store.ensureConnected = vi.fn();
+    const existing = {
+      key: "jason",
+      username: "Jason",
+      runs: undefined,
+      totalScore: undefined,
+      bestScore: undefined,
+      createdAt: 50,
+      selectedTrail: "classic",
+      keybinds: null
+    };
+    const collection = new FakeCollection(existing);
+    store.usersCollection = () => collection;
+
+    const result = await store.recordScore(existing, 10);
+
+    expect(result).toEqual({
+      key: "jason",
+      username: "Jason",
+      runs: 1,
+      totalScore: 10,
+      bestScore: 10,
+      createdAt: 50,
+      selectedTrail: "classic",
+      keybinds: null,
+      updatedAt: now
+    });
+  });
+
 });
