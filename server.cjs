@@ -680,7 +680,7 @@ async function route(req, res) {
 
     const score = Math.max(0, Math.min(1_000_000_000, Math.floor(s)));
 
-    const updated = await dataStore.recordScore(u.key, score);
+    const updated = await dataStore.recordScore(u, score);
     ensureUserSchema(updated);
 
     sendJson(res, 200, {

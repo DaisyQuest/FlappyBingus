@@ -837,7 +837,8 @@ async function onGameOver(finalScore) {
 
   if (net.user) {
     const res = await apiSubmitScore(finalScore | 0);
-    if (res && res.ok) {
+    if (res && res.ok && res.user) {
+      net.online = true;
       net.user = res.user;
       net.trails = res.trails || net.trails;
       net.highscores = res.highscores || net.highscores;
@@ -846,6 +847,15 @@ async function onGameOver(finalScore) {
       renderHighscores();
 
       overPB.textContent = String(net.user.bestScore | 0);
+    } else {
+      net.online = false;
+
+      // Try to re-hydrate the session so subsequent runs can still submit.
+      await refreshProfileAndHighscores();
+
+      // Keep PB display meaningful even if the submission failed.
+      const best = net.user ? (net.user.bestScore | 0) : readLocalBest();
+      overPB.textContent = String(best);
     }
   }
 
