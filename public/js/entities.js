@@ -126,12 +126,26 @@ export class Part {
 }
 
 export class FloatText {
-  constructor(txt, x, y, color) {
+  constructor(txt, x, y, color, style = {}) {
     this.txt = txt; this.x = x; this.y = y;
     this.vx = rand(-18, 18); this.vy = rand(-90, -55);
     this.life = 0.9; this.max = 0.9;
     this.color = color || "rgba(255,255,255,.95)";
-    this.size = 18;
+    this.palette = Array.isArray(style.palette) ? style.palette.slice(0, 4) : null;
+    this.glowColor = style.glowColor || "rgba(255,255,255,.95)";
+    this.strokeColor = style.strokeColor || "rgba(0,0,0,.55)";
+    this.strokeWidth = style.strokeWidth ?? 1.8;
+    this.size = style.size || 18;
+    this.wobble = style.wobble || 0;
+    this.spin = style.spin || 0;
+    this.shimmer = style.shimmer || 0;
+    this.sparkle = !!style.sparkle;
+    this.combo = style.combo || 0;
+    this.comboMax = style.comboMax || 1;
+
+    this.rotation = 0;
+    this.phase = 0;
+    this.sparkleSeed = rand(0, Math.PI * 2);
   }
   update(dt) {
     this.life -= dt;
@@ -140,18 +154,64 @@ export class FloatText {
     this.y += this.vy * dt;
     const d = Math.exp(-2.7 * dt);
     this.vx *= d; this.vy *= d;
+    this.phase += dt;
+    this.rotation += this.spin * dt;
+  }
+  _gradient(ctx, w, h) {
+    if (!this.palette || this.palette.length < 2) return null;
+    const slide = Math.sin(this.phase * 2.5) * this.shimmer * 12;
+    const g = ctx.createLinearGradient(-w * 0.6, -h * 0.8 + slide, w * 0.6, h * 0.8 - slide);
+    const n = this.palette.length;
+    for (let i = 0; i < n; i++) {
+      g.addColorStop(i / Math.max(1, n - 1), this.palette[i]);
+    }
+    return g;
+  }
+  _sparkles(ctx, a) {
+    if (!this.sparkle) return;
+    ctx.save();
+    ctx.globalCompositeOperation = "lighter";
+    ctx.globalAlpha = a * 0.65;
+    ctx.fillStyle = this.glowColor;
+    const base = Math.min(6, 2 + Math.floor((this.combo / Math.max(1, this.comboMax)) * 8));
+    for (let i = 0; i < base; i++) {
+      const ph = this.sparkleSeed + i * 1.8 + this.phase * 5.4;
+      const r = (Math.sin(ph * 1.7) * 0.5 + 0.5) * 8 + 3;
+      const ox = Math.cos(ph) * (6 + i * 0.8);
+      const oy = Math.sin(ph * 0.7) * (4 + i * 0.6);
+      ctx.beginPath();
+      ctx.arc(ox, oy, r * 0.25, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.restore();
   }
   draw(ctx) {
     if (this.life <= 0) return;
     const t = clamp(this.life / this.max, 0, 1), a = t * t;
+    const wob = Math.sin(this.phase * 5) * this.wobble * (0.6 + 0.4 * (1 - t));
     ctx.save();
+    ctx.translate(this.x + wob, this.y);
+    if (this.rotation) ctx.rotate(this.rotation);
+
     ctx.globalAlpha = a;
     ctx.font = `900 ${this.size}px system-ui,-apple-system,Segoe UI,Roboto,sans-serif`;
     ctx.textAlign = "center"; ctx.textBaseline = "middle";
-    ctx.shadowColor = "rgba(0,0,0,.55)";
-    ctx.shadowBlur = 14; ctx.shadowOffsetY = 2;
-    ctx.fillStyle = this.color;
-    ctx.fillText(this.txt, this.x, this.y);
+    ctx.shadowColor = this.glowColor;
+    ctx.shadowBlur = 20 + (8 * (this.combo / Math.max(1, this.comboMax)));
+    ctx.shadowOffsetY = 3;
+
+    const w = this.size * this.txt.length * 0.65;
+    const h = this.size;
+    const grad = this._gradient(ctx, w, h);
+    ctx.fillStyle = grad || this.color;
+    ctx.strokeStyle = this.strokeColor;
+    ctx.lineWidth = this.strokeWidth;
+    ctx.lineJoin = "round";
+
+    if (this.strokeWidth > 0) ctx.strokeText(this.txt, 0, 0);
+    ctx.fillText(this.txt, 0, 0);
+
+    this._sparkles(ctx, a);
     ctx.restore();
   }
 }

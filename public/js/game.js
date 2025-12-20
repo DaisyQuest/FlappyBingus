@@ -19,6 +19,7 @@ const STATE = Object.freeze({ MENU: 0, PLAY: 1, OVER: 2 });
 import { Pipe, Gate, Orb, Part, FloatText } from "./entities.js";
 import { spawnBurst, spawnCrossfire, spawnOrb, spawnSinglePipe, spawnWall } from "./spawn.js";
 import { dashBounceMax, orbPoints, tickCooldowns } from "./mechanics.js";
+import { buildScorePopupStyle, popupAnchor } from "./uiStyles.js";
 
 export { Pipe, Gate, Orb, Part, FloatText };
 
@@ -926,7 +927,9 @@ export class Game {
 
         if (res.awarded) {
           const pts = res.points || 0;
-          this.floats.push(new FloatText(`+${pts}`, this.player.x, this.player.y - this.player.r * 2.0, "rgba(255,255,255,.95)"));
+          const perfectStyle = buildScorePopupStyle({ combo: res.streak || this.perfectCombo, variant: "perfect" });
+          const anchor = popupAnchor(this.player);
+          this.floats.push(new FloatText(`+${pts}`, anchor.x, anchor.y, perfectStyle.color, perfectStyle));
 
           for (let k = 0; k < 28; k++) {
             const a = rand(0, Math.PI * 2), sp = rand(60, 320);
@@ -974,10 +977,9 @@ export class Game {
         const pts = this._orbPoints(this.combo);
         this.score += pts;
 
-        const col = (this.combo >= (Number(this.cfg.ui.comboBar.glowAt) || 9999))
-          ? "rgba(255,255,255,.98)"
-          : "rgba(120,210,255,.95)";
-        this.floats.push(new FloatText(`+${pts}`, ob.x, ob.y, col));
+        const popupStyle = buildScorePopupStyle({ combo: this.combo, variant: "orb" });
+        const anchor = popupAnchor(this.player);
+        this.floats.push(new FloatText(`+${pts}`, anchor.x, anchor.y, popupStyle.color, popupStyle));
 
         for (let k = 0; k < 18; k++) {
           const a = rand(0, Math.PI * 2), sp = rand(40, 240);
@@ -1276,13 +1278,23 @@ _drawOrb(o) {
   _drawHUD() {
     const ctx = this.ctx;
 
-    // score (top-left)
+    // score (center-bottom)
     ctx.save();
-    ctx.font = "900 18px system-ui,-apple-system,Segoe UI,Roboto,sans-serif";
-    ctx.textAlign = "left"; ctx.textBaseline = "top";
-    ctx.shadowColor = "rgba(0,0,0,.55)"; ctx.shadowBlur = 12; ctx.shadowOffsetY = 2;
-    ctx.fillStyle = "rgba(255,255,255,.92)";
-    ctx.fillText(`Score: ${this.score | 0}`, 14, 14);
+    ctx.textAlign = "center"; ctx.textBaseline = "middle";
+    const scoreX = this.W * 0.5;
+    const scoreY = this.H * 0.95;
+    ctx.shadowColor = "rgba(0,0,0,.55)"; ctx.shadowBlur = 26; ctx.shadowOffsetY = 4;
+
+    const bigScore = `${this.score | 0}`;
+    const bubble = ctx.createLinearGradient(scoreX, scoreY - 60, scoreX, scoreY + 60);
+    bubble.addColorStop(0, "rgba(255,255,255,.70)");
+    bubble.addColorStop(1, "rgba(200,220,255,.35)");
+    ctx.font = "900 82px \"Baloo 2\", \"Fredoka\", system-ui,-apple-system,Segoe UI,Roboto,sans-serif";
+    ctx.strokeStyle = "rgba(255,255,255,.25)";
+    ctx.lineWidth = 3.2;
+    ctx.fillStyle = bubble;
+    ctx.strokeText(bigScore, scoreX, scoreY);
+    ctx.fillText(bigScore, scoreX, scoreY);
 
     // intensity (top-right)
     ctx.textAlign = "right";
