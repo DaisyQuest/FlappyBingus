@@ -193,4 +193,29 @@ describe("api helpers", () => {
     // eslint-disable-next-line no-undef
     delete global.CompressionStream;
   });
+
+  it("uses the vendored pako gzip when CompressionStream is unavailable", async () => {
+    const fetchMock = vi.fn(() =>
+      Promise.resolve({
+        ok: true,
+        json: () => Promise.resolve({ ok: true })
+      })
+    );
+    // eslint-disable-next-line no-undef
+    global.fetch = fetchMock;
+    // eslint-disable-next-line no-undef
+    global.CompressionStream = undefined;
+    vi.doMock("../../vendor/pako.esm.mjs", () => ({
+      gzip: vi.fn(() => new Uint8Array([1, 2, 3, 4]))
+    }));
+    const { apiSubmitScore } = await import("../api.js");
+
+    await apiSubmitScore(10, { small: true });
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    const body = fetchMock.mock.calls[0][1].body;
+    expect(body).toContain("\"compression\":\"gzip-base64\"");
+    expect(body).toContain("AQIDBA"); // base64 of 1,2,3,4
+    vi.resetModules();
+  });
 });

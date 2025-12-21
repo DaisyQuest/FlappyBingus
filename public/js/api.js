@@ -62,6 +62,7 @@ function encodeBase64(uint8) {
 }
 
 let COMPRESSION_TIMEOUT_MS = 1000;
+let _pakoGzip = null;
 
 async function gzipToBase64(text) {
   if (typeof CompressionStream === "function") {
@@ -72,6 +73,12 @@ async function gzipToBase64(text) {
     await writer.close();
     const compressedBuffer = await new Response(cs.readable).arrayBuffer();
     return encodeBase64(new Uint8Array(compressedBuffer));
+  }
+  try {
+    const compressed = await pakoGzip(text);
+    return encodeBase64(compressed);
+  } catch {
+    // continue to next fallback
   }
   if (typeof require === "function") {
     try {
@@ -111,6 +118,14 @@ async function safeCompressReplayPayload(replay) {
   } finally {
     if (timer) clearTimeout(timer);
   }
+}
+
+async function pakoGzip(text) {
+  if (!_pakoGzip) {
+    const mod = await import("../vendor/pako.esm.mjs");
+    _pakoGzip = mod.gzip;
+  }
+  return _pakoGzip(text);
 }
 
 export async function apiSubmitScore(score, replay) {
