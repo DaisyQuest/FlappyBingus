@@ -30,11 +30,11 @@
   "skills": {
     "bindings": ["dash", "phase", "teleport", "slowField"],
     "dash": { "cooldown": 1.15, "duration": 0.22, "speed": 900, "bounceRetain": 0.86, "maxBounces": null },
-    "dashDestroy": { "cooldown": 1.65, "duration": 0.22, "speed": 900, "shatterParticles": 38, "impactIFrames": 0.15, "maxBounces": 0 },
+    "dashDestroy": { "cooldown": 5, "duration": 0.22, "speed": 900, "shatterParticles": 38, "impactIFrames": 0.15, "maxBounces": 0 },
     "phase": { "cooldown": 2.75, "duration": 0.7 },
     "teleport": { "cooldown": 2.1, "range": 1000, "effectDuration": 0.35, "burstParticles": 34 },
     "slowField": { "cooldown": 10, "duration": 2, "radius": 420, "slowFactor": 0.29 },
-    "slowExplosion": { "cooldown": 20, "duration": 0.2, "radius": 282, "blastParticles": 36 }
+    "slowExplosion": { "cooldown": 17, "duration": 0.2, "radius": 282, "blastParticles": 36 }
   },
   "catalysts": {
     "orbs": {
