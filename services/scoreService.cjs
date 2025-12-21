@@ -39,6 +39,7 @@ function createScoreService(deps) {
       const updated = await dataStore.recordScore(user, score);
       const isNewBest = (updated.bestScore | 0) > (user.bestScore | 0);
       let replaySaved = false;
+      let replayError = null;
 
       if (isNewBest && replay !== undefined && typeof dataStore.saveBestReplay === "function") {
         try {
@@ -47,7 +48,8 @@ function createScoreService(deps) {
           await dataStore.saveBestReplay(replayKey, replay, { score });
           replaySaved = true;
         } catch (replayErr) {
-          return { ok: false, status: 503, error: "replay_persist_failed", detail: replayErr?.message };
+          replaySaved = false;
+          replayError = replayErr?.message || "replay_persist_failed";
         }
       }
 
@@ -63,7 +65,8 @@ function createScoreService(deps) {
           user: publicUser(updated, { recordHolder }),
           trails,
           highscores,
-          replaySaved
+          replaySaved,
+          replayError
         }
       };
     } catch (err) {

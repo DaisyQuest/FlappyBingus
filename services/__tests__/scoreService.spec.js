@@ -56,7 +56,8 @@ describe("scoreService", () => {
         user: { name: "User", bestScore: 123, recordHolder: false },
         trails: deps.trails,
         highscores: [{ username: "a", bestScore: 1 }],
-        replaySaved: false
+        replaySaved: false,
+        replayError: null
       }
     });
   });
@@ -101,7 +102,7 @@ describe("scoreService", () => {
     expect(res.body.replaySaved).toBe(false);
   });
 
-  it("returns an error when replay persistence fails", async () => {
+  it("downgrades to success when replay persistence fails, reporting the error", async () => {
     const user = { key: "u", username: "User", bestScore: 1 };
     const updated = { ...user, bestScore: 2 };
     deps.dataStore.recordScore.mockResolvedValue(updated);
@@ -110,9 +111,11 @@ describe("scoreService", () => {
     const svc = createScoreService(deps);
     const res = await svc.submitScore(user, 2, { replay: true });
 
-    expect(res.ok).toBe(false);
-    expect(res.status).toBe(503);
-    expect(res.error).toBe("replay_persist_failed");
+    expect(res.ok).toBe(true);
+    expect(res.status).toBe(200);
+    expect(res.body.replaySaved).toBe(false);
+    expect(res.body.replayError).toBe("kaput");
+    expect(deps.ensureUserSchema).toHaveBeenCalledWith(updated, { recordHolder: false });
   });
 
   it("maps recordScore failures to service errors", async () => {
