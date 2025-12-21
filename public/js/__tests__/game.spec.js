@@ -412,6 +412,17 @@ describe("Skill usage", () => {
     expect(popup.wobble).toBeGreaterThan(0);
     expect(popup.txt).toBe("DASH 0.4s");
   });
+
+  it("spawns oversized achievement popups near the player", () => {
+    const { game } = buildGame();
+    game.player.x = 20;
+    game.player.y = 30;
+    const popup = game.showAchievementPopup({ title: "Test Unlock" });
+    expect(game.floats.at(-1)).toBe(popup);
+    expect(popup?.size).toBeGreaterThanOrEqual(32);
+    expect(popup?.life).toBeCloseTo(1.4);
+    expect(popup?.txt).toContain("Test Unlock");
+  });
 });
 
 describe("Player movement and trail emission", () => {

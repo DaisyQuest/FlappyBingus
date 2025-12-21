@@ -441,7 +441,7 @@ function notifyAchievements(unlockedIds = []) {
   unlockedIds.forEach((id) => {
     const def = definitions.find((d) => d.id === id);
     if (!def) return;
-    appendAchievementToast(achievementToasts, def);
+    appendAchievementToast(game, def);
     sfxAchievementUnlock();
   });
 }

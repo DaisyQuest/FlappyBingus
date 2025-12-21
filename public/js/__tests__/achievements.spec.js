@@ -25,16 +25,43 @@ describe("achievements helpers", () => {
   it("normalizes and clamps incoming state", () => {
     const normalized = normalizeAchievementState({
       unlocked: { no_orbs_100: "2000", bogus: "bad" },
-      progress: { maxScoreNoOrbs: 150.9, maxScoreNoAbilities: -5 }
+      progress: {
+        maxScoreNoOrbs: 150.9,
+        maxScoreNoAbilities: -5,
+        maxPerfectsInRun: 12.2,
+        totalPerfects: "55",
+        maxOrbsInRun: 77.7,
+        totalOrbsCollected: 1999.8,
+        totalScore: 10_000.5
+      }
     });
     expect(normalized.unlocked).toEqual({ no_orbs_100: 2000 });
-    expect(normalized.progress).toEqual({ maxScoreNoOrbs: 150, maxScoreNoAbilities: 0 });
+    expect(normalized.progress).toEqual({
+      maxScoreNoOrbs: 150,
+      maxScoreNoAbilities: 0,
+      maxPerfectsInRun: 12,
+      totalPerfects: 55,
+      maxOrbsInRun: 77,
+      totalOrbsCollected: 1999,
+      totalScore: 10_000
+    });
   });
 
   it("renders achievement progress and unlocked state", () => {
     renderAchievementsList(container, {
       definitions: ACHIEVEMENTS,
-      state: { unlocked: { no_orbs_100: 1234 }, progress: { maxScoreNoOrbs: 120, maxScoreNoAbilities: 80 } }
+      state: {
+        unlocked: { no_orbs_100: 1234 },
+        progress: {
+          maxScoreNoOrbs: 120,
+          maxScoreNoAbilities: 80,
+          maxPerfectsInRun: 9,
+          totalPerfects: 80,
+          maxOrbsInRun: 10,
+          totalOrbsCollected: 1500,
+          totalScore: 8000
+        }
+      }
     });
 
     const rows = container.querySelectorAll(".achievement-row");
@@ -42,15 +69,19 @@ describe("achievements helpers", () => {
     const unlockedRow = Array.from(rows).find((r) => r.textContent.includes("Orb-Free Century"));
     expect(unlockedRow.querySelector(".achievement-status")?.classList.contains("unlocked")).toBe(true);
     expect(unlockedRow.querySelector(".achievement-meter-fill")?.classList.contains("filled")).toBe(true);
+    const totalRow = Array.from(rows).find((r) => r.textContent.includes("Treasure Hunter"));
+    expect(totalRow?.querySelector(".achievement-status")?.textContent).toContain("Progress: 1500/2000");
   });
 
-  it("queues toast visibility transitions", () => {
-    vi.useFakeTimers();
-    const toastWrap = document.getElementById("toasts");
-    const toast = appendAchievementToast(toastWrap, ACHIEVEMENTS[0]);
-    expect(toastWrap.childElementCount).toBe(1);
+  it("prefers in-game achievement popups over DOM fallbacks", () => {
+    const fakeGame = { showAchievementPopup: vi.fn(() => "popup") };
+    const popup = appendAchievementToast(fakeGame, ACHIEVEMENTS[0]);
+    expect(fakeGame.showAchievementPopup).toHaveBeenCalled();
+    expect(popup).toBe("popup");
 
-    vi.runOnlyPendingTimers();
-    expect(toast.classList.contains("fade") || toast.classList.contains("visible")).toBe(true);
+    const toastWrap = document.getElementById("toasts");
+    const toast = appendAchievementToast(toastWrap, ACHIEVEMENTS[1]);
+    expect(toastWrap.childElementCount).toBe(1);
+    expect(toast.textContent).toContain("Achievement unlocked");
   });
 });

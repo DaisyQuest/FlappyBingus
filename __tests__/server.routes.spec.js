@@ -193,7 +193,13 @@ describe("server routes and helpers", () => {
 
     const payload = readJson(res);
     expect(payload.achievements.definitions.some((a) => a.id === "no_orbs_100")).toBe(true);
+    expect(payload.achievements.definitions.some((a) => a.id === "total_score_10000")).toBe(true);
     expect(payload.achievements.state.unlocked.no_orbs_100).toBe(1234);
+    expect(payload.achievements.state.progress).toMatchObject({
+      maxScoreNoOrbs: 140,
+      maxScoreNoAbilities: 0,
+      totalScore: 0
+    });
   });
 
   it("preserves record-holder cosmetics on /api/me responses", async () => {
