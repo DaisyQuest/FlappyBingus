@@ -3,7 +3,7 @@
 // =====================
 import {
   clamp, lerp, rand, norm2, approach,
-  circleRectInfo, circleCircle,
+  circleRect, circleRectInfo, circleCircle,
   hexToRgb, lerpC, rgb, shade, hsla
 } from "./util.js";
 import { ACTIONS, humanizeBind } from "./keybinds.js";
@@ -676,6 +676,7 @@ export class Game {
     const p = this.player;
     this._dashDestroySfx();
     this._shatterPipe(hit?.pipe, { hit, particles: Math.max(10, Number(dashCfg?.shatterParticles) || 30), cause: "dashDestroy" });
+    this._dashImpactSlowdown(hit);
     p.dashDestroyed = true;
     p.dashMode = null;
     p.dashT = 0;
@@ -686,13 +687,50 @@ export class Game {
     return "destroyed";
   }
 
+  _dashImpactSlowdown(hit) {
+    const p = this.player;
+    let nx = hit?.nx || 0, ny = hit?.ny || 0;
+    const pipeVX = hit?.pipe?.vx || 0;
+    const pipeVY = hit?.pipe?.vy || 0;
+
+    if (Math.abs(nx) < 1e-5 && Math.abs(ny) < 1e-5) {
+      const fallback = norm2(p.dashVX || p.vx, p.dashVY || p.vy);
+      nx = fallback.x; ny = fallback.y;
+    }
+
+    const relVx = p.vx - pipeVX;
+    const relVy = p.vy - pipeVY;
+    const relNormal = relVx * nx + relVy * ny;
+    const tangentialX = relVx - relNormal * nx;
+    const tangentialY = relVy - relNormal * ny;
+
+    const playerSpeed = Math.max(1e-3, Math.hypot(p.vx, p.vy));
+    const closing = Math.max(0, -relNormal);
+    const impactScale = clamp(closing / playerSpeed, 0, 1);
+    const damp = clamp(0.12 + impactScale * 0.45, 0, 0.65);
+
+    const newRelNormal = relNormal * (1 - damp);
+    const newVx = pipeVX + tangentialX + newRelNormal * nx;
+    const newVy = pipeVY + tangentialY + newRelNormal * ny;
+
+    p.vx = newVx;
+    p.vy = newVy;
+    const dir = norm2(newVx, newVy);
+    if (dir.len > 1e-5) {
+      p.dashVX = dir.x;
+      p.dashVY = dir.y;
+    }
+  }
+
+  _pipeOverlapsCircle(pipe, { x, y, r }) {
+    if (!pipe || r <= 0) return false;
+    return circleRect(x, y, r, pipe.x, pipe.y, pipe.w, pipe.h);
+  }
+
   _destroyPipesInRadius({ x, y, r, cause = "slowExplosion" }) {
-    const r2 = r * r;
     for (let i = this.pipes.length - 1; i >= 0; i--) {
       const pipe = this.pipes[i];
-      const dx = (pipe.cx ? pipe.cx() : pipe.x + pipe.w * 0.5) - x;
-      const dy = (pipe.cy ? pipe.cy() : pipe.y + pipe.h * 0.5) - y;
-      if ((dx * dx + dy * dy) <= r2) {
+      if (this._pipeOverlapsCircle(pipe, { x, y, r })) {
         this._shatterPipe(pipe, { particles: 24, cause });
       }
     }
@@ -1290,10 +1328,7 @@ export class Game {
     // update pipes
     for (const p of this.pipes) {
       let mul = 1;
-      if (this.slowField) {
-        const dx = p.cx() - this.slowField.x, dy = p.cy() - this.slowField.y;
-        if ((dx * dx + dy * dy) <= this.slowField.r * this.slowField.r) mul = this.slowField.fac;
-      }
+      if (this.slowField && this._pipeOverlapsCircle(p, this.slowField)) mul = this.slowField.fac;
       p.update(dt, mul, this.W, this.H);
     }
 
@@ -1678,11 +1713,7 @@ _drawOrb(o) {
       ctx.globalAlpha = a;
       ctx.strokeStyle = "rgba(255,210,160,.85)";
       ctx.lineWidth = 2.4;
-      ctx.beginPath(); ctx.arc(this.slowExplosion.x, this.slowExplosion.y, this.slowExplosion.r * (1 + (1 - t) * 0.25), 0, Math.PI * 2); ctx.stroke();
-      ctx.globalAlpha = a * 0.4;
-      ctx.setLineDash([6, 7]);
-      ctx.lineWidth = 1.6;
-      ctx.beginPath(); ctx.arc(this.slowExplosion.x, this.slowExplosion.y, this.slowExplosion.r * 0.65, 0, Math.PI * 2); ctx.stroke();
+      ctx.beginPath(); ctx.arc(this.slowExplosion.x, this.slowExplosion.y, this.slowExplosion.r, 0, Math.PI * 2); ctx.stroke();
       ctx.restore();
     }
 
