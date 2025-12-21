@@ -71,6 +71,7 @@ describe("uiLayout", () => {
       "exportGif",
       "exportMp4",
       "replayStatus",
+      "achievementsHideCompleted",
       "achievementsList",
       "achievementToasts",
       "viewAchievements"
