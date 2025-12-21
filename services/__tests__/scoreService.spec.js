@@ -76,6 +76,20 @@ describe("scoreService", () => {
     expect(deps.dataStore.saveBestReplay).toHaveBeenCalledWith("u", { demo: true }, { score: 5 });
   });
 
+  it("decodes binary gzip replays before saving", async () => {
+    const zlib = await import("node:zlib");
+    const user = { key: "u", username: "User", bestScore: 1 };
+    const updated = { ...user, bestScore: 5 };
+    deps.dataStore.recordScore.mockResolvedValue(updated);
+    deps.dataStore.saveBestReplay = vi.fn(async () => ({}));
+    const compressed = zlib.gzipSync(JSON.stringify({ fresh: true }));
+
+    const svc = createScoreService(deps);
+    await svc.submitScore(user, 5, { compression: "gzip", data: compressed });
+
+    expect(deps.dataStore.saveBestReplay).toHaveBeenCalledWith("u", { fresh: true }, { score: 5 });
+  });
+
   it("marks the submitting user as the record holder when appropriate", async () => {
     const user = { key: "u", username: "champ" };
     const updated = { ...user, bestScore: 9000 };
@@ -114,6 +128,19 @@ describe("scoreService", () => {
 
     expect(deps.dataStore.saveBestReplay).not.toHaveBeenCalled();
     expect(res.body.replaySaved).toBe(false);
+  });
+
+  it("parses uncompressed replay files when provided", async () => {
+    const user = { key: "u", username: "User", bestScore: 1 };
+    const updated = { ...user, bestScore: 3 };
+    deps.dataStore.recordScore.mockResolvedValue(updated);
+    deps.dataStore.saveBestReplay = vi.fn(async () => ({}));
+    const buf = Buffer.from(JSON.stringify({ plain: true }), "utf8");
+
+    const svc = createScoreService(deps);
+    await svc.submitScore(user, 3, { compression: "none", data: buf });
+
+    expect(deps.dataStore.saveBestReplay).toHaveBeenCalledWith("u", { plain: true }, { score: 3 });
   });
 
   it("downgrades to success when replay persistence fails, reporting the error", async () => {

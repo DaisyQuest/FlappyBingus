@@ -405,6 +405,71 @@ async function readJsonBody(req, limitBytes = 64 * 1024) {
   return JSON.parse(text);
 }
 
+async function readMultipartBody(req, limitBytes = 64 * 1024) {
+  const contentType = req.headers["content-type"] || "";
+  const boundaryMatch = contentType.match(/boundary=([^;]+)/i);
+  if (!boundaryMatch) throw new Error("missing_boundary");
+  const boundary = boundaryMatch[1];
+  let total = 0;
+  const chunks = [];
+  for await (const chunk of req) {
+    total += chunk.length;
+    if (total > limitBytes) throw new Error("body_too_large");
+    chunks.push(chunk);
+  }
+  const raw = Buffer.concat(chunks);
+  return parseMultipartForm(raw, boundary);
+}
+
+function parseMultipartForm(body, boundary) {
+  const delimiter = `--${boundary}`;
+  const parts = body.toString("binary").split(delimiter);
+  const fields = {};
+  const files = {};
+
+  for (const partText of parts) {
+    if (!partText || partText === "--\r\n" || partText === "--") continue;
+    let buf = Buffer.from(partText, "binary");
+    if (buf[0] === 13 && buf[1] === 10) buf = buf.slice(2); // trim leading CRLF
+    if (buf.length >= 4 && buf.slice(-4).toString("utf8") === "\r\n--") {
+      buf = buf.slice(0, -4); // trim trailing boundary marks
+    }
+    if (buf.length >= 2 && buf.slice(-2).toString("utf8") === "\r\n") buf = buf.slice(0, -2);
+    const headerEnd = buf.indexOf(Buffer.from("\r\n\r\n"));
+    if (headerEnd === -1) continue;
+    const headerText = buf.slice(0, headerEnd).toString("utf8");
+    let content = buf.slice(headerEnd + 4);
+    if (content.length >= 2 && content[content.length - 2] === 13 && content[content.length - 1] === 10) {
+      content = content.slice(0, -2);
+    }
+    const headers = headerText.split("\r\n");
+    let name = null;
+    let filename = null;
+    let contentType = null;
+    for (const line of headers) {
+      const [rawKey, ...rest] = line.split(":");
+      if (!rest.length) continue;
+      const key = rawKey.trim().toLowerCase();
+      const value = rest.join(":").trim();
+      if (key === "content-disposition") {
+        const nameMatch = value.match(/name=\"([^\"]+)\"/);
+        const fileMatch = value.match(/filename=\"([^\"]*)\"/);
+        if (nameMatch) name = nameMatch[1];
+        if (fileMatch) filename = fileMatch[1];
+      } else if (key === "content-type") {
+        contentType = value.toLowerCase();
+      }
+    }
+    if (!name) continue;
+    if (filename !== null) {
+      files[name] = { filename, contentType, data: content };
+    } else {
+      fields[name] = content.toString("utf8");
+    }
+  }
+  return { fields, files };
+}
+
 function escapeHtml(s) {
   return String(s)
     .replaceAll("&", "&amp;")
@@ -752,14 +817,31 @@ async function route(req, res) {
     if (!(await ensureDatabase(res))) return;
     const u = await getUserFromReq(req, { withRecordHolder: true });
 
+    const isMultipart = (req.headers["content-type"] || "").startsWith("multipart/form-data");
     let body;
     try {
-      body = await readJsonBody(req, MAX_REPLAY_BODY_BYTES);
+      body = isMultipart ? await readMultipartBody(req, MAX_REPLAY_BODY_BYTES) : await readJsonBody(req, MAX_REPLAY_BODY_BYTES);
     } catch {
       return badRequest(res, "invalid_json");
     }
 
-    const { status, body: responseBody, error } = await scoreService.submitScore(u, body.score, body.replay);
+    let scorePayload = body.score;
+    let replayPayload = body.replay;
+
+    if (isMultipart) {
+      scorePayload = body.fields?.score ?? scorePayload;
+      const replayFile = body.files?.replay;
+      if (replayFile?.data) {
+        const compression = (body.fields?.replayCompression || "").toLowerCase();
+        if (compression === "gzip") {
+          replayPayload = { compression: "gzip", data: replayFile.data };
+        } else {
+          replayPayload = { compression: "none", data: replayFile.data };
+        }
+      }
+    }
+
+    const { status, body: responseBody, error } = await scoreService.submitScore(u, scorePayload, replayPayload);
     if (status >= 200 && status < 300 && responseBody) {
       sendJson(res, status, responseBody);
     } else {

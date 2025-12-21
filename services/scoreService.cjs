@@ -22,6 +22,17 @@ function createScoreService(deps) {
   if (typeof publicUser !== "function") throw new Error("publicUser_required");
   if (typeof listHighscores !== "function") throw new Error("listHighscores_required");
 
+  function decodeReplayBuffer(data) {
+    if (!data) return null;
+    try {
+      const buf = Buffer.isBuffer(data) ? data : Buffer.from(data);
+      const text = buf.toString("utf8");
+      return JSON.parse(text);
+    } catch {
+      return null;
+    }
+  }
+
   function decodeReplayPayload(replay) {
     if (!replay) return replay;
     if (replay && replay.compression === "gzip-base64" && typeof replay.data === "string") {
@@ -33,6 +44,18 @@ function createScoreService(deps) {
       } catch {
         return null;
       }
+    }
+    if (replay && replay.compression === "gzip" && replay.data) {
+      try {
+        const inflated = zlib.gunzipSync(replay.data);
+        const text = inflated.toString("utf8");
+        return JSON.parse(text);
+      } catch {
+        return null;
+      }
+    }
+    if (replay && replay.compression === "none" && replay.data) {
+      return decodeReplayBuffer(replay.data);
     }
     return replay;
   }

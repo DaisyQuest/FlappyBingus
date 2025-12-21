@@ -27,13 +27,14 @@ function hitClientRateLimit(name) {
 
 async function requestJson(url, opts = {}) {
   try {
+    const isFormData = typeof FormData !== "undefined" && opts.body instanceof FormData;
+    const headers = isFormData
+      ? { ...(opts.headers || {}) }
+      : { "Content-Type": "application/json", ...(opts.headers || {}) };
     const res = await fetch(url, {
       credentials: "same-origin",
       ...opts,
-      headers: {
-        "Content-Type": "application/json",
-        ...(opts.headers || {})
-      }
+      headers
     });
     const data = await res.json().catch(() => null);
     if (!res.ok || !data) return null;
@@ -59,6 +60,15 @@ function encodeBase64(uint8) {
   for (let i = 0; i < uint8.length; i += 1) binary += String.fromCharCode(uint8[i]);
   // eslint-disable-next-line no-undef
   return btoa(binary);
+}
+
+function decodeBase64ToUint8(base64) {
+  if (typeof Buffer !== "undefined") return new Uint8Array(Buffer.from(base64, "base64"));
+  // eslint-disable-next-line no-undef
+  const binary = typeof atob === "function" ? atob(base64) : "";
+  const arr = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i += 1) arr[i] = binary.charCodeAt(i);
+  return arr;
 }
 
 let COMPRESSION_TIMEOUT_MS = 1000;
@@ -131,8 +141,31 @@ async function pakoGzip(text) {
 export async function apiSubmitScore(score, replay) {
   if (hitClientRateLimit("/api/score")) return null;
   const compressedReplay = await safeCompressReplayPayload(replay);
-  const bodyReplay = compressedReplay ?? replay ?? null;
-  return requestJson("/api/score", { method: "POST", body: JSON.stringify({ score, replay: bodyReplay }) });
+  const hasReplay = replay !== undefined && replay !== null;
+
+  if (hasReplay || compressedReplay) {
+    const form = typeof FormData === "undefined" ? null : new FormData();
+    if (!form) return null;
+
+    form.append("score", String(score ?? ""));
+
+    if (compressedReplay?.data && compressedReplay?.compression === "gzip-base64") {
+      const compressedBytes = decodeBase64ToUint8(compressedReplay.data);
+      form.append("replayCompression", "gzip");
+      form.append("replay", new Blob([compressedBytes], { type: "application/gzip" }), "replay.gz");
+    } else if (hasReplay) {
+      try {
+        const text = typeof replay === "string" ? replay : JSON.stringify(replay);
+        form.append("replay", new Blob([text], { type: "application/json" }), "replay.json");
+      } catch {
+        form.append("replay", new Blob(["null"], { type: "application/json" }), "replay.json");
+      }
+    }
+
+    return requestJson("/api/score", { method: "POST", body: form, headers: {} });
+  }
+
+  return requestJson("/api/score", { method: "POST", body: JSON.stringify({ score, replay: null }) });
 }
 
 // Test-only hook
