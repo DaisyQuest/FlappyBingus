@@ -50,6 +50,7 @@ import {
 } from "./audio.js";
 import { applyBustercoinEarnings } from "./bustercoins.js";
 import { ACHIEVEMENTS, normalizeAchievementState, renderAchievementsList, appendAchievementToast } from "./achievements.js";
+import { renderScoreBreakdown } from "./scoreBreakdown.js";
 
 import { buildGameUI } from "./uiLayout.js";
 import { TrailPreview } from "./trailPreview.js";
@@ -88,6 +89,7 @@ const {
   bustercoinText,
   final: finalEl,
   overPB,
+  scoreBreakdown,
   seedInput,
   seedRandomBtn,
   seedHint,
@@ -961,6 +963,8 @@ async function onGameOver(finalScore) {
 
   setUIMode(true);
   finalEl.textContent = String(finalScore | 0);
+  const runStats = game?.getRunStats ? game.getRunStats() : null;
+  renderScoreBreakdown(scoreBreakdown, runStats, finalScore);
 
   const localBest = readLocalBest();
   if ((finalScore | 0) > (localBest | 0)) writeLocalBest(finalScore | 0);
@@ -972,7 +976,6 @@ async function onGameOver(finalScore) {
 
   if (net.user) {
     const coinsEarned = game?.bustercoinsEarned || 0;
-    const runStats = game?.getRunStats ? game.getRunStats() : null;
     const optimistic = applyBustercoinEarnings(net, coinsEarned, bustercoinText);
     const res = await apiSubmitScore({
       score: finalScore | 0,

@@ -77,8 +77,6 @@ export class Game {
     this.orbs = [];
     this.parts = [];
     this.floats = [];
-    this.runStats = { orbsCollected: 0, abilitiesUsed: 0 };
-    this.runStats = { orbsCollected: 0, abilitiesUsed: 0 };
 
     this.score = 0;
     this.timeAlive = 0;
@@ -117,6 +115,8 @@ export class Game {
 
     // NEW: allow main.js to disable SFX during replay/export if desired
     this.audioEnabled = true;
+
+    this._resetRunStats();
   }
 
   // NEW: toggle game SFX without touching music
@@ -129,10 +129,74 @@ export class Game {
   }
 
   getRunStats() {
-    return {
-      orbsCollected: this.runStats?.orbsCollected | 0,
-      abilitiesUsed: this.runStats?.abilitiesUsed | 0
+    const toInt = (v) => {
+      const n = Number(v);
+      if (!Number.isFinite(n) || n < 0) return 0;
+      return Math.floor(n);
     };
+    const bucket = (b = {}) => ({
+      points: toInt(b.points),
+      count: toInt(b.count)
+    });
+    const breakdown = this.runStats?.scoreBreakdown || {};
+    return {
+      orbsCollected: toInt(this.runStats?.orbsCollected),
+      abilitiesUsed: toInt(this.runStats?.abilitiesUsed),
+      perfects: toInt(this.runStats?.perfects),
+      pipesDodged: toInt(this.runStats?.pipesDodged),
+      totalScore: toInt(this.score),
+      scoreBreakdown: {
+        orbs: bucket(breakdown.orbs),
+        perfects: bucket(breakdown.perfects),
+        pipes: bucket(breakdown.pipes),
+        other: bucket(breakdown.other)
+      }
+    };
+  }
+
+  _resetRunStats() {
+    this.runStats = {
+      orbsCollected: 0,
+      abilitiesUsed: 0,
+      perfects: 0,
+      pipesDodged: 0,
+      scoreBreakdown: {
+        orbs: { points: 0, count: 0 },
+        perfects: { points: 0, count: 0 },
+        pipes: { points: 0, count: 0 },
+        other: { points: 0, count: 0 }
+      }
+    };
+  }
+
+  _scoreBucket(id = "other") {
+    if (!this.runStats?.scoreBreakdown) this._resetRunStats();
+    const bucket = this.runStats.scoreBreakdown[id];
+    return bucket || this.runStats.scoreBreakdown.other;
+  }
+
+  _addScore(points, { bucket = "other", count = 0 } = {}) {
+    const safePoints = Math.max(0, Math.floor(Number(points) || 0));
+    const safeCount = Math.max(0, Math.floor(Number(count) || 0));
+    const target = this._scoreBucket(bucket);
+    target.points = (target.points || 0) + safePoints;
+    if (safeCount > 0) target.count = (target.count || 0) + safeCount;
+    this.score = (this.score || 0) + safePoints;
+  }
+
+  _recordOrbScore(points) {
+    this.runStats.orbsCollected = (this.runStats.orbsCollected || 0) + 1;
+    this._addScore(points, { bucket: "orbs", count: 1 });
+  }
+
+  _recordPerfectScore(points) {
+    this.runStats.perfects = (this.runStats.perfects || 0) + 1;
+    this._addScore(points, { bucket: "perfects", count: 1 });
+  }
+
+  _recordPipeScore(points) {
+    this.runStats.pipesDodged = (this.runStats.pipesDodged || 0) + 1;
+    this._addScore(points, { bucket: "pipes", count: 1 });
   }
 
   // NEW: orb pickup sound, pitched by combo
@@ -205,6 +269,7 @@ export class Game {
     this.orbs = [];
     this.parts = [];
     this.floats = [];
+    this._resetRunStats();
 
     if (clearScore) this.score = 0;
     this.timeAlive = 0;
@@ -1231,13 +1296,12 @@ export class Game {
         const maxC = Math.max(1, Number(this.cfg.scoring.orbComboMax) || 30);
         this.combo = Math.min(maxC, this.combo + 1);
         this.bustercoinsEarned = (this.bustercoinsEarned || 0) + 1;
-        this.runStats.orbsCollected = (this.runStats.orbsCollected || 0) + 1;
 
         // NEW: play boop AFTER combo increments (so pitch rises with combo)
         this._orbPickupSfx();
 
         const pts = this._orbPoints(this.combo);
-        this.score += pts;
+        this._recordOrbScore(pts);
 
         const popupStyle = buildScorePopupStyle({ combo: this.combo, variant: "orb" });
         const anchor = this._scorePopupAnchor();
@@ -1278,7 +1342,7 @@ export class Game {
       if (p.off(this.W, this.H, m)) {
         if (!p.scored) {
           p.scored = true;
-          this.score += Math.max(0, Number(this.cfg.scoring.pipeDodge) || 0);
+          this._recordPipeScore(Math.max(0, Number(this.cfg.scoring.pipeDodge) || 0));
         }
         this._onGapPipeRemoved(p);
         this.pipes.splice(i, 1);

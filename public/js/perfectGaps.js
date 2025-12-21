@@ -44,7 +44,14 @@ export function resolveGapPerfect({
 
   gate.perfected = true;
   game.perfectCombo = streak;
-  game.score = (game.score || 0) + pts;
+  const awardScore =
+    typeof game?._recordPerfectScore === "function"
+      ? (amount) => game._recordPerfectScore(amount)
+      : (amount) => {
+          game.score = (game.score || 0) + amount;
+          if (game.runStats) game.runStats.perfects = (game.runStats.perfects || 0) + 1;
+        };
+  awardScore(pts);
 
   const fd = clamp(Number(flashDuration) || 0.55, 0.15, 2.0);
   game.perfectT = fd;
