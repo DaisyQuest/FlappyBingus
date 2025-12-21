@@ -53,9 +53,9 @@ export async function apiRegister(username) {
   return requestJson("/api/register", { method: "POST", body: JSON.stringify({ username }) });
 }
 
-export async function apiSubmitScore(score) {
+export async function apiSubmitScore(score, replay) {
   if (hitClientRateLimit("/api/score")) return null;
-  return requestJson("/api/score", { method: "POST", body: JSON.stringify({ score }) });
+  return requestJson("/api/score", { method: "POST", body: JSON.stringify({ score, replay }) });
 }
 
 export async function apiSetTrail(trailId) {

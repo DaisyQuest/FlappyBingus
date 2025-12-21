@@ -888,7 +888,14 @@ async function onGameOver(finalScore) {
   over.classList.remove("hidden");
 
   if (net.user) {
-    const res = await apiSubmitScore(finalScore | 0);
+    const replayPayload = activeRun
+      ? {
+          seed: activeRun.seed,
+          ticks: activeRun.ticks,
+          rngTape: activeRun.rngTape
+        }
+      : undefined;
+    const res = await apiSubmitScore(finalScore | 0, replayPayload);
     if (res && res.ok && res.user) {
       net.online = true;
       net.user = res.user;

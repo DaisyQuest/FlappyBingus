@@ -20,7 +20,7 @@ function createScoreService(deps) {
   if (typeof publicUser !== "function") throw new Error("publicUser_required");
   if (typeof listHighscores !== "function") throw new Error("listHighscores_required");
 
-  async function submitScore(user, rawScore) {
+  async function submitScore(user, rawScore, replay) {
     if (!user) return { ok: false, status: 401, error: "unauthorized" };
 
     if (rawScore === null || rawScore === undefined) {
@@ -37,6 +37,22 @@ function createScoreService(deps) {
 
     try {
       const updated = await dataStore.recordScore(user, score);
+      const isNewBest = (updated.bestScore | 0) > (user.bestScore | 0);
+      let replaySaved = false;
+      let replayError = null;
+
+      if (isNewBest && replay !== undefined && typeof dataStore.saveBestReplay === "function") {
+        try {
+          const replayKey = updated.key || user.key;
+          if (!replayKey) throw new Error("user_key_required");
+          await dataStore.saveBestReplay(replayKey, replay, { score });
+          replaySaved = true;
+        } catch (replayErr) {
+          replaySaved = false;
+          replayError = replayErr?.message || "replay_persist_failed";
+        }
+      }
+
       const highscores = await listHighscores();
       const recordHolder = highscores?.[0]?.username === updated.username;
       ensureUserSchema(updated, { recordHolder });
@@ -48,7 +64,9 @@ function createScoreService(deps) {
           ok: true,
           user: publicUser(updated, { recordHolder }),
           trails,
-          highscores
+          highscores,
+          replaySaved,
+          replayError
         }
       };
     } catch (err) {

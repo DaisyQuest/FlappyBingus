@@ -55,7 +55,9 @@ describe("scoreService", () => {
         ok: true,
         user: { name: "User", bestScore: 123, recordHolder: false },
         trails: deps.trails,
-        highscores: [{ username: "a", bestScore: 1 }]
+        highscores: [{ username: "a", bestScore: 1 }],
+        replaySaved: false,
+        replayError: null
       }
     });
   });
@@ -72,6 +74,48 @@ describe("scoreService", () => {
 
     expect(deps.ensureUserSchema).toHaveBeenCalledWith(updated, { recordHolder: true });
     expect(res.body.user).toEqual({ user: "champ", recordHolder: true });
+  });
+
+  it("saves new best replays when provided and marks the response", async () => {
+    const user = { key: "u", username: "User", bestScore: 10 };
+    const updated = { ...user, bestScore: 50 };
+    deps.dataStore.recordScore.mockResolvedValue(updated);
+    deps.dataStore.saveBestReplay = vi.fn(async () => ({ key: "u", totalBytes: 5 }));
+
+    const svc = createScoreService(deps);
+    const res = await svc.submitScore(user, 50, { replay: true });
+
+    expect(deps.dataStore.saveBestReplay).toHaveBeenCalledWith("u", { replay: true }, { score: 50 });
+    expect(res.body.replaySaved).toBe(true);
+  });
+
+  it("skips replay saves when not a new personal best", async () => {
+    const user = { key: "u", username: "User", bestScore: 50 };
+    const updated = { ...user, bestScore: 50 };
+    deps.dataStore.recordScore.mockResolvedValue(updated);
+    deps.dataStore.saveBestReplay = vi.fn();
+
+    const svc = createScoreService(deps);
+    const res = await svc.submitScore(user, 10, { replay: true });
+
+    expect(deps.dataStore.saveBestReplay).not.toHaveBeenCalled();
+    expect(res.body.replaySaved).toBe(false);
+  });
+
+  it("downgrades to success when replay persistence fails, reporting the error", async () => {
+    const user = { key: "u", username: "User", bestScore: 1 };
+    const updated = { ...user, bestScore: 2 };
+    deps.dataStore.recordScore.mockResolvedValue(updated);
+    deps.dataStore.saveBestReplay = vi.fn(async () => { throw new Error("kaput"); });
+
+    const svc = createScoreService(deps);
+    const res = await svc.submitScore(user, 2, { replay: true });
+
+    expect(res.ok).toBe(true);
+    expect(res.status).toBe(200);
+    expect(res.body.replaySaved).toBe(false);
+    expect(res.body.replayError).toBe("kaput");
+    expect(deps.ensureUserSchema).toHaveBeenCalledWith(updated, { recordHolder: false });
   });
 
   it("maps recordScore failures to service errors", async () => {
