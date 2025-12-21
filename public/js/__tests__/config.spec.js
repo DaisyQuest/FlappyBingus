@@ -1,3 +1,4 @@
+import { readFileSync } from "fs";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 const stubFetch = (responses) => {
@@ -15,6 +16,10 @@ const stubFetch = (responses) => {
   vi.stubGlobal("fetch", mock);
   return mock;
 };
+
+const readProductionConfig = () => JSON.parse(
+  readFileSync(new URL("../../FLAPPY_BINGUS_CONFIG.json", import.meta.url), "utf-8")
+);
 
 afterEach(() => {
   vi.restoreAllMocks();
@@ -83,5 +88,26 @@ describe("loadConfig", () => {
     );
     expect(config.scoring.pipeDodge).toBe(7);
     expect(config.pipes.speed.start).toBe(123);
+  });
+
+  it("keeps production cooldowns for dash destroy and slow explosion in sync with defaults", async () => {
+    const prodCfg = readProductionConfig();
+    const { DEFAULT_CONFIG } = await import("../config.js");
+
+    expect(prodCfg.skills.dashDestroy.cooldown).toBeCloseTo(DEFAULT_CONFIG.skills.dashDestroy.cooldown);
+    expect(prodCfg.skills.slowExplosion.cooldown).toBeCloseTo(DEFAULT_CONFIG.skills.slowExplosion.cooldown);
+  });
+
+  it("returns production cooldowns when the production config file is available", async () => {
+    const prodCfg = readProductionConfig();
+    const fetchMock = stubFetch([{ body: prodCfg }]);
+    const { loadConfig, DEFAULT_CONFIG } = await import("../config.js");
+
+    const { config, ok, source } = await loadConfig();
+    expect(ok).toBe(true);
+    expect(source).toBe("FLAPPY_BINGUS_CONFIG.json");
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(config.skills.dashDestroy.cooldown).toBeCloseTo(DEFAULT_CONFIG.skills.dashDestroy.cooldown);
+    expect(config.skills.slowExplosion.cooldown).toBeCloseTo(DEFAULT_CONFIG.skills.slowExplosion.cooldown);
   });
 });
