@@ -28,9 +28,11 @@ function hitClientRateLimit(name) {
 async function requestJson(url, opts = {}) {
   try {
     const isFormData = typeof FormData !== "undefined" && opts.body instanceof FormData;
-    const headers = isFormData
+    const headers = opts.rawHeaders
       ? { ...(opts.headers || {}) }
-      : { "Content-Type": "application/json", ...(opts.headers || {}) };
+      : isFormData
+        ? { ...(opts.headers || {}) }
+        : { "Content-Type": "application/json", ...(opts.headers || {}) };
     const res = await fetch(url, {
       credentials: "same-origin",
       ...opts,
@@ -140,32 +142,39 @@ async function pakoGzip(text) {
 
 export async function apiSubmitScore(score, replay) {
   if (hitClientRateLimit("/api/score")) return null;
-  const compressedReplay = await safeCompressReplayPayload(replay);
+  const form = new FormData();
+  form.append("score", String(score ?? ""));
+
   const hasReplay = replay !== undefined && replay !== null;
+  const textReplay = () => {
+    try {
+      return typeof replay === "string" ? replay : JSON.stringify(replay);
+    } catch {
+      return "null";
+    }
+  };
 
-  if (hasReplay || compressedReplay) {
-    const form = typeof FormData === "undefined" ? null : new FormData();
-    if (!form) return null;
+  const appendRawReplay = () => {
+    if (!hasReplay) return;
+    const text = textReplay();
+    form.append("replay", new Blob([text], { type: "application/json" }), "replay.json");
+  };
 
-    form.append("score", String(score ?? ""));
+  const compressedReplay = await safeCompressReplayPayload(replay);
 
-    if (compressedReplay?.data && compressedReplay?.compression === "gzip-base64") {
+  if (compressedReplay?.data && compressedReplay?.compression === "gzip-base64") {
+    try {
       const compressedBytes = decodeBase64ToUint8(compressedReplay.data);
       form.append("replayCompression", "gzip");
       form.append("replay", new Blob([compressedBytes], { type: "application/gzip" }), "replay.gz");
-    } else if (hasReplay) {
-      try {
-        const text = typeof replay === "string" ? replay : JSON.stringify(replay);
-        form.append("replay", new Blob([text], { type: "application/json" }), "replay.json");
-      } catch {
-        form.append("replay", new Blob(["null"], { type: "application/json" }), "replay.json");
-      }
+    } catch {
+      appendRawReplay();
     }
-
-    return requestJson("/api/score", { method: "POST", body: form, headers: {} });
+  } else {
+    appendRawReplay();
   }
 
-  return requestJson("/api/score", { method: "POST", body: JSON.stringify({ score, replay: null }) });
+  return requestJson("/api/score", { method: "POST", body: form });
 }
 
 // Test-only hook
