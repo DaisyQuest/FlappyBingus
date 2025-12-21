@@ -45,7 +45,7 @@ describe("scoreService", () => {
     const svc = createScoreService(deps);
     const res = await svc.submitScore(user, 123.9);
 
-    expect(deps.dataStore.recordScore).toHaveBeenCalledWith(user, 123);
+    expect(deps.dataStore.recordScore).toHaveBeenCalledWith(user, 123, { bustercoinsEarned: 0 });
     expect(deps.ensureUserSchema).toHaveBeenCalledWith(updated, { recordHolder: false });
     expect(deps.listHighscores).toHaveBeenCalled();
     expect(res).toEqual({
@@ -68,10 +68,28 @@ describe("scoreService", () => {
     deps.publicUser = vi.fn((u, opts) => ({ user: u.username, recordHolder: opts?.recordHolder }));
 
     const svc = createScoreService(deps);
-    const res = await svc.submitScore(user, 9000);
+    const res = await svc.submitScore(user, 9000, 4);
 
     expect(deps.ensureUserSchema).toHaveBeenCalledWith(updated, { recordHolder: true });
     expect(res.body.user).toEqual({ user: "champ", recordHolder: true });
+    expect(deps.dataStore.recordScore).toHaveBeenCalledWith(user, 9000, { bustercoinsEarned: 4 });
+  });
+
+  it("validates and clamps bustercoin payloads before persisting", async () => {
+    const user = { key: "u", username: "coinster" };
+    const updated = { ...user, bestScore: 10, bustercoins: 3 };
+    deps.dataStore.recordScore.mockResolvedValue(updated);
+
+    const svc = createScoreService(deps);
+    const res = await svc.submitScore(user, 10, 2.9);
+
+    expect(res.ok).toBe(true);
+    expect(deps.dataStore.recordScore).toHaveBeenCalledWith(user, 10, { bustercoinsEarned: 2 });
+
+    const negative = await svc.submitScore(user, 10, -5);
+    expect(negative.ok).toBe(false);
+    expect(negative.status).toBe(400);
+    expect(negative.error).toBe("invalid_bustercoins");
   });
 
   it("maps recordScore failures to service errors", async () => {

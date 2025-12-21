@@ -379,7 +379,13 @@ function createProfileCard(doc, refs) {
   const trailText = createElement(doc, refs, "span", { id: "trailText", className: "kbd", text: "classic" });
   trailBadge.append(trailText);
 
-  pills.append(pbBadge, trailBadge);
+  const busterBadge = doc.createElement("div");
+  busterBadge.className = "badge";
+  busterBadge.textContent = "Bustercoins ";
+  const bustercoinText = createElement(doc, refs, "span", { id: "bustercoinText", className: "kbd", text: "0" });
+  busterBadge.append(bustercoinText);
+
+  pills.append(pbBadge, trailBadge, busterBadge);
 
   field.append(label, row, userHint, pills);
   card.append(title, field);

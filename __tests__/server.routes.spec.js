@@ -10,7 +10,8 @@ const baseUser = () => ({
   keybinds: {},
   settings: { dashBehavior: "ricochet", slowFieldBehavior: "slow" },
   runs: 3,
-  totalScore: 5000
+  totalScore: 5000,
+  bustercoins: 10
 });
 
 function createRes() {
@@ -50,7 +51,12 @@ async function importServer(overrides = {}) {
     ensureConnected: vi.fn(async () => true),
     topHighscores: vi.fn(async () => []),
     upsertUser: vi.fn(async (_username, _key, defaults) => ({ ...baseUser(), ...defaults })),
-    recordScore: vi.fn(async (user, score) => ({ ...baseUser(), ...user, bestScore: score })),
+    recordScore: vi.fn(async (user, score, { bustercoinsEarned = 0 } = {}) => ({
+      ...baseUser(),
+      ...user,
+      bestScore: score,
+      bustercoins: (user?.bustercoins || 0) + (bustercoinsEarned || 0)
+    })),
     setTrail: vi.fn(async (_key, trailId) => ({ ...baseUser(), selectedTrail: trailId })),
     setKeybinds: vi.fn(async (_key, binds) => ({ ...baseUser(), keybinds: binds })),
     setSettings: vi.fn(async (_key, settings) => ({ ...baseUser(), settings })),
@@ -117,6 +123,43 @@ describe("server routes and helpers", () => {
 
     expect(res.status).toBe(401);
     expect(readJson(res).error).toBe("unauthorized");
+  });
+
+  it("persists score submissions with earned bustercoins and clamps negative values", async () => {
+    const { server, mockDataStore } = await importServer();
+    const res = createRes();
+    mockDataStore.getUserByKey.mockResolvedValueOnce({ ...baseUser(), bustercoins: 2 });
+
+    await server.route(
+      createReq({
+        method: "POST",
+        url: "/api/score",
+        body: JSON.stringify({ score: 50, bustercoinsEarned: 3 }),
+        headers: { cookie: "sugar=PlayerOne" }
+      }),
+      res
+    );
+
+    expect(res.status).toBe(200);
+    expect(mockDataStore.recordScore).toHaveBeenCalledWith(
+      expect.objectContaining({ key: "player-one" }),
+      50,
+      { bustercoinsEarned: 3 }
+    );
+    expect(readJson(res).user.bustercoins).toBe(5);
+
+    const negative = createRes();
+    await server.route(
+      createReq({
+        method: "POST",
+        url: "/api/score",
+        body: JSON.stringify({ score: 10, bustercoinsEarned: -5 }),
+        headers: { cookie: "sugar=PlayerOne" }
+      }),
+      negative
+    );
+    expect(negative.status).toBe(400);
+    expect(readJson(negative).error).toBe("invalid_bustercoins");
   });
 
   it("returns saved settings from /api/me", async () => {

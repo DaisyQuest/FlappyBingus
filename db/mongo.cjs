@@ -184,17 +184,19 @@ class MongoDataStore {
     }
   }
 
-  async recordScore(user, score) {
+  async recordScore(user, score, { bustercoinsEarned = 0 } = {}) {
     await this.ensureConnected();
     if (!user || !user.key) throw new Error("user_key_required");
 
     const now = Date.now();
     const safeScore = clampScore(score);
+    const earnedCoins = Math.max(0, normalizeCount(bustercoinsEarned));
 
     // Seed values from payload (only used if the doc is missing those fields)
     const safeRuns = normalizeCount(user.runs);
     const safeTotalScore = normalizeTotal(user.totalScore);
     const safeBestScore = clampScore(user.bestScore);
+    const safeCoins = normalizeCount(user.bustercoins);
 
     const collection = this.usersCollection();
 
@@ -212,6 +214,7 @@ class MongoDataStore {
             runs: { $add: [{ $ifNull: ["$runs", safeRuns] }, 1] },
             totalScore: { $add: [{ $ifNull: ["$totalScore", safeTotalScore] }, safeScore] },
             bestScore: { $max: [{ $ifNull: ["$bestScore", safeBestScore] }, safeScore] },
+            bustercoins: { $add: [{ $ifNull: ["$bustercoins", safeCoins] }, earnedCoins] },
 
             updatedAt: now
           }
