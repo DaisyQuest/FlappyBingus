@@ -428,7 +428,7 @@ function createHighscoreCard(doc, refs) {
   const spacer = doc.createElement("div");
   spacer.className = "spacer-sm";
 
-  const hsWrap = createElement(doc, refs, "div", { id: "hsWrap", className: "hint", text: "Loading leaderboard…" });
+  const hsWrap = createElement(doc, refs, "div", { id: "hsWrap", className: "hsWrap hint", text: "Loading leaderboard…" });
 
   card.append(heading, spacer, hsWrap);
   return card;
