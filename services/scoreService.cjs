@@ -15,10 +15,27 @@ function createScoreService(deps) {
     clampScore = clampScoreDefault
   } = deps;
 
+  const zlib = require("node:zlib");
+
   if (!dataStore?.recordScore) throw new Error("recordScore_required");
   if (typeof ensureUserSchema !== "function") throw new Error("ensureUserSchema_required");
   if (typeof publicUser !== "function") throw new Error("publicUser_required");
   if (typeof listHighscores !== "function") throw new Error("listHighscores_required");
+
+  function decodeReplayPayload(replay) {
+    if (!replay) return replay;
+    if (replay && replay.compression === "gzip-base64" && typeof replay.data === "string") {
+      try {
+        const raw = Buffer.from(replay.data, "base64");
+        const inflated = zlib.gunzipSync(raw);
+        const text = inflated.toString("utf8");
+        return JSON.parse(text);
+      } catch {
+        return null;
+      }
+    }
+    return replay;
+  }
 
   async function submitScore(user, rawScore, replay) {
     if (!user) return { ok: false, status: 401, error: "unauthorized" };
@@ -40,12 +57,18 @@ function createScoreService(deps) {
       const isNewBest = (updated.bestScore | 0) > (user.bestScore | 0);
       let replaySaved = false;
       let replayError = null;
+      const decodedReplay = decodeReplayPayload(replay);
 
       if (isNewBest && replay !== undefined && typeof dataStore.saveBestReplay === "function") {
         try {
           const replayKey = updated.key || user.key;
           if (!replayKey) throw new Error("user_key_required");
-          await dataStore.saveBestReplay(replayKey, replay, { score });
+          if (decodedReplay !== null) {
+            await dataStore.saveBestReplay(replayKey, decodedReplay, { score });
+          } else {
+            replaySaved = false;
+            replayError = "replay_decode_failed";
+          }
           replaySaved = true;
         } catch (replayErr) {
           replaySaved = false;

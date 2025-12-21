@@ -1,4 +1,6 @@
 
+import { gzip } from "pako";
+
 const CLIENT_RATE_LIMITS = Object.freeze({
   default: { limit: 30, windowMs: 10_000 },
   "/api/me": { limit: 8, windowMs: 5_000 },
@@ -53,9 +55,29 @@ export async function apiRegister(username) {
   return requestJson("/api/register", { method: "POST", body: JSON.stringify({ username }) });
 }
 
+function encodeBase64(uint8) {
+  if (typeof Buffer !== "undefined") return Buffer.from(uint8).toString("base64");
+  let binary = "";
+  for (let i = 0; i < uint8.length; i += 1) binary += String.fromCharCode(uint8[i]);
+  // eslint-disable-next-line no-undef
+  return btoa(binary);
+}
+
+function compressReplayPayload(replay) {
+  if (replay === undefined || replay === null) return null;
+  try {
+    const text = typeof replay === "string" ? replay : JSON.stringify(replay);
+    const compressed = gzip(text);
+    return { compression: "gzip-base64", data: encodeBase64(compressed) };
+  } catch {
+    return null;
+  }
+}
+
 export async function apiSubmitScore(score, replay) {
   if (hitClientRateLimit("/api/score")) return null;
-  return requestJson("/api/score", { method: "POST", body: JSON.stringify({ score, replay }) });
+  const compressedReplay = compressReplayPayload(replay);
+  return requestJson("/api/score", { method: "POST", body: JSON.stringify({ score, replay: compressedReplay }) });
 }
 
 export async function apiSetTrail(trailId) {

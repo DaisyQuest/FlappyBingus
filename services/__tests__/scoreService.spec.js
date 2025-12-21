@@ -62,6 +62,20 @@ describe("scoreService", () => {
     });
   });
 
+  it("decodes gzip-base64 replays before saving", async () => {
+    const zlib = await import("node:zlib");
+    const user = { key: "u", username: "User", bestScore: 1 };
+    const updated = { ...user, bestScore: 5 };
+    deps.dataStore.recordScore.mockResolvedValue(updated);
+    deps.dataStore.saveBestReplay = vi.fn(async () => ({}));
+    const encoded = zlib.gzipSync(JSON.stringify({ demo: true })).toString("base64");
+
+    const svc = createScoreService(deps);
+    await svc.submitScore(user, 5, { compression: "gzip-base64", data: encoded });
+
+    expect(deps.dataStore.saveBestReplay).toHaveBeenCalledWith("u", { demo: true }, { score: 5 });
+  });
+
   it("marks the submitting user as the record holder when appropriate", async () => {
     const user = { key: "u", username: "champ" };
     const updated = { ...user, bestScore: 9000 };

@@ -20,7 +20,8 @@
     "@ffmpeg/ffmpeg": "^0.12.15",
     "@ffmpeg/util": "^0.12.2",
     "ffmpeg": "^0.0.4",
-    "mongodb": "^6.9.0"
+    "mongodb": "^6.9.0",
+    "pako": "^2.1.0"
   },
   "devDependencies": {
     "@vitest/coverage-v8": "^4.0.16",
