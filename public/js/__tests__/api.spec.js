@@ -72,30 +72,55 @@ describe("api helpers", () => {
       apiGetHighscores
     } = await import("../api.js");
 
+    const expectJsonInit = (expectedInit) => (init) => {
+      expect(init.credentials).toBe("same-origin");
+      expect(init.headers).toMatchObject({ "Content-Type": "application/json" });
+      expect(init).toMatchObject(expectedInit);
+    };
     const requests = [
-      [apiGetMe, ["/api/me", { method: "GET" }]],
-      [apiRegister, ["/api/register", { method: "POST", body: JSON.stringify({ username: "bingus" }) }]],
-      [apiSubmitScore, ["/api/score", { method: "POST", body: JSON.stringify({ score: 9001 }) }]],
-      [apiSetTrail, ["/api/cosmetics/trail", { method: "POST", body: JSON.stringify({ trailId: "classic" }) }]],
-      [apiSetKeybinds, ["/api/binds", { method: "POST", body: JSON.stringify({ keybinds: { jump: "Space" } }) }]],
-      [apiGetHighscores, ["/api/highscores?limit=25", { method: "GET" }]]
+      [apiGetMe, ["/api/me", expectJsonInit({ method: "GET" })]],
+      [
+        apiRegister,
+        ["/api/register", expectJsonInit({ method: "POST", body: JSON.stringify({ username: "bingus" }) })]
+      ],
+      [
+        apiSubmitScore,
+        [
+          "/api/score",
+          (init) => {
+            expect(init.credentials).toBe("same-origin");
+            expect(init.method).toBe("POST");
+            expect(init.headers).toEqual({});
+            expect(init.body).toBeInstanceOf(FormData);
+            expect(init.body.get("score")).toBe("9001");
+            expect(init.body.get("replayCompression")).toBe("gzip");
+            const replayFile = init.body.get("replay");
+            expect(replayFile).toBeInstanceOf(Blob);
+          }
+        ]
+      ],
+      [
+        apiSetTrail,
+        ["/api/cosmetics/trail", expectJsonInit({ method: "POST", body: JSON.stringify({ trailId: "classic" }) })]
+      ],
+      [
+        apiSetKeybinds,
+        ["/api/binds", expectJsonInit({ method: "POST", body: JSON.stringify({ keybinds: { jump: "Space" } }) })]
+      ],
+      [apiGetHighscores, ["/api/highscores?limit=25", expectJsonInit({ method: "GET" })]]
     ];
 
     await apiGetMe();
     await apiRegister("bingus");
-    await apiSubmitScore(9001);
+    await apiSubmitScore(9001, { data: true });
     await apiSetTrail("classic");
     await apiSetKeybinds({ jump: "Space" });
     await apiGetHighscores(25);
 
     expect(fetchMock).toHaveBeenCalledTimes(requests.length);
-    requests.forEach(([_, [expectedUrl, expectedInit]], idx) => {
+    requests.forEach(([_, [expectedUrl, assertInit]], idx) => {
       expect(fetchMock.mock.calls[idx][0]).toBe(expectedUrl);
-      expect(fetchMock.mock.calls[idx][1]).toMatchObject({
-        credentials: "same-origin",
-        headers: { "Content-Type": "application/json" },
-        ...expectedInit
-      });
+      assertInit(fetchMock.mock.calls[idx][1]);
     });
   });
 
@@ -155,5 +180,92 @@ describe("api helpers", () => {
     const afterReset = await apiGetMe();
     expect(fetchMock).toHaveBeenCalledTimes(9);
     expect(afterReset).toEqual({ ok: true });
+  });
+
+  it("falls back to raw replay when compression hangs", async () => {
+    const fetchMock = vi.fn(() =>
+      Promise.resolve({
+        ok: true,
+        json: () => Promise.resolve({ ok: true })
+      })
+    );
+    // eslint-disable-next-line no-undef
+    global.fetch = fetchMock;
+
+    class FakeFormData {
+      constructor() { this.entries = []; }
+      append(name, value, filename) { this.entries.push({ name, value, filename }); }
+    }
+    // eslint-disable-next-line no-undef
+    global.FormData = FakeFormData;
+    // eslint-disable-next-line no-undef
+    global.Blob = global.Blob || (await import("buffer")).Blob;
+
+    class HangingCompressionStream {
+      constructor() {
+        this.writable = {
+          getWriter: () => ({
+            write: () => new Promise(() => {}),
+            close: () => Promise.resolve()
+          })
+        };
+        this.readable = new ReadableStream();
+      }
+    }
+    // eslint-disable-next-line no-undef
+    global.CompressionStream = HangingCompressionStream;
+
+    const { apiSubmitScore, __setCompressionTimeoutMs } = await import("../api.js");
+    __setCompressionTimeoutMs(5);
+
+    await apiSubmitScore(1, { big: true });
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    const body = fetchMock.mock.calls[0][1].body;
+    expect(body).toBeInstanceOf(FakeFormData);
+    const replayEntry = body.entries.find((e) => e.name === "replay");
+    expect(replayEntry).toBeTruthy();
+    expect(replayEntry.filename).toBe("replay.json");
+    expect(await replayEntry.value.text()).toContain("\"big\":true");
+    // cleanup
+    // eslint-disable-next-line no-undef
+    delete global.CompressionStream;
+  });
+
+  it("uses the vendored pako gzip when CompressionStream is unavailable", async () => {
+    const fetchMock = vi.fn(() =>
+      Promise.resolve({
+        ok: true,
+        json: () => Promise.resolve({ ok: true })
+      })
+    );
+    // eslint-disable-next-line no-undef
+    global.fetch = fetchMock;
+    // eslint-disable-next-line no-undef
+    global.CompressionStream = undefined;
+    class FakeFormData {
+      constructor() { this.entries = []; }
+      append(name, value, filename) { this.entries.push({ name, value, filename }); }
+    }
+    // eslint-disable-next-line no-undef
+    global.FormData = FakeFormData;
+    // eslint-disable-next-line no-undef
+    global.Blob = global.Blob || (await import("buffer")).Blob;
+    vi.doMock("../../vendor/pako.esm.mjs", () => ({
+      gzip: vi.fn(() => new Uint8Array([1, 2, 3, 4]))
+    }));
+    const { apiSubmitScore } = await import("../api.js");
+
+    await apiSubmitScore(10, { small: true });
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    const body = fetchMock.mock.calls[0][1].body;
+    expect(body).toBeInstanceOf(FakeFormData);
+    expect(body.entries.some((e) => e.name === "replayCompression" && e.value === "gzip")).toBe(true);
+    const replayEntry = body.entries.find((e) => e.name === "replay");
+    expect(replayEntry.filename).toBe("replay.gz");
+    const arr = new Uint8Array(await replayEntry.value.arrayBuffer());
+    expect(Array.from(arr)).toEqual([1, 2, 3, 4]);
+    vi.resetModules();
   });
 });

@@ -28,13 +28,16 @@ function hitClientRateLimit(name) {
 
 async function requestJson(url, opts = {}) {
   try {
+    const isFormData = typeof FormData !== "undefined" && opts.body instanceof FormData;
+    const headers = opts.rawHeaders
+      ? { ...(opts.headers || {}) }
+      : isFormData
+        ? { ...(opts.headers || {}) }
+        : { "Content-Type": "application/json", ...(opts.headers || {}) };
     const res = await fetch(url, {
       credentials: "same-origin",
       ...opts,
-      headers: {
-        "Content-Type": "application/json",
-        ...(opts.headers || {})
-      }
+      headers
     });
     const data = await res.json().catch(() => null);
     if (!res.ok || !data) return null;
@@ -54,9 +57,130 @@ export async function apiRegister(username) {
   return requestJson("/api/register", { method: "POST", body: JSON.stringify({ username }) });
 }
 
-export async function apiSubmitScore(score) {
+function encodeBase64(uint8) {
+  if (typeof Buffer !== "undefined") return Buffer.from(uint8).toString("base64");
+  let binary = "";
+  for (let i = 0; i < uint8.length; i += 1) binary += String.fromCharCode(uint8[i]);
+  // eslint-disable-next-line no-undef
+  return btoa(binary);
+}
+
+function decodeBase64ToUint8(base64) {
+  if (typeof Buffer !== "undefined") return new Uint8Array(Buffer.from(base64, "base64"));
+  // eslint-disable-next-line no-undef
+  const binary = typeof atob === "function" ? atob(base64) : "";
+  const arr = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i += 1) arr[i] = binary.charCodeAt(i);
+  return arr;
+}
+
+let COMPRESSION_TIMEOUT_MS = 1000;
+let _pakoGzip = null;
+
+async function gzipToBase64(text) {
+  if (typeof CompressionStream === "function") {
+    const cs = new CompressionStream("gzip");
+    const writer = cs.writable.getWriter();
+    const encoded = new TextEncoder().encode(text);
+    await writer.write(encoded);
+    await writer.close();
+    const compressedBuffer = await new Response(cs.readable).arrayBuffer();
+    return encodeBase64(new Uint8Array(compressedBuffer));
+  }
+  try {
+    const compressed = await pakoGzip(text);
+    return encodeBase64(compressed);
+  } catch {
+    // continue to next fallback
+  }
+  if (typeof require === "function") {
+    try {
+      // eslint-disable-next-line global-require
+      const zlib = require("node:zlib");
+      const buf = zlib.gzipSync(text);
+      return encodeBase64(buf instanceof Uint8Array ? buf : new Uint8Array(buf));
+    } catch {
+      return null;
+    }
+  }
+  return null;
+}
+
+async function compressReplayPayload(replay) {
+  if (replay === undefined || replay === null) return null;
+  try {
+    const text = typeof replay === "string" ? replay : JSON.stringify(replay);
+    const data = await gzipToBase64(text);
+    if (!data) return null;
+    return { compression: "gzip-base64", data };
+  } catch {
+    return null;
+  }
+}
+
+async function safeCompressReplayPayload(replay) {
+  if (replay === undefined || replay === null) return null;
+  let timer = null;
+  const timeout = new Promise((resolve) => {
+    timer = setTimeout(() => resolve("__timeout__"), COMPRESSION_TIMEOUT_MS);
+  });
+  try {
+    const result = await Promise.race([compressReplayPayload(replay), timeout]);
+    if (result === "__timeout__") return null;
+    return result;
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
+}
+
+async function pakoGzip(text) {
+  if (!_pakoGzip) {
+    const mod = await import("../vendor/pako.esm.mjs");
+    _pakoGzip = mod.gzip;
+  }
+  return _pakoGzip(text);
+}
+
+export async function apiSubmitScore(score, replay) {
   if (hitClientRateLimit("/api/score")) return null;
-  return requestJson("/api/score", { method: "POST", body: JSON.stringify({ score }) });
+  const form = new FormData();
+  form.append("score", String(score ?? ""));
+
+  const hasReplay = replay !== undefined && replay !== null;
+  const textReplay = () => {
+    try {
+      return typeof replay === "string" ? replay : JSON.stringify(replay);
+    } catch {
+      return "null";
+    }
+  };
+
+  const appendRawReplay = () => {
+    if (!hasReplay) return;
+    const text = textReplay();
+    form.append("replay", new Blob([text], { type: "application/json" }), "replay.json");
+  };
+
+  const compressedReplay = await safeCompressReplayPayload(replay);
+
+  if (compressedReplay?.data && compressedReplay?.compression === "gzip-base64") {
+    try {
+      const compressedBytes = decodeBase64ToUint8(compressedReplay.data);
+      form.append("replayCompression", "gzip");
+      form.append("replay", new Blob([compressedBytes], { type: "application/gzip" }), "replay.gz");
+    } catch {
+      appendRawReplay();
+    }
+  } else {
+    appendRawReplay();
+  }
+
+  return requestJson("/api/score", { method: "POST", body: form });
+}
+
+// Test-only hook
+export function __setCompressionTimeoutMs(ms) {
+  COMPRESSION_TIMEOUT_MS = ms;
 }
 
 export async function apiSetTrail(trailId) {
