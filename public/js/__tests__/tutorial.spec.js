@@ -91,4 +91,38 @@ describe("Tutorial skill variants", () => {
     expect(spy).toHaveBeenCalled();
     tutorial.stop();
   });
+
+  it("forces ricochet dash during the bounce lesson even if the player prefers destroy", () => {
+    const game = setupGame();
+    game.setSkillSettings({ dashBehavior: "destroy", slowFieldBehavior: "slow" });
+    const tutorial = new Tutorial({ game, input: game.input, getBinds: () => ({}), onExit: () => {} });
+    tutorial.start();
+
+    const reflectIdx = tutorial._steps().findIndex((s) => s.id === "dash_reflect");
+    tutorial._enterStep(reflectIdx);
+
+    expect(game.skillSettings.dashBehavior).toBe("ricochet");
+
+    tutorial._nextStep(); // moves into dash_destroy
+    expect(game.skillSettings.dashBehavior).toBe("destroy");
+    tutorial.stop();
+  });
+
+  it("treats cleared destroy-dash pipes as progress to avoid soft locks", () => {
+    const game = setupGame();
+    const tutorial = new Tutorial({ game, input: game.input, getBinds: () => ({}), onExit: () => {} });
+    tutorial.start();
+
+    const destroyIdx = tutorial._steps().findIndex((s) => s.id === "dash_destroy");
+    tutorial._enterStep(destroyIdx);
+
+    // Simulate the pipe disappearing (e.g., cleanup) before a shatter event.
+    const spy = vi.spyOn(tutorial, "_nextStep");
+    game.pipes.length = 0;
+    tutorial._stepDashDestroy(0.4);
+    tutorial._stepDashDestroy(0.6);
+
+    expect(spy).toHaveBeenCalled();
+    tutorial.stop();
+  });
 });

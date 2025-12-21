@@ -606,6 +606,7 @@ for (const ln of lines.slice(0, maxLines)) {
     if (sid === "dash_reflect") {
       this._setPerfectEnabled(false);
       this._allowed = new Set(["dash"]);
+      this.game.setSkillSettings({ ...(this._settingsBackup || this.game.skillSettings), dashBehavior: "ricochet" });
       this._spawnDashReflectScenario();
     }
 

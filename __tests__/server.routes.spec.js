@@ -134,6 +134,23 @@ describe("server routes and helpers", () => {
     expect(readJson(res).user.settings).toEqual({ dashBehavior: "destroy", slowFieldBehavior: "explosion" });
   });
 
+  it("preserves record-holder cosmetics on /api/me responses", async () => {
+    const recordUser = { ...baseUser(), username: "champ", key: "champ", selectedTrail: "world_record", bestScore: 12_345 };
+    const { server } = await importServer({
+      getUserByKey: vi.fn(async () => recordUser),
+      topHighscores: vi.fn(async () => [{ username: "champ", bestScore: recordUser.bestScore }])
+    });
+    const res = createRes();
+
+    await server.route(createReq({ method: "GET", url: "/api/me", headers: { cookie: "sugar=champ" } }), res);
+    const payload = readJson(res);
+
+    expect(res.status).toBe(200);
+    expect(payload.user.isRecordHolder).toBe(true);
+    expect(payload.user.selectedTrail).toBe("world_record");
+    expect(payload.user.unlockedTrails).toContain("world_record");
+  });
+
   it("protects trail selection with validation and progression checks", async () => {
     const lockedUser = { ...baseUser(), bestScore: 0 };
     const { server, mockDataStore } = await importServer({
