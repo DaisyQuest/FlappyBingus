@@ -739,6 +739,27 @@ export class Game {
     }));
   }
 
+  showAchievementPopup(def) {
+    if (!def) return null;
+    const anchor = typeof this._scorePopupAnchor === "function"
+      ? this._scorePopupAnchor()
+      : { x: this.W * 0.5, y: this.H * 0.35 };
+    const title = def.title || "Achievement unlocked";
+    const color = "rgba(175,225,255,.96)";
+    const popup = new FloatText(`🏆 ${title}`, anchor.x, anchor.y, color, {
+      wobble: 6,
+      size: 32,
+      strokeWidth: 4.6,
+      glowColor: "rgba(130,210,255,.95)",
+      palette: ["#dff4ff", "#b8e4ff", "#ffe6ff"],
+      shimmer: 0.4,
+      sparkle: true
+    });
+    popup.life = popup.max = 1.4;
+    this.floats.push(popup);
+    return popup;
+  }
+
   _useSkill(name) {
     if (!this.cfg.skills[name]) return;
     const rem = Math.max(0, Number(this.cds[name]) || 0);

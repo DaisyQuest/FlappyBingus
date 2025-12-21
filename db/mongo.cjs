@@ -6,7 +6,15 @@ const MAX_SCORE = 1_000_000_000;
 const DEFAULT_TRAIL = "classic";
 const DEFAULT_ACHIEVEMENTS_STATE = Object.freeze({
   unlocked: Object.freeze({}),
-  progress: Object.freeze({ maxScoreNoOrbs: 0, maxScoreNoAbilities: 0 })
+  progress: Object.freeze({
+    maxScoreNoOrbs: 0,
+    maxScoreNoAbilities: 0,
+    maxPerfectsInRun: 0,
+    totalPerfects: 0,
+    maxOrbsInRun: 0,
+    totalOrbsCollected: 0,
+    totalScore: 0
+  })
 });
 
 function maskConnectionString(uri) {

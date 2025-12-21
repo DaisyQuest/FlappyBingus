@@ -14,7 +14,7 @@ function createScoreService(deps) {
     trails,
     clampScore = clampScoreDefault,
     normalizeAchievements = (state) => state,
-    validateRunStats = () => ({ ok: true, stats: { orbsCollected: null, abilitiesUsed: null } }),
+    validateRunStats = () => ({ ok: true, stats: { orbsCollected: null, abilitiesUsed: null, perfects: null } }),
     evaluateAchievements = () => ({ state: null, unlocked: [] }),
     buildAchievementsPayload = () => null
   } = deps;
@@ -56,7 +56,8 @@ function createScoreService(deps) {
     const achievementEval = evaluateAchievements({
       previous: normalizeAchievements(user.achievements),
       runStats,
-      score
+      score,
+      totalScore: user.totalScore
     });
 
     try {

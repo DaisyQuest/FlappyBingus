@@ -11,7 +11,8 @@ function buildDeps(overrides = {}) {
   const listHighscores = overrides.listHighscores || vi.fn(async () => [{ username: "a", bestScore: 1 }]);
   const trails = overrides.trails || [{ id: "classic" }];
   const normalizeAchievements = overrides.normalizeAchievements || ((state) => state || { unlocked: {}, progress: {} });
-  const validateRunStats = overrides.validateRunStats || (() => ({ ok: true, stats: { orbsCollected: null, abilitiesUsed: null } }));
+  const validateRunStats =
+    overrides.validateRunStats || (() => ({ ok: true, stats: { orbsCollected: null, abilitiesUsed: null, perfects: null } }));
   const evaluateAchievements =
     overrides.evaluateAchievements || vi.fn(({ previous }) => ({ state: previous || { unlocked: {}, progress: {} }, unlocked: [] }));
   const buildAchievementsPayload =
@@ -130,7 +131,7 @@ describe("scoreService", () => {
   });
 
   it("passes validated run stats into achievement evaluation and payload", async () => {
-    const user = { key: "u", username: "achiever" };
+    const user = { key: "u", username: "achiever", totalScore: 50 };
     const updated = { ...user, bestScore: 101, achievements: { unlocked: { a: 1 }, progress: {} } };
     const evaluateAchievements = vi.fn(() => ({
       state: { unlocked: { a: 1, b: 2 }, progress: { maxScoreNoOrbs: 120 } },
@@ -150,7 +151,8 @@ describe("scoreService", () => {
     expect(evaluateAchievements).toHaveBeenCalledWith({
       previous: { unlocked: {}, progress: {} },
       runStats: { orbsCollected: 0, abilitiesUsed: 0 },
-      score: 101
+      score: 101,
+      totalScore: 50
     });
     expect(res.body.achievements).toEqual({ unlocked: ["b"], definitions: ["defs"], state: updated.achievements });
   });

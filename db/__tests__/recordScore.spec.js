@@ -1,6 +1,16 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { MongoDataStore } from "../mongo.cjs";
 
+const DEFAULT_PROGRESS = {
+  maxScoreNoOrbs: 0,
+  maxScoreNoAbilities: 0,
+  maxPerfectsInRun: 0,
+  totalPerfects: 0,
+  maxOrbsInRun: 0,
+  totalOrbsCollected: 0,
+  totalScore: 0
+};
+
 class FakeCollection {
   constructor(doc) {
     this.doc = doc;
@@ -123,7 +133,7 @@ describe("MongoDataStore.recordScore", () => {
       updatedAt: now,
       keybinds: null,
       bustercoins: 0,
-      achievements: { unlocked: {}, progress: { maxScoreNoOrbs: 0, maxScoreNoAbilities: 0 } }
+      achievements: { unlocked: {}, progress: DEFAULT_PROGRESS }
     });
   });
 
@@ -150,7 +160,7 @@ describe("MongoDataStore.recordScore", () => {
       bestScore: 25,
       createdAt: now,
       updatedAt: now,
-      achievements: { unlocked: {}, progress: { maxScoreNoOrbs: 0, maxScoreNoAbilities: 0 } }
+      achievements: { unlocked: {}, progress: DEFAULT_PROGRESS }
     });
   });
 
@@ -177,7 +187,7 @@ describe("MongoDataStore.recordScore", () => {
       bustercoins: 0,
       createdAt: 10,
       updatedAt: now,
-      achievements: { unlocked: {}, progress: { maxScoreNoOrbs: 0, maxScoreNoAbilities: 0 } }
+      achievements: { unlocked: {}, progress: DEFAULT_PROGRESS }
     });
   });
 
@@ -213,7 +223,7 @@ describe("MongoDataStore.recordScore", () => {
       keybinds: null,
       bustercoins: 0,
       updatedAt: now,
-      achievements: { unlocked: {}, progress: { maxScoreNoOrbs: 0, maxScoreNoAbilities: 0 } }
+      achievements: { unlocked: {}, progress: DEFAULT_PROGRESS }
     });
   });
 
@@ -229,14 +239,14 @@ describe("MongoDataStore.recordScore", () => {
       runs: 1,
       totalScore: 10,
       bestScore: 10,
-      achievements: { unlocked: {}, progress: { maxScoreNoOrbs: 15, maxScoreNoAbilities: 5 } }
+      achievements: { unlocked: {}, progress: { ...DEFAULT_PROGRESS, maxScoreNoOrbs: 15, maxScoreNoAbilities: 5 } }
     };
     const collection = new FakeCollection(existing);
     store.usersCollection = () => collection;
 
     const nextAchievements = {
       unlocked: { no_orbs_100: 1234 },
-      progress: { maxScoreNoOrbs: 120, maxScoreNoAbilities: 55 }
+      progress: { ...DEFAULT_PROGRESS, maxScoreNoOrbs: 120, maxScoreNoAbilities: 55 }
     };
 
     const result = await store.recordScore(existing, 120, { achievements: nextAchievements, bustercoinsEarned: 1 });

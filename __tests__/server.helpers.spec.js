@@ -56,7 +56,15 @@ describe("server helpers (trails)", () => {
     server.ensureUserSchema(u, { recordHolder: false });
     expect(u.achievements).toEqual({
       unlocked: {},
-      progress: { maxScoreNoOrbs: 0, maxScoreNoAbilities: 0 }
+      progress: {
+        maxScoreNoOrbs: 0,
+        maxScoreNoAbilities: 0,
+        maxPerfectsInRun: 0,
+        totalPerfects: 0,
+        maxOrbsInRun: 0,
+        totalOrbsCollected: 0,
+        totalScore: 0
+      }
     });
   });
 
