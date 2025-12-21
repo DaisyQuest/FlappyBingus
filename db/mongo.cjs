@@ -1,5 +1,10 @@
 "use strict";
 
+const fs = require("node:fs/promises");
+const path = require("node:path");
+const os = require("node:os");
+const { promisify } = require("node:util");
+const { gzip, gunzip } = require("node:zlib");
 const { MongoClient } = require("mongodb");
 
 const MAX_SCORE = 1_000_000_000;
@@ -66,6 +71,46 @@ function normalizeTotal(v) {
   return Math.max(0, Math.floor(n));
 }
 
+function serializeReplayPayload(replay) {
+  if (replay === undefined) throw new Error("replay_required");
+  if (Buffer.isBuffer(replay)) return Buffer.from(replay);
+  if (typeof replay === "string") return Buffer.from(replay, "utf8");
+  try {
+    return Buffer.from(JSON.stringify(replay ?? null), "utf8");
+  } catch (err) {
+    const wrapped = new Error("replay_serialization_failed");
+    wrapped.cause = err;
+    throw wrapped;
+  }
+}
+
+function resolveReplayDir(platform = process.platform) {
+  if (platform === "win32") {
+    return path.join("C:", "flappybingus", "replays");
+  }
+  const home = os.homedir() || ".";
+  return path.join(home, "replays");
+}
+
+async function ensureReplayDirExists(dir, fsModule = fs) {
+  await fsModule.mkdir(dir, { recursive: true });
+  return dir;
+}
+
+function sanitizeKeyForFilename(key) {
+  const base = String(key || "").trim() || "unknown";
+  return base.replace(/[^A-Za-z0-9_-]+/g, "_").slice(0, 96) || "unknown";
+}
+
+function parseReplayBuffer(buf) {
+  const text = buf.toString("utf8");
+  try {
+    return JSON.parse(text);
+  } catch {
+    return buf;
+  }
+}
+
 async function safeClose(client) {
   if (!client) return;
   try {
@@ -81,6 +126,10 @@ class MongoDataStore {
     this.dbName = options.dbName;
     this.maskedUri = options.maskedUri || maskConnectionString(this.uri);
     this.serverSelectionTimeoutMS = options.serverSelectionTimeoutMS || 5000;
+    this.fs = options.fs || fs;
+    this.resolveReplayDir = options.resolveReplayDir || resolveReplayDir;
+    this.gzip = options.gzip || promisify(gzip);
+    this.gunzip = options.gunzip || promisify(gunzip);
     this.client = null;
     this.db = null;
     this.status = {
@@ -107,6 +156,8 @@ class MongoDataStore {
       await db.command({ ping: 1 });
       await db.collection("users").createIndex({ key: 1 }, { unique: true });
       await db.collection("users").createIndex({ updatedAt: -1 });
+      await db.collection("replays").createIndex({ key: 1 }, { unique: true });
+      await db.collection("replays").createIndex({ updatedAt: -1 });
       this.client = client;
       this.db = db;
       this.status.connected = true;
@@ -141,6 +192,11 @@ class MongoDataStore {
   usersCollection() {
     if (!this.db) throw new Error("db_not_connected");
     return this.db.collection("users");
+  }
+
+  replaysCollection() {
+    if (!this.db) throw new Error("db_not_connected");
+    return this.db.collection("replays");
   }
 
   async getUserByKey(key) {
@@ -224,6 +280,51 @@ class MongoDataStore {
     return res.value;
   }
 
+  async saveBestReplay(key, replay, { score } = {}) {
+    await this.ensureConnected();
+    if (!key) throw new Error("user_key_required");
+    const now = Date.now();
+    const payload = serializeReplayPayload(replay);
+    const totalBytes = payload.byteLength;
+    const dir = await ensureReplayDirExists(this.resolveReplayDir(), this.fs);
+    const fileName = `${sanitizeKeyForFilename(key)}-${now}.json`;
+    const filePath = path.join(dir, fileName);
+    const compressed = await this.gzip(payload);
+    await this.fs.writeFile(filePath, compressed);
+
+    const res = await this.replaysCollection().findOneAndUpdate(
+      { key },
+      {
+        $setOnInsert: { createdAt: now },
+        $set: {
+          key,
+          bestScore: clampScore(score),
+          totalBytes,
+          compressedBytes: compressed.byteLength,
+          compression: "gzip",
+          fileName,
+          filePath,
+          updatedAt: now
+        }
+      },
+      { returnDocument: "after", upsert: true }
+    );
+
+    if (!res.value) throw new Error("save_replay_failed");
+    return res.value;
+  }
+
+  async loadBestReplay(key) {
+    await this.ensureConnected();
+    if (!key) throw new Error("user_key_required");
+    const doc = await this.replaysCollection().findOne({ key });
+    if (!doc || !doc.filePath) return null;
+    const compressed = await this.fs.readFile(doc.filePath);
+    const raw = await this.gunzip(compressed);
+    const replay = parseReplayBuffer(raw);
+    return { meta: doc, replay };
+  }
+
   async setTrail(key, trailId) {
     await this.ensureConnected();
     const now = Date.now();
@@ -297,4 +398,13 @@ class MongoDataStore {
   }
 }
 
-module.exports = { MongoDataStore, resolveMongoConfig, maskConnectionString };
+module.exports = {
+  MongoDataStore,
+  resolveMongoConfig,
+  maskConnectionString,
+  serializeReplayPayload,
+  resolveReplayDir,
+  ensureReplayDirExists,
+  sanitizeKeyForFilename,
+  parseReplayBuffer
+};

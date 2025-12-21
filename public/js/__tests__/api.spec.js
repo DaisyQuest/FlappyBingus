@@ -75,7 +75,7 @@ describe("api helpers", () => {
     const requests = [
       [apiGetMe, ["/api/me", { method: "GET" }]],
       [apiRegister, ["/api/register", { method: "POST", body: JSON.stringify({ username: "bingus" }) }]],
-      [apiSubmitScore, ["/api/score", { method: "POST", body: JSON.stringify({ score: 9001 }) }]],
+      [apiSubmitScore, ["/api/score", { method: "POST", body: expect.stringContaining("\"compression\":\"gzip-base64\"") }]],
       [apiSetTrail, ["/api/cosmetics/trail", { method: "POST", body: JSON.stringify({ trailId: "classic" }) }]],
       [apiSetKeybinds, ["/api/binds", { method: "POST", body: JSON.stringify({ keybinds: { jump: "Space" } }) }]],
       [apiGetHighscores, ["/api/highscores?limit=25", { method: "GET" }]]
@@ -83,7 +83,7 @@ describe("api helpers", () => {
 
     await apiGetMe();
     await apiRegister("bingus");
-    await apiSubmitScore(9001);
+    await apiSubmitScore(9001, { data: true });
     await apiSetTrail("classic");
     await apiSetKeybinds({ jump: "Space" });
     await apiGetHighscores(25);
@@ -155,5 +155,42 @@ describe("api helpers", () => {
     const afterReset = await apiGetMe();
     expect(fetchMock).toHaveBeenCalledTimes(9);
     expect(afterReset).toEqual({ ok: true });
+  });
+
+  it("falls back to raw replay when compression hangs", async () => {
+    const fetchMock = vi.fn(() =>
+      Promise.resolve({
+        ok: true,
+        json: () => Promise.resolve({ ok: true })
+      })
+    );
+    // eslint-disable-next-line no-undef
+    global.fetch = fetchMock;
+
+    class HangingCompressionStream {
+      constructor() {
+        this.writable = {
+          getWriter: () => ({
+            write: () => new Promise(() => {}),
+            close: () => Promise.resolve()
+          })
+        };
+        this.readable = new ReadableStream();
+      }
+    }
+    // eslint-disable-next-line no-undef
+    global.CompressionStream = HangingCompressionStream;
+
+    const { apiSubmitScore, __setCompressionTimeoutMs } = await import("../api.js");
+    __setCompressionTimeoutMs(5);
+
+    await apiSubmitScore(1, { big: true });
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    const body = fetchMock.mock.calls[0][1].body;
+    expect(body).toContain("\"big\":true");
+    // cleanup
+    // eslint-disable-next-line no-undef
+    delete global.CompressionStream;
   });
 });

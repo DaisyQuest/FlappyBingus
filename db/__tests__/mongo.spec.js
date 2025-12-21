@@ -39,8 +39,11 @@ const makeCollection = (overrides = {}) => ({
   ...overrides
 });
 
-const loadModule = async () => {
+const loadModule = async (options = {}) => {
   vi.resetModules();
+  if (typeof options.beforeImport === "function") {
+    await options.beforeImport();
+  }
   applyMongoMock();
   return import("../mongo.cjs");
 };
@@ -157,6 +160,8 @@ describe("MongoDataStore connection lifecycle", () => {
     expect(db).toBe(connectBehavior.db);
     expect(store.status.connected).toBe(true);
     expect(store.status.lastPingMs).toBeGreaterThanOrEqual(0);
+    const collections = connectBehavior.db.collection.mock.calls.map((c) => c[0]);
+    expect(collections).toEqual(expect.arrayContaining(["users", "replays"]));
     const users = connectBehavior.db.collection.mock.results[0].value;
     expect(users.createIndex).toHaveBeenCalled();
   });
@@ -426,6 +431,146 @@ describe("MongoDataStore mutations and reads", () => {
 
     await store.recentUsers(0);
     expect(chain.limit).toHaveBeenCalledWith(5);
+  });
+});
+
+describe("replay persistence", () => {
+  const fsMock = {
+    mkdir: vi.fn(async () => ({})),
+    writeFile: vi.fn(async () => ({})),
+    readFile: vi.fn(async () => Buffer.from(""))
+  };
+  let lastWritten = null;
+
+  beforeEach(() => {
+    fsMock.mkdir.mockClear();
+    fsMock.writeFile.mockClear();
+    fsMock.readFile.mockClear();
+    lastWritten = null;
+    fsMock.writeFile.mockImplementation(async (_path, data) => { lastWritten = Buffer.from(data); });
+    fsMock.readFile.mockImplementation(async () => lastWritten ?? Buffer.from(""));
+  });
+
+  it("serializes various replay inputs safely", async () => {
+    const { serializeReplayPayload } = await loadModule();
+    expect(serializeReplayPayload(Buffer.from("abc")).toString("utf8")).toBe("abc");
+    expect(serializeReplayPayload("abc").toString("utf8")).toBe("abc");
+    expect(serializeReplayPayload({ ticks: 1 }).toString("utf8")).toContain("\"ticks\":1");
+    expect(() => serializeReplayPayload()).toThrow("replay_required");
+
+    const circular = {};
+    circular.self = circular;
+    expect(() => serializeReplayPayload(circular)).toThrow("replay_serialization_failed");
+  });
+
+  it("saves best replay metadata to Mongo while compressing and writing to disk", async () => {
+    const { MongoDataStore, resolveReplayDir, sanitizeKeyForFilename } = await loadModule();
+    const payload = Buffer.from("replay-body");
+    const metaColl = makeCollection({
+      findOneAndUpdate: vi.fn(async (_filter, update) => ({
+        value: { ...(update.$setOnInsert || {}), ...(update.$set || {}) }
+      }))
+    });
+    const store = new MongoDataStore({
+      uri: "mongodb://ok",
+      dbName: "db",
+      fs: fsMock,
+      resolveReplayDir: () => resolveReplayDir()
+    });
+    store.ensureConnected = vi.fn();
+    store.replaysCollection = () => metaColl;
+
+    const res = await store.saveBestReplay("k", payload, { score: 500 });
+
+    expect(fsMock.mkdir).toHaveBeenCalledWith(resolveReplayDir(), { recursive: true });
+    expect(fsMock.writeFile).toHaveBeenCalledTimes(1);
+    const writePath = fsMock.writeFile.mock.calls[0][0];
+    expect(writePath).toContain(resolveReplayDir());
+    expect(writePath).toContain(sanitizeKeyForFilename("k"));
+    expect(fsMock.writeFile.mock.calls[0][1]).not.toEqual(payload); // compressed
+    expect(fsMock.writeFile.mock.calls[0][1][0]).toBe(0x1f); // gzip header
+
+    expect(res.bestScore).toBe(500);
+    expect(res.totalBytes).toBe(payload.byteLength);
+    expect(res.compressedBytes).toBeDefined();
+    expect(res.compression).toBe("gzip");
+    expect(res.fileName).toBeDefined();
+    expect(res.filePath).toContain(res.fileName);
+  });
+
+  it("uses platform-specific replay roots and clamps scores", async () => {
+    const { resolveReplayDir, sanitizeKeyForFilename, MongoDataStore } = await loadModule();
+    expect(resolveReplayDir("win32")).toBe("C:/flappybingus/replays");
+    expect(resolveReplayDir("linux")).toContain("replays");
+    expect(sanitizeKeyForFilename("User!*")).toBe("User_");
+
+    const metaColl = makeCollection({
+      findOneAndUpdate: vi.fn(async (_filter, update) => ({
+        value: { ...(update.$setOnInsert || {}), ...(update.$set || {}) }
+      }))
+    });
+    const store = new MongoDataStore({
+      uri: "mongodb://ok",
+      dbName: "db",
+      fs: fsMock,
+      resolveReplayDir: () => resolveReplayDir("linux")
+    });
+    store.ensureConnected = vi.fn();
+    store.replaysCollection = () => metaColl;
+
+    const res = await store.saveBestReplay("user", { data: true }, { score: 1_000_000_500 });
+    expect(res.bestScore).toBe(1_000_000_000);
+  });
+
+  it("loads and decompresses saved replays", async () => {
+    const { MongoDataStore } = await loadModule();
+    const payload = { hello: "world" };
+    const metaColl = makeCollection({
+      findOneAndUpdate: vi.fn(async (_filter, update) => ({
+        value: { ...(update.$setOnInsert || {}), ...(update.$set || {}) }
+      })),
+      findOne: vi.fn(async () => savedMeta)
+    });
+    let savedMeta = null;
+    const store = new MongoDataStore({
+      uri: "mongodb://ok",
+      dbName: "db",
+      fs: fsMock,
+      resolveReplayDir: () => "/tmp/replays"
+    });
+    store.ensureConnected = vi.fn();
+    store.replaysCollection = () => metaColl;
+
+    savedMeta = await store.saveBestReplay("abc", payload, { score: 10 });
+    const loaded = await store.loadBestReplay("abc");
+
+    expect(fsMock.readFile).toHaveBeenCalledWith(savedMeta.filePath);
+    expect(loaded.meta.key).toBe("abc");
+    expect(loaded.replay).toEqual(payload);
+  });
+
+  it("returns null when no replay metadata exists", async () => {
+    const { MongoDataStore } = await loadModule();
+    const metaColl = makeCollection({ findOne: vi.fn(async () => null) });
+    const store = new MongoDataStore({
+      uri: "mongodb://ok",
+      dbName: "db",
+      fs: fsMock
+    });
+    store.ensureConnected = vi.fn();
+    store.replaysCollection = () => metaColl;
+
+    const result = await store.loadBestReplay("missing");
+    expect(result).toBeNull();
+  });
+
+  it("throws when saving a replay without a user key", async () => {
+    const { MongoDataStore } = await loadModule();
+    const store = new MongoDataStore({ uri: "mongodb://ok", dbName: "db" });
+    store.ensureConnected = vi.fn();
+    store.replaysCollection = () => makeCollection();
+
+    await expect(store.saveBestReplay("", { any: true })).rejects.toThrow("user_key_required");
   });
 });
 
