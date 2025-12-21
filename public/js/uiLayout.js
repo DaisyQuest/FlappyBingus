@@ -340,6 +340,24 @@ function createSkillSettingsCard(doc, refs) {
   return card;
 }
 
+function createAchievementsCard(doc, refs) {
+  const card = doc.createElement("div");
+  card.className = "info-card achievements-card";
+
+  const title = doc.createElement("div");
+  title.className = "section-title";
+  title.textContent = "Achievements";
+
+  const blurb = doc.createElement("div");
+  blurb.className = "compact";
+  blurb.textContent = "Track long-term goals. Rewards unlock cosmetics in a future update.";
+
+  const list = createElement(doc, refs, "div", { id: "achievementsList", className: "achievement-list" });
+
+  card.append(title, blurb, list);
+  return card;
+}
+
 function createProfileCard(doc, refs) {
   const card = doc.createElement("div");
   card.className = "card card-soft";
@@ -451,6 +469,11 @@ function createMenuScreen(doc, refs) {
     className: "tab-radio",
     attrs: { type: "radio", name: "view" }
   });
+  const viewAchievements = createElement(doc, refs, "input", {
+    id: "viewAchievements",
+    className: "tab-radio",
+    attrs: { type: "radio", name: "view" }
+  });
 
   const shell = doc.createElement("div");
   shell.className = "menu-shell";
@@ -471,7 +494,11 @@ function createMenuScreen(doc, refs) {
   settingsLabel.setAttribute("for", "viewSettings");
   settingsLabel.className = "tab-pill";
   settingsLabel.textContent = "Settings";
-  toSettings.append(settingsLabel);
+  const achievementsLabel = doc.createElement("label");
+  achievementsLabel.setAttribute("for", "viewAchievements");
+  achievementsLabel.className = "tab-pill";
+  achievementsLabel.textContent = "Achievements";
+  toSettings.append(settingsLabel, achievementsLabel);
   mainPanel.append(mainGrid, toSettings);
 
   const settingsPanel = doc.createElement("div");
@@ -494,7 +521,22 @@ function createMenuScreen(doc, refs) {
   );
   settingsPanel.append(toMain, settingsGrid);
 
-  viewArea.append(mainPanel, settingsPanel);
+  const achievementsPanel = doc.createElement("div");
+  achievementsPanel.className = "panel-achievements tab-panel";
+  const toMainFromAchievements = doc.createElement("div");
+  toMainFromAchievements.className = "tab-toggle";
+  const achievementsBackLabel = doc.createElement("label");
+  achievementsBackLabel.setAttribute("for", "viewMain");
+  achievementsBackLabel.className = "tab-pill";
+  achievementsBackLabel.textContent = "← Back to Main";
+  toMainFromAchievements.append(achievementsBackLabel);
+
+  const achievementsGrid = doc.createElement("div");
+  achievementsGrid.className = "info-grid";
+  achievementsGrid.append(createAchievementsCard(doc, refs));
+  achievementsPanel.append(toMainFromAchievements, achievementsGrid);
+
+  viewArea.append(mainPanel, settingsPanel, achievementsPanel);
   mainCard.append(viewArea);
 
   const sideStack = doc.createElement("div");
@@ -502,7 +544,7 @@ function createMenuScreen(doc, refs) {
   sideStack.append(createProfileCard(doc, refs), createHighscoreCard(doc, refs));
 
   shell.append(mainCard, sideStack);
-  content.append(header, viewMain, viewSettings, shell);
+  content.append(header, viewMain, viewSettings, viewAchievements, shell);
   panel.append(aurora, content);
   screen.append(trailOverlay, panel);
   return screen;
@@ -571,7 +613,12 @@ export function buildGameUI({ document = window.document, mount } = {}) {
   const wrap = createElement(doc, refs, "div", { id: "wrap" });
   const canvas = createElement(doc, refs, "canvas", { id: "c" });
 
-  wrap.append(canvas, createMenuScreen(doc, refs), createOverScreen(doc, refs));
+  const achievementToasts = createElement(doc, refs, "div", {
+    id: "achievementToasts",
+    className: "achievement-toasts"
+  });
+
+  wrap.append(canvas, createMenuScreen(doc, refs), createOverScreen(doc, refs), achievementToasts);
   target.append(wrap);
 
   return {

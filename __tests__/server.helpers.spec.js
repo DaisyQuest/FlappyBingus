@@ -50,6 +50,16 @@ describe("server helpers (trails)", () => {
     expect(u.settings).toEqual({ dashBehavior: "ricochet", slowFieldBehavior: "slow" });
   });
 
+  it("seeds achievement progress defaults when absent", () => {
+    const u = baseUser();
+    u.achievements = null;
+    server.ensureUserSchema(u, { recordHolder: false });
+    expect(u.achievements).toEqual({
+      unlocked: {},
+      progress: { maxScoreNoOrbs: 0, maxScoreNoAbilities: 0 }
+    });
+  });
+
   it("normalizes invalid binds/settings and clamps counters", () => {
     const u = {
       username: "champ",

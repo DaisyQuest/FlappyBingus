@@ -220,11 +220,13 @@ input[type="text"]::placeholder{color:rgba(255,255,255,.45)}
 .tab-radio{position:absolute;opacity:0;pointer-events:none}
 #viewMain:checked ~ .menu-shell label[for="viewMain"]{background:linear-gradient(180deg,rgba(200,235,255,.5),rgba(140,200,255,.2));color:#0c1826;border-color:rgba(200,235,255,.8);box-shadow:0 10px 26px rgba(0,0,0,.32)}
 #viewSettings:checked ~ .menu-shell label[for="viewSettings"]{background:linear-gradient(180deg,rgba(255,198,255,.52),rgba(180,150,255,.26));color:#0c1826;border-color:rgba(255,220,255,.85);box-shadow:0 10px 26px rgba(140,80,200,.32)}
+#viewAchievements:checked ~ .menu-shell label[for="viewAchievements"]{background:linear-gradient(180deg,rgba(150,255,210,.52),rgba(120,220,190,.24));color:#0c1826;border-color:rgba(150,255,210,.85);box-shadow:0 10px 26px rgba(0,0,0,.32)}
 
 .view-area{position:relative}
 .tab-panel{display:none;animation:floatIn .28s ease;min-height:280px}
 #viewMain:checked ~ .menu-shell .view-area .panel-main{display:grid}
 #viewSettings:checked ~ .menu-shell .view-area .panel-settings{display:grid}
+#viewAchievements:checked ~ .menu-shell .view-area .panel-achievements{display:grid}
 
 .info-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px}
 .info-card{border-radius:14px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.08);padding:12px 12px 10px;box-shadow:0 12px 26px rgba(0,0,0,.24)}
@@ -280,3 +282,21 @@ input[type="range"]::-moz-range-thumb{
 .over-subtitle{margin-top:4px}
 .menu-subtitle{margin-top:-4px}
 .replay-hint{margin-top:10px}
+.achievements-card .achievement-list{display:flex;flex-direction:column;gap:10px;margin-top:10px}
+.achievement-row{border:1px solid rgba(255,255,255,.12);border-radius:14px;padding:10px 12px;background:rgba(255,255,255,.04);box-shadow:inset 0 1px 0 rgba(255,255,255,.05)}
+.achievement-title{font-weight:900;letter-spacing:.3px;margin-bottom:2px}
+.achievement-desc{color:var(--muted);font-size:13px;margin-bottom:4px}
+.achievement-reward{color:var(--accent-strong);font-weight:800;font-size:12px;margin-bottom:6px}
+.achievement-status{font-weight:800;font-size:12.5px;color:rgba(255,255,255,.85);margin-top:6px}
+.achievement-status.unlocked{color:#bdf7c2}
+.achievement-meter{height:8px;border-radius:8px;background:rgba(255,255,255,.08);overflow:hidden;box-shadow:inset 0 1px 2px rgba(0,0,0,.35)}
+.achievement-meter-fill{height:100%;background:linear-gradient(90deg,rgba(160,255,210,.9),rgba(120,200,255,.9));transition:width .2s ease}
+.achievement-meter-fill.filled{background:linear-gradient(90deg,rgba(255,220,120,.95),rgba(255,170,80,.95))}
+
+.achievement-toasts{position:fixed;left:20px;bottom:20px;display:flex;flex-direction:column;gap:8px;z-index:50;pointer-events:none}
+.achievement-toast{min-width:240px;max-width:320px;background:rgba(15,20,30,.92);border:1px solid rgba(255,255,255,.14);border-radius:12px;padding:10px 12px;box-shadow:0 12px 30px rgba(0,0,0,.35);opacity:0;transform:translateY(12px);transition:opacity .2s ease,transform .25s ease}
+.achievement-toast.visible{opacity:1;transform:translateY(0)}
+.achievement-toast.fade{opacity:0;transform:translateY(10px)}
+.achievement-toast-title{font-size:12px;font-weight:900;color:var(--accent-strong);letter-spacing:.2px}
+.achievement-toast-name{font-weight:900;margin:2px 0}
+.achievement-toast-desc{color:var(--muted);font-size:12px}

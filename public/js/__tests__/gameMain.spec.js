@@ -167,4 +167,36 @@ describe("Game core loop hooks", () => {
     expect(game.parts.length).toBeGreaterThan(prevParts);
     expect(game.floats.some((f) => f.txt === "TELEPORT")).toBe(true);
   });
+
+  it("tracks run metadata for abilities and orb pickups", async () => {
+    makeWindow(200, 200, 1);
+    const { canvas, ctx } = baseCanvas();
+    const { Game } = await import("../game.js");
+    const cfg = cloneCfg();
+    const game = new Game({
+      canvas,
+      ctx,
+      config: cfg,
+      playerImg: { naturalWidth: 10, naturalHeight: 10 },
+      input: { getMove: () => ({ dx: 1, dy: 0 }), cursor: { has: true, x: 0, y: 0 } },
+      getTrailId: () => "classic",
+      getBinds: () => ({}),
+      onGameOver: () => {}
+    });
+
+    game.state = 1; // PLAY
+    game._useSkill("dash");
+    expect(game.getRunStats().abilitiesUsed).toBe(1);
+
+    const orb = {
+      x: game.player.x,
+      y: game.player.y,
+      r: game.player.r,
+      update: vi.fn(),
+      dead: vi.fn(() => false)
+    };
+    game.orbs.push(orb);
+    game.update(0.016);
+    expect(game.getRunStats().orbsCollected).toBe(1);
+  });
 });
