@@ -56,6 +56,7 @@ import { TrailPreview } from "./trailPreview.js";
 import { normalizeTrailSelection, rebuildTrailOptions } from "./trailSelectUtils.js";
 import { buildTrailHint } from "./trailHint.js";
 import { DEFAULT_TRAILS, getUnlockedTrails, normalizeTrails, sortTrailsForDisplay } from "./trailProgression.js";
+import { renderHighscores } from "./highscores.js";
 
 // ---- DOM ----
 const ui = buildGameUI();
@@ -412,43 +413,6 @@ function fillTrailSelect() {
   }
 }
 
-function renderHighscores() {
-  if (!net.online) {
-    hsWrap.className = "hint bad";
-    hsWrap.textContent = "Leaderboard unavailable (offline).";
-    return;
-  }
-  const hs = net.highscores || [];
-  if (!hs.length) {
-    hsWrap.className = "hint";
-    hsWrap.textContent = "No scores yet. Be the first.";
-    return;
-  }
-
-  hsWrap.className = "";
-  const table = document.createElement("table");
-  table.className = "hsTable";
-
-  const thead = document.createElement("thead");
-  thead.innerHTML = `<tr><th>#</th><th>User</th><th class="mono">Best</th></tr>`;
-  table.appendChild(thead);
-
-  const tbody = document.createElement("tbody");
-  hs.slice(0, 10).forEach((e, i) => {
-    const tr = document.createElement("tr");
-    const isMe = net.user && e.username === net.user.username;
-    tr.innerHTML =
-      `<td class="mono">${i + 1}</td>` +
-      `<td>${escapeHtml(e.username)}${isMe ? " (you)" : ""}</td>` +
-      `<td class="mono">${e.bestScore | 0}</td>`;
-    tbody.appendChild(tr);
-  });
-  table.appendChild(tbody);
-
-  hsWrap.innerHTML = "";
-  hsWrap.appendChild(table);
-}
-
 function renderAchievements(payload = null) {
   if (!achievementsList) return;
   const state = payload?.state || net.achievements?.state || net.user?.achievements;
@@ -558,7 +522,12 @@ async function refreshProfileAndHighscores() {
 
   setUserHint();
   fillTrailSelect();
-  renderHighscores();
+  renderHighscores({
+    container: hsWrap,
+    online: net.online,
+    highscores: net.highscores,
+    currentUser: net.user
+  });
   renderAchievements();
   renderBindUI();
   refreshBootUI();
