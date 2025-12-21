@@ -1543,6 +1543,8 @@ _drawOrb(o) {
     ctx.lineWidth = Math.max(2, bubbleSize * 0.04);
     ctx.strokeStyle = "rgba(120,210,255,.35)";
     ctx.strokeText(`${this.score | 0}`, scoreX, scoreY);
+
+    this._drawBustercoinCounter(scoreX, scoreY, bubbleSize);
     
     // intensity (top-right)
     ctx.textAlign = "right";
@@ -1581,6 +1583,29 @@ _drawOrb(o) {
     }
 
     this._drawSkillBar();
+  }
+
+  _drawBustercoinCounter(scoreX, scoreY, bubbleSize) {
+    const ctx = this.ctx;
+    const coins = Math.max(0, this.bustercoinsEarned | 0);
+    const coinFont = clamp(Math.round(bubbleSize * 0.28), 12, 38);
+    const label = `◎ ${coins}`;
+    const coinX = scoreX + bubbleSize * 0.62;
+    const coinY = scoreY - bubbleSize * 0.36;
+
+    ctx.save();
+    ctx.textAlign = "left";
+    ctx.textBaseline = "middle";
+    ctx.font = `900 ${coinFont}px "Baloo 2","Fredoka One",system-ui,-apple-system,Segoe UI,Roboto,sans-serif`;
+    ctx.shadowColor = "rgba(0,0,0,.45)";
+    ctx.shadowBlur = 10;
+    ctx.shadowOffsetY = 2;
+    ctx.lineWidth = Math.max(1.5, coinFont * 0.09);
+    ctx.strokeStyle = "rgba(150,105,30,.85)";
+    ctx.fillStyle = "rgba(255,215,130,.95)";
+    ctx.strokeText(label, coinX, coinY);
+    ctx.fillText(label, coinX, coinY);
+    ctx.restore();
   }
 
   _drawSkillIcon(skill, r) {
