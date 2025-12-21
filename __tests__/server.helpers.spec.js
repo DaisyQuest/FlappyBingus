@@ -48,4 +48,31 @@ describe("server helpers (trails)", () => {
     server.ensureUserSchema(u, { recordHolder: false });
     expect(u.settings).toEqual({ dashBehavior: "ricochet", slowFieldBehavior: "slow" });
   });
+
+  it("normalizes invalid binds/settings and clamps counters", () => {
+    const u = {
+      username: "champ",
+      key: "champ",
+      bestScore: 42,
+      selectedTrail: "classic",
+      keybinds: {
+        dash: { type: "key", code: "KeyF" },
+        phase: { type: "mouse", button: 2 },
+        teleport: { type: "mouse", button: 9 }, // invalid button -> default
+        slowField: { type: "key", code: "Slow Field" } // invalid code -> default
+      },
+      settings: { dashBehavior: "laser", slowFieldBehavior: "plasma" },
+      runs: -10,
+      totalScore: -99
+    };
+
+    server.ensureUserSchema(u, { recordHolder: false });
+
+    expect(u.keybinds.teleport).toEqual({ type: "mouse", button: 0 });
+    expect(u.keybinds.phase).toEqual({ type: "mouse", button: 2 });
+    expect(u.keybinds.slowField).toEqual({ type: "key", code: "KeyE" });
+    expect(u.settings).toEqual({ dashBehavior: "ricochet", slowFieldBehavior: "slow" });
+    expect(u.runs).toBe(0);
+    expect(u.totalScore).toBe(0);
+  });
 });

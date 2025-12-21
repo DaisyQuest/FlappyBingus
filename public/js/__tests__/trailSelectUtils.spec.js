@@ -29,6 +29,19 @@ describe("trailSelectUtils", () => {
     expect(result).toBe("classic");
   });
 
+  it("rejects the record-holder trail when it is not unlocked", () => {
+    const unlocked = new Set(["classic", "aurora"]);
+    const result = normalizeTrailSelection({
+      currentId: "world_record",
+      userSelectedId: "world_record",
+      selectValue: "world_record",
+      unlockedIds: unlocked,
+      fallbackId: "classic"
+    });
+
+    expect(result).toBe("classic");
+  });
+
   it("prefers the user's saved selection when local state is still the fallback", () => {
     const unlocked = new Set(["classic", "world_record"]);
     const result = normalizeTrailSelection({
