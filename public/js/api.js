@@ -1,6 +1,4 @@
 
-import { gzip } from "pako";
-
 const CLIENT_RATE_LIMITS = Object.freeze({
   default: { limit: 30, windowMs: 10_000 },
   "/api/me": { limit: 8, windowMs: 5_000 },
@@ -63,12 +61,36 @@ function encodeBase64(uint8) {
   return btoa(binary);
 }
 
-function compressReplayPayload(replay) {
+async function gzipToBase64(text) {
+  if (typeof CompressionStream === "function") {
+    const cs = new CompressionStream("gzip");
+    const writer = cs.writable.getWriter();
+    const encoded = new TextEncoder().encode(text);
+    await writer.write(encoded);
+    await writer.close();
+    const compressedBuffer = await new Response(cs.readable).arrayBuffer();
+    return encodeBase64(new Uint8Array(compressedBuffer));
+  }
+  if (typeof require === "function") {
+    try {
+      // eslint-disable-next-line global-require
+      const zlib = require("node:zlib");
+      const buf = zlib.gzipSync(text);
+      return encodeBase64(buf instanceof Uint8Array ? buf : new Uint8Array(buf));
+    } catch {
+      return null;
+    }
+  }
+  return null;
+}
+
+async function compressReplayPayload(replay) {
   if (replay === undefined || replay === null) return null;
   try {
     const text = typeof replay === "string" ? replay : JSON.stringify(replay);
-    const compressed = gzip(text);
-    return { compression: "gzip-base64", data: encodeBase64(compressed) };
+    const data = await gzipToBase64(text);
+    if (!data) return null;
+    return { compression: "gzip-base64", data };
   } catch {
     return null;
   }
@@ -76,7 +98,7 @@ function compressReplayPayload(replay) {
 
 export async function apiSubmitScore(score, replay) {
   if (hitClientRateLimit("/api/score")) return null;
-  const compressedReplay = compressReplayPayload(replay);
+  const compressedReplay = await compressReplayPayload(replay);
   return requestJson("/api/score", { method: "POST", body: JSON.stringify({ score, replay: compressedReplay }) });
 }
 
