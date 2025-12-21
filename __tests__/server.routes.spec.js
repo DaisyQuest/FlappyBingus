@@ -51,9 +51,10 @@ async function importServer(overrides = {}) {
     ensureConnected: vi.fn(async () => true),
     topHighscores: vi.fn(async () => []),
     upsertUser: vi.fn(async (_username, _key, defaults) => ({ ...baseUser(), ...defaults })),
-    recordScore: vi.fn(async (user, score, { bustercoinsEarned = 0 } = {}) => ({
+    recordScore: vi.fn(async (user, score, { bustercoinsEarned = 0, achievements } = {}) => ({
       ...baseUser(),
       ...user,
+      achievements: achievements || { unlocked: {}, progress: {} },
       bestScore: score,
       bustercoins: (user?.bustercoins || 0) + (bustercoinsEarned || 0)
     })),
@@ -144,9 +145,11 @@ describe("server routes and helpers", () => {
     expect(mockDataStore.recordScore).toHaveBeenCalledWith(
       expect.objectContaining({ key: "player-one" }),
       50,
-      { bustercoinsEarned: 3 }
+      expect.objectContaining({ bustercoinsEarned: 3 })
     );
-    expect(readJson(res).user.bustercoins).toBe(5);
+    const parsed = readJson(res);
+    expect(parsed.user.bustercoins).toBe(5);
+    expect(parsed.achievements).toBeTruthy();
 
     const negative = createRes();
     await server.route(
@@ -175,6 +178,22 @@ describe("server routes and helpers", () => {
 
     expect(res.status).toBe(200);
     expect(readJson(res).user.settings).toEqual({ dashBehavior: "destroy", slowFieldBehavior: "explosion" });
+  });
+
+  it("includes achievement payload on /api/me responses", async () => {
+    const { server } = await importServer({
+      getUserByKey: vi.fn(async () => ({
+        ...baseUser(),
+        achievements: { unlocked: { no_orbs_100: 1234 }, progress: { maxScoreNoOrbs: 140 } }
+      }))
+    });
+    const res = createRes();
+
+    await server.route(createReq({ method: "GET", url: "/api/me", headers: { cookie: "sugar=PlayerOne" } }), res);
+
+    const payload = readJson(res);
+    expect(payload.achievements.definitions.some((a) => a.id === "no_orbs_100")).toBe(true);
+    expect(payload.achievements.state.unlocked.no_orbs_100).toBe(1234);
   });
 
   it("preserves record-holder cosmetics on /api/me responses", async () => {

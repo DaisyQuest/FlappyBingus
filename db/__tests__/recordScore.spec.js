@@ -122,7 +122,8 @@ describe("MongoDataStore.recordScore", () => {
       selectedTrail: "classic",
       updatedAt: now,
       keybinds: null,
-      bustercoins: 0
+      bustercoins: 0,
+      achievements: { unlocked: {}, progress: { maxScoreNoOrbs: 0, maxScoreNoAbilities: 0 } }
     });
   });
 
@@ -148,7 +149,8 @@ describe("MongoDataStore.recordScore", () => {
       totalScore: 25,
       bestScore: 25,
       createdAt: now,
-      updatedAt: now
+      updatedAt: now,
+      achievements: { unlocked: {}, progress: { maxScoreNoOrbs: 0, maxScoreNoAbilities: 0 } }
     });
   });
 
@@ -174,7 +176,8 @@ describe("MongoDataStore.recordScore", () => {
       bestScore: 8,
       bustercoins: 0,
       createdAt: 10,
-      updatedAt: now
+      updatedAt: now,
+      achievements: { unlocked: {}, progress: { maxScoreNoOrbs: 0, maxScoreNoAbilities: 0 } }
     });
   });
 
@@ -209,8 +212,39 @@ describe("MongoDataStore.recordScore", () => {
       selectedTrail: "classic",
       keybinds: null,
       bustercoins: 0,
-      updatedAt: now
+      updatedAt: now,
+      achievements: { unlocked: {}, progress: { maxScoreNoOrbs: 0, maxScoreNoAbilities: 0 } }
     });
+  });
+
+  it("persists provided achievement state updates atomically with scores", async () => {
+    const now = 5_000;
+    vi.spyOn(Date, "now").mockReturnValue(now);
+
+    const store = new MongoDataStore({ uri: "mongodb://test", dbName: "db" });
+    store.ensureConnected = vi.fn();
+    const existing = {
+      key: "achiever",
+      username: "Achiever",
+      runs: 1,
+      totalScore: 10,
+      bestScore: 10,
+      achievements: { unlocked: {}, progress: { maxScoreNoOrbs: 15, maxScoreNoAbilities: 5 } }
+    };
+    const collection = new FakeCollection(existing);
+    store.usersCollection = () => collection;
+
+    const nextAchievements = {
+      unlocked: { no_orbs_100: 1234 },
+      progress: { maxScoreNoOrbs: 120, maxScoreNoAbilities: 55 }
+    };
+
+    const result = await store.recordScore(existing, 120, { achievements: nextAchievements, bustercoinsEarned: 1 });
+
+    expect(result.achievements).toEqual(nextAchievements);
+    expect(result.bustercoins).toBe(1);
+    expect(result.totalScore).toBe(130);
+    expect(result.runs).toBe(2);
   });
 
   it("throws when attempting to record a score without a user key", async () => {

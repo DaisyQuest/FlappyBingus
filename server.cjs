@@ -14,6 +14,13 @@ const { MongoDataStore, resolveMongoConfig } = require("./db/mongo.cjs");
 const { createScoreService, clampScoreDefault } = require("./services/scoreService.cjs");
 const { buildTrailPreviewCatalog } = require("./services/trailCatalog.cjs");
 const { renderTrailPreviewPage, wantsPreviewHtml } = require("./services/trailPreviewPage.cjs");
+const {
+  ACHIEVEMENTS,
+  normalizeAchievementState,
+  validateRunStats,
+  evaluateRunForAchievements,
+  buildAchievementsPayload
+} = require("./services/achievements.cjs");
 
 // --------- Config (env overrides) ----------
 const PORT = Number(process.env.PORT || 3000);
@@ -44,7 +51,11 @@ function _setDataStoreForTests(mock) {
     publicUser,
     listHighscores: () => topHighscores(20),
     trails: TRAILS,
-    clampScore: clampScoreDefault
+    clampScore: clampScoreDefault,
+    normalizeAchievements: normalizeAchievementState,
+    validateRunStats,
+    evaluateAchievements: evaluateRunForAchievements,
+    buildAchievementsPayload
   });
 }
 
@@ -271,6 +282,7 @@ function ensureUserSchema(u, { recordHolder = false } = {}) {
   u.runs = normalizeCount(u.runs);
   u.totalScore = normalizeTotal(u.totalScore);
   u.bustercoins = normalizeCount(u.bustercoins);
+  u.achievements = normalizeAchievementState(u.achievements);
   if (typeof u.selectedTrail !== "string") u.selectedTrail = "classic";
   if (!u.keybinds || typeof u.keybinds !== "object")
     u.keybinds = structuredClone(DEFAULT_KEYBINDS);
@@ -386,6 +398,7 @@ function publicUser(u, { recordHolder = false } = {}) {
     runs: u.runs | 0,
     totalScore: u.totalScore | 0,
     bustercoins: u.bustercoins | 0,
+    achievements: normalizeAchievementState(u.achievements),
     unlockedTrails: unlockedTrails(u.bestScore | 0, { recordHolder }),
     isRecordHolder: Boolean(recordHolder)
   };
@@ -422,6 +435,7 @@ function buildUserDefaults(username, key) {
     runs: 0,
     totalScore: 0,
     bustercoins: 0,
+    achievements: normalizeAchievementState(),
     createdAt: now,
     updatedAt: now
   };
@@ -491,7 +505,11 @@ scoreService = createScoreService({
   publicUser,
   listHighscores: () => topHighscores(20),
   trails: TRAILS,
-  clampScore: clampScoreDefault
+  clampScore: clampScoreDefault,
+  normalizeAchievements: normalizeAchievementState,
+  validateRunStats,
+  evaluateAchievements: evaluateRunForAchievements,
+  buildAchievementsPayload
 });
 
 async function ensureDatabase(res) {
@@ -757,7 +775,12 @@ async function route(req, res) {
     if (!(await ensureDatabase(res))) return;
     const u = await getUserFromReq(req, { withRecordHolder: true });
     const recordHolder = Boolean(u?.isRecordHolder);
-    sendJson(res, 200, { ok: true, user: publicUser(u, { recordHolder }), trails: TRAILS });
+    sendJson(res, 200, {
+      ok: true,
+      user: publicUser(u, { recordHolder }),
+      trails: TRAILS,
+      achievements: buildAchievementsPayload(u)
+    });
     return;
   }
 
@@ -787,7 +810,12 @@ async function route(req, res) {
       secure: Boolean(process.env.COOKIE_SECURE) // set true in production if behind HTTPS
     });
 
-    sendJson(res, 200, { ok: true, user: publicUser(u, { recordHolder }), trails: TRAILS });
+    sendJson(res, 200, {
+      ok: true,
+      user: publicUser(u, { recordHolder }),
+      trails: TRAILS,
+      achievements: buildAchievementsPayload(u)
+    });
     return;
   }
 
@@ -807,7 +835,8 @@ async function route(req, res) {
     const { status, body: responseBody, error } = await scoreService.submitScore(
       u,
       body.score,
-      body.bustercoinsEarned
+      body.bustercoinsEarned,
+      body.runStats
     );
     if (status >= 200 && status < 300 && responseBody) {
       sendJson(res, status, responseBody);

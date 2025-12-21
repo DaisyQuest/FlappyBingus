@@ -70,7 +70,10 @@ describe("uiLayout", () => {
       "watchReplay",
       "exportGif",
       "exportMp4",
-      "replayStatus"
+      "replayStatus",
+      "achievementsList",
+      "achievementToasts",
+      "viewAchievements"
     ];
 
     for (const key of requiredRefs) {
@@ -116,11 +119,13 @@ describe("uiLayout", () => {
   it("sets up tab radios with shared name and default main view", () => {
     buildGameUI({ document, mount });
     const viewRadios = document.querySelectorAll('input[name="view"]');
-    expect(viewRadios.length).toBe(2);
+    expect(viewRadios.length).toBe(3);
     const mainRadio = document.getElementById("viewMain");
     const settingsRadio = document.getElementById("viewSettings");
+    const achievementsRadio = document.getElementById("viewAchievements");
     expect(mainRadio?.checked).toBe(true);
     expect(settingsRadio?.checked).toBe(false);
+    expect(achievementsRadio?.checked).toBe(false);
   });
 
   it("recreates the layout cleanly on repeated mounts", () => {

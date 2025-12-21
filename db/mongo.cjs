@@ -4,6 +4,10 @@ const { MongoClient } = require("mongodb");
 
 const MAX_SCORE = 1_000_000_000;
 const DEFAULT_TRAIL = "classic";
+const DEFAULT_ACHIEVEMENTS_STATE = Object.freeze({
+  unlocked: Object.freeze({}),
+  progress: Object.freeze({ maxScoreNoOrbs: 0, maxScoreNoAbilities: 0 })
+});
 
 function maskConnectionString(uri) {
   if (!uri) return "";
@@ -184,13 +188,15 @@ class MongoDataStore {
     }
   }
 
-  async recordScore(user, score, { bustercoinsEarned = 0 } = {}) {
+  async recordScore(user, score, { bustercoinsEarned = 0, achievements } = {}) {
     await this.ensureConnected();
     if (!user || !user.key) throw new Error("user_key_required");
 
     const now = Date.now();
     const safeScore = clampScore(score);
     const earnedCoins = Math.max(0, normalizeCount(bustercoinsEarned));
+    const nextAchievements =
+      achievements && typeof achievements === "object" ? achievements : null;
 
     // Seed values from payload (only used if the doc is missing those fields)
     const safeRuns = normalizeCount(user.runs);
@@ -215,6 +221,7 @@ class MongoDataStore {
             totalScore: { $add: [{ $ifNull: ["$totalScore", safeTotalScore] }, safeScore] },
             bestScore: { $max: [{ $ifNull: ["$bestScore", safeBestScore] }, safeScore] },
             bustercoins: { $add: [{ $ifNull: ["$bustercoins", safeCoins] }, earnedCoins] },
+            achievements: nextAchievements ?? { $ifNull: ["$achievements", user.achievements || DEFAULT_ACHIEVEMENTS_STATE] },
 
             updatedAt: now
           }

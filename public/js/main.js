@@ -45,9 +45,11 @@ import {
   musicStop,
   setMusicVolume,
   setSfxVolume,
-  setMuted
+  setMuted,
+  sfxAchievementUnlock
 } from "./audio.js";
 import { applyBustercoinEarnings } from "./bustercoins.js";
+import { ACHIEVEMENTS, normalizeAchievementState, renderAchievementsList, appendAchievementToast } from "./achievements.js";
 
 import { buildGameUI } from "./uiLayout.js";
 import { TrailPreview } from "./trailPreview.js";
@@ -88,13 +90,16 @@ const {
   seedInput,
   seedRandomBtn,
   seedHint,
+  viewAchievements,
   musicVolume: musicSlider,
   sfxVolume: sfxSlider,
   muteToggle,
   watchReplay: watchReplayBtn,
   exportGif: exportGifBtn,
   exportMp4: exportMp4Btn,
-  replayStatus
+  replayStatus,
+  achievementsList,
+  achievementToasts
 } = ui;
 
 // ---- Local best fallback cookie (legacy support) ----
@@ -154,7 +159,8 @@ const net = {
   online: true,
   user: null,
   trails: DEFAULT_TRAILS.map((t) => ({ ...t })),
-  highscores: []
+  highscores: [],
+  achievements: { definitions: ACHIEVEMENTS, state: normalizeAchievementState() }
 };
 
 // keybinds: start from guest cookie; override from server user when available
@@ -443,6 +449,37 @@ function renderHighscores() {
   hsWrap.appendChild(table);
 }
 
+function renderAchievements(payload = null) {
+  if (!achievementsList) return;
+  const state = payload?.state || net.achievements?.state || net.user?.achievements;
+  const definitions = payload?.definitions || net.achievements?.definitions || ACHIEVEMENTS;
+  renderAchievementsList(achievementsList, {
+    state: normalizeAchievementState(state),
+    definitions
+  });
+}
+
+function applyAchievementsPayload(payload) {
+  if (!payload) return;
+  const definitions = payload.definitions?.length ? payload.definitions : (net.achievements?.definitions || ACHIEVEMENTS);
+  const state = normalizeAchievementState(payload.state || payload);
+  net.achievements = { definitions, state };
+  if (net.user) net.user.achievements = state;
+  renderAchievements({ definitions, state });
+  notifyAchievements(payload.unlocked);
+}
+
+function notifyAchievements(unlockedIds = []) {
+  if (!unlockedIds?.length) return;
+  const definitions = net.achievements?.definitions || ACHIEVEMENTS;
+  unlockedIds.forEach((id) => {
+    const def = definitions.find((d) => d.id === id);
+    if (!def) return;
+    appendAchievementToast(achievementToasts, def);
+    sfxAchievementUnlock();
+  });
+}
+
 function renderBindUI(listeningActionId = null) {
   bindWrap.innerHTML = "";
   for (const a of ACTIONS) {
@@ -500,10 +537,12 @@ async function refreshProfileAndHighscores() {
   if (!me) {
     net.online = false;
     net.user = null;
+    net.achievements = { definitions: ACHIEVEMENTS, state: normalizeAchievementState() };
   } else {
     net.online = true;
     net.user = me.user || null;
     net.trails = normalizeTrails(me.trails || net.trails);
+    applyAchievementsPayload(me.achievements || { definitions: ACHIEVEMENTS, state: me.user?.achievements });
     if (net.user?.keybinds) binds = mergeBinds(DEFAULT_KEYBINDS, net.user.keybinds);
     if (net.user?.settings) await updateSkillSettings(net.user.settings, { persist: false });
   }
@@ -520,6 +559,7 @@ async function refreshProfileAndHighscores() {
   setUserHint();
   fillTrailSelect();
   renderHighscores();
+  renderAchievements();
   renderBindUI();
   refreshBootUI();
 }
@@ -538,6 +578,7 @@ saveUserBtn.addEventListener("click", async () => {
     net.online = true;
     net.user = res.user;
     net.trails = normalizeTrails(res.trails || net.trails);
+    applyAchievementsPayload(res.achievements || { definitions: ACHIEVEMENTS, state: res.user?.achievements });
 
     binds = mergeBinds(DEFAULT_KEYBINDS, net.user.keybinds);
     usernameInput.value = net.user.username;
@@ -962,16 +1003,23 @@ async function onGameOver(finalScore) {
 
   if (net.user) {
     const coinsEarned = game?.bustercoinsEarned || 0;
+    const runStats = game?.getRunStats ? game.getRunStats() : null;
     const optimistic = applyBustercoinEarnings(net, coinsEarned, bustercoinText);
-    const res = await apiSubmitScore({ score: finalScore | 0, bustercoinsEarned: coinsEarned });
+    const res = await apiSubmitScore({
+      score: finalScore | 0,
+      bustercoinsEarned: coinsEarned,
+      runStats
+    });
     if (res && res.ok && res.user) {
       net.online = true;
       net.user = res.user;
       net.trails = normalizeTrails(res.trails || net.trails);
       net.highscores = res.highscores || net.highscores;
+      applyAchievementsPayload(res.achievements || { definitions: ACHIEVEMENTS, state: res.user?.achievements });
 
       fillTrailSelect();
       renderHighscores();
+      renderAchievements();
 
       overPB.textContent = String(net.user.bestScore | 0);
     } else {

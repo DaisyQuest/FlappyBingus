@@ -259,3 +259,24 @@ export function sfxSlowExplosion() {
   g.connect(sfxGain);
   src.start(0);
 }
+
+export function sfxAchievementUnlock() {
+  if (!ctx || !sfxGain) return;
+  const osc = ctx.createOscillator();
+  const gain = ctx.createGain();
+  const now = ctx.currentTime || 0;
+
+  osc.type = "triangle";
+  osc.frequency.setValueAtTime(660, now);
+  osc.frequency.linearRampToValueAtTime(880, now + 0.25);
+
+  gain.gain.setValueAtTime(0.001, now);
+  gain.gain.linearRampToValueAtTime(0.35, now + 0.06);
+  gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.7);
+
+  osc.connect(gain);
+  gain.connect(sfxGain);
+
+  osc.start(now);
+  osc.stop(now + 0.72);
+}

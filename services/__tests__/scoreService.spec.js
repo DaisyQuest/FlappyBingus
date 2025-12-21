@@ -10,7 +10,23 @@ function buildDeps(overrides = {}) {
     || vi.fn((u, opts) => ({ name: u.username, bestScore: u.bestScore, recordHolder: !!opts?.recordHolder }));
   const listHighscores = overrides.listHighscores || vi.fn(async () => [{ username: "a", bestScore: 1 }]);
   const trails = overrides.trails || [{ id: "classic" }];
-  return { dataStore, ensureUserSchema, publicUser, listHighscores, trails };
+  const normalizeAchievements = overrides.normalizeAchievements || ((state) => state || { unlocked: {}, progress: {} });
+  const validateRunStats = overrides.validateRunStats || (() => ({ ok: true, stats: { orbsCollected: null, abilitiesUsed: null } }));
+  const evaluateAchievements =
+    overrides.evaluateAchievements || vi.fn(({ previous }) => ({ state: previous || { unlocked: {}, progress: {} }, unlocked: [] }));
+  const buildAchievementsPayload =
+    overrides.buildAchievementsPayload || ((user, unlocked) => ({ state: user.achievements || {}, unlocked, definitions: [] }));
+  return {
+    dataStore,
+    ensureUserSchema,
+    publicUser,
+    listHighscores,
+    trails,
+    normalizeAchievements,
+    validateRunStats,
+    evaluateAchievements,
+    buildAchievementsPayload
+  };
 }
 
 describe("scoreService", () => {
@@ -39,30 +55,33 @@ describe("scoreService", () => {
 
   it("clamps, persists, and returns user + highscores", async () => {
     const user = { key: "u", username: "User" };
-    const updated = { ...user, bestScore: 123, totalScore: 200 };
+    const updated = { ...user, bestScore: 123, totalScore: 200, achievements: { unlocked: {}, progress: {} } };
     deps.dataStore.recordScore.mockResolvedValue(updated);
 
     const svc = createScoreService(deps);
     const res = await svc.submitScore(user, 123.9);
 
-    expect(deps.dataStore.recordScore).toHaveBeenCalledWith(user, 123, { bustercoinsEarned: 0 });
+    expect(deps.dataStore.recordScore).toHaveBeenCalledWith(
+      user,
+      123,
+      expect.objectContaining({ bustercoinsEarned: 0 })
+    );
     expect(deps.ensureUserSchema).toHaveBeenCalledWith(updated, { recordHolder: false });
     expect(deps.listHighscores).toHaveBeenCalled();
-    expect(res).toEqual({
+    expect(res.ok).toBe(true);
+    expect(res.status).toBe(200);
+    expect(res.body).toMatchObject({
       ok: true,
-      status: 200,
-      body: {
-        ok: true,
-        user: { name: "User", bestScore: 123, recordHolder: false },
-        trails: deps.trails,
-        highscores: [{ username: "a", bestScore: 1 }]
-      }
+      user: { name: "User", bestScore: 123, recordHolder: false },
+      trails: deps.trails,
+      highscores: [{ username: "a", bestScore: 1 }]
     });
+    expect(res.body.achievements).toBeTruthy();
   });
 
   it("marks the submitting user as the record holder when appropriate", async () => {
     const user = { key: "u", username: "champ" };
-    const updated = { ...user, bestScore: 9000 };
+    const updated = { ...user, bestScore: 9000, achievements: { unlocked: {}, progress: {} } };
     deps.dataStore.recordScore.mockResolvedValue(updated);
     deps.listHighscores = vi.fn(async () => [{ username: "champ", bestScore: 9000 }]);
     deps.publicUser = vi.fn((u, opts) => ({ user: u.username, recordHolder: opts?.recordHolder }));
@@ -72,24 +91,68 @@ describe("scoreService", () => {
 
     expect(deps.ensureUserSchema).toHaveBeenCalledWith(updated, { recordHolder: true });
     expect(res.body.user).toEqual({ user: "champ", recordHolder: true });
-    expect(deps.dataStore.recordScore).toHaveBeenCalledWith(user, 9000, { bustercoinsEarned: 4 });
+    expect(deps.dataStore.recordScore).toHaveBeenCalledWith(
+      user,
+      9000,
+      expect.objectContaining({ bustercoinsEarned: 4 })
+    );
   });
 
   it("validates and clamps bustercoin payloads before persisting", async () => {
     const user = { key: "u", username: "coinster" };
-    const updated = { ...user, bestScore: 10, bustercoins: 3 };
+    const updated = { ...user, bestScore: 10, bustercoins: 3, achievements: { unlocked: {}, progress: {} } };
     deps.dataStore.recordScore.mockResolvedValue(updated);
 
     const svc = createScoreService(deps);
     const res = await svc.submitScore(user, 10, 2.9);
 
     expect(res.ok).toBe(true);
-    expect(deps.dataStore.recordScore).toHaveBeenCalledWith(user, 10, { bustercoinsEarned: 2 });
+    expect(deps.dataStore.recordScore).toHaveBeenCalledWith(
+      user,
+      10,
+      expect.objectContaining({ bustercoinsEarned: 2 })
+    );
 
     const negative = await svc.submitScore(user, 10, -5);
     expect(negative.ok).toBe(false);
     expect(negative.status).toBe(400);
     expect(negative.error).toBe("invalid_bustercoins");
+  });
+
+  it("rejects invalid run metadata payloads", async () => {
+    const svc = createScoreService({
+      ...deps,
+      validateRunStats: () => ({ ok: false, error: "invalid_run_stats" })
+    });
+    const res = await svc.submitScore({ key: "u" }, 10, 0, "oops");
+    expect(res).toEqual({ ok: false, status: 400, error: "invalid_run_stats" });
+    expect(deps.dataStore.recordScore).not.toHaveBeenCalled();
+  });
+
+  it("passes validated run stats into achievement evaluation and payload", async () => {
+    const user = { key: "u", username: "achiever" };
+    const updated = { ...user, bestScore: 101, achievements: { unlocked: { a: 1 }, progress: {} } };
+    const evaluateAchievements = vi.fn(() => ({
+      state: { unlocked: { a: 1, b: 2 }, progress: { maxScoreNoOrbs: 120 } },
+      unlocked: ["b"]
+    }));
+    const buildAchievementsPayload = vi.fn(() => ({ unlocked: ["b"], definitions: ["defs"], state: updated.achievements }));
+    const svc = createScoreService({
+      ...deps,
+      dataStore: { recordScore: vi.fn(async () => updated) },
+      evaluateAchievements,
+      buildAchievementsPayload,
+      validateRunStats: () => ({ ok: true, stats: { orbsCollected: 0, abilitiesUsed: 0 } })
+    });
+
+    const res = await svc.submitScore(user, 101, 0, { orbsCollected: 0, abilitiesUsed: 0 });
+
+    expect(evaluateAchievements).toHaveBeenCalledWith({
+      previous: { unlocked: {}, progress: {} },
+      runStats: { orbsCollected: 0, abilitiesUsed: 0 },
+      score: 101
+    });
+    expect(res.body.achievements).toEqual({ unlocked: ["b"], definitions: ["defs"], state: updated.achievements });
   });
 
   it("maps recordScore failures to service errors", async () => {

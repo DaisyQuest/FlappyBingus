@@ -77,6 +77,8 @@ export class Game {
     this.orbs = [];
     this.parts = [];
     this.floats = [];
+    this.runStats = { orbsCollected: 0, abilitiesUsed: 0 };
+    this.runStats = { orbsCollected: 0, abilitiesUsed: 0 };
 
     this.score = 0;
     this.timeAlive = 0;
@@ -124,6 +126,13 @@ export class Game {
 
   setSkillSettings(settings) {
     this.skillSettings = normalizeSkillSettings(settings || DEFAULT_SKILL_SETTINGS);
+  }
+
+  getRunStats() {
+    return {
+      orbsCollected: this.runStats?.orbsCollected | 0,
+      abilitiesUsed: this.runStats?.abilitiesUsed | 0
+    };
   }
 
   // NEW: orb pickup sound, pitched by combo
@@ -675,12 +684,14 @@ export class Game {
     }
 
     const p = this.player;
+    let used = false;
 
     if (name === "dash") {
       const cfg = this._activeDashConfig();
       if (!cfg) return;
       if (this.skillSettings?.dashBehavior === "destroy") this._useDashDestroy(cfg);
       else this._useDashRicochet(cfg);
+      used = true;
     }
 
     if (name === "phase") {
@@ -689,6 +700,7 @@ export class Game {
       p.invT = Math.max(p.invT, dur);
       this.cds.phase = Math.max(0, Number(ph.cooldown) || 0);
       this.floats.push(new FloatText("PHASE", p.x, p.y - p.r * 1.6, "rgba(160,220,255,.95)"));
+      used = true;
     }
 
     if (name === "teleport") {
@@ -756,6 +768,7 @@ export class Game {
         prt.drag = 10;
         this.parts.push(prt);
       }
+      used = true;
     }
 
     if (name === "slowField") {
@@ -763,6 +776,11 @@ export class Game {
       if (!s) return;
       if (this.skillSettings?.slowFieldBehavior === "explosion") this._useSlowExplosion(s);
       else this._useSlowField(s);
+      used = true;
+    }
+
+    if (used) {
+      this.runStats.abilitiesUsed = (this.runStats.abilitiesUsed || 0) + 1;
     }
   }
 
@@ -1213,6 +1231,7 @@ export class Game {
         const maxC = Math.max(1, Number(this.cfg.scoring.orbComboMax) || 30);
         this.combo = Math.min(maxC, this.combo + 1);
         this.bustercoinsEarned = (this.bustercoinsEarned || 0) + 1;
+        this.runStats.orbsCollected = (this.runStats.orbsCollected || 0) + 1;
 
         // NEW: play boop AFTER combo increments (so pitch rises with combo)
         this._orbPickupSfx();

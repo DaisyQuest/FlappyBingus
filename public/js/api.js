@@ -60,7 +60,8 @@ export async function apiSubmitScore(scoreOrPayload, bustercoinsEarned) {
   if (scoreOrPayload && typeof scoreOrPayload === "object" && !Array.isArray(scoreOrPayload)) {
     payload = {
       score: scoreOrPayload.score,
-      bustercoinsEarned: scoreOrPayload.bustercoinsEarned ?? 0
+      bustercoinsEarned: scoreOrPayload.bustercoinsEarned ?? 0,
+      runStats: scoreOrPayload.runStats ?? null
     };
   } else {
     payload = { score: scoreOrPayload, bustercoinsEarned: bustercoinsEarned ?? 0 };

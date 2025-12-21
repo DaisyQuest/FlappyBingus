@@ -12,7 +12,11 @@ function createScoreService(deps) {
     publicUser,
     listHighscores,
     trails,
-    clampScore = clampScoreDefault
+    clampScore = clampScoreDefault,
+    normalizeAchievements = (state) => state,
+    validateRunStats = () => ({ ok: true, stats: { orbsCollected: null, abilitiesUsed: null } }),
+    evaluateAchievements = () => ({ state: null, unlocked: [] }),
+    buildAchievementsPayload = () => null
   } = deps;
 
   if (!dataStore?.recordScore) throw new Error("recordScore_required");
@@ -20,7 +24,7 @@ function createScoreService(deps) {
   if (typeof publicUser !== "function") throw new Error("publicUser_required");
   if (typeof listHighscores !== "function") throw new Error("listHighscores_required");
 
-  async function submitScore(user, rawScore, rawBustercoinsEarned = 0) {
+  async function submitScore(user, rawScore, rawBustercoinsEarned = 0, rawRunStats = null) {
     if (!user) return { ok: false, status: 401, error: "unauthorized" };
 
     if (rawScore === null || rawScore === undefined) {
@@ -43,8 +47,23 @@ function createScoreService(deps) {
     }
     const bustercoinsEarned = Math.max(0, Math.floor(coins));
 
+    const parsedRun = validateRunStats(rawRunStats);
+    if (!parsedRun?.ok) {
+      return { ok: false, status: 400, error: parsedRun.error || "invalid_run_stats" };
+    }
+
+    const runStats = parsedRun.stats;
+    const achievementEval = evaluateAchievements({
+      previous: normalizeAchievements(user.achievements),
+      runStats,
+      score
+    });
+
     try {
-      const updated = await dataStore.recordScore(user, score, { bustercoinsEarned });
+      const updated = await dataStore.recordScore(user, score, {
+        bustercoinsEarned,
+        achievements: achievementEval.state
+      });
       const highscores = await listHighscores();
       const recordHolder = highscores?.[0]?.username === updated.username;
       ensureUserSchema(updated, { recordHolder });
@@ -56,7 +75,8 @@ function createScoreService(deps) {
           ok: true,
           user: publicUser(updated, { recordHolder }),
           trails,
-          highscores
+          highscores,
+          achievements: buildAchievementsPayload(updated, achievementEval.unlocked)
         }
       };
     } catch (err) {

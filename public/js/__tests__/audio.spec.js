@@ -1,7 +1,14 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 class FakeGain {
-  constructor() { this.gain = { value: 1 }; }
+  constructor() {
+    this.gain = {
+      value: 1,
+      setValueAtTime: vi.fn(),
+      linearRampToValueAtTime: vi.fn(),
+      exponentialRampToValueAtTime: vi.fn()
+    };
+  }
   connect() {}
 }
 
@@ -22,6 +29,7 @@ class FakeAudioContext {
     this.destination = {};
     this.decodeAudioData = vi.fn(async (arr) => arr);
     this.createdSources = [];
+    this.createdOscillators = [];
     (globalThis.__audioContexts || []).push(this);
   }
   createGain() { return new FakeGain(); }
@@ -29,6 +37,20 @@ class FakeAudioContext {
     const src = new FakeBufferSource();
     this.createdSources.push(src);
     return src;
+  }
+  createOscillator() {
+    const osc = {
+      type: "sine",
+      frequency: {
+        setValueAtTime: vi.fn(),
+        linearRampToValueAtTime: vi.fn()
+      },
+      connect: vi.fn(),
+      start: vi.fn(),
+      stop: vi.fn()
+    };
+    this.createdOscillators.push(osc);
+    return osc;
   }
   async resume() { this.state = "running"; }
 }
@@ -149,7 +171,8 @@ describe("audio volume controls", () => {
       sfxDashBounce,
       sfxDashDestroy,
       sfxSlowField,
-      sfxSlowExplosion
+      sfxSlowExplosion,
+      sfxAchievementUnlock
     } = await import("../audio.js");
     await audioInit({
       boopUrl: "boop",
@@ -167,6 +190,7 @@ describe("audio volume controls", () => {
     sfxDashDestroy();
     sfxSlowField();
     sfxSlowExplosion();
+    sfxAchievementUnlock();
 
     const ctx = globalThis.__audioContexts.at(-1);
     const [boop, nice, bounce, destroy, slowField, slowExplosion] = ctx.createdSources.slice(-6);
@@ -178,5 +202,6 @@ describe("audio volume controls", () => {
     expect(destroy.playbackRate.value).toBe(1);
     expect(slowField.playbackRate.value).toBe(1);
     expect(slowExplosion.playbackRate.value).toBe(1);
+    expect(ctx.createdOscillators.at(-1)?.start).toHaveBeenCalled();
   });
 });
