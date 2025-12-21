@@ -1,10 +1,12 @@
 "use strict";
 
+const fs = require("node:fs/promises");
+const path = require("node:path");
+const os = require("node:os");
 const { MongoClient } = require("mongodb");
 
 const MAX_SCORE = 1_000_000_000;
 const DEFAULT_TRAIL = "classic";
-const MAX_REPLAY_CHUNK_BYTES = 15 * 1024 * 1024; // keep safely under MongoDB's 16MB BSON limit
 
 function maskConnectionString(uri) {
   if (!uri) return "";
@@ -67,12 +69,6 @@ function normalizeTotal(v) {
   return Math.max(0, Math.floor(n));
 }
 
-function normalizeChunkSize(bytes) {
-  const n = Number(bytes);
-  if (Number.isFinite(n) && n > 0) return Math.min(MAX_REPLAY_CHUNK_BYTES, Math.floor(n));
-  return MAX_REPLAY_CHUNK_BYTES;
-}
-
 function serializeReplayPayload(replay) {
   if (replay === undefined) throw new Error("replay_required");
   if (Buffer.isBuffer(replay)) return Buffer.from(replay);
@@ -84,6 +80,24 @@ function serializeReplayPayload(replay) {
     wrapped.cause = err;
     throw wrapped;
   }
+}
+
+function resolveReplayDir(platform = process.platform) {
+  if (platform === "win32") {
+    return path.join("C:", "flappybingus", "replays");
+  }
+  const home = os.homedir() || ".";
+  return path.join(home, "replays");
+}
+
+async function ensureReplayDirExists(dir, fsModule = fs) {
+  await fsModule.mkdir(dir, { recursive: true });
+  return dir;
+}
+
+function sanitizeKeyForFilename(key) {
+  const base = String(key || "").trim() || "unknown";
+  return base.replace(/[^A-Za-z0-9_-]+/g, "_").slice(0, 96) || "unknown";
 }
 
 async function safeClose(client) {
@@ -101,6 +115,8 @@ class MongoDataStore {
     this.dbName = options.dbName;
     this.maskedUri = options.maskedUri || maskConnectionString(this.uri);
     this.serverSelectionTimeoutMS = options.serverSelectionTimeoutMS || 5000;
+    this.fs = options.fs || fs;
+    this.resolveReplayDir = options.resolveReplayDir || resolveReplayDir;
     this.client = null;
     this.db = null;
     this.status = {
@@ -129,8 +145,6 @@ class MongoDataStore {
       await db.collection("users").createIndex({ updatedAt: -1 });
       await db.collection("replays").createIndex({ key: 1 }, { unique: true });
       await db.collection("replays").createIndex({ updatedAt: -1 });
-      await db.collection("replay_chunks").createIndex({ key: 1, idx: 1 }, { unique: true });
-      await db.collection("replay_chunks").createIndex({ key: 1 });
       this.client = client;
       this.db = db;
       this.status.connected = true;
@@ -170,11 +184,6 @@ class MongoDataStore {
   replaysCollection() {
     if (!this.db) throw new Error("db_not_connected");
     return this.db.collection("replays");
-  }
-
-  replayChunksCollection() {
-    if (!this.db) throw new Error("db_not_connected");
-    return this.db.collection("replay_chunks");
   }
 
   async getUserByKey(key) {
@@ -258,26 +267,18 @@ class MongoDataStore {
     return res.value;
   }
 
-  async saveBestReplay(key, replay, { score, chunkSize } = {}) {
+  async saveBestReplay(key, replay, { score } = {}) {
     await this.ensureConnected();
     if (!key) throw new Error("user_key_required");
     const now = Date.now();
     const payload = serializeReplayPayload(replay);
     const totalBytes = payload.byteLength;
-    const maxChunk = normalizeChunkSize(chunkSize);
-    const chunks = [];
-    for (let i = 0; i < totalBytes; i += maxChunk) {
-      const slice = payload.subarray(i, Math.min(totalBytes, i + maxChunk));
-      chunks.push({ key, idx: chunks.length, data: slice, createdAt: now });
-    }
+    const dir = await ensureReplayDirExists(this.resolveReplayDir(), this.fs);
+    const fileName = `${sanitizeKeyForFilename(key)}-${now}.json`;
+    const filePath = path.join(dir, fileName);
+    await this.fs.writeFile(filePath, payload);
 
-    const chunksCollection = this.replayChunksCollection();
-    const metaCollection = this.replaysCollection();
-
-    await chunksCollection.deleteMany({ key });
-    if (chunks.length) await chunksCollection.insertMany(chunks, { ordered: true });
-
-    const res = await metaCollection.findOneAndUpdate(
+    const res = await this.replaysCollection().findOneAndUpdate(
       { key },
       {
         $setOnInsert: { createdAt: now },
@@ -285,8 +286,8 @@ class MongoDataStore {
           key,
           bestScore: clampScore(score),
           totalBytes,
-          chunkSize: maxChunk,
-          chunkCount: chunks.length,
+          fileName,
+          filePath,
           updatedAt: now
         }
       },
@@ -374,7 +375,8 @@ module.exports = {
   MongoDataStore,
   resolveMongoConfig,
   maskConnectionString,
-  normalizeChunkSize,
   serializeReplayPayload,
-  MAX_REPLAY_CHUNK_BYTES
+  resolveReplayDir,
+  ensureReplayDirExists,
+  sanitizeKeyForFilename
 };

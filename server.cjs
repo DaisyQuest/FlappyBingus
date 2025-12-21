@@ -35,7 +35,7 @@ function _setDataStoreForTests(mock) {
 
 // Cookie that holds username (per requirements)
 const USER_COOKIE = "sugar";
-const MAX_REPLAY_BODY_BYTES = 20 * 1024 * 1024;
+const MAX_REPLAY_BODY_BYTES = 100 * 1024 * 1024;
 
 // Default skill keybinds (requested defaults):
 // Q = Invulnerability (phase)
