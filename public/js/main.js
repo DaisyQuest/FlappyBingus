@@ -47,6 +47,7 @@ import {
   setSfxVolume,
   setMuted
 } from "./audio.js";
+import { applyBustercoinEarnings } from "./bustercoins.js";
 
 import { buildGameUI } from "./uiLayout.js";
 import { TrailPreview } from "./trailPreview.js";
@@ -961,6 +962,7 @@ async function onGameOver(finalScore) {
 
   if (net.user) {
     const coinsEarned = game?.bustercoinsEarned || 0;
+    const optimistic = applyBustercoinEarnings(net, coinsEarned, bustercoinText);
     const res = await apiSubmitScore({ score: finalScore | 0, bustercoinsEarned: coinsEarned });
     if (res && res.ok && res.user) {
       net.online = true;
@@ -973,6 +975,11 @@ async function onGameOver(finalScore) {
 
       overPB.textContent = String(net.user.bestScore | 0);
     } else {
+      if (optimistic.applied && net.user?.bustercoins !== undefined) {
+        // Preserve optimistic balance locally so the menu reflects the run's pickups even if the
+        // score submission failed (e.g., offline). A later refresh will reconcile with the server.
+        if (bustercoinText) bustercoinText.textContent = String(net.user.bustercoins);
+      }
       net.online = false;
 
       // Try to re-hydrate the session so subsequent runs can still submit.

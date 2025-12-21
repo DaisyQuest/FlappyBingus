@@ -898,6 +898,47 @@ describe("Game loop", () => {
     setRandSource();
   });
 
+  it("draws a golden bustercoin counter smaller than the score bubble", () => {
+    const strokeText = vi.fn();
+    const fillText = vi.fn();
+    const ctx = {
+      save: vi.fn(),
+      restore: vi.fn(),
+      textAlign: "",
+      textBaseline: "",
+      font: "",
+      shadowColor: "",
+      shadowBlur: 0,
+      shadowOffsetY: 0,
+      lineWidth: 0,
+      strokeStyle: "",
+      fillStyle: "",
+      strokeText,
+      fillText
+    };
+    const cfg = cloneConfig();
+    const game = new Game({
+      canvas: { style: {} },
+      ctx,
+      config: cfg,
+      playerImg: { naturalWidth: 10, naturalHeight: 10 },
+      input: { getMove: () => ({ dx: 0, dy: 0 }), cursor: { has: false } },
+      getTrailId: () => "classic",
+      getBinds: () => ({}),
+      onGameOver: () => {}
+    });
+    game.bustercoinsEarned = 7;
+
+    const bubbleSize = 120;
+    game._drawBustercoinCounter(100, 200, bubbleSize);
+
+    const expectedFontPx = Math.round(Math.min(Math.max(bubbleSize * 0.28, 12), 38));
+    expect(ctx.font).toContain(`${expectedFontPx}px`);
+    expect(ctx.fillStyle).toBe("rgba(255,215,130,.95)");
+    expect(strokeText).toHaveBeenCalledWith("◎ 7", expect.any(Number), expect.any(Number));
+    expect(fillText).toHaveBeenCalledWith("◎ 7", expect.any(Number), expect.any(Number));
+  });
+
   it("handles collision death", () => {
     const { game } = buildGame();
     game.state = 1;
