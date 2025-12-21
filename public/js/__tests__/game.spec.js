@@ -100,9 +100,9 @@ const buildGame = (configOverrides = {}, moveRef = { dx: 0, dy: 0 }) =>
 
 
 const pipeStub = (opts = {}) => {
-  const { x = 1000, y = 1000, w = 10, h = 10, off = false } = opts;
+  const { x = 1000, y = 1000, w = 10, h = 10, vx = 0, vy = 0, off = false } = opts;
   return {
-    x, y, w, h, vx: 0, vy: 0, entered: true, gapId: opts.gapId,
+    x, y, w, h, vx, vy, entered: true, gapId: opts.gapId,
     update: vi.fn(),
     off: vi.fn(() => off),
     cx: () => x + w * 0.5,
@@ -602,16 +602,28 @@ describe("Player movement and trail emission", () => {
     game.specialT = 10;
     game.orbT = 10;
     const pipeUpdate = vi.fn();
-    game.pipes.push({
-      cx: () => game.player.x,
-      cy: () => game.player.y,
-      update: pipeUpdate
+    const farUpdate = vi.fn();
+    const nearPipe = pipeStub({
+      x: game.player.x - 5,
+      y: game.player.y - 5,
+      w: 10,
+      h: 10
     });
+    nearPipe.update = pipeUpdate;
+    const farPipe = pipeStub({
+      x: game.player.x + 500,
+      y: game.player.y + 500,
+      w: 10,
+      h: 10
+    });
+    farPipe.update = farUpdate;
+    game.pipes.push(nearPipe, farPipe);
     game.slowField = { x: game.player.x, y: game.player.y, r: 100, fac: 0.3, t: 1, tm: 1 };
 
     game.update(0.1);
 
-    expect(pipeUpdate).toHaveBeenCalledWith(0.1, 0.3, expect.any(Number), expect.any(Number));
+    expect(pipeUpdate).toHaveBeenCalledWith(0.1, 0.3, game.W, game.H);
+    expect(farUpdate).toHaveBeenCalledWith(0.1, 1, game.W, game.H);
   });
 
   it("ends the run when dash bounce limits are exceeded during collisions", () => {
@@ -702,11 +714,50 @@ describe("Player movement and trail emission", () => {
     expect(game.lastPipeShatter?.cause).toBe("dashDestroy");
   });
 
+  it("reduces dash speed based on relative wall motion when breaking pipes", () => {
+    const dashSpeed = DEFAULT_CONFIG.skills.dashDestroy.speed;
+    const impactSpeed = (pipeVX) => {
+      const { game } = buildGame();
+      game.setSkillSettings({ dashBehavior: "destroy", slowFieldBehavior: "slow" });
+      game.resizeToWindow();
+      game.state = 1;
+      game.pipeT = 10;
+      game.specialT = 10;
+      game.orbT = 10;
+      game.player.invT = 0;
+      game.player.dashT = 0.2;
+      game.player.dashVX = 1;
+      game.player.dashVY = 0;
+      game.player.dashMode = "destroy";
+      game.player.dashDestroyed = false;
+      game.player.vx = dashSpeed;
+      game.player.vy = 0;
+
+      const target = pipeStub({
+        x: game.player.x + game.player.r,
+        y: game.player.y - game.player.r,
+        w: game.player.r * 2,
+        h: game.player.r * 2,
+        vx: pipeVX
+      });
+      const hit = { nx: -1, ny: 0, pipe: target, contactX: target.cx(), contactY: target.cy() };
+      game._applyDashDestroy(hit, game._activeDashConfig());
+      return Math.hypot(game.player.vx, game.player.vy);
+    };
+
+    const trailingImpact = impactSpeed(200);
+    const headOnImpact = impactSpeed(-200);
+
+    expect(trailingImpact).toBeGreaterThan(headOnImpact);
+    expect(trailingImpact).toBeLessThan(dashSpeed);
+    expect(headOnImpact).toBeGreaterThan(0);
+  });
+
   it("destroys clustered pipes when using the explosive slow field", () => {
     const { game } = buildGame({
       skills: {
         slowField: { cooldown: 1.5, duration: 1, radius: 300, slowFactor: 0.5 },
-        slowExplosion: { cooldown: 9, duration: 0.1, radius: 260, blastParticles: 0 }
+        slowExplosion: { cooldown: 4, duration: 0.1, radius: 260, blastParticles: 0 }
       }
     });
     game.setSkillSettings({ dashBehavior: "ricochet", slowFieldBehavior: "explosion" });
@@ -730,6 +781,79 @@ describe("Player movement and trail emission", () => {
     expect(game.lastPipeShatter?.cause).toBe("slowExplosion");
     expect(game.lastSlowBlast).toBeTruthy();
     expect(game.cds.slowField).toBeCloseTo(game.cfg.skills.slowExplosion.cooldown);
+  });
+
+  it("applies the default slow explosion cooldown of 17s and keeps it above the slow field", () => {
+    const { game } = buildGame();
+    game.setSkillSettings({ dashBehavior: "ricochet", slowFieldBehavior: "explosion" });
+    game.resizeToWindow();
+    game.state = 1;
+    game.pipeT = 10;
+    game.specialT = 10;
+    game.orbT = 10;
+
+    game._useSkill("slowField");
+
+    expect(game.cfg.skills.slowExplosion.cooldown).toBeCloseTo(17);
+    expect(game.cfg.skills.slowExplosion.cooldown).toBeGreaterThan(game.cfg.skills.slowField.cooldown);
+    expect(game.cds.slowField).toBeCloseTo(game.cfg.skills.slowExplosion.cooldown);
+  });
+
+  it("destroys pipes whose edges touch the slow explosion radius", () => {
+    const { game } = buildGame({
+      skills: {
+        slowField: { cooldown: 1.5, duration: 1, radius: 12, slowFactor: 0.5 },
+        slowExplosion: { cooldown: 4, duration: 0.1, radius: 10, blastParticles: 0 }
+      }
+    });
+    game.setSkillSettings({ dashBehavior: "ricochet", slowFieldBehavior: "explosion" });
+    game.resizeToWindow();
+    game.state = 1;
+    game.pipeT = 10;
+    game.specialT = 10;
+    game.orbT = 10;
+    game.player.x = 0;
+    game.player.y = 0;
+
+    const grazing = pipeStub({ x: 10, y: -2, w: 4, h: 4 });
+    game.pipes.push(grazing);
+
+    game._useSkill("slowField");
+
+    expect(game.pipes).not.toContain(grazing);
+    expect(game.lastPipeShatter?.cause).toBe("slowExplosion");
+  });
+
+  it("slows pipes when the slow field intersects any part of them", () => {
+    const { game } = buildGame({
+      skills: {
+        slowField: { cooldown: 1, duration: 1, radius: 5, slowFactor: 0.3 }
+      }
+    });
+    game.setSkillSettings({ dashBehavior: "ricochet", slowFieldBehavior: "slow" });
+    game.resizeToWindow();
+    game.state = 1;
+    game.pipeT = 10;
+    game.specialT = 10;
+    game.orbT = 10;
+    game.player.x = 10;
+    game.player.y = 10;
+
+    game._useSkill("slowField");
+
+    const target = pipeStub({
+      x: game.slowField.x + game.slowField.r - 1,
+      y: game.slowField.y - 2,
+      w: 4,
+      h: 4
+    });
+    game.pipes.push(target);
+
+    game.update(0.016);
+
+    expect(target.update).toHaveBeenCalled();
+    const mul = target.update.mock.calls.at(-1)?.[1];
+    expect(mul).toBeCloseTo(game.slowField.fac);
   });
 
   it("emits trail, glint, and sparkle particles from style", () => {

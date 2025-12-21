@@ -26,11 +26,11 @@ export const DEFAULT_CONFIG = {
   skills: {
     // cooldowns live here; activation keybinds are user-configurable (menu)
     dash: { cooldown: 1.15, duration: 0.22, speed: 900, bounceRetain: 0.86, maxBounces: null },
-    dashDestroy: { cooldown: 1.45, duration: 0.2, speed: 900, shatterParticles: 34, impactIFrames: 0.15, maxBounces: 0 },
+    dashDestroy: { cooldown: 5.0, duration: 0.2, speed: 900, shatterParticles: 34, impactIFrames: 0.15, maxBounces: 0 },
     phase: { cooldown: 1.75, duration: 0.40 },
     teleport: { cooldown: 2.10, range: 170, effectDuration: 0.35, burstParticles: 34 },
     slowField: { cooldown: 4.50, duration: 1.80, radius: 210, slowFactor: 0.58 },
-    slowExplosion: { cooldown: 9.00, duration: 0.18, radius: 140, blastParticles: 28 }
+    slowExplosion: { cooldown: 17.00, duration: 0.18, radius: 140, blastParticles: 28 }
   },
   catalysts: {
     orbs: {
