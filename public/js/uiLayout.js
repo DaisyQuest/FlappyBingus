@@ -352,9 +352,21 @@ function createAchievementsCard(doc, refs) {
   blurb.className = "compact";
   blurb.textContent = "Track long-term goals. Rewards unlock cosmetics in a future update.";
 
+  const controls = doc.createElement("div");
+  controls.className = "achievement-controls";
+  const hideCompletedToggle = createElement(doc, refs, "label", { className: "checkbox" });
+  const hideCompletedInput = createElement(doc, refs, "input", {
+    id: "achievementsHideCompleted",
+    attrs: { type: "checkbox" }
+  });
+  const hideCompletedText = doc.createElement("span");
+  hideCompletedText.textContent = "Hide completed";
+  hideCompletedToggle.append(hideCompletedInput, hideCompletedText);
+  controls.append(hideCompletedToggle);
+
   const list = createElement(doc, refs, "div", { id: "achievementsList", className: "achievement-list" });
 
-  card.append(title, blurb, list);
+  card.append(title, blurb, controls, list);
   return card;
 }
 

@@ -120,10 +120,23 @@ export function renderAchievementsList(listEl, payload = {}) {
   if (!listEl) return;
   const definitions = payload.definitions?.length ? payload.definitions : ACHIEVEMENTS;
   const state = resolveAchievementState(payload.state || payload);
+  const hideCompleted = Boolean(payload.hideCompleted ?? payload.filters?.hideCompleted);
 
   listEl.innerHTML = "";
 
-  definitions.forEach((def) => {
+  const filtered = hideCompleted ? definitions.filter((def) => !state.unlocked?.[def.id]) : definitions;
+
+  if (!filtered.length) {
+    const empty = document.createElement("div");
+    empty.className = "achievement-empty";
+    empty.textContent = hideCompleted
+      ? "Everything here is unlocked. Toggle the filter to see completed achievements."
+      : "Achievements are loading.";
+    listEl.append(empty);
+    return;
+  }
+
+  filtered.forEach((def) => {
     const item = document.createElement("div");
     item.className = "achievement-row";
 

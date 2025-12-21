@@ -84,4 +84,33 @@ describe("achievements helpers", () => {
     expect(toastWrap.childElementCount).toBe(1);
     expect(toast.textContent).toContain("Achievement unlocked");
   });
+
+  it("filters completed achievements when requested and shows fallback", () => {
+    renderAchievementsList(container, {
+      definitions: ACHIEVEMENTS,
+      state: {
+        unlocked: { [ACHIEVEMENTS[0].id]: Date.now() },
+        progress: normalizeAchievementState().progress
+      },
+      hideCompleted: true
+    });
+
+    const rows = container.querySelectorAll(".achievement-row");
+    expect(rows.length).toBe(ACHIEVEMENTS.length - 1);
+    expect(Array.from(rows).some((r) => r.textContent.includes(ACHIEVEMENTS[0].title))).toBe(false);
+
+    container.innerHTML = "";
+    renderAchievementsList(container, {
+      definitions: ACHIEVEMENTS,
+      state: {
+        unlocked: ACHIEVEMENTS.reduce((acc, a) => ({ ...acc, [a.id]: 1 }), {}),
+        progress: normalizeAchievementState().progress
+      },
+      hideCompleted: true
+    });
+
+    expect(container.querySelectorAll(".achievement-row").length).toBe(0);
+    expect(container.querySelector(".achievement-empty")?.textContent)
+      .toContain("Everything here is unlocked");
+  });
 });

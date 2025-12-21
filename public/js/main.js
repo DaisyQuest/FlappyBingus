@@ -102,6 +102,7 @@ const {
   exportMp4: exportMp4Btn,
   replayStatus,
   achievementsList,
+  achievementsHideCompleted,
   achievementToasts
 } = ui;
 
@@ -421,7 +422,8 @@ function renderAchievements(payload = null) {
   const definitions = payload?.definitions || net.achievements?.definitions || ACHIEVEMENTS;
   renderAchievementsList(achievementsList, {
     state: normalizeAchievementState(state),
-    definitions
+    definitions,
+    hideCompleted: achievementsHideCompleted?.checked
   });
 }
 
@@ -445,6 +447,10 @@ function notifyAchievements(unlockedIds = []) {
     sfxAchievementUnlock();
   });
 }
+
+achievementsHideCompleted?.addEventListener("change", () => {
+  renderAchievements();
+});
 
 function renderBindUI(listeningActionId = null) {
   bindWrap.innerHTML = "";
