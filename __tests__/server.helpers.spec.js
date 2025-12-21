@@ -42,4 +42,10 @@ describe("server helpers (trails)", () => {
     expect(publicGuest.isRecordHolder).toBe(false);
     expect(publicGuest.unlockedTrails).not.toContain("world_record");
   });
+
+  it("applies default skill settings when missing", () => {
+    const u = baseUser();
+    server.ensureUserSchema(u, { recordHolder: false });
+    expect(u.settings).toEqual({ dashBehavior: "ricochet", slowFieldBehavior: "slow" });
+  });
 });

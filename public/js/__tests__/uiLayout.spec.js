@@ -52,6 +52,8 @@ describe("uiLayout", () => {
       "trailSelect",
       "bindWrap",
       "bindHint",
+      "dashBehaviorSelect",
+      "slowFieldBehaviorSelect",
       "hsWrap",
       "pbText",
       "trailText",
@@ -78,6 +80,8 @@ describe("uiLayout", () => {
     expect(howToItems?.length).toBe(6);
     expect(ui.seedHint?.textContent).toContain("pipe/orb");
     expect(ui.trailHint?.textContent).toContain("Unlock trails");
+    expect(ui.dashBehaviorSelect?.querySelectorAll("option")?.length).toBeGreaterThanOrEqual(2);
+    expect(ui.slowFieldBehaviorSelect?.querySelectorAll("option")?.length).toBeGreaterThanOrEqual(2);
   });
 
   it("layers the trail preview behind panel content while keeping menus interactive", () => {

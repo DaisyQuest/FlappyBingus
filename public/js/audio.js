@@ -8,6 +8,16 @@ let musicBuffer = null;
 let boopBuffer = null;
 let niceBuffer = null;
 let bounceBuffer = null;
+let shatterBuffer = null;
+let slowFieldBuffer = null;
+let slowExplosionBuffer = null;
+let musicLoaded = false;
+let boopLoaded = false;
+let niceLoaded = false;
+let bounceLoaded = false;
+let shatterLoaded = false;
+let slowFieldLoaded = false;
+let slowExplosionLoaded = false;
 
 let musicGain = null;
 let sfxGain = null;
@@ -53,20 +63,57 @@ async function getCtx() {
 
 async function loadBuffer(url) {
   const c = await getCtx();
-  const res = await fetch(url, { cache: "force-cache" });
-  const arr = await res.arrayBuffer();
-  return await c.decodeAudioData(arr);
+  try {
+    const res = await fetch(url, { cache: "force-cache" });
+    if (!res.ok) return null;
+    const arr = await res.arrayBuffer();
+    return await c.decodeAudioData(arr);
+  } catch {
+    return null;
+  }
 }
 
-export async function audioInit({ musicUrl, boopUrl, niceUrl, bounceUrl } = {}) {
+export async function audioInit({
+  musicUrl,
+  boopUrl,
+  niceUrl,
+  bounceUrl,
+  shatterUrl,
+  slowFieldUrl,
+  slowExplosionUrl
+} = {}) {
   // Must be called from a user gesture (Start / Restart click)
   await getCtx();
 
   // Load lazily once
-  if (musicUrl && !musicBuffer) musicBuffer = await loadBuffer(musicUrl);
-  if (boopUrl && !boopBuffer) boopBuffer = await loadBuffer(boopUrl);
-  if (niceUrl && !niceBuffer) niceBuffer = await loadBuffer(niceUrl); // NEW
-  if (bounceUrl && !bounceBuffer) bounceBuffer = await loadBuffer(bounceUrl);
+  if (musicUrl && !musicLoaded) {
+    musicBuffer = await loadBuffer(musicUrl);
+    musicLoaded = true;
+  }
+  if (boopUrl && !boopLoaded) {
+    boopBuffer = await loadBuffer(boopUrl);
+    boopLoaded = true;
+  }
+  if (niceUrl && !niceLoaded) {
+    niceBuffer = await loadBuffer(niceUrl); // NEW
+    niceLoaded = true;
+  }
+  if (bounceUrl && !bounceLoaded) {
+    bounceBuffer = await loadBuffer(bounceUrl);
+    bounceLoaded = true;
+  }
+  if (shatterUrl && !shatterLoaded) {
+    shatterBuffer = await loadBuffer(shatterUrl);
+    shatterLoaded = true;
+  }
+  if (slowFieldUrl && !slowFieldLoaded) {
+    slowFieldBuffer = await loadBuffer(slowFieldUrl);
+    slowFieldLoaded = true;
+  }
+  if (slowExplosionUrl && !slowExplosionLoaded) {
+    slowExplosionBuffer = await loadBuffer(slowExplosionUrl);
+    slowExplosionLoaded = true;
+  }
 }
 
 export function setMusicVolume(v01) {
@@ -173,5 +220,42 @@ export function sfxDashBounce(speed = 1) {
   src.connect(g);
   g.connect(sfxGain);
 
+  src.start(0);
+}
+
+export function sfxDashDestroy() {
+  if (!ctx || !shatterBuffer || !sfxGain) return;
+
+  const src = ctx.createBufferSource();
+  src.buffer = shatterBuffer;
+
+  const g = ctx.createGain();
+  g.gain.value = 0.95;
+
+  src.connect(g);
+  g.connect(sfxGain);
+
+  src.start(0);
+}
+
+export function sfxSlowField() {
+  if (!ctx || !slowFieldBuffer || !sfxGain) return;
+  const src = ctx.createBufferSource();
+  src.buffer = slowFieldBuffer;
+  const g = ctx.createGain();
+  g.gain.value = 0.85;
+  src.connect(g);
+  g.connect(sfxGain);
+  src.start(0);
+}
+
+export function sfxSlowExplosion() {
+  if (!ctx || !slowExplosionBuffer || !sfxGain) return;
+  const src = ctx.createBufferSource();
+  src.buffer = slowExplosionBuffer;
+  const g = ctx.createGain();
+  g.gain.value = 0.9;
+  src.connect(g);
+  g.connect(sfxGain);
   src.start(0);
 }

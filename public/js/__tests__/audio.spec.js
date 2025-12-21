@@ -39,6 +39,7 @@ const installAudioContext = () => {
   globalThis.AudioContext = FakeAudioContext;
   globalThis.webkitAudioContext = undefined;
   globalThis.fetch = vi.fn(async () => ({
+    ok: true,
     arrayBuffer: async () => new ArrayBuffer(1)
   }));
 };
@@ -101,10 +102,26 @@ describe("audio volume controls", () => {
     globalThis.AudioContext = SuspendedAudioContext;
     const { audioInit } = await import("../audio.js");
 
-    await audioInit({ musicUrl: "m", boopUrl: "b", niceUrl: "n", bounceUrl: "d" });
-    await audioInit({ musicUrl: "m", boopUrl: "b", niceUrl: "n", bounceUrl: "d" }); // cached
+    await audioInit({
+      musicUrl: "m",
+      boopUrl: "b",
+      niceUrl: "n",
+      bounceUrl: "d",
+      shatterUrl: "s",
+      slowFieldUrl: "sf",
+      slowExplosionUrl: "se"
+    });
+    await audioInit({
+      musicUrl: "m",
+      boopUrl: "b",
+      niceUrl: "n",
+      bounceUrl: "d",
+      shatterUrl: "s",
+      slowFieldUrl: "sf",
+      slowExplosionUrl: "se"
+    }); // cached
 
-    expect(globalThis.fetch).toHaveBeenCalledTimes(4); // only first init loads
+    expect(globalThis.fetch).toHaveBeenCalledTimes(7); // only first init loads
     const ctx = globalThis.__audioContexts.at(-1);
     expect(ctx?.resume).toHaveBeenCalled();
   });
@@ -125,20 +142,41 @@ describe("audio volume controls", () => {
   });
 
   it("plays SFX with combo scaling and bounce speed clamping", async () => {
-    const { audioInit, sfxOrbBoop, sfxPerfectNice, sfxDashBounce } = await import("../audio.js");
-    await audioInit({ boopUrl: "boop", niceUrl: "nice", bounceUrl: "bounce" });
+    const {
+      audioInit,
+      sfxOrbBoop,
+      sfxPerfectNice,
+      sfxDashBounce,
+      sfxDashDestroy,
+      sfxSlowField,
+      sfxSlowExplosion
+    } = await import("../audio.js");
+    await audioInit({
+      boopUrl: "boop",
+      niceUrl: "nice",
+      bounceUrl: "bounce",
+      shatterUrl: "shatter",
+      slowFieldUrl: "slowField",
+      slowExplosionUrl: "slowExplosion"
+    });
 
     sfxOrbBoop(10);
     sfxPerfectNice();
     const speed = 8;
     sfxDashBounce(speed); // should run clamp helper with provided speed
+    sfxDashDestroy();
+    sfxSlowField();
+    sfxSlowExplosion();
 
     const ctx = globalThis.__audioContexts.at(-1);
-    const [boop, nice, bounce] = ctx.createdSources.slice(-3);
+    const [boop, nice, bounce, destroy, slowField, slowExplosion] = ctx.createdSources.slice(-6);
     expect(boop.playbackRate.value).toBeGreaterThan(1);
     expect(nice.playbackRate.value).toBe(1); // untouched
     // Follows clamp invocation order in audio.js (min,value,max)
     const expectedBounce = Math.max(speed * 0.25 + 1, Math.min(1.35, 0.85));
     expect(bounce.playbackRate.value).toBeCloseTo(expectedBounce);
+    expect(destroy.playbackRate.value).toBe(1);
+    expect(slowField.playbackRate.value).toBe(1);
+    expect(slowExplosion.playbackRate.value).toBe(1);
   });
 });

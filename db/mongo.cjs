@@ -246,6 +246,17 @@ class MongoDataStore {
     return res.value;
   }
 
+  async setSettings(key, settings) {
+    await this.ensureConnected();
+    const now = Date.now();
+    const res = await this.usersCollection().findOneAndUpdate(
+      { key },
+      { $set: { settings, updatedAt: now } },
+      { returnDocument: "after" }
+    );
+    return res.value;
+  }
+
   async topHighscores(limit) {
     await this.ensureConnected();
     const lim = Math.max(1, Math.min(200, limit | 0 || 20));

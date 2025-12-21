@@ -12,7 +12,10 @@ import { ACTIONS } from "../keybinds.js";
 vi.mock("../audio.js", () => ({
   sfxOrbBoop: vi.fn(),
   sfxPerfectNice: vi.fn(),
-  sfxDashBounce: vi.fn()
+  sfxDashBounce: vi.fn(),
+  sfxDashDestroy: vi.fn(),
+  sfxSlowField: vi.fn(),
+  sfxSlowExplosion: vi.fn()
 }));
 
 const mockCtx = () => {
@@ -182,9 +185,22 @@ describe("Game core utilities", () => {
     game._perfectNiceSfx();
     expect(audio.sfxPerfectNice).toHaveBeenCalledTimes(1);
 
+    game._dashBounceSfx(2);
+    game._dashDestroySfx();
+    game._slowFieldSfx();
+    game._slowExplosionSfx();
+    expect(audio.sfxDashBounce).toHaveBeenCalled();
+    expect(audio.sfxDashDestroy).toHaveBeenCalled();
+    expect(audio.sfxSlowField).toHaveBeenCalled();
+    expect(audio.sfxSlowExplosion).toHaveBeenCalled();
+
     game.setAudioEnabled(false);
     game._perfectNiceSfx();
+    game._dashDestroySfx();
+    game._slowExplosionSfx();
     expect(audio.sfxPerfectNice).toHaveBeenCalledTimes(1);
+    expect(audio.sfxDashDestroy).toHaveBeenCalledTimes(1);
+    expect(audio.sfxSlowExplosion).toHaveBeenCalledTimes(1);
   });
 
   it("handles state transitions and run resets", () => {
@@ -285,6 +301,7 @@ describe("Game core utilities", () => {
 describe("Dash interactions", () => {
   it("plays bounce SFX and spawns reflect FX", async () => {
     const audio = await import("../audio.js");
+    audio.sfxDashBounce.mockClear();
     const { game } = buildGame();
     game.setAudioEnabled(true);
 
@@ -645,6 +662,74 @@ describe("Player movement and trail emission", () => {
     expect(reflectSpy).toHaveBeenCalled();
     expect(game.state).toBe(1);
     expect(onGameOver).not.toHaveBeenCalled();
+  });
+
+  it("shatters a pipe when using destroy dash without awarding score", () => {
+    const { game } = buildGame({
+      skills: { dashDestroy: { cooldown: 1, duration: 0.2, speed: 400, shatterParticles: 0, impactIFrames: 0.1, maxBounces: 0 } }
+    });
+    game.setSkillSettings({ dashBehavior: "destroy", slowFieldBehavior: "slow" });
+    game.resizeToWindow();
+    game.state = 1;
+    game.pipeT = 10;
+    game.specialT = 10;
+    game.orbT = 10;
+    game.player.invT = 0;
+    game.player.dashT = 0.2;
+    game.player.dashVX = 1;
+    game.player.dashVY = 0;
+    game.player.dashMode = "destroy";
+    game.player.dashDestroyed = false;
+
+    const target = pipeStub({
+      x: game.player.x - game.player.r,
+      y: game.player.y - game.player.r,
+      w: game.player.r * 2,
+      h: game.player.r * 2
+    });
+    game.pipes.push(target);
+
+    const res = game._handlePipeCollision(
+      { nx: 1, ny: 0, pipe: target, contactX: target.cx(), contactY: target.cy() },
+      Infinity,
+      game._activeDashConfig()
+    );
+
+    expect(res).toBe("destroyed");
+    expect(game.pipes.includes(target)).toBe(false);
+    expect(game.score).toBe(0);
+    expect(game.player.invT).toBeGreaterThan(0);
+    expect(game.lastPipeShatter?.cause).toBe("dashDestroy");
+  });
+
+  it("destroys clustered pipes when using the explosive slow field", () => {
+    const { game } = buildGame({
+      skills: {
+        slowField: { cooldown: 1.5, duration: 1, radius: 300, slowFactor: 0.5 },
+        slowExplosion: { cooldown: 9, duration: 0.1, radius: 260, blastParticles: 0 }
+      }
+    });
+    game.setSkillSettings({ dashBehavior: "ricochet", slowFieldBehavior: "explosion" });
+    game.resizeToWindow();
+    game.state = 1;
+    game.pipeT = 10;
+    game.specialT = 10;
+    game.orbT = 10;
+    game.player.x = 100;
+    game.player.y = 100;
+
+    const pipes = [
+      pipeStub({ x: 90, y: 92, w: 10, h: 10 }),
+      pipeStub({ x: 120, y: 120, w: 10, h: 10 })
+    ];
+    game.pipes.push(...pipes);
+
+    game._useSkill("slowField");
+
+    expect(game.pipes.length).toBe(0);
+    expect(game.lastPipeShatter?.cause).toBe("slowExplosion");
+    expect(game.lastSlowBlast).toBeTruthy();
+    expect(game.cds.slowField).toBeCloseTo(game.cfg.skills.slowExplosion.cooldown);
   });
 
   it("emits trail, glint, and sparkle particles from style", () => {

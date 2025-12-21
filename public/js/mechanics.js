@@ -7,8 +7,11 @@ export function orbPoints(cfg, comboNow) {
 }
 
 export function dashBounceMax(cfg) {
-  const n = Number(cfg?.skills?.dash?.maxBounces);
-  if (!Number.isFinite(n)) return 2;
+  const src = (cfg && typeof cfg === "object" && "maxBounces" in cfg) ? cfg : cfg?.skills?.dash;
+  const raw = src?.maxBounces;
+  if (raw === undefined || raw === null) return Infinity;
+  const n = Number(raw);
+  if (!Number.isFinite(n) || n < 0) return Infinity;
   return Math.max(0, n | 0);
 }
 

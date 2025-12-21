@@ -10,13 +10,14 @@ describe("orbPoints", () => {
 });
 
 describe("dashBounceMax", () => {
-  it("defaults to 2 when undefined", () => {
-    expect(dashBounceMax({})).toBe(2);
+  it("defaults to Infinity when undefined", () => {
+    expect(dashBounceMax({})).toBe(Infinity);
   });
 
-  it("uses configured integer and clamps non-negative", () => {
+  it("uses configured integer and treats negatives as unlimited", () => {
     expect(dashBounceMax({ skills: { dash: { maxBounces: 3.7 } } })).toBe(3);
-    expect(dashBounceMax({ skills: { dash: { maxBounces: -1 } } })).toBe(0);
+    expect(dashBounceMax({ skills: { dash: { maxBounces: -1 } } })).toBe(Infinity);
+    expect(dashBounceMax({ maxBounces: 0 })).toBe(0);
   });
 });
 
