@@ -8,6 +8,7 @@ const baseUser = () => ({
   bestScore: 2000,
   selectedTrail: "classic",
   keybinds: {},
+  settings: { dashBehavior: "ricochet", slowFieldBehavior: "slow" },
   runs: 3,
   totalScore: 5000
 });
@@ -52,6 +53,7 @@ async function importServer(overrides = {}) {
     recordScore: vi.fn(async (user, score) => ({ ...baseUser(), ...user, bestScore: score })),
     setTrail: vi.fn(async (_key, trailId) => ({ ...baseUser(), selectedTrail: trailId })),
     setKeybinds: vi.fn(async (_key, binds) => ({ ...baseUser(), keybinds: binds })),
+    setSettings: vi.fn(async (_key, settings) => ({ ...baseUser(), settings })),
     getUserByKey: vi.fn(async () => baseUser()),
     userCount: vi.fn(async () => 3),
     recentUsers: vi.fn(async () => [{ username: "recent", bestScore: 10, updatedAt: Date.now() }]),
@@ -99,6 +101,7 @@ describe("server routes and helpers", () => {
     expect(success.headers["Set-Cookie"]).toMatch(/sugar=ValidUser/);
     expect(success.headers["Set-Cookie"]).toMatch(/HttpOnly/);
     expect(success.headers["Set-Cookie"]).toMatch(/Secure/);
+    expect(readJson(success).user.settings.dashBehavior).toBe("ricochet");
 
     process.env.COOKIE_SECURE = prevSecure;
   });
@@ -114,6 +117,21 @@ describe("server routes and helpers", () => {
 
     expect(res.status).toBe(401);
     expect(readJson(res).error).toBe("unauthorized");
+  });
+
+  it("returns saved settings from /api/me", async () => {
+    const { server } = await importServer({
+      getUserByKey: vi.fn(async () => ({
+        ...baseUser(),
+        settings: { dashBehavior: "destroy", slowFieldBehavior: "explosion" }
+      }))
+    });
+    const res = createRes();
+
+    await server.route(createReq({ method: "GET", url: "/api/me", headers: { cookie: "sugar=PlayerOne" } }), res);
+
+    expect(res.status).toBe(200);
+    expect(readJson(res).user.settings).toEqual({ dashBehavior: "destroy", slowFieldBehavior: "explosion" });
   });
 
   it("protects trail selection with validation and progression checks", async () => {
@@ -210,6 +228,40 @@ describe("server routes and helpers", () => {
     expect(valid.status).toBe(200);
     expect(mockDataStore.setKeybinds).toHaveBeenCalled();
     expect(readJson(valid).user.keybinds.phase).toEqual({ type: "key", code: "KeyZ" });
+  });
+
+  it("validates and persists settings payloads", async () => {
+    const { server, mockDataStore } = await importServer();
+    const invalid = createRes();
+    await server.route(
+      createReq({
+        method: "POST",
+        url: "/api/settings",
+        body: JSON.stringify({ settings: { dashBehavior: "laser" } }),
+        headers: { cookie: "sugar=PlayerOne" }
+      }),
+      invalid
+    );
+    expect(invalid.status).toBe(400);
+    expect(readJson(invalid).error).toBe("invalid_settings");
+
+    const valid = createRes();
+    await server.route(
+      createReq({
+        method: "POST",
+        url: "/api/settings",
+        body: JSON.stringify({ settings: { dashBehavior: "destroy", slowFieldBehavior: "explosion" } }),
+        headers: { cookie: "sugar=PlayerOne" }
+      }),
+      valid
+    );
+
+    expect(valid.status).toBe(200);
+    expect(mockDataStore.setSettings).toHaveBeenCalledWith("player-one", {
+      dashBehavior: "destroy",
+      slowFieldBehavior: "explosion"
+    });
+    expect(readJson(valid).user.settings.dashBehavior).toBe("destroy");
   });
 
   it("serves previews as JSON by default and HTML when requested", async () => {

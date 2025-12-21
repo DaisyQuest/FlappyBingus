@@ -193,16 +193,20 @@ export class Tutorial {
     this._reflectBounceSeen = false;
     this._reflectSuccessDelay = 0;
     this._reflectSeenSerial = 0;
+    this._dashDestroyPipe = null;
+    this._dashDestroySeen = false;
 
     this._teleTarget = null;
     this._teleUsed = false;
 
     this._slowUsed = false;
     this._slowBurstSpawned = false;
+    this._slowExplosionCleared = false;
     this._surviveT = 0;
 
     // Config overrides (restored on stop)
     this._cfgBackup = null;
+    this._settingsBackup = null;
 
     // Meta key handling for tutorial-only flows
     this._boundKeyDown = (e) => {
@@ -230,6 +234,7 @@ export class Tutorial {
     this.active = true;
     window.addEventListener("keydown", this._boundKeyDown, { passive: false });
 
+    this._settingsBackup = { ...(this.game?.skillSettings || {}) };
     this._backupAndOverrideConfig();
 
     // Start clean run
@@ -265,6 +270,7 @@ export class Tutorial {
 
     this._slowBurstSpawned = false;
 
+    if (this._settingsBackup) this.game.setSkillSettings(this._settingsBackup);
     this._restoreConfig();
   }
 
@@ -350,9 +356,9 @@ export class Tutorial {
     // Ensure the “teaching skill” is always ready when we’re in a skill step,
     // and keep all skills ready in practice mode.
     if (sid === "skill_phase" || sid === "practice") this.game.cds.phase = 0;
-    if (sid === "skill_dash" || sid === "dash_reflect" || sid === "practice") this.game.cds.dash = 0;
+    if (sid === "skill_dash" || sid === "dash_reflect" || sid === "dash_destroy" || sid === "practice") this.game.cds.dash = 0;
     if (sid === "skill_teleport" || sid === "practice") this.game.cds.teleport = 0;
-    if (sid === "skill_slow" || sid === "practice") this.game.cds.slowField = 0;
+    if (sid === "skill_slow" || sid === "slow_explosion" || sid === "practice") this.game.cds.slowField = 0;
   }
 
   afterSimTick(dt) {
@@ -367,8 +373,10 @@ export class Tutorial {
     else if (sid === "skill_phase") this._stepSkillPhase(dt);
     else if (sid === "skill_dash") this._stepSkillDash(dt);
     else if (sid === "dash_reflect") this._stepDashReflect(dt);
+    else if (sid === "dash_destroy") this._stepDashDestroy(dt);
     else if (sid === "skill_teleport") this._stepSkillTeleport(dt);
     else if (sid === "skill_slow") this._stepSkillSlow(dt);
+    else if (sid === "slow_explosion") this._stepSlowExplosion(dt);
     else if (sid === "practice") {
       // sandbox: nothing special
     }
@@ -484,8 +492,10 @@ for (const ln of lines.slice(0, maxLines)) {
       { id: "skill_phase" },
       { id: "skill_dash" },
       { id: "dash_reflect" },
+      { id: "dash_destroy" },
       { id: "skill_teleport" },
       { id: "skill_slow" },
+      { id: "slow_explosion" },
       { id: "practice" },
     ];
   }
@@ -526,12 +536,15 @@ for (const ln of lines.slice(0, maxLines)) {
     this._reflectBounceSeen = false;
     this._reflectSuccessDelay = 0;
     this._reflectSeenSerial = this.game?.lastDashReflect?.serial || 0;
+    this._dashDestroyPipe = null;
+    this._dashDestroySeen = false;
 
     this._teleTarget = null;
     this._teleUsed = false;
 
     this._slowUsed = false;
     this._slowBurstSpawned = false;
+    this._slowExplosionCleared = false;
     this._surviveT = 0;
 
     // Fresh run per scenario keeps it clean and beginner-friendly.
@@ -543,6 +556,11 @@ for (const ln of lines.slice(0, maxLines)) {
 
     this._prevCombo = this.game.combo;
     this._prevPerfectT = this.game.perfectT;
+    if (this._settingsBackup) this.game.setSkillSettings(this._settingsBackup);
+    if (this.game) {
+      this.game.lastPipeShatter = null;
+      this.game.lastSlowBlast = null;
+    }
 
     // Default: tutorial doesn’t teach "pipe dodge score"; focus on orbs/perfect.
     this.game.score = 0;
@@ -591,6 +609,13 @@ for (const ln of lines.slice(0, maxLines)) {
       this._spawnDashReflectScenario();
     }
 
+    if (sid === "dash_destroy") {
+      this._setPerfectEnabled(false);
+      this._allowed = new Set(["dash"]);
+      this.game.setSkillSettings({ ...(this._settingsBackup || this.game.skillSettings), dashBehavior: "destroy" });
+      this._spawnDashDestroyScenario();
+    }
+
     if (sid === "skill_teleport") {
       this._setPerfectEnabled(false);
       this._allowed = new Set(["teleport"]);
@@ -601,6 +626,13 @@ for (const ln of lines.slice(0, maxLines)) {
       this._setPerfectEnabled(false);
       this._allowed = new Set(["slowField"]);
       this._beginSkillIntro("slowField");
+    }
+
+    if (sid === "slow_explosion") {
+      this._setPerfectEnabled(false);
+      this._allowed = new Set(["slowField"]);
+      this.game.setSkillSettings({ ...(this._settingsBackup || this.game.skillSettings), slowFieldBehavior: "explosion" });
+      this._spawnSlowExplosionScenario();
     }
 
     if (sid === "practice") {
@@ -1127,6 +1159,51 @@ _stepOrbs(dt) {
   }
 
   // =====================================================
+  // Skill: DASH (destroy)
+  // =====================================================
+  _spawnDashDestroyScenario() {
+    const W = this.game.W, H = this.game.H;
+    const p = this.game.player;
+
+    p.x = clamp(W * 0.22, p.r + 28, W - p.r - 28);
+    p.y = clamp(H * 0.50, p.r + 28, H - p.r - 28);
+    p.vx = 0; p.vy = 0; p.dashT = 0; p.dashBounces = 0;
+
+    const th = this.game._thickness ? this.game._thickness() : Math.max(46, Math.min(W, H) * 0.08);
+    const spd = Math.max(120, (this.game._pipeSpeed ? this.game._pipeSpeed() : 240) * 0.65);
+    const w = th * 1.3;
+    const h = th * 2.8;
+    const wx = clamp(W * 0.60, 40, W - w - 40);
+    const wy = clamp(H * 0.40, 20, H - h - 20);
+
+    this._dashDestroyPipe = makePipeRect({ x: wx, y: wy, w, h, vx: -spd, vy: 0 });
+    this.game.pipes.push(this._dashDestroyPipe);
+    this._dashDestroySeen = false;
+    this._dashSuccessDelay = 0;
+
+    this._flash("Destroy dash: break the pipe instead of bouncing.");
+  }
+
+  _stepDashDestroy(dt) {
+    const shatter = this.game.lastPipeShatter;
+    if (!this._dashDestroySeen && shatter && shatter.cause === "dashDestroy") {
+      this._dashDestroySeen = true;
+      this._dashSuccessDelay = 0.85;
+      this._flash("Pipe shattered! No ricochet — just clear the path.");
+    }
+
+    if (!this._dashDestroySeen && this._dashDestroyPipe && !this.game.pipes.includes(this._dashDestroyPipe)) {
+      this._dashDestroySeen = true;
+      this._dashSuccessDelay = 0.5;
+    }
+
+    if (this._dashSuccessDelay > 0) {
+      this._dashSuccessDelay = Math.max(0, this._dashSuccessDelay - dt);
+      if (this._dashSuccessDelay <= 0) this._nextStep();
+    }
+  }
+
+  // =====================================================
   // Skill: TELEPORT
   // =====================================================
   _spawnTeleportScenario() {
@@ -1223,6 +1300,55 @@ _stepOrbs(dt) {
   }
 
   // =====================================================
+  // Skill: SLOW FIELD (explosion variant)
+  // =====================================================
+  _spawnSlowExplosionScenario() {
+    const W = this.game.W, H = this.game.H;
+    const p = this.game.player;
+    p.x = clamp(W * 0.42, p.r + 30, W - p.r - 30);
+    p.y = clamp(H * 0.65, p.r + 30, H - p.r - 30);
+    p.vx = 0; p.vy = 0;
+
+    const th = this.game._thickness ? this.game._thickness() : Math.max(46, Math.min(W, H) * 0.08);
+    const cluster = [
+      { dx: 0, dy: -50 },
+      { dx: th * 1.5, dy: 20 },
+      { dx: -th * 1.2, dy: 40 }
+    ];
+    for (const { dx, dy } of cluster) {
+      const w = th * 1.2;
+      const h = th * 2.1;
+      const x = clamp(W * 0.60 + dx, 20, W - w - 20);
+      const y = clamp(H * 0.45 + dy, 20, H - h - 20);
+      this.game.pipes.push(makePipeRect({ x, y, w, h, vx: 0, vy: 0 }));
+    }
+
+    this._slowExplosionCleared = false;
+    this._surviveT = 0;
+    this._flash("Explosion variant: cast near the cluster to vaporize the pipes.");
+  }
+
+  _stepSlowExplosion(dt) {
+    if (!this._slowUsed && this.game.lastSlowBlast) {
+      this._slowUsed = true;
+      this._flash("Blast triggered — pipes inside the ring are destroyed.");
+    }
+
+    if (!this._slowExplosionCleared && this._slowUsed) {
+      const remaining = this.game.pipes.length;
+      if (remaining === 0) {
+        this._slowExplosionCleared = true;
+        this._surviveT = 0.7;
+      }
+    }
+
+    if (this._slowExplosionCleared) {
+      this._surviveT = Math.max(0, this._surviveT - dt);
+      if (this._surviveT <= 0) this._nextStep();
+    }
+  }
+
+  // =====================================================
   // UI copy + guides
   // =====================================================
   _uiCopy() {
@@ -1297,6 +1423,17 @@ _stepOrbs(dt) {
       };
     }
 
+    if (sid === "dash_destroy") {
+      return {
+        title: "Dash Destroy",
+        body:
+          `The Destroy variant trades ricochets for raw stopping power.\n` +
+          `Hold a direction and press ${key("dash")} into the pipe — it will shatter instead of bouncing you.\n` +
+          "Cooldown is longer, but it's perfect for removing a single blocker.",
+        objective: `Use Destroy Dash (${key("dash")}) to break the highlighted pipe.`
+      };
+    }
+
     if (sid === "skill_teleport") {
       return {
         title: "Skill: Teleport",
@@ -1316,6 +1453,17 @@ _stepOrbs(dt) {
           `Press ${key("slowField")} to place it on yourself.\n` +
           "After you cast it, a burst of walls will come — dodge them while they’re slowed.",
         objective: `Cast Slow Field (${key("slowField")}) and survive the burst.`
+      };
+    }
+
+    if (sid === "slow_explosion") {
+      return {
+        title: "Slow Field: Explosion",
+        body:
+          "Swap Slow Field to Explosion in Settings for a smaller, instant detonation.\n" +
+          "Pipes in the blast radius are destroyed outright, but the cooldown is longer.\n" +
+          `Stand near the cluster and press ${key("slowField")} to vaporize them.`,
+        objective: "Cast the explosive Slow Field to clear the nearby pipe cluster."
       };
     }
 

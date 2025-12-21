@@ -290,6 +290,56 @@ function createBindCard(doc, refs) {
   return card;
 }
 
+function createSkillSettingsCard(doc, refs) {
+  const card = doc.createElement("div");
+  card.className = "info-card";
+
+  const title = doc.createElement("div");
+  title.className = "section-title";
+  title.textContent = "Skill Behaviors";
+
+  const dashRow = doc.createElement("div");
+  dashRow.className = "field";
+  const dashLbl = doc.createElement("div");
+  dashLbl.className = "lbl";
+  dashLbl.textContent = "Dash behavior";
+  const dashSelect = createElement(doc, refs, "select", { id: "dashBehaviorSelect" });
+  [
+    { value: "ricochet", text: "Ricochet (bounce infinitely)" },
+    { value: "destroy", text: "Destroy on impact" }
+  ].forEach(({ value, text }) => {
+    const opt = doc.createElement("option");
+    opt.value = value;
+    opt.textContent = text;
+    dashSelect.append(opt);
+  });
+  dashRow.append(dashLbl, dashSelect);
+
+  const slowRow = doc.createElement("div");
+  slowRow.className = "field";
+  const slowLbl = doc.createElement("div");
+  slowLbl.className = "lbl";
+  slowLbl.textContent = "Slow Field behavior";
+  const slowSelect = createElement(doc, refs, "select", { id: "slowFieldBehaviorSelect" });
+  [
+    { value: "slow", text: "Slow zone" },
+    { value: "explosion", text: "Pipe-clearing blast" }
+  ].forEach(({ value, text }) => {
+    const opt = doc.createElement("option");
+    opt.value = value;
+    opt.textContent = text;
+    slowSelect.append(opt);
+  });
+  slowRow.append(slowLbl, slowSelect);
+
+  const hint = doc.createElement("div");
+  hint.className = "hint";
+  hint.textContent = "Pick how dash and slow field behave. Choices are saved per user.";
+
+  card.append(title, dashRow, slowRow, hint);
+  return card;
+}
+
 function createProfileCard(doc, refs) {
   const card = doc.createElement("div");
   card.className = "card card-soft";
@@ -433,6 +483,7 @@ function createMenuScreen(doc, refs) {
     createStatusCard(doc, refs),
     createSeedCard(doc, refs),
     createVolumeCard(doc, refs),
+    createSkillSettingsCard(doc, refs),
     createBindCard(doc, refs)
   );
   settingsPanel.append(toMain, settingsGrid);

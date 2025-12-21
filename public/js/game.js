@@ -10,7 +10,15 @@ import { ACTIONS, humanizeBind } from "./keybinds.js";
 import { resolveGapPerfect } from "./perfectGaps.js";
 
 // NEW: orb pickup SFX (pitch shifts by combo)
-import { sfxOrbBoop, sfxPerfectNice, sfxDashBounce } from "./audio.js";
+import {
+  sfxOrbBoop,
+  sfxPerfectNice,
+  sfxDashBounce,
+  sfxDashDestroy,
+  sfxSlowField,
+  sfxSlowExplosion
+} from "./audio.js";
+import { DEFAULT_SKILL_SETTINGS, normalizeSkillSettings } from "./settings.js";
 
 const BASE_DPR = Math.max(0.25, window.devicePixelRatio || 1);
 
@@ -59,7 +67,9 @@ export class Game {
       invT: 0,
       dashT: 0, dashVX: 0, dashVY: 0,
       dashBounces: 0,
-      dashImpactFlash: 0
+      dashImpactFlash: 0,
+      dashMode: null,
+      dashDestroyed: false
     };
 
     this.pipes = [];
@@ -88,8 +98,12 @@ export class Game {
 
     this.lastDashReflect = null;
     this.slowField = null; // {x,y,r,fac,t,tm}
+    this.slowExplosion = null; // {x,y,r,t,tm}
+    this.lastPipeShatter = null;
+    this.lastSlowBlast = null;
 
     this.cds = { dash: 0, phase: 0, teleport: 0, slowField: 0 };
+    this.skillSettings = normalizeSkillSettings(DEFAULT_SKILL_SETTINGS);
 
     // trail emission
     this.trailAcc = 0;
@@ -105,6 +119,10 @@ export class Game {
   // NEW: toggle game SFX without touching music
   setAudioEnabled(on) {
     this.audioEnabled = !!on;
+  }
+
+  setSkillSettings(settings) {
+    this.skillSettings = normalizeSkillSettings(settings || DEFAULT_SKILL_SETTINGS);
   }
 
   // NEW: orb pickup sound, pitched by combo
@@ -197,7 +215,12 @@ export class Game {
     this._nextGapId = 1;
 
     this.slowField = null;
+    this.slowExplosion = null;
     this.cds = { dash: 0, phase: 0, teleport: 0, slowField: 0 };
+    this.player.dashMode = null;
+    this.player.dashDestroyed = false;
+    this.lastPipeShatter = null;
+    this.lastSlowBlast = null;
 
     this.trailAcc = 0;
     this.trailHue = 0;
@@ -436,13 +459,38 @@ export class Game {
     tickCooldowns(this.cds, dt);
   }
 
+  _activeDashConfig() {
+    if (this.skillSettings?.dashBehavior === "destroy") return this.cfg.skills.dashDestroy || this.cfg.skills.dash;
+    return this.cfg.skills.dash;
+  }
+
+  _activeSlowConfig() {
+    if (this.skillSettings?.slowFieldBehavior === "explosion") return this.cfg.skills.slowExplosion || this.cfg.skills.slowField;
+    return this.cfg.skills.slowField;
+  }
+
   _dashBounceMax() {
-    return dashBounceMax(this.cfg);
+    return dashBounceMax(this._activeDashConfig());
   }
 
   _dashBounceSfx(speed = 0) {
     if (!this.audioEnabled) return;
     sfxDashBounce(speed);
+  }
+
+  _dashDestroySfx() {
+    if (!this.audioEnabled) return;
+    sfxDashDestroy();
+  }
+
+  _slowFieldSfx() {
+    if (!this.audioEnabled) return;
+    sfxSlowField();
+  }
+
+  _slowExplosionSfx() {
+    if (!this.audioEnabled) return;
+    sfxSlowExplosion();
   }
 
   _spawnDashReflectFx(x, y, nx, ny, power = 1) {
@@ -469,8 +517,9 @@ export class Game {
   _applyDashReflect(hit) {
     const p = this.player;
     const nx = hit?.nx || 0, ny = hit?.ny || 0;
-    const keep = clamp(Number(this.cfg?.skills?.dash?.bounceRetain) || 0.86, 0, 1);
-    const baseSpeed = Math.max(Math.hypot(p.vx, p.vy), Number(this.cfg?.skills?.dash?.speed) || 0);
+    const dashCfg = this._activeDashConfig();
+    const keep = clamp(Number(dashCfg?.bounceRetain) || 0.86, 0, 1);
+    const baseSpeed = Math.max(Math.hypot(p.vx, p.vy), Number(dashCfg?.speed) || 0);
     const dot = p.vx * nx + p.vy * ny;
     let rx = p.vx - 2 * dot * nx;
     let ry = p.vy - 2 * dot * ny;
@@ -511,12 +560,73 @@ export class Game {
       (hit?.contactX != null) ? hit.contactX : p.x,
       (hit?.contactY != null) ? hit.contactY : p.y,
       nx, ny,
-      speed / Math.max(1, Number(this.cfg?.skills?.dash?.speed) || 1)
+      speed / Math.max(1, Number(dashCfg?.speed) || 1)
     );
   }
 
-  _handlePipeCollision(hit, bounceCap) {
+  _shatterPipe(pipe, { hit, particles = 30, cause = "dashDestroy" } = {}) {
+    if (!pipe) return;
+    const idx = this.pipes.indexOf(pipe);
+    if (idx >= 0) this.pipes.splice(idx, 1);
+    this._onGapPipeRemoved(pipe);
+
+    const cx = (hit?.contactX != null) ? hit.contactX : (pipe.cx ? pipe.cx() : pipe.x + pipe.w * 0.5);
+    const cy = (hit?.contactY != null) ? hit.contactY : (pipe.cy ? pipe.cy() : pipe.y + pipe.h * 0.5);
+    const nx = hit?.nx || 0, ny = hit?.ny || 0;
+
+    for (let i = 0; i < particles; i++) {
+      const spread = rand(-0.7, 0.7);
+      const baseDir = Math.atan2(ny || 0, nx || 0);
+      const dir = (nx || ny) ? baseDir + spread : rand(0, Math.PI * 2);
+      const sp = rand(160, 420);
+      const prt = new Part(
+        cx, cy,
+        Math.cos(dir) * sp,
+        Math.sin(dir) * sp,
+        rand(0.20, 0.42),
+        rand(1.2, 2.8),
+        cause === "slowExplosion" ? "rgba(255,230,180,.85)" : "rgba(255,210,160,.90)",
+        true
+      );
+      prt.drag = 10.5;
+      prt.twinkle = true;
+      this.parts.push(prt);
+    }
+
+    this.lastPipeShatter = { t: this.timeAlive, x: cx, y: cy, cause };
+  }
+
+  _applyDashDestroy(hit, dashCfg) {
+    const p = this.player;
+    this._dashDestroySfx();
+    this._shatterPipe(hit?.pipe, { hit, particles: Math.max(10, Number(dashCfg?.shatterParticles) || 30), cause: "dashDestroy" });
+    p.dashDestroyed = true;
+    p.dashMode = null;
+    p.dashT = 0;
+    p.dashBounces = 0;
+    p.dashImpactFlash = Math.max(p.dashImpactFlash, 0.22);
+    const iFrames = Math.max(0, Number(dashCfg?.impactIFrames) || 0);
+    if (iFrames > 0) p.invT = Math.max(p.invT, iFrames);
+    return "destroyed";
+  }
+
+  _destroyPipesInRadius({ x, y, r, cause = "slowExplosion" }) {
+    const r2 = r * r;
+    for (let i = this.pipes.length - 1; i >= 0; i--) {
+      const pipe = this.pipes[i];
+      const dx = (pipe.cx ? pipe.cx() : pipe.x + pipe.w * 0.5) - x;
+      const dy = (pipe.cy ? pipe.cy() : pipe.y + pipe.h * 0.5) - y;
+      if ((dx * dx + dy * dy) <= r2) {
+        this._shatterPipe(pipe, { particles: 24, cause });
+      }
+    }
+  }
+
+  _handlePipeCollision(hit, bounceCap, dashCfg) {
     if (this.player.dashT > 0) {
+      if (this.player.dashMode === "destroy" && !this.player.dashDestroyed) {
+        return this._applyDashDestroy(hit, dashCfg);
+      }
       if (this.player.dashBounces < bounceCap) {
         this._applyDashReflect(hit);
         return "reflected";
@@ -565,32 +675,10 @@ export class Game {
     const p = this.player;
 
     if (name === "dash") {
-      const d = this.cfg.skills.dash;
-      const dur = clamp(Number(d.duration) || 0, 0, 1.2);
-
-      // dash direction = current move input or last direction
-      const mv = this.input.getMove();
-      const n = norm2(mv.dx, mv.dy);
-      const dx = (n.len > 0) ? n.x : p.lastX;
-      const dy = (n.len > 0) ? n.y : p.lastY;
-      const nn = norm2(dx, dy);
-
-      p.dashVX = (nn.len > 0) ? nn.x : 0;
-      p.dashVY = (nn.len > 0) ? nn.y : -1;
-      p.dashT = dur;
-      p.dashBounces = 0;
-      p.dashImpactFlash = 0;
-
-      this.cds.dash = Math.max(0, Number(d.cooldown) || 0);
-
-      for (let i = 0; i < 18; i++) {
-        const a = rand(0, Math.PI * 2), sp = rand(40, 260);
-        const vx = Math.cos(a) * sp - p.dashVX * 220;
-        const vy = Math.sin(a) * sp - p.dashVY * 220;
-        const prt = new Part(p.x, p.y, vx, vy, rand(0.18, 0.34), rand(1.0, 2.2), "rgba(255,255,255,.80)", true);
-        prt.drag = 9.5;
-        this.parts.push(prt);
-      }
+      const cfg = this._activeDashConfig();
+      if (!cfg) return;
+      if (this.skillSettings?.dashBehavior === "destroy") this._useDashDestroy(cfg);
+      else this._useDashRicochet(cfg);
     }
 
     if (name === "phase") {
@@ -669,16 +757,110 @@ export class Game {
     }
 
     if (name === "slowField") {
-      const s = this.cfg.skills.slowField;
-
-      const dur = clamp(Number(s.duration) || 0, 0, 8.0);
-      const rad = clamp(Number(s.radius) || 0, 40, 900);
-      const fac = clamp(Number(s.slowFactor) || 0.6, 0.10, 1.0);
-
-      this.slowField = { x: p.x, y: p.y, r: rad, fac, t: dur, tm: dur };
-      this.cds.slowField = Math.max(0, Number(s.cooldown) || 0);
-      this.floats.push(new FloatText("SLOW FIELD", p.x, p.y - p.r * 1.8, "rgba(120,210,255,.95)"));
+      const s = this._activeSlowConfig();
+      if (!s) return;
+      if (this.skillSettings?.slowFieldBehavior === "explosion") this._useSlowExplosion(s);
+      else this._useSlowField(s);
     }
+  }
+
+  _startDashMotion(d) {
+    const p = this.player;
+    const dur = clamp(Number(d.duration) || 0, 0, 1.2);
+    const mv = this.input.getMove();
+    const n = norm2(mv.dx, mv.dy);
+    const dx = (n.len > 0) ? n.x : p.lastX;
+    const dy = (n.len > 0) ? n.y : p.lastY;
+    const nn = norm2(dx, dy);
+
+    p.dashVX = (nn.len > 0) ? nn.x : 0;
+    p.dashVY = (nn.len > 0) ? nn.y : -1;
+    p.dashT = dur;
+    p.dashBounces = 0;
+    p.dashImpactFlash = 0;
+    p.dashDestroyed = false;
+
+    return { dur };
+  }
+
+  _useDashRicochet(d) {
+    this._startDashMotion(d);
+    const p = this.player;
+    p.dashMode = "ricochet";
+    this.cds.dash = Math.max(0, Number(d.cooldown) || 0);
+
+    for (let i = 0; i < 18; i++) {
+      const a = rand(0, Math.PI * 2), sp = rand(40, 260);
+      const vx = Math.cos(a) * sp - p.dashVX * 220;
+      const vy = Math.sin(a) * sp - p.dashVY * 220;
+      const prt = new Part(p.x, p.y, vx, vy, rand(0.18, 0.34), rand(1.0, 2.2), "rgba(255,255,255,.80)", true);
+      prt.drag = 9.5;
+      this.parts.push(prt);
+    }
+  }
+
+  _useDashDestroy(d) {
+    this._startDashMotion(d);
+    const p = this.player;
+    p.dashMode = "destroy";
+    this.cds.dash = Math.max(0, Number(d.cooldown) || 0);
+
+    for (let i = 0; i < 26; i++) {
+      const a = rand(0, Math.PI * 2), sp = rand(60, 320);
+      const vx = Math.cos(a) * sp - p.dashVX * 180;
+      const vy = Math.sin(a) * sp - p.dashVY * 180;
+      const prt = new Part(p.x, p.y, vx, vy, rand(0.16, 0.36), rand(1.1, 2.4), "rgba(255,220,180,.85)", true);
+      prt.drag = 11;
+      this.parts.push(prt);
+    }
+  }
+
+  _useSlowField(s) {
+    const p = this.player;
+    const dur = clamp(Number(s.duration) || 0, 0, 8.0);
+    const rad = clamp(Number(s.radius) || 0, 40, 900);
+    const fac = clamp(Number(s.slowFactor) || 0.6, 0.10, 1.0);
+
+    this.slowField = { x: p.x, y: p.y, r: rad, fac, t: dur, tm: dur };
+    this.slowExplosion = null;
+    this.cds.slowField = Math.max(0, Number(s.cooldown) || 0);
+    this._slowFieldSfx();
+    this.floats.push(new FloatText("SLOW FIELD", p.x, p.y - p.r * 1.8, "rgba(120,210,255,.95)"));
+  }
+
+  _useSlowExplosion(s) {
+    const p = this.player;
+    const dur = clamp(Number(s.duration) || 0.12, 0, 1.2);
+    const rad = clamp(Number(s.radius) || 0, 20, 900);
+    const blastParticles = Math.max(0, Number(s.blastParticles) || 0);
+
+    this.slowField = null;
+    this.slowExplosion = { x: p.x, y: p.y, r: rad, t: dur, tm: dur };
+    this.cds.slowField = Math.max(0, Number(s.cooldown) || 0);
+    this._slowExplosionSfx();
+    this.floats.push(new FloatText("SLOW BURST", p.x, p.y - p.r * 1.8, "rgba(255,210,150,.95)"));
+
+    const shards = [];
+    for (let i = 0; i < blastParticles; i++) {
+      const a = rand(0, Math.PI * 2);
+      const sp = rand(160, 440);
+      const prt = new Part(
+        p.x, p.y,
+        Math.cos(a) * sp,
+        Math.sin(a) * sp,
+        rand(0.22, 0.45),
+        rand(1.1, 2.6),
+        "rgba(255,230,180,.85)",
+        true
+      );
+      prt.drag = 10.8;
+      prt.twinkle = true;
+      this.parts.push(prt);
+      shards.push(prt);
+    }
+
+    this._destroyPipesInRadius({ x: p.x, y: p.y, r: rad, cause: "slowExplosion" });
+    this.lastSlowBlast = { t: this.timeAlive, x: p.x, y: p.y, shards };
   }
 
   _updatePlayer(dt) {
@@ -686,6 +868,7 @@ export class Game {
 
     if (p.invT > 0) p.invT = Math.max(0, p.invT - dt);
     if (p.dashT > 0) p.dashT = Math.max(0, p.dashT - dt);
+    if (p.dashT <= 0 && p.dashMode) p.dashMode = null;
     if (p.dashImpactFlash > 0) p.dashImpactFlash = Math.max(0, p.dashImpactFlash - dt);
 
     const mv = this.input.getMove();
@@ -693,7 +876,8 @@ export class Game {
     if (n.len > 0) { p.lastX = n.x; p.lastY = n.y; }
 
     if (p.dashT > 0) {
-      const dashSpeed = Math.max(0, Number(this.cfg.skills.dash.speed) || 0);
+      const dashCfg = this._activeDashConfig();
+      const dashSpeed = Math.max(0, Number(dashCfg?.speed) || 0);
       p.vx = p.dashVX * dashSpeed;
       p.vy = p.dashVY * dashSpeed;
     } else {
@@ -884,6 +1068,10 @@ export class Game {
       this.slowField.t = Math.max(0, this.slowField.t - dt);
       if (this.slowField.t <= 0) this.slowField = null;
     }
+    if (this.slowExplosion) {
+      this.slowExplosion.t = Math.max(0, this.slowExplosion.t - dt);
+      if (this.slowExplosion.t <= 0) this.slowExplosion = null;
+    }
 
     const prevPlayerX = this.player.x;
     const prevPlayerY = this.player.y;
@@ -1045,15 +1233,17 @@ export class Game {
     // collision (phase = invuln)
     if (this.player.invT <= 0) {
       const bounceCap = this._dashBounceMax();
+      const dashCfg = this._activeDashConfig();
       for (const p of this.pipes) {
         const hit = circleRectInfo(this.player.x, this.player.y, this.player.r, p.x, p.y, p.w, p.h);
         if (!hit) continue;
+        hit.pipe = p;
 
         if (this.player.dashT > 0) {
-          const res = this._handlePipeCollision(hit, bounceCap);
-          if (res === "reflected") break; // Only process one reflection per frame to avoid ping-pong chaos.
+          const res = this._handlePipeCollision(hit, bounceCap, dashCfg);
+          if (res === "reflected" || res === "destroyed") break; // Only process one interaction per frame to avoid ping-pong chaos.
           if (res === "over") return;
-        } else if (this._handlePipeCollision(hit, bounceCap) === "over") {
+        } else if (this._handlePipeCollision(hit, bounceCap, dashCfg) === "over") {
           return;
         }
       }
@@ -1371,6 +1561,19 @@ _drawOrb(o) {
       ctx.strokeStyle = "rgba(255,255,255,.60)";
       ctx.lineWidth = 1;
       ctx.beginPath(); ctx.arc(this.slowField.x, this.slowField.y, this.slowField.r * 0.75, 0, Math.PI * 2); ctx.stroke();
+      ctx.restore();
+    } else if (this.slowExplosion) {
+      const t = clamp(this.slowExplosion.t / Math.max(1e-3, this.slowExplosion.tm), 0, 1);
+      const a = 0.35 + 0.25 * (1 - t);
+      ctx.save();
+      ctx.globalAlpha = a;
+      ctx.strokeStyle = "rgba(255,210,160,.85)";
+      ctx.lineWidth = 2.4;
+      ctx.beginPath(); ctx.arc(this.slowExplosion.x, this.slowExplosion.y, this.slowExplosion.r * (1 + (1 - t) * 0.25), 0, Math.PI * 2); ctx.stroke();
+      ctx.globalAlpha = a * 0.4;
+      ctx.setLineDash([6, 7]);
+      ctx.lineWidth = 1.6;
+      ctx.beginPath(); ctx.arc(this.slowExplosion.x, this.slowExplosion.y, this.slowExplosion.r * 0.65, 0, Math.PI * 2); ctx.stroke();
       ctx.restore();
     }
 

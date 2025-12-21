@@ -23,7 +23,10 @@ const stubWindow = () => {
 vi.mock("../audio.js", () => ({
   sfxOrbBoop: vi.fn(),
   sfxPerfectNice: vi.fn(),
-  sfxDashBounce: vi.fn()
+  sfxDashBounce: vi.fn(),
+  sfxDashDestroy: vi.fn(),
+  sfxSlowField: vi.fn(),
+  sfxSlowExplosion: vi.fn()
 }));
 
 const createGame = async (cfg = DEFAULT_CONFIG) => {

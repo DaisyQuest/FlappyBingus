@@ -2,13 +2,15 @@
 // FILE: public/js/main.js
 // =====================
 import { loadConfig } from "./config.js";
+import { DEFAULT_SKILL_SETTINGS, normalizeSkillSettings, skillSettingsEqual } from "./settings.js";
 import {
   apiGetMe,
   apiRegister,
   apiGetHighscores,
   apiSetTrail,
   apiSubmitScore,
-  apiSetKeybinds
+  apiSetKeybinds,
+  apiSetSettings
 } from "./api.js";
 
 import {
@@ -74,6 +76,8 @@ const {
   trailPreviewCanvas,
   bindWrap,
   bindHint,
+  dashBehaviorSelect,
+  slowFieldBehaviorSelect,
   hsWrap,
   pbText,
   trailText,
@@ -117,6 +121,25 @@ function genRandomSeed() {
   return `${u[0].toString(16)}-${u[1].toString(16)}`;
 }
 
+const SETTINGS_COOKIE = "bingus_settings";
+function readSettingsCookie() {
+  const raw = getCookie(SETTINGS_COOKIE);
+  if (!raw) return null;
+  try {
+    const parsed = JSON.parse(raw);
+    return normalizeSkillSettings(parsed);
+  } catch {
+    return null;
+  }
+}
+function writeSettingsCookie(settings) {
+  try {
+    setCookie(SETTINGS_COOKIE, JSON.stringify(normalizeSkillSettings(settings || {})), 3650);
+  } catch {
+    // ignore cookie errors
+  }
+}
+
 function setUIMode(isUI) {
   // When UI is shown, let clicks go to HTML controls
   canvas.style.pointerEvents = isUI ? "none" : "auto";
@@ -134,6 +157,7 @@ const net = {
 
 // keybinds: start from guest cookie; override from server user when available
 let binds = loadGuestBinds();
+let skillSettings = readSettingsCookie() || normalizeSkillSettings(DEFAULT_SKILL_SETTINGS);
 
 // config + assets
 let CFG = null;
@@ -176,7 +200,10 @@ const AUDIO = Object.freeze({
   musicUrl: "/audio/music.mp3",
   boopUrl: "/audio/orb-boop.mp3",
   niceUrl: "/audio/nice.mp3",
-  bounceUrl: "/audio/dash-bounce.mp3"
+  bounceUrl: "/audio/dash-bounce.mp3",
+  shatterUrl: "/audio/dash-destroy.mp3",
+  slowFieldUrl: "/audio/slow-field.mp3",
+  slowExplosionUrl: "/audio/slow-explosion.mp3"
 });
 
 // Volume UI defaults (match HTML defaults in flappybingus.html)
@@ -216,6 +243,7 @@ const volumeChangeHandler = () => applyVolumeFromUI();
 musicSlider?.addEventListener("input", volumeChangeHandler);
 sfxSlider?.addEventListener("input", volumeChangeHandler);
 muteToggle?.addEventListener("change", volumeChangeHandler);
+applySkillSettingsToUI(skillSettings);
 
 // IMPORTANT: actions are NOT applied immediately.
 // They are enqueued and applied at the next simulation tick boundary.
@@ -253,6 +281,7 @@ let game = new Game({
   getBinds: () => binds,
   onGameOver: (score) => onGameOver(score)
 });
+game.setSkillSettings(skillSettings);
 
 let driver = new GameDriver({
   game,
@@ -438,6 +467,29 @@ function renderBindUI(listeningActionId = null) {
   }
 }
 
+function applySkillSettingsToUI(settings = skillSettings) {
+  const normalized = normalizeSkillSettings(settings || DEFAULT_SKILL_SETTINGS);
+  if (dashBehaviorSelect) dashBehaviorSelect.value = normalized.dashBehavior;
+  if (slowFieldBehaviorSelect) slowFieldBehaviorSelect.value = normalized.slowFieldBehavior;
+}
+
+async function updateSkillSettings(next, { persist = true } = {}) {
+  const normalized = normalizeSkillSettings(next || DEFAULT_SKILL_SETTINGS);
+  const changed = !skillSettingsEqual(skillSettings, normalized);
+  skillSettings = normalized;
+  game.setSkillSettings(skillSettings);
+  applySkillSettingsToUI(skillSettings);
+  writeSettingsCookie(skillSettings);
+
+  if (persist && net.user && changed) {
+    const res = await apiSetSettings(skillSettings);
+    if (res?.user) {
+      net.user = res.user;
+      setUserHint();
+    }
+  }
+}
+
 // ---- Server refresh ----
 async function refreshProfileAndHighscores() {
   const me = await apiGetMe();
@@ -449,6 +501,7 @@ async function refreshProfileAndHighscores() {
     net.user = me.user || null;
     net.trails = normalizeTrails(me.trails || net.trails);
     if (net.user?.keybinds) binds = mergeBinds(DEFAULT_KEYBINDS, net.user.keybinds);
+    if (net.user?.settings) await updateSkillSettings(net.user.settings, { persist: false });
   }
 
   const hs = await apiGetHighscores(20);
@@ -484,6 +537,7 @@ saveUserBtn.addEventListener("click", async () => {
 
     binds = mergeBinds(DEFAULT_KEYBINDS, net.user.keybinds);
     usernameInput.value = net.user.username;
+    await updateSkillSettings(res.user?.settings || skillSettings, { persist: false });
 
     await apiSetKeybinds(binds);
     await refreshProfileAndHighscores();
@@ -705,11 +759,26 @@ bindWrap.addEventListener("click", (e) => {
   beginRebind(actionId);
 });
 
+dashBehaviorSelect?.addEventListener("change", () => {
+  updateSkillSettings({ ...skillSettings, dashBehavior: dashBehaviorSelect.value });
+});
+slowFieldBehaviorSelect?.addEventListener("change", () => {
+  updateSkillSettings({ ...skillSettings, slowFieldBehavior: slowFieldBehaviorSelect.value });
+});
+
 // ---- Menu/game over buttons ----
 // NEW: ensure audio buffers are loaded + music starts ONLY when gameplay begins.
 async function ensureAudioReady() {
   try {
-    await audioInit({ musicUrl: AUDIO.musicUrl, boopUrl: AUDIO.boopUrl, niceUrl: AUDIO.niceUrl, bounceUrl: AUDIO.bounceUrl });
+    await audioInit({
+      musicUrl: AUDIO.musicUrl,
+      boopUrl: AUDIO.boopUrl,
+      niceUrl: AUDIO.niceUrl,
+      bounceUrl: AUDIO.bounceUrl,
+      shatterUrl: AUDIO.shatterUrl,
+      slowFieldUrl: AUDIO.slowFieldUrl,
+      slowExplosionUrl: AUDIO.slowExplosionUrl
+    });
     applyVolumeFromUI();
 
   } catch (e) {
