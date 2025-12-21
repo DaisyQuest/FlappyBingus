@@ -27,10 +27,25 @@ const START_TIME = Date.now();
 // Mongo configuration: MONGODB_URI (supports {PASSWORD} placeholder), MONGODB_PASSWORD, MONGODB_DB
 const mongoConfig = resolveMongoConfig();
 let dataStore = new MongoDataStore(mongoConfig);
+let scoreService = null;
 
 // Test-only: allow swapping the datastore to avoid network calls.
 function _setDataStoreForTests(mock) {
-  dataStore = mock;
+  const safeStore = {
+    recordScore: async () => {
+      throw new Error("recordScore_not_mocked");
+    },
+    ...mock
+  };
+  dataStore = safeStore;
+  scoreService = createScoreService({
+    dataStore: safeStore,
+    ensureUserSchema,
+    publicUser,
+    listHighscores: () => topHighscores(20),
+    trails: TRAILS,
+    clampScore: clampScoreDefault
+  });
 }
 
 // Cookie that holds username (per requirements)
@@ -255,6 +270,7 @@ function ensureUserSchema(u, { recordHolder = false } = {}) {
   u.bestScore = normalizeScore(u.bestScore);
   u.runs = normalizeCount(u.runs);
   u.totalScore = normalizeTotal(u.totalScore);
+  u.bustercoins = normalizeCount(u.bustercoins);
   if (typeof u.selectedTrail !== "string") u.selectedTrail = "classic";
   if (!u.keybinds || typeof u.keybinds !== "object")
     u.keybinds = structuredClone(DEFAULT_KEYBINDS);
@@ -369,6 +385,7 @@ function publicUser(u, { recordHolder = false } = {}) {
     settings: u.settings || structuredClone(DEFAULT_SETTINGS),
     runs: u.runs | 0,
     totalScore: u.totalScore | 0,
+    bustercoins: u.bustercoins | 0,
     unlockedTrails: unlockedTrails(u.bestScore | 0, { recordHolder }),
     isRecordHolder: Boolean(recordHolder)
   };
@@ -404,6 +421,7 @@ function buildUserDefaults(username, key) {
     settings: structuredClone(DEFAULT_SETTINGS),
     runs: 0,
     totalScore: 0,
+    bustercoins: 0,
     createdAt: now,
     updatedAt: now
   };
@@ -467,7 +485,7 @@ async function topHighscores(limit = 25) {
   return dataStore.topHighscores(limit);
 }
 
-const scoreService = createScoreService({
+scoreService = createScoreService({
   dataStore,
   ensureUserSchema,
   publicUser,
@@ -786,7 +804,11 @@ async function route(req, res) {
       return badRequest(res, "invalid_json");
     }
 
-    const { status, body: responseBody, error } = await scoreService.submitScore(u, body.score);
+    const { status, body: responseBody, error } = await scoreService.submitScore(
+      u,
+      body.score,
+      body.bustercoinsEarned
+    );
     if (status >= 200 && status < 300 && responseBody) {
       sendJson(res, status, responseBody);
     } else {

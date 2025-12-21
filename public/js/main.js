@@ -81,6 +81,7 @@ const {
   hsWrap,
   pbText,
   trailText,
+  bustercoinText,
   final: finalEl,
   overPB,
   seedInput,
@@ -345,7 +346,8 @@ function setUserHint() {
     return;
   }
   userHint.className = "hint good";
-  userHint.textContent = `Signed in as ${net.user.username}. Runs: ${net.user.runs} • Total: ${net.user.totalScore}`;
+  const coins = net.user?.bustercoins ?? 0;
+  userHint.textContent = `Signed in as ${net.user.username}. Runs: ${net.user.runs} • Total: ${net.user.totalScore} • Bustercoins: ${coins}`;
 }
 
 function getTrailDisplayName(id, trails = net.trails) {
@@ -389,6 +391,7 @@ function fillTrailSelect() {
   const applied = rebuildTrailOptions(trailSelect, orderedTrails, unlocked, selected);
   applyTrailSelection(applied, orderedTrails);
   pbText.textContent = String(best);
+  if (bustercoinText) bustercoinText.textContent = String(net.user?.bustercoins ?? 0);
 
   const hint = buildTrailHint({
     online: net.online,
@@ -957,7 +960,8 @@ async function onGameOver(finalScore) {
   over.classList.remove("hidden");
 
   if (net.user) {
-    const res = await apiSubmitScore(finalScore | 0);
+    const coinsEarned = game?.bustercoinsEarned || 0;
+    const res = await apiSubmitScore({ score: finalScore | 0, bustercoinsEarned: coinsEarned });
     if (res && res.ok && res.user) {
       net.online = true;
       net.user = res.user;

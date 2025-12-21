@@ -121,7 +121,8 @@ describe("MongoDataStore.recordScore", () => {
       createdAt: 100,
       selectedTrail: "classic",
       updatedAt: now,
-      keybinds: null
+      keybinds: null,
+      bustercoins: 0
     });
   });
 
@@ -142,6 +143,7 @@ describe("MongoDataStore.recordScore", () => {
       username: "Jason",
       selectedTrail: "classic",
       keybinds: null,
+      bustercoins: 0,
       runs: 1,
       totalScore: 25,
       bestScore: 25,
@@ -170,6 +172,7 @@ describe("MongoDataStore.recordScore", () => {
       runs: 6,
       totalScore: 17,
       bestScore: 8,
+      bustercoins: 0,
       createdAt: 10,
       updatedAt: now
     });
@@ -205,6 +208,7 @@ describe("MongoDataStore.recordScore", () => {
       createdAt: 50,
       selectedTrail: "classic",
       keybinds: null,
+      bustercoins: 0,
       updatedAt: now
     });
   });

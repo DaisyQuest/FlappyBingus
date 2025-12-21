@@ -20,7 +20,7 @@ function createScoreService(deps) {
   if (typeof publicUser !== "function") throw new Error("publicUser_required");
   if (typeof listHighscores !== "function") throw new Error("listHighscores_required");
 
-  async function submitScore(user, rawScore) {
+  async function submitScore(user, rawScore, rawBustercoinsEarned = 0) {
     if (!user) return { ok: false, status: 401, error: "unauthorized" };
 
     if (rawScore === null || rawScore === undefined) {
@@ -34,9 +34,17 @@ function createScoreService(deps) {
     if (!Number.isFinite(parsed)) return { ok: false, status: 400, error: "invalid_score" };
 
     const score = clampScore(parsed);
+    const coins =
+      rawBustercoinsEarned === undefined || rawBustercoinsEarned === null
+        ? 0
+        : Number(rawBustercoinsEarned);
+    if (!Number.isFinite(coins) || coins < 0) {
+      return { ok: false, status: 400, error: "invalid_bustercoins" };
+    }
+    const bustercoinsEarned = Math.max(0, Math.floor(coins));
 
     try {
-      const updated = await dataStore.recordScore(user, score);
+      const updated = await dataStore.recordScore(user, score, { bustercoinsEarned });
       const highscores = await listHighscores();
       const recordHolder = highscores?.[0]?.username === updated.username;
       ensureUserSchema(updated, { recordHolder });

@@ -879,6 +879,25 @@ describe("Game loop", () => {
     expect(game.floats.length).toBeLessThanOrEqual(80);
   });
 
+  it("tracks bustercoins earned from orb pickups and resets per run", () => {
+    const { game } = buildGame();
+    game.resizeToWindow();
+    game.state = 1;
+    game.player.x = 10;
+    game.player.y = 10;
+    game.orbs = [{ x: 10, y: 10, r: 5, update: vi.fn(), dead: () => false }];
+
+    game.update(0.01);
+
+    expect(game.bustercoinsEarned).toBe(1);
+    expect(game.orbs.length).toBe(0);
+
+    setRandSource(() => 0.25);
+    game._resetRun(true);
+    expect(game.bustercoinsEarned).toBe(0);
+    setRandSource();
+  });
+
   it("handles collision death", () => {
     const { game } = buildGame();
     game.state = 1;

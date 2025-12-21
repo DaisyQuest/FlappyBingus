@@ -80,6 +80,7 @@ export class Game {
 
     this.score = 0;
     this.timeAlive = 0;
+    this.bustercoinsEarned = 0;
 
     this.pipeT = 0;
     this.specialT = 1.6;
@@ -198,6 +199,7 @@ export class Game {
 
     if (clearScore) this.score = 0;
     this.timeAlive = 0;
+    this.bustercoinsEarned = 0;
 
     this.pipeT = 0;
     this.specialT = 1.6;
@@ -1210,6 +1212,7 @@ export class Game {
 
         const maxC = Math.max(1, Number(this.cfg.scoring.orbComboMax) || 30);
         this.combo = Math.min(maxC, this.combo + 1);
+        this.bustercoinsEarned = (this.bustercoinsEarned || 0) + 1;
 
         // NEW: play boop AFTER combo increments (so pitch rises with combo)
         this._orbPickupSfx();

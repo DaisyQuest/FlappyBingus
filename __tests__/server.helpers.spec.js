@@ -13,7 +13,8 @@ const baseUser = () => ({
   selectedTrail: "world_record",
   keybinds: {},
   runs: 10,
-  totalScore: 42_000
+  totalScore: 42_000,
+  bustercoins: 120
 });
 
 describe("server helpers (trails)", () => {
@@ -74,5 +75,6 @@ describe("server helpers (trails)", () => {
     expect(u.settings).toEqual({ dashBehavior: "ricochet", slowFieldBehavior: "slow" });
     expect(u.runs).toBe(0);
     expect(u.totalScore).toBe(0);
+    expect(u.bustercoins).toBe(0);
   });
 });

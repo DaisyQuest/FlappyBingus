@@ -57,6 +57,7 @@ describe("uiLayout", () => {
       "hsWrap",
       "pbText",
       "trailText",
+      "bustercoinText",
       "trailPreviewCanvas",
       "final",
       "overPB",

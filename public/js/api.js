@@ -54,9 +54,18 @@ export async function apiRegister(username) {
   return requestJson("/api/register", { method: "POST", body: JSON.stringify({ username }) });
 }
 
-export async function apiSubmitScore(score) {
+export async function apiSubmitScore(scoreOrPayload, bustercoinsEarned) {
   if (hitClientRateLimit("/api/score")) return null;
-  return requestJson("/api/score", { method: "POST", body: JSON.stringify({ score }) });
+  let payload;
+  if (scoreOrPayload && typeof scoreOrPayload === "object" && !Array.isArray(scoreOrPayload)) {
+    payload = {
+      score: scoreOrPayload.score,
+      bustercoinsEarned: scoreOrPayload.bustercoinsEarned ?? 0
+    };
+  } else {
+    payload = { score: scoreOrPayload, bustercoinsEarned: bustercoinsEarned ?? 0 };
+  }
+  return requestJson("/api/score", { method: "POST", body: JSON.stringify(payload) });
 }
 
 export async function apiSetTrail(trailId) {
