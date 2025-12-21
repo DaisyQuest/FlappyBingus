@@ -308,6 +308,14 @@ input[type="range"]::-moz-range-thumb{
 .over-subtitle{margin-top:4px}
 .menu-subtitle{margin-top:-4px}
 .replay-hint{margin-top:10px}
+.score-breakdown{margin:12px 0 4px;padding:12px;border-radius:12px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);box-shadow:inset 0 1px 0 rgba(255,255,255,.05)}
+.score-breakdown .section-title{margin-bottom:6px;font-size:14px}
+.score-breakdown-list{display:flex;flex-direction:column;gap:8px}
+.score-breakdown-row{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:8px 10px;border-radius:10px;background:rgba(0,0,0,.18);border:1px solid rgba(255,255,255,.06)}
+.score-breakdown-label{font-weight:900;letter-spacing:.25px}
+.score-breakdown-meta{font-size:12px;color:var(--muted)}
+.score-breakdown-points{font-weight:900;color:var(--accent-strong)}
+.score-breakdown-total{background:rgba(255,255,255,.08);border-color:rgba(255,255,255,.14)}
 .achievements-card .achievement-list{display:flex;flex-direction:column;gap:10px;margin-top:10px}
 .achievement-row{border:1px solid rgba(255,255,255,.12);border-radius:14px;padding:10px 12px;background:rgba(255,255,255,.04);box-shadow:inset 0 1px 0 rgba(255,255,255,.05)}
 .achievement-title{font-weight:900;letter-spacing:.3px;margin-bottom:2px}

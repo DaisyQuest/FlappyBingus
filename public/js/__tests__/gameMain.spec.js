@@ -197,6 +197,43 @@ describe("Game core loop hooks", () => {
     };
     game.orbs.push(orb);
     game.update(0.016);
-    expect(game.getRunStats().orbsCollected).toBe(1);
+    const stats = game.getRunStats();
+    expect(stats.orbsCollected).toBe(1);
+    expect(stats.scoreBreakdown.orbs.points).toBe(game.cfg.scoring.orbBase);
+    expect(stats.totalScore).toBe(game.score);
+  });
+
+  it("resets per-run score tracking before starting a new game", async () => {
+    makeWindow(200, 200, 1);
+    const { canvas, ctx } = baseCanvas();
+    const { Game } = await import("../game.js");
+    const cfg = cloneCfg();
+    const game = new Game({
+      canvas,
+      ctx,
+      config: cfg,
+      playerImg: { naturalWidth: 10, naturalHeight: 10 },
+      input: { getMove: () => ({ dx: 0, dy: 0 }), cursor: { has: false } },
+      getTrailId: () => "classic",
+      getBinds: () => ({}),
+      onGameOver: () => {}
+    });
+
+    game._recordOrbScore(3);
+    game._recordPerfectScore(4);
+    game._recordPipeScore(2);
+    game.runStats.abilitiesUsed = 5;
+
+    expect(game.score).toBe(9);
+
+    game.startRun();
+    const stats = game.getRunStats();
+
+    expect(stats.orbsCollected).toBe(0);
+    expect(stats.perfects).toBe(0);
+    expect(stats.pipesDodged).toBe(0);
+    expect(stats.abilitiesUsed).toBe(0);
+    expect(stats.scoreBreakdown.orbs.points).toBe(0);
+    expect(game.score).toBe(0);
   });
 });

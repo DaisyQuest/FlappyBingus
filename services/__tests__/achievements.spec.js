@@ -37,6 +37,16 @@ describe("validateRunStats", () => {
     expect(validateRunStats({ orbsCollected: -1 })).toEqual({ ok: false, error: "invalid_run_stats" });
     expect(validateRunStats("bad")).toEqual({ ok: false, error: "invalid_run_stats" });
   });
+
+  it("ignores additional run metadata while preserving counters", () => {
+    expect(
+      validateRunStats({
+        orbsCollected: 0,
+        abilitiesUsed: 0,
+        scoreBreakdown: { orbs: { points: 99 } }
+      })
+    ).toEqual({ ok: true, stats: { orbsCollected: 0, abilitiesUsed: 0 } });
+  });
 });
 
 describe("evaluateRunForAchievements", () => {
@@ -99,5 +109,26 @@ describe("evaluateRunForAchievements", () => {
 
     expect(unlocked).toEqual(["no_abilities_100"]);
     expect(state.unlocked.no_orbs_100).toBe(111);
+  });
+
+  it("unlocks orb-free runs even after prior orb-heavy attempts", () => {
+    const first = evaluateRunForAchievements({
+      previous: { unlocked: {}, progress: DEFAULT_PROGRESS },
+      runStats: { orbsCollected: 5, abilitiesUsed: 0 },
+      score: 150,
+      now: 10
+    });
+    expect(first.unlocked).toEqual(["no_abilities_100"]);
+    expect(first.state.progress.maxScoreNoOrbs).toBe(0);
+
+    const clean = evaluateRunForAchievements({
+      previous: first.state,
+      runStats: { orbsCollected: 0, abilitiesUsed: 0 },
+      score: 175,
+      now: 20
+    });
+
+    expect(clean.unlocked).toContain("no_orbs_100");
+    expect(clean.state.progress.maxScoreNoOrbs).toBe(175);
   });
 });

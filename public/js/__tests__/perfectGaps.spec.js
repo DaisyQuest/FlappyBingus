@@ -219,4 +219,36 @@ describe("resolveGapPerfect", () => {
     expect(game.score).toBe(9);
     expect(game.perfectCombo).toBe(1);
   });
+
+  it("delegates perfect scoring to a recorder when available", () => {
+    const game = {
+      score: 0,
+      perfectCombo: 0,
+      perfectT: 0,
+      perfectMax: 0,
+      _gapMeta: new Map(),
+      _perfectNiceSfx: vi.fn()
+    };
+    const record = vi.fn((pts) => {
+      game.score = (game.score || 0) + pts;
+    });
+    game._recordPerfectScore = record;
+    const gate = prepGate({ axis: "x", gapCenter: 100, gapHalf: 20, gapId: 88 });
+    game._gapMeta.set(88, { perfected: false });
+
+    const res = resolveGapPerfect({
+      gate,
+      game,
+      playerAxis: 50,
+      prevPerpAxis: 100,
+      currPerpAxis: 100,
+      bonus: 5,
+      windowScale: 0.2
+    });
+
+    expect(res.awarded).toBe(true);
+    expect(record).toHaveBeenCalledWith(expect.any(Number));
+    expect(game.perfectCombo).toBe(1);
+    expect(game.score).toBeGreaterThan(0);
+  });
 });

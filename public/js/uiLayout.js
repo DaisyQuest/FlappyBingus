@@ -571,6 +571,17 @@ function createOverScreen(doc, refs) {
   stats.append(final, doc.createElement("br"));
   stats.append("Personal best: ", best);
 
+  const breakdown = doc.createElement("div");
+  breakdown.className = "score-breakdown";
+  const breakdownTitle = doc.createElement("div");
+  breakdownTitle.className = "section-title";
+  breakdownTitle.textContent = "Score breakdown";
+  const breakdownList = createElement(doc, refs, "div", {
+    id: "scoreBreakdown",
+    className: "score-breakdown-list"
+  });
+  breakdown.append(breakdownTitle, breakdownList);
+
   const actions = doc.createElement("div");
   actions.className = "row actions-row";
   actions.append(
@@ -592,7 +603,7 @@ function createOverScreen(doc, refs) {
   shortcuts.className = "stats";
   shortcuts.innerHTML = 'Shortcuts: <span class="kbd">R</span> restart, <span class="kbd">Esc</span> menu.';
 
-  panel.append(title, subtitle, stats, actions, replayStatus);
+  panel.append(title, subtitle, stats, breakdown, actions, replayStatus);
   screen.append(panel, shortcuts);
   return screen;
 }
