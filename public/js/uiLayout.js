@@ -176,12 +176,6 @@ function createTrailCard(doc, refs) {
   });
   const trailBadge = doc.createElement("div");
   trailBadge.className = "trail-launcher-badge";
-  const trailSwatch = doc.createElement("span");
-  trailSwatch.className = "icon-swatch trail-swatch";
-  const trailCanvas = doc.createElement("canvas");
-  trailCanvas.className = "icon-swatch-canvas trail-swatch-canvas";
-  trailCanvas.setAttribute("aria-hidden", "true");
-  trailSwatch.append(trailCanvas);
   const trailLabel = doc.createElement("div");
   trailLabel.className = "trail-launcher-label";
   const trailName = doc.createElement("div");
@@ -191,7 +185,7 @@ function createTrailCard(doc, refs) {
   trailAction.className = "trail-launcher-action";
   trailAction.textContent = "Change trail";
   trailLabel.append(trailName, trailAction);
-  trailBadge.append(trailSwatch, trailLabel);
+  trailBadge.append(trailLabel);
   trailLauncher.append(trailBadge);
 
   const trailOverlay = createElement(doc, refs, "div", {

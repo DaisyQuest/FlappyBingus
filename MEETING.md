@@ -190,3 +190,26 @@
 - Land the Perfect Line Beacon icon and centerline sprite support.
 - Ensure tests cover both the unlock logic and the rendering path for the new pattern.
 - Monitor icon picker hints to confirm the Perfect Ten reward label surfaces correctly for locked users.
+
+# Meeting Notes
+- Date: 2025-12-22
+- Attendees: ChatGPT (GPT-5.1-Codex-Max)
+
+## Agenda
+- Remove duplicated trail swatch visuals from the trail selection menu so only trail names are shown.
+- Keep the launcher consistent with the simplified trail entries while maintaining accessibility.
+- Update automated coverage to reflect the text-only rendering.
+
+## Discussion
+- Trail options reused the icon swatch markup, leading to identical icons for every trail and confusing users.
+- The launcher also included an unused swatch canvas, causing unnecessary DOM and paint work.
+- Tests asserted the presence of swatch canvases, so the expectations needed to be updated for the new text-only layout.
+
+## Decisions
+- Strip swatch and canvas elements from trail option buttons and the launcher badge, leaving only the trail name label.
+- Preserve existing aria labels, lock indicators, and selection classes so keyboard and screen reader behaviors stay intact.
+- Adjust UI layout and helper tests to assert the new structure without swatches.
+
+## Action Items
+- Ship the markup changes for the trail menu and launcher.
+- Refresh related unit tests to validate the text-only menu and updated badge structure.
