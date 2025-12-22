@@ -1,4 +1,4 @@
-import { describe, expect, it, beforeEach } from "vitest";
+import { describe, expect, it, beforeEach, vi } from "vitest";
 import { JSDOM } from "jsdom";
 import {
   DEFAULT_ICON_HINT,
@@ -16,15 +16,17 @@ const ICONS = [
 
 describe("iconMenu helpers", () => {
   let document;
+  let window;
 
   beforeEach(() => {
     const dom = new JSDOM("<!doctype html><body><div id='mount'></div></body>");
     document = dom.window.document;
+    window = dom.window;
   });
 
   it("renders icon buttons with lock indicators and aria attributes", () => {
     const container = document.createElement("div");
-    const { rendered } = renderIconOptions({
+    const { rendered, swatches } = renderIconOptions({
       container,
       icons: ICONS,
       selectedId: "free",
@@ -40,6 +42,9 @@ describe("iconMenu helpers", () => {
     expect(locked?.className).toContain("locked");
     expect(locked?.querySelector(".icon-lock")?.textContent).toBe("🔒");
     expect(locked?.getAttribute("aria-disabled")).toBe("true");
+    expect(swatches).toHaveLength(2);
+    expect(swatches.every(s => s.canvas instanceof window.HTMLCanvasElement)).toBe(true);
+    expect(free?.querySelector(".icon-swatch-canvas")).toBeInstanceOf(window.HTMLCanvasElement);
   });
 
   it("applies swatch styles with sensible defaults", () => {
@@ -63,6 +68,23 @@ describe("iconMenu helpers", () => {
     const unlocked = iconHoverText(ICONS[0], { unlocked: true });
     expect(locked.toLowerCase()).toContain("locked");
     expect(unlocked.toLowerCase()).toContain("click to equip");
+  });
+
+  it("invokes swatch render callbacks with icon metadata", () => {
+    const container = document.createElement("div");
+    const spy = vi.fn();
+    renderIconOptions({
+      container,
+      icons: ICONS,
+      selectedId: "free",
+      unlockedIds: new Set(["free"]),
+      onRenderSwatch: spy
+    });
+
+    expect(spy).toHaveBeenCalledTimes(2);
+    expect(spy).toHaveBeenCalledWith(expect.objectContaining({
+      icon: expect.objectContaining({ id: "free" })
+    }));
   });
 
   it("resets hint text with a default message", () => {

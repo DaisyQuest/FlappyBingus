@@ -28,6 +28,7 @@ describe("uiLayout", () => {
     expect(readyFields?.[0]?.querySelector("#iconOptions")).toBeInstanceOf(window.HTMLElement);
     expect(readyFields?.[1]?.querySelector("#trailSelect")).toBeInstanceOf(window.HTMLElement);
     expect(ui.iconLauncher).toBeInstanceOf(window.HTMLElement);
+    expect(ui.iconLauncher?.querySelector(".icon-swatch-canvas")).toBeInstanceOf(window.HTMLCanvasElement);
     expect(ui.iconOverlay?.classList.contains("hidden")).toBe(true);
     const overlay = mount.querySelector("#menu .trail-preview-overlay");
     expect(overlay?.querySelectorAll(".trail-preview-canvas")?.length).toBe(1);

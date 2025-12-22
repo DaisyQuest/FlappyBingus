@@ -471,6 +471,9 @@ input[type="range"]::-moz-range-thumb{
 .icon-option{display:flex;align-items:center;justify-content:center;flex-direction:column;gap:10px;padding:10px;background:transparent;border:none;border-radius:14px;cursor:pointer;transition:transform .12s ease,filter .12s ease;color:#e5e7eb;position:relative}
 .icon-option:hover{transform:translateY(-2px);filter:drop-shadow(0 12px 22px rgba(0,0,0,.35))}
 .icon-option:focus-visible{outline:2px solid var(--accent-strong);outline-offset:6px}
+.icon-swatch{position:relative;display:flex;align-items:center;justify-content:center;overflow:hidden}
+.icon-swatch.selected{box-shadow:0 0 0 4px rgba(125,211,252,.5),0 8px 18px rgba(0,0,0,.35),0 0 22px var(--icon-glow,rgba(255,200,120,.5))}
+.icon-swatch-canvas{position:absolute;inset:-12%;width:124%;height:124%;pointer-events:none;filter:drop-shadow(0 0 18px var(--icon-glow,rgba(255,200,120,.5)));mix-blend-mode:screen}
 .icon-option.selected .icon-swatch{box-shadow:0 0 0 4px rgba(125,211,252,.5),0 8px 18px rgba(0,0,0,.35),0 0 22px var(--icon-glow,rgba(255,200,120,.5))}
 .icon-option.locked{opacity:.7;cursor:not-allowed}
 .icon-option .icon-swatch{width:78px;height:78px;border-radius:50%;background:radial-gradient(circle at 32% 32%,var(--icon-core,#ffc285),var(--icon-fill,#ff8c1a));box-shadow:0 0 0 2px var(--icon-rim,#0f172a),0 12px 26px rgba(0,0,0,.45),0 0 22px var(--icon-glow,rgba(255,200,120,.5));transition:box-shadow .12s ease}

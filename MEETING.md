@@ -104,6 +104,26 @@
 - Attendees: ChatGPT (GPT-5.1-Codex-Max)
 
 ## Agenda
+- Render the icon picker swatches with the animated trail preview icon instead of static gradients.
+- Keep the background trail preview running while mirroring the same effect on the stationary launcher and option swatches.
+- Ensure the new rendering path is fully covered by automated tests.
+
+## Discussion
+- Swatches currently rely on CSS gradients; they need a canvas-driven player icon with trail particles that stays stationary while emitting trails.
+- A shared TrailPreview controller can drive multiple swatch canvases without spawning separate RAF loops for each button.
+- TrailPreview must support a static mode and optional background-less rendering so the existing swatch chrome remains visible.
+- Tests should validate both the DOM structure (canvas within swatches/launcher) and the new previewer behavior, including static emission and manual stepping.
+
+## Decisions
+- Introduce IconTrailPreviewer to manage swatch canvases via a single RAF and reuse cached icon sprites.
+- Extend TrailPreview with static-mode drift, manual stepping, and background toggling to render stationary icons cleanly.
+- Embed canvases inside launcher/options swatches and update styles to contain the animated trails without visual bleed.
+- Expand unit coverage across icon menu helpers, TrailPreview static behavior, and the previewer manager.
+
+## Action Items
+- Monitor swatch preview performance and adjust drift parameters if animation load grows with larger icon sets.
+- Reuse the previewer cache when new icons are added to avoid redundant sprite generation.
+- Keep regression tests aligned with any future layout tweaks to swatch/launcher markup.
 - Optimize achievements menu ergonomics and readability.
 - Ensure layout changes are paired with automated coverage.
 

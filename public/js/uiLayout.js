@@ -112,6 +112,10 @@ function createTrailCard(doc, refs) {
   iconBadge.className = "icon-launcher-badge";
   const iconSwatch = doc.createElement("span");
   iconSwatch.className = "icon-swatch";
+  const iconCanvas = doc.createElement("canvas");
+  iconCanvas.className = "icon-swatch-canvas";
+  iconCanvas.setAttribute("aria-hidden", "true");
+  iconSwatch.append(iconCanvas);
   const iconLabel = doc.createElement("div");
   iconLabel.className = "icon-launcher-label";
   const iconName = doc.createElement("div");
