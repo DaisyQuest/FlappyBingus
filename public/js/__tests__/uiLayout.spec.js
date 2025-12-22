@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import { JSDOM } from "jsdom";
-import { buildGameUI } from "../uiLayout.js";
+import { buildGameUI, formatCooldownSeconds } from "../uiLayout.js";
 
 describe("uiLayout", () => {
   let document;
@@ -103,7 +103,12 @@ describe("uiLayout", () => {
       "achievementsList",
       "achievementToasts",
       "viewAchievements",
-      "settingsHeaderBack"
+      "settingsHeaderBack",
+      "dashCooldownValue",
+      "dashDestroyCooldownValue",
+      "slowFieldCooldownValue",
+      "slowExplosionCooldownValue",
+      "updateSkillCooldowns"
     ];
 
     for (const key of requiredRefs) {
@@ -138,6 +143,12 @@ describe("uiLayout", () => {
     const settingsGrid = document.querySelector(".settings-grid");
     expect(settingsGrid?.classList.contains("info-grid")).toBe(true);
 
+    const columnLabels = Array.from(settingsGrid?.querySelectorAll(".skill-column-label") || []).map(
+      (el) => el?.textContent
+    );
+    expect(columnLabels).toContain("Lower Cooldown");
+    expect(columnLabels).toContain("Better Utility");
+
     const featureCards = Array.from(settingsGrid?.querySelectorAll(".settings-feature") || []);
     const featureTitles = featureCards.map(card => card.querySelector(".section-title")?.textContent);
     expect(featureCards.length).toBe(2);
@@ -148,17 +159,56 @@ describe("uiLayout", () => {
     const secondary = settingsGrid?.querySelector(".settings-secondary");
     expect(secondary?.querySelector("#musicVolume")).toBeInstanceOf(window.HTMLInputElement);
     expect(secondary?.querySelector("#sfxVolume")).toBeInstanceOf(window.HTMLInputElement);
+    expect(settingsGrid?.querySelector(".muted-note")).toBeNull();
 
     const utilityTitles = Array.from(settingsGrid?.querySelectorAll(".settings-utility .section-title") || []).map(
       el => el?.textContent
     );
     expect(utilityTitles).toContain("Status");
     expect(utilityTitles).toContain("Level Seed");
+    const trailingTitles = Array.from(settingsGrid?.children || [])
+      .slice(-2)
+      .map((card) => card.querySelector(".section-title")?.textContent);
+    expect(trailingTitles).toEqual(["Level Seed", "Status"]);
 
     const seedRow = document.querySelector(".seed-row");
     expect(seedRow?.classList.contains("minirow")).toBe(true);
     expect(seedRow?.querySelector("#seedInput")).toBeInstanceOf(window.HTMLInputElement);
     expect(seedRow?.querySelector("#seedRandomBtn")).toBeInstanceOf(window.HTMLButtonElement);
+
+    const cooldowns = Array.from(settingsGrid?.querySelectorAll(".skill-option-meta-value") || []).map(
+      el => el?.textContent
+    );
+    expect(cooldowns).toContain("1.15s");
+    expect(cooldowns).toContain("17s");
+  });
+
+  it("updates cooldown badges when provided a config override", () => {
+    const ui = buildGameUI({ document, mount });
+    ui.updateSkillCooldowns?.({
+      skills: {
+        dash: { cooldown: 0.75 },
+        dashDestroy: { cooldown: 6.4 },
+        slowField: { cooldown: 3.5 },
+        slowExplosion: { cooldown: 18.25 }
+      }
+    });
+
+    expect(ui.dashCooldownValue?.textContent).toBe("0.75s");
+    expect(ui.dashDestroyCooldownValue?.textContent).toBe("6.4s");
+    expect(ui.slowFieldCooldownValue?.textContent).toBe("3.5s");
+    expect(ui.slowExplosionCooldownValue?.textContent).toBe("18.3s");
+
+    ui.updateSkillCooldowns?.({ skills: { dash: { cooldown: -1 } } });
+    expect(ui.dashCooldownValue?.textContent).toBe("1.15s");
+  });
+
+  it("formats cooldown values with sensible precision and guards invalid input", () => {
+    expect(formatCooldownSeconds(0)).toBe("0s");
+    expect(formatCooldownSeconds(1.234)).toBe("1.23s");
+    expect(formatCooldownSeconds(12.34)).toBe("12.3s");
+    expect(formatCooldownSeconds(-2)).toBe("—");
+    expect(formatCooldownSeconds(Number.NaN)).toBe("—");
   });
 
   it("layers the trail preview behind panel content while keeping menus interactive", () => {

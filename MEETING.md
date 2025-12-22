@@ -262,3 +262,26 @@
 - Ship the header layout update and back button styling.
 - Keep subtitle hiding behavior intact for the achievements view.
 - Run the uiLayout test suite to confirm coverage of the new header structure.
+
+# Meeting Notes
+- Date: 2025-12-22
+- Attendees: ChatGPT (GPT-5.1-Codex-Max)
+
+## Agenda
+- Expose cooldown details for skill behavior choices and realign the settings layout hierarchy.
+- Enlarge the volume controls while cleaning up overlapping utilities.
+
+## Discussion
+- Skill behavior options now sit under shared column headers to highlight cooldown-friendly versus utility-focused picks, with cooldown badges sourced from the live config.
+- The volume card spans two columns with thicker sliders and trimmed copy to emphasize control size over text.
+- Seed and status utilities share a row after the volume card, and the seed/random row uses a sturdier grid to prevent overlap.
+
+## Decisions
+- Render cooldown badges beneath each skill option and keep them updated through a shared `updateSkillCooldowns` hook tied to the loaded config.
+- Keep the volume section visually dominant by enlarging padding/slider tracks and removing the muted note.
+- Place the Level Seed and Status cards on the same row for consistent utility grouping beneath the primary settings.
+
+## Action Items
+- Verify cooldown badge values whenever production config overrides defaults.
+- Watch responsive breakpoints for the skill matrix, seed row, and status alignment to ensure no wrap-induced overlap.
+- Maintain uiLayout test coverage when iterating on settings copy or spacing.

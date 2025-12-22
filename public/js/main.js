@@ -1,7 +1,7 @@
 // =====================
 // FILE: public/js/main.js
 // =====================
-import { loadConfig } from "./config.js";
+import { DEFAULT_CONFIG, loadConfig } from "./config.js";
 import { DEFAULT_SKILL_SETTINGS, normalizeSkillSettings, skillSettingsEqual } from "./settings.js";
 import {
   apiGetMe,
@@ -142,7 +142,8 @@ const {
   achievementsFilterScore,
   achievementsFilterPerfects,
   achievementsFilterOrbs,
-  achievementToasts
+  achievementToasts,
+  updateSkillCooldowns
 } = ui;
 
 // ---- Local best fallback cookie (legacy support) ----
@@ -203,6 +204,12 @@ function writeIconCookie(id) {
 function setUIMode(isUI) {
   // When UI is shown, let clicks go to HTML controls
   canvas.style.pointerEvents = isUI ? "none" : "auto";
+}
+
+function updateSkillCooldownUI(cfg) {
+  if (typeof updateSkillCooldowns === "function") {
+    updateSkillCooldowns(cfg || DEFAULT_CONFIG);
+  }
 }
 
 // ---- Boot + runtime state ----
@@ -1646,6 +1653,7 @@ function frame(ts) {
   boot.cfgSrc = cfgRes.source;
 
   game.cfg = CFG;
+  updateSkillCooldownUI(CFG);
 
   game.resizeToWindow();
   game.setStateMenu();
