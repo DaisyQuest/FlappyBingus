@@ -124,3 +124,44 @@
 - Monitor swatch preview performance and adjust drift parameters if animation load grows with larger icon sets.
 - Reuse the previewer cache when new icons are added to avoid redundant sprite generation.
 - Keep regression tests aligned with any future layout tweaks to swatch/launcher markup.
+- Optimize achievements menu ergonomics and readability.
+- Ensure layout changes are paired with automated coverage.
+
+## Discussion
+- The back navigation consumed a full-width row and competed with the achievements heading, slowing discovery of filters.
+- The achievements container height clipped the fifth row, forcing early scrolling even with a short list.
+- Subtitle text bled into the achievements view, distracting from the goals list.
+
+## Decisions
+- Move the back control into the achievements header as a compact arrow next to the title.
+- Increase the default achievements list height to fit at least five rows before scrolling.
+- Hide the main subtitle while the achievements view is active to keep the focus on goals.
+
+## Action Items
+- Update the achievements card header structure and styling to embed the arrow button.
+- Raise the list max height in both markup and CSS to guarantee five visible rows.
+- Adjust view toggling logic and tests to ensure the subtitle is hidden during achievements mode.
+
+# Meeting Notes
+- Date: 2025-12-22
+- Attendees: ChatGPT (GPT-5.1-Codex-Max)
+
+## Agenda
+- Refocus the settings menu so Skill Behaviors and Skill Keybinds are the primary content.
+- Downshift Volume to a secondary position and compact the Status/Level Seed utilities.
+- Align the seed input and Random button on a single line while tightening test coverage around the layout.
+
+## Discussion
+- Skill controls were mixed in with low-priority cards, so players had to scan for core customization options.
+- Volume shared equal prominence with skills, and the seed/status cards visually competed despite being rarely used.
+- The seed input and Random button could wrap or misalign, wasting vertical space and visual focus.
+- Tests needed to enforce the new ordering, emphasis, and seed row structure to prevent regressions.
+
+## Decisions
+- Place Skill Behaviors and Skill Keybinds at the top of the settings grid as feature-spanning cards.
+- Position Volume beneath the skills as a secondary card and style Status/Level Seed as compact utilities.
+- Convert the seed row to a single-line grid so the Random button and seed input share height and alignment.
+
+## Action Items
+- Ship the layout, styling, and test updates that lock in the new settings hierarchy.
+- Watch for any UI regressions tied to the settings grid or seed row alignment in future changes.

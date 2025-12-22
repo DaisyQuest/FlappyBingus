@@ -217,7 +217,7 @@ function createTrailPreviewOverlay(doc, refs) {
 
 function createStatusCard(doc, refs) {
   const card = doc.createElement("div");
-  card.className = "info-card";
+  card.className = "info-card settings-utility";
 
   const title = doc.createElement("div");
   title.className = "section-title";
@@ -238,7 +238,7 @@ function createStatusCard(doc, refs) {
 
 function createSeedCard(doc, refs) {
   const card = doc.createElement("div");
-  card.className = "info-card";
+  card.className = "info-card settings-utility";
 
   const title = doc.createElement("div");
   title.className = "section-title";
@@ -252,7 +252,7 @@ function createSeedCard(doc, refs) {
   label.textContent = "Seed (optional)";
 
   const row = doc.createElement("div");
-  row.className = "minirow";
+  row.className = "minirow seed-row";
   const input = createElement(doc, refs, "input", {
     id: "seedInput",
     attrs: { type: "text", maxlength: "48", placeholder: "Leave blank for random (share seed to play same level)" }
@@ -273,7 +273,7 @@ function createSeedCard(doc, refs) {
 
 function createVolumeCard(doc, refs) {
   const card = doc.createElement("div");
-  card.className = "info-card";
+  card.className = "info-card settings-secondary";
 
   const title = doc.createElement("div");
   title.className = "section-title";
@@ -337,7 +337,7 @@ function createVolumeCard(doc, refs) {
 
 function createBindCard(doc, refs) {
   const card = doc.createElement("div");
-  card.className = "info-card";
+  card.className = "info-card settings-feature";
 
   const title = doc.createElement("div");
   title.className = "section-title";
@@ -356,7 +356,7 @@ function createBindCard(doc, refs) {
 
 function createSkillSettingsCard(doc, refs) {
   const card = doc.createElement("div");
-  card.className = "info-card";
+  card.className = "info-card settings-feature";
 
   const title = doc.createElement("div");
   title.className = "section-title";
@@ -408,9 +408,19 @@ function createAchievementsCard(doc, refs) {
   const card = doc.createElement("div");
   card.className = "info-card achievements-card";
 
+  const header = doc.createElement("div");
+  header.className = "achievements-header";
+
+  const backLabel = doc.createElement("label");
+  backLabel.setAttribute("for", "viewMain");
+  backLabel.className = "tab-pill achievements-back";
+  backLabel.textContent = "←";
+
   const title = doc.createElement("div");
   title.className = "section-title";
   title.textContent = "Achievements";
+
+  header.append(backLabel, title);
 
   const blurb = doc.createElement("div");
   blurb.className = "compact";
@@ -452,8 +462,9 @@ function createAchievementsCard(doc, refs) {
   controls.append(filters, hideCompletedToggle);
 
   const list = createElement(doc, refs, "div", { id: "achievementsList", className: "achievement-list" });
+  list.style.maxHeight = "520px";
 
-  card.append(title, blurb, controls, list);
+  card.append(header, blurb, controls, list);
   return card;
 }
 
@@ -562,7 +573,8 @@ function createMenuScreen(doc, refs) {
 
   const subtitle = doc.createElement("p");
   subtitle.className = "sub menu-subtitle";
-  subtitle.textContent = "Thank you for playing!";
+  const subtitleText = "Thank you for playing!";
+  subtitle.textContent = subtitleText;
 
   header.append(cloud, subtitle);
 
@@ -619,30 +631,22 @@ function createMenuScreen(doc, refs) {
   mainLabel.textContent = "← Back to Main";
   toMain.append(mainLabel);
   const settingsGrid = doc.createElement("div");
-  settingsGrid.className = "info-grid";
+  settingsGrid.className = "info-grid settings-grid";
   settingsGrid.append(
-    createStatusCard(doc, refs),
-    createSeedCard(doc, refs),
-    createVolumeCard(doc, refs),
     createSkillSettingsCard(doc, refs),
-    createBindCard(doc, refs)
+    createBindCard(doc, refs),
+    createVolumeCard(doc, refs),
+    createStatusCard(doc, refs),
+    createSeedCard(doc, refs)
   );
   settingsPanel.append(toMain, settingsGrid);
 
   const achievementsPanel = doc.createElement("div");
   achievementsPanel.className = "panel-achievements tab-panel";
-  const toMainFromAchievements = doc.createElement("div");
-  toMainFromAchievements.className = "tab-toggle";
-  const achievementsBackLabel = doc.createElement("label");
-  achievementsBackLabel.setAttribute("for", "viewMain");
-  achievementsBackLabel.className = "tab-pill";
-  achievementsBackLabel.textContent = "← Back to Main";
-  toMainFromAchievements.append(achievementsBackLabel);
-
   const achievementsGrid = doc.createElement("div");
   achievementsGrid.className = "info-grid";
   achievementsGrid.append(createAchievementsCard(doc, refs));
-  achievementsPanel.append(toMainFromAchievements, achievementsGrid);
+  achievementsPanel.append(achievementsGrid);
 
   viewArea.append(mainPanel, settingsPanel, achievementsPanel);
   mainCard.append(viewArea);
@@ -658,6 +662,8 @@ function createMenuScreen(doc, refs) {
     shell.dataset.view = view;
     sideStack.hidden = view !== "main";
     title.textContent = view === "settings" ? "Settings" : view === "achievements" ? "Achievements" : "Flappy Bingus";
+    subtitle.hidden = view === "achievements";
+    if (view !== "achievements") subtitle.textContent = subtitleText;
   };
 
   [viewMain, viewSettings, viewAchievements].forEach(radio => {
