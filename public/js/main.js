@@ -61,6 +61,7 @@ import {
   normalizePlayerIcons
 } from "./playerIcons.js";
 import { createPlayerIconSprite } from "./playerIconSprites.js";
+import { classifyIconSaveResponse } from "./iconSave.js";
 
 import { buildGameUI } from "./uiLayout.js";
 import { TrailPreview } from "./trailPreview.js";
@@ -636,7 +637,7 @@ async function updateSkillSettings(next, { persist = true } = {}) {
 // ---- Server refresh ----
 async function refreshProfileAndHighscores() {
   const me = await apiGetMe();
-  if (!me) {
+  if (!me?.ok) {
     net.online = false;
     net.user = null;
     syncIconCatalog(net.icons || playerIcons);
@@ -652,7 +653,7 @@ async function refreshProfileAndHighscores() {
   }
 
   const hs = await apiGetHighscores(20);
-  if (!hs) {
+  if (!hs?.ok) {
     net.online = false;
     net.highscores = [];
   } else {
@@ -681,6 +682,16 @@ saveUserBtn.addEventListener("click", async () => {
   if (!res) {
     net.online = false;
     setUserHint();
+    refreshBootUI();
+    return;
+  }
+  if (!res.ok) {
+    net.online = Boolean(res?.status && res.status < 500);
+    setUserHint();
+    if (userHint && res?.error === "invalid_username") {
+      userHint.className = "hint bad";
+      userHint.textContent = "Please enter a valid username.";
+    }
     refreshBootUI();
     return;
   }
@@ -819,15 +830,28 @@ trailSelect.addEventListener("change", async () => {
   if (!net.user) return;
 
   const res = await apiSetTrail(id);
-  if (!res) { net.online = false; setUserHint(); return; }
-  if (res.ok) {
-    net.online = true;
-    net.user = res.user;
-    net.trails = normalizeTrails(res.trails || net.trails);
-    syncIconCatalog(res.icons || net.icons);
-    fillTrailSelect();
-    applyIconSelection(net.user?.selectedIcon || currentIconId, playerIcons);
+  if (!res || !res.ok) {
+    net.online = Boolean(res?.status && res.status < 500);
+    setUserHint();
+    const hint = buildTrailHint({
+      online: net.online,
+      user: net.user,
+      bestScore: net.user ? (net.user.bestScore | 0) : readLocalBest(),
+      selectedTrail: currentTrailId
+    });
+    if (trailHint) {
+      trailHint.className = hint.className;
+      trailHint.textContent = hint.text;
+    }
+    return;
   }
+
+  net.online = true;
+  net.user = res.user;
+  net.trails = normalizeTrails(res.trails || net.trails);
+  syncIconCatalog(res.icons || net.icons);
+  fillTrailSelect();
+  applyIconSelection(net.user?.selectedIcon || currentIconId, playerIcons);
 });
 
 iconOptions?.addEventListener("click", async (e) => {
@@ -854,28 +878,29 @@ iconOptions?.addEventListener("click", async (e) => {
   if (!net.user) return;
 
   const res = await apiSetIcon(id);
-  if (!res) {
-    net.online = false;
-    setUserHint();
-    applyIconSelection(previous, playerIcons);
-    if (iconHint) {
-      iconHint.className = "hint bad";
-      iconHint.textContent = "Could not save icon (offline?).";
-    }
-    return;
+  const outcome = classifyIconSaveResponse(res);
+  net.online = outcome.online;
+
+  if (outcome.resetUser) {
+    net.user = null;
   }
 
-  if (res.ok) {
-    net.online = true;
+  if (outcome.outcome === "saved" && res) {
     net.user = res.user;
     net.trails = normalizeTrails(res.trails || net.trails);
     syncIconCatalog(res.icons || net.icons);
     applyIconSelection(res.user?.selectedIcon || id, playerIcons);
+  } else if (outcome.revert) {
+    applyIconSelection(previous, playerIcons);
+  }
+
+  if (!outcome.online || outcome.resetUser) {
     setUserHint();
-    if (iconHint) {
-      iconHint.className = "hint good";
-      iconHint.textContent = "Icon saved.";
-    }
+  }
+
+  if (iconHint) {
+    iconHint.className = outcome.outcome === "saved" ? "hint good" : "hint bad";
+    iconHint.textContent = outcome.message;
   }
 });
 

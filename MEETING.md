@@ -3,26 +3,24 @@
 - Attendees: ChatGPT (GPT-5.1-Codex-Max)
 
 ## Agenda
-- Improve tutorial readability and clarity
-- Adjust movement and skill lessons for better feel
-- Ensure tutorial respects chosen skill variants
-- Verify bounce lesson reliability
-- Confirm full test coverage remains intact
+- Diagnose player icon selection failures (red icon reporting server unavailable)
+- Improve API client error handling to distinguish offline vs validation errors
+- Preserve icon selection when the server is temporarily unreachable
+- Expand automated coverage around API responses and icon save flows
 
 ## Discussion
-- Tutorial overlay should mirror the main menu’s bubbly branding while dropping the heavy panel for better in-game visibility.
-- Movement lesson needs a shorter path and faster player speed so newcomers reach the goal quickly.
-- Slow Field lesson must override any explosive preference to always teach the slowing variant, while the explosion lesson explicitly selects the blast mode.
-- Bounce lesson should use a moving wall like real gameplay and credit completion more reliably after a successful ricochet.
-- Added targeted tests to lock in the new behaviors and prevent regressions.
+- Request helpers were collapsing all non-2xx responses into a generic offline/null state, which caused UI flows (like icon saves) to report “server unavailable” even for validation/auth errors.
+- Icon saves reverted to the previous icon whenever the API call failed, preventing local selection when the backend was down and hiding useful error context.
+- A reusable classifier for icon save responses can keep UI hints consistent while making it obvious when the user needs to re-authenticate versus when the server is actually offline.
+- Tests needed to cover the new response shapes (status/error) and the icon save classifier to avoid future regressions.
 
 ## Decisions
-- Use a free-floating, high-contrast overlay with gradient “bubbly” headers and explicit hotkey callouts.
-- Boost player speed only during the movement step and restore defaults afterwards.
-- Force Slow Field behavior to "slow" during its lesson, and to "explosion" in its dedicated step, regardless of prior settings.
-- Refresh the dash reflect scenario with a moving wall, larger landing ring, bounce-distance tracking, and automatic respawn if the wall exits early.
+- Return structured objects from API helpers that include status/error metadata instead of nulling on HTTP errors.
+- Keep icon selections applied locally when the backend is unreachable, but explicitly revert on locked/unauthorized responses.
+- Introduce a dedicated classifier to drive icon save UI states so messages stay accurate across error types.
+- Add targeted unit tests for the API helper behavior change and the icon save classifier.
 
 ## Action Items
-- Land the tutorial refinements and accompanying tests in the repository.
-- Keep monitoring tutorial coverage if future overlay tweaks arrive.
-- If players still struggle with the bounce line, consider adding a short visual trajectory hint in a follow-up.
+- Land the API response normalization changes and icon save handling improvements with full test coverage.
+- Monitor any downstream UI flows that rely on API helpers to ensure they check `res.ok` rather than only null.
+- If additional cosmetics flows show similar issues, reuse the classifier pattern to align messaging and recovery paths.
