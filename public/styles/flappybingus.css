@@ -199,8 +199,16 @@ input[type="text"]::placeholder{color:rgba(255,255,255,.45)}
   background:linear-gradient(180deg,rgba(6,10,22,.42),rgba(6,8,18,.16))
 }
 .trail-select-panel > *{position:relative;z-index:1}
-.trail-select-wrap{width:100%}
+.trail-select-wrap{position:relative;width:100%;overflow:visible;isolation:isolate}
+.trail-select-preview{
+  position:absolute;inset:-12px;
+  width:calc(100% + 24px);height:calc(100% + 24px);
+  pointer-events:none;border-radius:15px;
+  mix-blend-mode:screen;filter:drop-shadow(0 0 26px rgba(160,220,255,.35));
+  opacity:.9;z-index:0
+}
 .trail-select-wrap select{
+  position:relative;z-index:1;
   background:rgba(0,0,0,.38);
   border-color:rgba(255,255,255,.18);
   box-shadow:0 10px 24px rgba(0,0,0,.36),inset 0 2px 6px rgba(0,0,0,.32)

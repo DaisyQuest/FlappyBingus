@@ -22,7 +22,8 @@ export class TrailPreview {
     mode = "orbit",
     anchor = { x: 0.5, y: 0.5 },
     drawBackground = true,
-    staticDrift = null
+    staticDrift = null,
+    renderPlayer = true
   } = {}) {
     this.canvas = canvas || null;
     this.ctx = this.canvas?.getContext?.("2d") || null;
@@ -31,6 +32,7 @@ export class TrailPreview {
     this.anchor = anchor || { x: 0.5, y: 0.5 };
     this.drawBackground = drawBackground !== false;
     this.staticDrift = staticDrift;
+    this.renderPlayer = renderPlayer !== false;
 
     this.parts = [];
     this.trailId = "classic";
@@ -419,7 +421,9 @@ export class TrailPreview {
       part.draw(ctx);
     }
 
-    this._drawPlayer(ctx);
+    if (this.renderPlayer) {
+      this._drawPlayer(ctx);
+    }
 
     if (this.drawBackground) {
       const sheen = ctx.createLinearGradient?.(0, 0, 0, this.H) || null;

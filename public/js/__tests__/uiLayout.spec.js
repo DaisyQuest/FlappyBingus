@@ -20,6 +20,7 @@ describe("uiLayout", () => {
     expect(mount.querySelectorAll("#wrap").length).toBe(1);
     expect(ui.canvas).toBeInstanceOf(window.HTMLCanvasElement);
     expect(ui.trailPreviewCanvas).toBeInstanceOf(window.HTMLCanvasElement);
+    expect(ui.trailSelectPreview).toBeInstanceOf(window.HTMLCanvasElement);
     expect(ui.menu?.id).toBe("menu");
     expect(ui.over?.id).toBe("over");
     expect(ui.start?.textContent).toContain("Start");
@@ -35,6 +36,7 @@ describe("uiLayout", () => {
     expect(overlay?.querySelectorAll(".trail-preview-glow")?.length).toBe(1);
     const selectPanel = mount.querySelector(".trail-select-panel");
     expect(selectPanel?.querySelectorAll("select")?.length).toBe(1);
+    expect(selectPanel?.querySelectorAll("#trailSelectPreview")?.length).toBe(1);
     expect(selectPanel?.textContent.trim()).toBe("");
     expect(ui.iconOptions?.className).toContain("icon-grid");
     const mainTitles = Array.from(mount.querySelectorAll(".panel-main .section-title")).map(el => el.textContent);
@@ -83,6 +85,7 @@ describe("uiLayout", () => {
       "iconLauncher",
       "bustercoinText",
       "trailPreviewCanvas",
+      "trailSelectPreview",
       "final",
       "overPB",
       "seedInput",
@@ -111,6 +114,17 @@ describe("uiLayout", () => {
     expect(ui.trailHint?.textContent).toContain("Unlock trails");
     expect(ui.dashBehaviorSelect?.querySelectorAll("option")?.length).toBeGreaterThanOrEqual(2);
     expect(ui.slowFieldBehaviorSelect?.querySelectorAll("option")?.length).toBeGreaterThanOrEqual(2);
+  });
+
+  it("wraps the trail select with an overlaid preview canvas", () => {
+    buildGameUI({ document, mount });
+    const wrap = mount.querySelector(".trail-select-wrap");
+    const preview = wrap?.querySelector("#trailSelectPreview");
+    const select = wrap?.querySelector("#trailSelect");
+
+    expect(wrap?.firstElementChild).toBe(preview);
+    expect(preview?.nextElementSibling).toBe(select);
+    expect(preview?.getAttribute("aria-hidden")).toBe("true");
   });
 
   it("prioritizes skills in the settings layout while compacting utilities", () => {

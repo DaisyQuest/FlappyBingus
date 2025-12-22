@@ -175,11 +175,16 @@ function createTrailCard(doc, refs) {
   trailShell.className = "trail-preview-shell";
   const selectWrap = doc.createElement("div");
   selectWrap.className = "trail-select-wrap selectwrap";
+  const trailSelectPreview = createElement(doc, refs, "canvas", {
+    id: "trailSelectPreview",
+    className: "trail-select-preview",
+    attrs: { "aria-hidden": "true" }
+  });
   const select = createElement(doc, refs, "select", {
     id: "trailSelect",
     attrs: { "aria-label": "Select a trail" }
   });
-  selectWrap.append(select);
+  selectWrap.append(trailSelectPreview, select);
 
   const selectPanel = doc.createElement("div");
   selectPanel.className = "trail-select-panel";
