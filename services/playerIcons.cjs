@@ -30,11 +30,11 @@ const PLAYER_ICONS = Object.freeze([
     name: "Perfect Line Beacon",
     unlock: { type: "achievement", id: "perfects_run_10", label: "Perfect Ten" },
     style: {
-      fill: "#0b1120",
-      core: "#f8fafc",
-      rim: "#facc15",
-      glow: "#22d3ee",
-      pattern: { type: "centerline", stroke: "#f8fafc", accent: "#facc15", glow: "#22d3ee" }
+      fill: "#000000",
+      core: "#000000",
+      rim: "#ff1a1a",
+      glow: "#ff4d4d",
+      pattern: { type: "centerline", stroke: "#ff1a1a", accent: "#ff1a1a", glow: "#ff4d4d" }
     }
   },
   {

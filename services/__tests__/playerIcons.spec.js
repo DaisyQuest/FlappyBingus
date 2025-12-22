@@ -38,6 +38,20 @@ describe("server player icon catalog", () => {
     expect(unlocked).not.toContain("orb_free_zigzag");
   });
 
+  it("ships the Perfect Line Beacon as a black core with a bright red shell and guides", () => {
+    const perfectLine = PLAYER_ICONS.find((icon) => icon.id === "perfect_ten_liner");
+    expect(perfectLine?.style?.fill).toBe("#000000");
+    expect(perfectLine?.style?.core).toBe("#000000");
+    expect(perfectLine?.style?.rim).toBe("#ff1a1a");
+    expect(perfectLine?.style?.pattern).toEqual(
+      expect.objectContaining({
+        stroke: "#ff1a1a",
+        accent: "#ff1a1a",
+        glow: "#ff4d4d"
+      })
+    );
+  });
+
   it("falls back to default icon when none are unlocked", () => {
     const icons = [{ id: "locked", unlock: { type: "score", minScore: 99999 } }];
     const unlocked = unlockedIcons({ bestScore: 0 }, { icons, recordHolder: false });

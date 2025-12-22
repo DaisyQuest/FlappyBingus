@@ -45,6 +45,20 @@ describe("player icon helpers", () => {
     expect(unlocked).not.toContain("orb_free_zigzag");
   });
 
+  it("defines the Perfect Line Beacon palette as a black core with bright red accents", () => {
+    const perfectLine = DEFAULT_PLAYER_ICONS.find((icon) => icon.id === "perfect_ten_liner");
+    expect(perfectLine?.style?.fill).toBe("#000000");
+    expect(perfectLine?.style?.core).toBe("#000000");
+    expect(perfectLine?.style?.rim).toBe("#ff1a1a");
+    expect(perfectLine?.style?.pattern).toEqual(
+      expect.objectContaining({
+        stroke: "#ff1a1a",
+        accent: "#ff1a1a",
+        glow: "#ff4d4d"
+      })
+    );
+  });
+
   it("normalizes icon selection to the first unlocked choice", () => {
     const unlocked = new Set(["hi_vis_orange"]);
     const selection = normalizeIconSelection({
