@@ -225,7 +225,12 @@ describe("MongoDataStore connection lifecycle", () => {
 describe("MongoDataStore mutations and reads", () => {
   it("updates trails and keybinds", async () => {
     const { MongoDataStore } = await loadModule();
-    const val = { key: "k", selectedTrail: "neon", keybinds: { dash: "Space" }, settings: { dashBehavior: "destroy" } };
+    const val = {
+      key: "k",
+      selectedTrail: "neon",
+      keybinds: { dash: "Space" },
+      settings: { dashBehavior: "destroy", slowFieldBehavior: "slow", teleportBehavior: "normal", invulnBehavior: "short" }
+    };
     const coll = makeCollection({ findOneAndUpdate: vi.fn(async () => ({ value: val })) });
     const store = new MongoDataStore({ uri: "mongodb://ok", dbName: "db" });
     store.ensureConnected = vi.fn();

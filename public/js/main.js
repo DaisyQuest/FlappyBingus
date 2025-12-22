@@ -116,6 +116,8 @@ const {
   bindWrap,
   bindHint,
   dashBehaviorOptions,
+  teleportBehaviorOptions,
+  invulnBehaviorOptions,
   slowFieldBehaviorOptions,
   hsWrap,
   pbText,
@@ -689,6 +691,8 @@ function renderBindUI(listeningActionId = null) {
 function applySkillSettingsToUI(settings = skillSettings) {
   const normalized = normalizeSkillSettings(settings || DEFAULT_SKILL_SETTINGS);
   markSkillOptionSelection(dashBehaviorOptions, normalized.dashBehavior);
+  markSkillOptionSelection(teleportBehaviorOptions, normalized.teleportBehavior);
+  markSkillOptionSelection(invulnBehaviorOptions, normalized.invulnBehavior);
   markSkillOptionSelection(slowFieldBehaviorOptions, normalized.slowFieldBehavior);
 }
 
@@ -1149,6 +1153,12 @@ bindWrap.addEventListener("click", (e) => {
 
 bindSkillOptionGroup(dashBehaviorOptions, (value) => {
   updateSkillSettings({ ...skillSettings, dashBehavior: value });
+});
+bindSkillOptionGroup(teleportBehaviorOptions, (value) => {
+  updateSkillSettings({ ...skillSettings, teleportBehavior: value });
+});
+bindSkillOptionGroup(invulnBehaviorOptions, (value) => {
+  updateSkillSettings({ ...skillSettings, invulnBehavior: value });
 });
 bindSkillOptionGroup(slowFieldBehaviorOptions, (value) => {
   updateSkillSettings({ ...skillSettings, slowFieldBehavior: value });

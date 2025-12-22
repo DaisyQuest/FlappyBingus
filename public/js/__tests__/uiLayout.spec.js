@@ -71,6 +71,8 @@ describe("uiLayout", () => {
       "bindWrap",
       "bindHint",
       "dashBehaviorOptions",
+      "teleportBehaviorOptions",
+      "invulnBehaviorOptions",
       "slowFieldBehaviorOptions",
       "hsWrap",
       "pbText",
@@ -106,6 +108,10 @@ describe("uiLayout", () => {
       "settingsHeaderBack",
       "dashCooldownValue",
       "dashDestroyCooldownValue",
+      "teleportCooldownValue",
+      "teleportExplodeCooldownValue",
+      "invulnShortCooldownValue",
+      "invulnLongCooldownValue",
       "slowFieldCooldownValue",
       "slowExplosionCooldownValue",
       "updateSkillCooldowns"
@@ -120,6 +126,8 @@ describe("uiLayout", () => {
     expect(ui.seedHint?.textContent).toContain("pipe/orb");
     expect(ui.trailHint?.textContent).toContain("Unlock trails");
     expect(ui.dashBehaviorOptions?.querySelectorAll(".skill-option")?.length).toBe(2);
+    expect(ui.teleportBehaviorOptions?.querySelectorAll(".skill-option")?.length).toBe(2);
+    expect(ui.invulnBehaviorOptions?.querySelectorAll(".skill-option")?.length).toBe(2);
     expect(ui.slowFieldBehaviorOptions?.querySelectorAll(".skill-option")?.length).toBe(2);
   });
 
@@ -180,6 +188,10 @@ describe("uiLayout", () => {
       el => el?.textContent
     );
     expect(cooldowns).toContain("1.15s");
+    expect(cooldowns).toContain("2.1s");
+    expect(cooldowns).toContain("1.75s");
+    expect(cooldowns).toContain("3.5s");
+    expect(cooldowns).toContain("4.2s");
     expect(cooldowns).toContain("17s");
   });
 
@@ -189,6 +201,8 @@ describe("uiLayout", () => {
       skills: {
         dash: { cooldown: 0.75 },
         dashDestroy: { cooldown: 6.4 },
+        phase: { cooldown: 2.5 },
+        teleport: { cooldown: 1.2 },
         slowField: { cooldown: 3.5 },
         slowExplosion: { cooldown: 18.25 }
       }
@@ -196,11 +210,17 @@ describe("uiLayout", () => {
 
     expect(ui.dashCooldownValue?.textContent).toBe("0.75s");
     expect(ui.dashDestroyCooldownValue?.textContent).toBe("6.4s");
+    expect(ui.teleportCooldownValue?.textContent).toBe("1.2s");
+    expect(ui.teleportExplodeCooldownValue?.textContent).toBe("2.4s");
+    expect(ui.invulnShortCooldownValue?.textContent).toBe("2.5s");
+    expect(ui.invulnLongCooldownValue?.textContent).toBe("5s");
     expect(ui.slowFieldCooldownValue?.textContent).toBe("3.5s");
     expect(ui.slowExplosionCooldownValue?.textContent).toBe("18.3s");
 
     ui.updateSkillCooldowns?.({ skills: { dash: { cooldown: -1 } } });
     expect(ui.dashCooldownValue?.textContent).toBe("1.15s");
+    expect(ui.teleportExplodeCooldownValue?.textContent).toBe("4.2s");
+    expect(ui.invulnLongCooldownValue?.textContent).toBe("3.5s");
   });
 
   it("formats cooldown values with sensible precision and guards invalid input", () => {

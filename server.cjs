@@ -83,7 +83,9 @@ const DEFAULT_KEYBINDS = Object.freeze({
 
 const DEFAULT_SETTINGS = Object.freeze({
   dashBehavior: "ricochet",
-  slowFieldBehavior: "slow"
+  slowFieldBehavior: "slow",
+  teleportBehavior: "normal",
+  invulnBehavior: "short"
 });
 
 const TRAILS = Object.freeze([
@@ -373,17 +375,23 @@ function normalizeSettings(settings) {
   const src = settings && typeof settings === "object" ? settings : {};
   const dash = src.dashBehavior === "destroy" ? "destroy" : "ricochet";
   const slow = src.slowFieldBehavior === "explosion" ? "explosion" : "slow";
-  return { dashBehavior: dash, slowFieldBehavior: slow };
+  const tp = src.teleportBehavior === "explode" ? "explode" : "normal";
+  const inv = src.invulnBehavior === "long" ? "long" : "short";
+  return { dashBehavior: dash, slowFieldBehavior: slow, teleportBehavior: tp, invulnBehavior: inv };
 }
 
 function validateSettingsPayload(settings) {
   if (!settings || typeof settings !== "object") return null;
   const dash = settings.dashBehavior;
   const slow = settings.slowFieldBehavior;
+  const tp = settings.teleportBehavior;
+  const inv = settings.invulnBehavior;
   const validDash = dash === "ricochet" || dash === "destroy";
   const validSlow = slow === "slow" || slow === "explosion";
-  if (!validDash || !validSlow) return null;
-  return { dashBehavior: dash, slowFieldBehavior: slow };
+  const validTp = tp === "normal" || tp === "explode";
+  const validInv = inv === "short" || inv === "long";
+  if (!validDash || !validSlow || !validTp || !validInv) return null;
+  return { dashBehavior: dash, slowFieldBehavior: slow, teleportBehavior: tp, invulnBehavior: inv };
 }
 
 function normalizeBind(b) {

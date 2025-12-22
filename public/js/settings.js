@@ -5,12 +5,16 @@
 
 export const DEFAULT_SKILL_SETTINGS = Object.freeze({
   dashBehavior: "ricochet",
-  slowFieldBehavior: "slow"
+  slowFieldBehavior: "slow",
+  teleportBehavior: "normal",
+  invulnBehavior: "short"
 });
 
 export const SKILL_BEHAVIOR_OPTIONS = Object.freeze({
   dashBehavior: ["ricochet", "destroy"],
-  slowFieldBehavior: ["slow", "explosion"]
+  slowFieldBehavior: ["slow", "explosion"],
+  teleportBehavior: ["normal", "explode"],
+  invulnBehavior: ["short", "long"]
 });
 
 function normalizeValue(name, value) {
@@ -19,23 +23,27 @@ function normalizeValue(name, value) {
 }
 
 export function normalizeSkillSettings(settings = {}) {
-  return {
-    dashBehavior: normalizeValue("dashBehavior", settings.dashBehavior),
-    slowFieldBehavior: normalizeValue("slowFieldBehavior", settings.slowFieldBehavior)
-  };
+  const out = {};
+  for (const key of Object.keys(DEFAULT_SKILL_SETTINGS)) {
+    out[key] = normalizeValue(key, settings[key]);
+  }
+  return out;
 }
 
 export function mergeSkillSettings(base, incoming) {
   const baseSafe = normalizeSkillSettings(base || DEFAULT_SKILL_SETTINGS);
-  const incSafe = normalizeSkillSettings(incoming || {});
-  return {
-    dashBehavior: incSafe.dashBehavior ?? baseSafe.dashBehavior,
-    slowFieldBehavior: incSafe.slowFieldBehavior ?? baseSafe.slowFieldBehavior
-  };
+  const src = incoming && typeof incoming === "object" ? incoming : {};
+  const merged = { ...baseSafe };
+  for (const key of Object.keys(DEFAULT_SKILL_SETTINGS)) {
+    if (Object.prototype.hasOwnProperty.call(src, key)) {
+      merged[key] = normalizeValue(key, src[key]);
+    }
+  }
+  return merged;
 }
 
 export function skillSettingsEqual(a, b) {
   const aa = normalizeSkillSettings(a);
   const bb = normalizeSkillSettings(b);
-  return aa.dashBehavior === bb.dashBehavior && aa.slowFieldBehavior === bb.slowFieldBehavior;
+  return Object.keys(DEFAULT_SKILL_SETTINGS).every((key) => aa[key] === bb[key]);
 }

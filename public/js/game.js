@@ -586,6 +586,27 @@ export class Game {
     return this.cfg.skills.slowField;
   }
 
+  _activeTeleportConfig() {
+    const base = this.cfg.skills.teleport;
+    if (!base) return null;
+    if (this.skillSettings?.teleportBehavior === "explode") {
+      const baseCooldown = Math.max(0, Number(base.cooldown) || 0);
+      return { ...base, cooldown: baseCooldown * 2, behavior: "explode" };
+    }
+    return base;
+  }
+
+  _activeInvulnConfig() {
+    const base = this.cfg.skills.phase;
+    if (!base) return null;
+    if (this.skillSettings?.invulnBehavior === "long") {
+      const cd = Math.max(0, Number(base.cooldown) || 0) * 2;
+      const dur = Math.max(0, Number(base.duration) || 0) * 2;
+      return { ...base, cooldown: cd, duration: dur };
+    }
+    return base;
+  }
+
   _dashBounceMax() {
     return dashBounceMax(this._activeDashConfig());
   }
@@ -863,7 +884,8 @@ export class Game {
     }
 
     if (name === "phase") {
-      const ph = this.cfg.skills.phase;
+      const ph = this._activeInvulnConfig();
+      if (!ph) return;
       const dur = clamp(Number(ph.duration) || 0, 0, 2.0);
       p.invT = Math.max(p.invT, dur);
       this.cds.phase = Math.max(0, Number(ph.cooldown) || 0);
@@ -873,7 +895,8 @@ export class Game {
     }
 
     if (name === "teleport") {
-      const t = this.cfg.skills.teleport;
+      const t = this._activeTeleportConfig();
+      if (!t) return;
 
       const ed = clamp(Number(t.effectDuration) || 0.35, 0.1, 1.2);
       const burst = Math.floor(clamp(Number(t.burstParticles) || 0, 0, 240));
@@ -937,6 +960,10 @@ export class Game {
         );
         prt.drag = 10;
         this.parts.push(prt);
+      }
+
+      if (this.skillSettings?.teleportBehavior === "explode") {
+        this._destroyPipesInRadius({ x: nx, y: ny, r: Math.max(p.r, 1), cause: "teleportExplode" });
       }
       used = true;
     }
