@@ -21,7 +21,7 @@ describe("uiLayout", () => {
     expect(ui.canvas).toBeInstanceOf(window.HTMLCanvasElement);
     expect(ui.trailPreviewCanvas).toBeInstanceOf(window.HTMLCanvasElement);
     expect(ui.trailLauncher).toBeInstanceOf(window.HTMLElement);
-    expect(ui.trailLauncher?.querySelector(".trail-swatch-canvas")).toBeInstanceOf(window.HTMLCanvasElement);
+    expect(ui.trailLauncher?.querySelector(".trail-swatch")).toBeNull();
     expect(ui.menu?.id).toBe("menu");
     expect(ui.over?.id).toBe("over");
     expect(ui.start?.textContent).toContain("Start");
@@ -122,13 +122,12 @@ describe("uiLayout", () => {
     buildGameUI({ document, mount });
     const launcher = mount.querySelector("#trailLauncher");
     const badge = launcher?.querySelector(".trail-launcher-badge");
-    const swatch = launcher?.querySelector(".trail-swatch");
     const label = launcher?.querySelector(".trail-launcher-label");
     const overlay = mount.querySelector("#trailOverlay");
     const options = overlay?.querySelector("#trailOptions");
 
-    expect(badge?.firstElementChild).toBe(swatch);
-    expect(swatch?.nextElementSibling).toBe(label);
+    expect(badge?.firstElementChild).toBe(label);
+    expect(launcher?.querySelector(".trail-swatch")).toBeNull();
     expect(label?.querySelector(".trail-launcher-name")?.textContent).toBe("Classic");
     expect(options?.getAttribute("role")).toBe("listbox");
     expect(overlay?.getAttribute("aria-modal")).toBe("true");

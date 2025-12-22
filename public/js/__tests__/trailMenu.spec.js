@@ -23,12 +23,12 @@ describe("trailMenu helpers", () => {
     expect(describeTrailLock({ id: "aurora", name: "Aurora" }, { unlocked: true })).toBe("Unlocked");
   });
 
-  it("renders trail options with lock badges, aria state, and swatch hooks", () => {
+  it("renders trail options with lock badges, aria state, and labels only", () => {
     const trails = [
       { id: "classic", name: "Classic", minScore: 0 },
       { id: "sunset", name: "Sunset Fade", minScore: 250 }
     ];
-    const { rendered, swatches } = renderTrailOptions({
+    const { rendered } = renderTrailOptions({
       container,
       trails,
       selectedId: "classic",
@@ -44,8 +44,8 @@ describe("trailMenu helpers", () => {
     expect(buttons[1].querySelector(".trail-lock")?.textContent).toBe("🔒");
     expect(buttons[1].getAttribute("aria-disabled")).toBe("true");
     expect(buttons[1].dataset.statusText).toContain("Score 250");
-    expect(swatches[0].swatch.classList.contains("trail-swatch")).toBe(true);
-    expect(swatches[0].canvas.classList.contains("trail-swatch-canvas")).toBe(true);
+    expect(buttons[0].querySelector(".trail-swatch")).toBeNull();
+    expect(buttons[0].querySelector(".trail-swatch-canvas")).toBeNull();
   });
 
   it("toggles the trail overlay dialog visibility", () => {

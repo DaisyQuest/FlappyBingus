@@ -29,13 +29,11 @@ export function renderTrailOptions({
   trails = [],
   selectedId,
   unlockedIds = new Set(),
-  lockTextFor = describeTrailLock,
-  onRenderSwatch = null
+  lockTextFor = describeTrailLock
 } = {}) {
   if (!container) return { rendered: 0 };
   const doc = container.ownerDocument || document;
   const unlocked = unlockedIds instanceof Set ? unlockedIds : new Set(unlockedIds || []);
-  const swatches = [];
 
   container.innerHTML = "";
   if (!trails.length) return { rendered: 0 };
@@ -55,21 +53,10 @@ export function renderTrailOptions({
     btn.setAttribute("aria-disabled", unlockedTrail ? "false" : "true");
     btn.tabIndex = unlockedTrail ? 0 : -1;
 
-    const swatch = doc.createElement("span");
-    swatch.className = "icon-swatch trail-swatch";
-    const canvas = doc.createElement("canvas");
-    canvas.className = "icon-swatch-canvas trail-swatch-canvas";
-    canvas.setAttribute("aria-hidden", "true");
-    swatch.append(canvas);
-    btn.append(swatch);
-
     const label = doc.createElement("span");
     label.className = "icon-option-name trail-option-name";
     label.textContent = trail.name || trail.id;
     btn.append(label);
-
-    swatches.push({ swatch, canvas, trail, unlocked: unlockedTrail });
-    onRenderSwatch?.({ swatch, canvas, trail, unlocked: unlockedTrail });
 
     if (!unlockedTrail) {
       const lock = doc.createElement("span");
@@ -82,7 +69,7 @@ export function renderTrailOptions({
     container.append(btn);
   });
 
-  return { rendered: trails.length, swatches };
+  return { rendered: trails.length };
 }
 
 export function toggleTrailMenu(overlay, open) {

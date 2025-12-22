@@ -462,9 +462,7 @@ function computeUnlockedTrailSet(trails = net.trails) {
 function syncLauncherSwatch(iconId = currentIconId, icons = playerIcons, image = playerImg) {
   const icon = icons.find((i) => i.id === iconId) || icons[0];
   const iconCanvas = iconLauncher?.querySelector("canvas.icon-swatch-canvas");
-  const trailCanvas = trailLauncher?.querySelector("canvas.trail-swatch-canvas");
   paintIconCanvas(iconCanvas, icon, { sprite: image });
-  paintIconCanvas(trailCanvas, icon, { sprite: image });
 }
 
 function renderIconOptions(
@@ -572,7 +570,6 @@ function refreshTrailMenu(selectedId = currentTrailId) {
 
   applyTrailSelection(selected, orderedTrails);
 
-  const swatches = [];
   const { rendered } = renderTrailMenuOptions({
     container: trailOptions,
     trails: orderedTrails,
@@ -582,12 +579,7 @@ function refreshTrailMenu(selectedId = currentTrailId) {
       unlocked: unlockedTrail ?? unlocked.has(trail.id),
       bestScore: best,
       isRecordHolder
-    }),
-    onRenderSwatch: (data) => swatches.push(data)
-  });
-  const activeIcon = playerIcons.find((i) => i.id === currentIconId) || playerIcons[0];
-  swatches.forEach((entry) => {
-    paintIconCanvas(entry.canvas, activeIcon, { sprite: playerImg });
+    })
   });
 
   pbText.textContent = String(best);
