@@ -104,6 +104,29 @@
 - Attendees: ChatGPT (GPT-5.1-Codex-Max)
 
 ## Agenda
+- Optimize achievements menu ergonomics and readability.
+- Ensure layout changes are paired with automated coverage.
+
+## Discussion
+- The back navigation consumed a full-width row and competed with the achievements heading, slowing discovery of filters.
+- The achievements container height clipped the fifth row, forcing early scrolling even with a short list.
+- Subtitle text bled into the achievements view, distracting from the goals list.
+
+## Decisions
+- Move the back control into the achievements header as a compact arrow next to the title.
+- Increase the default achievements list height to fit at least five rows before scrolling.
+- Hide the main subtitle while the achievements view is active to keep the focus on goals.
+
+## Action Items
+- Update the achievements card header structure and styling to embed the arrow button.
+- Raise the list max height in both markup and CSS to guarantee five visible rows.
+- Adjust view toggling logic and tests to ensure the subtitle is hidden during achievements mode.
+
+# Meeting Notes
+- Date: 2025-12-22
+- Attendees: ChatGPT (GPT-5.1-Codex-Max)
+
+## Agenda
 - Refocus the settings menu so Skill Behaviors and Skill Keybinds are the primary content.
 - Downshift Volume to a secondary position and compact the Status/Level Seed utilities.
 - Align the seed input and Random button on a single line while tightening test coverage around the layout.
