@@ -236,3 +236,29 @@
 ## Action Items
 - Ship the lava animation renderer, new icon definitions, and associated achievements.
 - Update tests for icon unlock logic, sprite animation, and cache cleanup behaviors to keep coverage high.
+
+# Meeting Notes
+- Date: 2025-12-22
+- Attendees: ChatGPT (GPT-5.1-Codex-Max)
+
+## Agenda
+- Center the Settings and Achievements menu titles.
+- Replace the “Back to Main” buttons with large arrow controls on a contrasted background.
+- Ensure layout updates are fully covered by automated tests.
+
+## Discussion
+- Existing back buttons stretched the header and pulled focus away from the titles.
+- The header alignment needed to stay centered even when the back control was shown or hidden.
+- A compact arrow needed its own contrasted backing so it remains visible against the menu gradient.
+- Tests should assert the new structure (slots, placeholder ghost) and arrow presentation so regressions are caught.
+
+## Decisions
+- Wrap the title row in a three-column grid with a back slot, centered title shell, and placeholder to preserve centering.
+- Convert the back affordances to large arrow-only labels with aria labels/tooltips for clarity.
+- Add a dedicated back background style that mirrors the title’s glow/contrast for emphasis.
+- Extend uiLayout tests to cover the new structure and arrow labels.
+
+## Action Items
+- Ship the header layout update and back button styling.
+- Keep subtitle hiding behavior intact for the achievements view.
+- Run the uiLayout test suite to confirm coverage of the new header structure.
