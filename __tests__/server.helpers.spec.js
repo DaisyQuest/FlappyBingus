@@ -11,6 +11,8 @@ const baseUser = () => ({
   key: "champ",
   bestScore: 5000,
   selectedTrail: "world_record",
+  selectedIcon: "hi_vis_red",
+  ownedIcons: [],
   keybinds: {},
   runs: 10,
   totalScore: 42_000,
@@ -48,6 +50,15 @@ describe("server helpers (trails)", () => {
     const u = baseUser();
     server.ensureUserSchema(u, { recordHolder: false });
     expect(u.settings).toEqual({ dashBehavior: "ricochet", slowFieldBehavior: "slow" });
+  });
+
+  it("normalizes icon selection to an unlocked default", () => {
+    const u = { ...baseUser(), selectedIcon: "missing", ownedIcons: ["hi_vis_orange"] };
+    server.ensureUserSchema(u, { recordHolder: false });
+    expect(u.selectedIcon).toBe("hi_vis_orange");
+    const pub = server.publicUser(u, { recordHolder: false });
+    expect(pub.selectedIcon).toBe("hi_vis_orange");
+    expect(pub.unlockedIcons).toContain("hi_vis_orange");
   });
 
   it("seeds achievement progress defaults when absent", () => {

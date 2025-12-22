@@ -12,6 +12,7 @@ function createScoreService(deps) {
     publicUser,
     listHighscores,
     trails,
+    icons,
     clampScore = clampScoreDefault,
     normalizeAchievements = (state) => state,
     validateRunStats = () => ({ ok: true, stats: { orbsCollected: null, abilitiesUsed: null, perfects: null } }),
@@ -76,6 +77,7 @@ function createScoreService(deps) {
           ok: true,
           user: publicUser(updated, { recordHolder }),
           trails,
+          icons,
           highscores,
           achievements: buildAchievementsPayload(updated, achievementEval.unlocked)
         }

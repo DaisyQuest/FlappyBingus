@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const mockState = {
   highscores: [],
   selectedTrail: "world_record",
+  selectedIcon: "hi_vis_orange",
   bestScore: 5000
 };
 
@@ -15,6 +16,7 @@ async function importServer() {
     upsertUser: vi.fn(async (_username, _key, defaults) => ({
       ...defaults,
       selectedTrail: mockState.selectedTrail,
+      selectedIcon: mockState.selectedIcon,
       bestScore: mockState.bestScore
     }))
   };
@@ -71,6 +73,7 @@ describe("register flow preserves record-holder cosmetics", () => {
     expect(mockDataStore.upsertUser).toHaveBeenCalledTimes(1);
     expect(payload.user.selectedTrail).toBe("world_record");
     expect(payload.user.unlockedTrails).toContain("world_record");
+    expect(payload.icons.some((i) => i.id === "hi_vis_orange")).toBe(true);
   });
 
   it("falls back to classic when the registering user is not the record holder", async () => {

@@ -21,6 +21,12 @@ const {
   evaluateRunForAchievements,
   buildAchievementsPayload
 } = require("./services/achievements.cjs");
+const {
+  DEFAULT_PLAYER_ICON_ID,
+  PLAYER_ICONS,
+  normalizePlayerIcons,
+  unlockedIcons
+} = require("./services/playerIcons.cjs");
 
 // --------- Config (env overrides) ----------
 const PORT = Number(process.env.PORT || 3000);
@@ -51,6 +57,7 @@ function _setDataStoreForTests(mock) {
     publicUser,
     listHighscores: () => topHighscores(20),
     trails: TRAILS,
+    icons: ICONS,
     clampScore: clampScoreDefault,
     normalizeAchievements: normalizeAchievementState,
     validateRunStats,
@@ -99,6 +106,8 @@ const TRAILS = Object.freeze([
   { id: "world_record", name: "World Record Cherry Blossom", minScore: 0, requiresRecordHolder: true }
 ]);
 
+const ICONS = normalizePlayerIcons(PLAYER_ICONS);
+
 // --------- Domain helpers ----------
 function nowMs() {
   return Date.now();
@@ -111,6 +120,7 @@ const RATE_LIMIT_CONFIG = Object.freeze({
   "/api/register": { limit: 20, windowMs: 60_000 },
   "/api/score": { limit: 30, windowMs: 60_000 },
   "/api/cosmetics/trail": { limit: 30, windowMs: 60_000 },
+  "/api/cosmetics/icon": { limit: 30, windowMs: 60_000 },
   "/api/binds": { limit: 30, windowMs: 60_000 },
   "/api/settings": { limit: 30, windowMs: 60_000 },
   "/api/highscores": { limit: 90, windowMs: 60_000 }
@@ -284,6 +294,9 @@ function ensureUserSchema(u, { recordHolder = false } = {}) {
   u.bustercoins = normalizeCount(u.bustercoins);
   u.achievements = normalizeAchievementState(u.achievements);
   if (typeof u.selectedTrail !== "string") u.selectedTrail = "classic";
+  if (typeof u.selectedIcon !== "string") u.selectedIcon = DEFAULT_PLAYER_ICON_ID;
+  if (!Array.isArray(u.ownedIcons)) u.ownedIcons = [];
+  u.ownedIcons = Array.from(new Set(u.ownedIcons.filter((id) => typeof id === "string" && id.length)));
   if (!u.keybinds || typeof u.keybinds !== "object")
     u.keybinds = structuredClone(DEFAULT_KEYBINDS);
   if (!u.settings || typeof u.settings !== "object")
@@ -296,6 +309,11 @@ function ensureUserSchema(u, { recordHolder = false } = {}) {
   // Ensure selected trail is unlocked
   const unlocked = unlockedTrails(u.bestScore | 0, { recordHolder });
   if (!unlocked.includes(u.selectedTrail)) u.selectedTrail = "classic";
+
+  const availableIconIds = unlockedIcons(u, { icons: ICONS, recordHolder });
+  if (!availableIconIds.includes(u.selectedIcon)) {
+    u.selectedIcon = availableIconIds[0] || DEFAULT_PLAYER_ICON_ID;
+  }
 }
 
 function normalizeScore(v) {
@@ -393,6 +411,8 @@ function publicUser(u, { recordHolder = false } = {}) {
     username: u.username,
     bestScore: u.bestScore | 0,
     selectedTrail: u.selectedTrail || "classic",
+    selectedIcon: u.selectedIcon || DEFAULT_PLAYER_ICON_ID,
+    ownedIcons: Array.isArray(u.ownedIcons) ? u.ownedIcons : [],
     keybinds: u.keybinds || structuredClone(DEFAULT_KEYBINDS),
     settings: u.settings || structuredClone(DEFAULT_SETTINGS),
     runs: u.runs | 0,
@@ -400,6 +420,7 @@ function publicUser(u, { recordHolder = false } = {}) {
     bustercoins: u.bustercoins | 0,
     achievements: normalizeAchievementState(u.achievements),
     unlockedTrails: unlockedTrails(u.bestScore | 0, { recordHolder }),
+    unlockedIcons: unlockedIcons(u, { icons: ICONS, recordHolder }),
     isRecordHolder: Boolean(recordHolder)
   };
 }
@@ -430,6 +451,8 @@ function buildUserDefaults(username, key) {
     key,
     bestScore: 0,
     selectedTrail: "classic",
+    selectedIcon: DEFAULT_PLAYER_ICON_ID,
+    ownedIcons: [],
     keybinds: structuredClone(DEFAULT_KEYBINDS),
     settings: structuredClone(DEFAULT_SETTINGS),
     runs: 0,
@@ -505,6 +528,7 @@ scoreService = createScoreService({
   publicUser,
   listHighscores: () => topHighscores(20),
   trails: TRAILS,
+  icons: ICONS,
   clampScore: clampScoreDefault,
   normalizeAchievements: normalizeAchievementState,
   validateRunStats,
@@ -778,6 +802,7 @@ async function route(req, res) {
     sendJson(res, 200, {
       ok: true,
       user: publicUser(u, { recordHolder }),
+      icons: ICONS,
       trails: TRAILS,
       achievements: buildAchievementsPayload(u)
     });
@@ -813,6 +838,7 @@ async function route(req, res) {
     sendJson(res, 200, {
       ok: true,
       user: publicUser(u, { recordHolder }),
+      icons: ICONS,
       trails: TRAILS,
       achievements: buildAchievementsPayload(u)
     });
@@ -872,7 +898,36 @@ async function route(req, res) {
     const updated = await dataStore.setTrail(u.key, trailId);
     ensureUserSchema(updated, { recordHolder });
 
-    sendJson(res, 200, { ok: true, user: publicUser(updated, { recordHolder }), trails: TRAILS });
+    sendJson(res, 200, { ok: true, user: publicUser(updated, { recordHolder }), trails: TRAILS, icons: ICONS });
+    return;
+  }
+
+  // Set selected icon cosmetic
+  if (pathname === "/api/cosmetics/icon" && req.method === "POST") {
+    if (rateLimit(req, res, "/api/cosmetics/icon")) return;
+    if (!(await ensureDatabase(res))) return;
+    const u = await getUserFromReq(req, { withRecordHolder: true });
+    if (!u) return unauthorized(res);
+
+    let body;
+    try {
+      body = await readJsonBody(req);
+    } catch {
+      return badRequest(res, "invalid_json");
+    }
+
+    const iconId = String(body.iconId || "").trim();
+    const exists = normalizePlayerIcons(ICONS).some((i) => i.id === iconId);
+    if (!exists) return badRequest(res, "invalid_icon");
+
+    const recordHolder = Boolean(u?.isRecordHolder);
+    const unlocked = unlockedIcons(u, { icons: ICONS, recordHolder });
+    if (!unlocked.includes(iconId)) return badRequest(res, "icon_locked");
+
+    const updated = await dataStore.setIcon(u.key, iconId);
+    ensureUserSchema(updated, { recordHolder });
+
+    sendJson(res, 200, { ok: true, user: publicUser(updated, { recordHolder }), trails: TRAILS, icons: ICONS });
     return;
   }
 
@@ -896,7 +951,7 @@ async function route(req, res) {
     const recordHolder = Boolean(u?.isRecordHolder);
     ensureUserSchema(updated, { recordHolder });
 
-    sendJson(res, 200, { ok: true, user: publicUser(updated, { recordHolder }), trails: TRAILS });
+    sendJson(res, 200, { ok: true, user: publicUser(updated, { recordHolder }), trails: TRAILS, icons: ICONS });
     return;
   }
 
@@ -919,7 +974,7 @@ async function route(req, res) {
     const recordHolder = Boolean(u?.isRecordHolder);
     ensureUserSchema(updated, { recordHolder });
 
-    sendJson(res, 200, { ok: true, user: publicUser(updated, { recordHolder }), trails: TRAILS });
+    sendJson(res, 200, { ok: true, user: publicUser(updated, { recordHolder }), trails: TRAILS, icons: ICONS });
     return;
   }
 
@@ -1048,7 +1103,9 @@ if (require.main === module) {
 
 module.exports = {
   TRAILS,
+  ICONS,
   unlockedTrails,
+  unlockedIcons,
   ensureUserSchema,
   publicUser,
   isRecordHolder,

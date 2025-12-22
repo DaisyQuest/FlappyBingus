@@ -102,6 +102,22 @@ describe("TrailPreview", () => {
     expect(preview.running).toBe(false);
   });
 
+  it("updates player sizing when swapping player image without natural dimensions", () => {
+    const { canvas } = makeCanvas();
+    const preview = new TrailPreview({
+      canvas,
+      playerImg: { width: 20, height: 10 },
+      requestFrame: null,
+      cancelFrame: null,
+      now: () => 0
+    });
+    const beforeH = preview.player.h;
+    preview.setPlayerImage({ width: 20, height: 20 });
+    expect(preview.player.w).toBeGreaterThan(0);
+    expect(preview.player.h / preview.player.w).toBeCloseTo(1);
+    expect(preview.player.h).not.toBe(beforeH);
+  });
+
   it("binds animation frame callbacks to the global context to avoid illegal invocations", () => {
     const { canvas } = makeCanvas();
     const cancel = vi.fn(function (id) {

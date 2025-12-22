@@ -7,6 +7,8 @@ const baseUser = () => ({
   key: "player-one",
   bestScore: 2000,
   selectedTrail: "classic",
+  selectedIcon: "hi_vis_orange",
+  ownedIcons: [],
   keybinds: {},
   settings: { dashBehavior: "ricochet", slowFieldBehavior: "slow" },
   runs: 3,
@@ -59,6 +61,7 @@ async function importServer(overrides = {}) {
       bustercoins: (user?.bustercoins || 0) + (bustercoinsEarned || 0)
     })),
     setTrail: vi.fn(async (_key, trailId) => ({ ...baseUser(), selectedTrail: trailId })),
+    setIcon: vi.fn(async (_key, iconId) => ({ ...baseUser(), selectedIcon: iconId })),
     setKeybinds: vi.fn(async (_key, binds) => ({ ...baseUser(), keybinds: binds })),
     setSettings: vi.fn(async (_key, settings) => ({ ...baseUser(), settings })),
     getUserByKey: vi.fn(async () => baseUser()),
@@ -178,6 +181,7 @@ describe("server routes and helpers", () => {
 
     expect(res.status).toBe(200);
     expect(readJson(res).user.settings).toEqual({ dashBehavior: "destroy", slowFieldBehavior: "explosion" });
+    expect(readJson(res).icons?.length).toBeGreaterThan(0);
   });
 
   it("includes achievement payload on /api/me responses", async () => {
@@ -268,6 +272,42 @@ describe("server routes and helpers", () => {
 
     expect(success.status).toBe(200);
     expect(readJson(success).user.selectedTrail).toBe("solar");
+  });
+
+  it("validates and persists icon selections", async () => {
+    const { server, mockDataStore } = await importServer({
+      getUserByKey: vi.fn(async () => ({ ...baseUser(), bestScore: 0 })),
+      setIcon: vi.fn(async (_key, iconId) => ({ ...baseUser(), selectedIcon: iconId }))
+    });
+
+    const invalid = createRes();
+    await server.route(
+      createReq({
+        method: "POST",
+        url: "/api/cosmetics/icon",
+        body: JSON.stringify({ iconId: "missing" }),
+        headers: { cookie: "sugar=PlayerOne" }
+      }),
+      invalid
+    );
+    expect(invalid.status).toBe(400);
+    expect(readJson(invalid).error).toBe("invalid_icon");
+
+    mockDataStore.setIcon.mockResolvedValueOnce({ ...baseUser(), selectedIcon: "hi_vis_red" });
+    const success = createRes();
+    await server.route(
+      createReq({
+        method: "POST",
+        url: "/api/cosmetics/icon",
+        body: JSON.stringify({ iconId: "hi_vis_red" }),
+        headers: { cookie: "sugar=PlayerOne" }
+      }),
+      success
+    );
+    const payload = readJson(success);
+    expect(success.status).toBe(200);
+    expect(payload.user.selectedIcon).toBe("hi_vis_red");
+    expect(payload.icons?.length).toBeGreaterThan(0);
   });
 
   it("validates and persists keybind payloads", async () => {
