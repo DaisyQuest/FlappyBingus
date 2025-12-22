@@ -18,6 +18,7 @@ const makeCtx = ({ linearGradient, radialGradient } = {}) => {
     fill: vi.fn(),
     stroke: vi.fn(),
     moveTo: vi.fn(),
+    bezierCurveTo: vi.fn(),
     lineTo: vi.fn(),
     setTransform: vi.fn(),
     translate: vi.fn(),
@@ -297,40 +298,6 @@ describe("TrailPreview", () => {
     expect(ctx.createRadialGradient).not.toHaveBeenCalled();
   });
 
-  it("resets transient state when switching trails to avoid stale artifacts", () => {
-    const { canvas } = makeCanvas();
-    const preview = new TrailPreview({
-      canvas,
-      playerImg: {},
-      requestFrame: null,
-      cancelFrame: null,
-      now: () => 0
-    });
-
-    preview.parts = [{ life: 1, update: vi.fn() }];
-    preview.trailAcc = 5;
-    preview.trailGlintAcc = 3;
-    preview.trailSparkAcc = 2;
-    preview.trailAuraAcc = 4;
-    preview.orbs = [{ life: 1 }];
-    preview.pipes = [{ x: 1 }];
-    preview._skillState.history.push("dashDestroy");
-    preview._orbTimer = -1;
-
-    preview.setTrail("aurora");
-
-    expect(preview.trailId).toBe("aurora");
-    expect(preview.parts.length).toBe(0);
-    expect(preview.trailAcc).toBe(1);
-    expect(preview.trailGlintAcc).toBe(1);
-    expect(preview.trailSparkAcc).toBe(1);
-    expect(preview.trailAuraAcc).toBe(1);
-    expect(preview.orbs.length).toBe(0);
-    expect(preview.pipes.length).toBe(0);
-    expect(preview._skillState.history).toEqual([]);
-    expect(preview._orbTimer).toBeGreaterThan(0);
-  });
-
   it("stops running when the rendering context disappears mid-frame", () => {
     const { canvas } = makeCanvas();
     let rafCallback = null;
@@ -490,132 +457,33 @@ describe("TrailPreview", () => {
     expect(Math.hypot(target.x - 0.52, target.y - 0.52)).toBeGreaterThan(0.05);
   });
 
-  it("spawns orbs, bounces them within margins, and lets the player scoop them up", () => {
+  it("lays out flowing bezier flight segments that honor margins and the anchor", () => {
     const { canvas } = makeCanvas();
     const preview = new TrailPreview({
       canvas,
       playerImg: {},
       requestFrame: null,
       cancelFrame: null,
-      now: () => 0
+      now: () => 0,
+      anchor: { x: 0.3, y: 0.28 }
     });
-    preview._rand = () => 0.5;
-    preview._orbTimer = -1;
-    preview._frameStep(0.2); // spawn an orb
+    preview._rand = () => 0.42;
 
-    expect(preview.orbs.length).toBeGreaterThan(0);
-    const orb = preview.orbs[0];
-    preview.player.x = orb.x;
-    preview.player.y = orb.y;
-    const beforeParts = preview.parts.length;
+    preview._advanceFlightPath(0.016, 0.2, 0.18);
 
-    preview._collectOrbs();
-
-    expect(preview.orbs.length).toBe(0);
-    expect(preview.parts.length).toBeGreaterThan(beforeParts);
-    expect(preview._orbTimer).toBeGreaterThan(0);
-  });
-
-  it("spawns pipe obstacles and steers targets toward their gaps", () => {
-    const { canvas } = makeCanvas();
-    const preview = new TrailPreview({
-      canvas,
-      playerImg: {},
-      requestFrame: null,
-      cancelFrame: null,
-      now: () => 0
-    });
-    const seq = [0.5, 0.5, 0.5, 0.5, 0.1, 0.5, 0.5];
-    let i = 0;
-    preview._rand = () => seq[(i++) % seq.length];
-    preview._pipeTimer = -0.01;
-    preview._frameStep(0.2);
-
-    expect(preview.pipes.length).toBeGreaterThan(0);
-    const pipe = preview.pipes[0];
-    preview._frameStep(0.2);
-    const target = preview._activeTarget;
-    const gapCenter = pipe.gapY / preview.H;
-
-    expect(target.y).toBeGreaterThan(gapCenter - 0.2);
-    expect(target.y).toBeLessThan(gapCenter + 0.2);
-    expect(target.x).toBeLessThan(0.9);
-  });
-
-  it("cycles every skill while clearing walls, teleporting, and pulsing slow fields", () => {
-    const { canvas } = makeCanvas();
-    const preview = new TrailPreview({
-      canvas,
-      playerImg: {},
-      requestFrame: null,
-      cancelFrame: null,
-      now: () => 0
-    });
-    preview._rand = () => 0.5;
-    preview.player.x = preview.W * 0.35;
-    preview.player.y = preview.H * 0.5;
-    preview._wallTimer = -0.01;
-    let wallSolved = false;
-
-    for (let step = 0; step < 220; step++) {
-      preview._frameStep(0.12);
-      wallSolved = wallSolved || preview.pipes.some((p) => p.type === "wall" && p.solved);
-      const usedAll = ["dash", "phase", "teleport", "dashDestroy", "slowField", "slowExplosion"]
-        .every((s) => preview._skillState.history.includes(s));
-      if (wallSolved && usedAll) break;
+    expect(preview._flightSegments.length).toBeGreaterThanOrEqual(3);
+    for (const seg of preview._flightSegments) {
+      for (const key of ["start", "c1", "c2", "end"]) {
+        const pt = seg[key];
+        expect(pt.x).toBeGreaterThanOrEqual(0.2);
+        expect(pt.x).toBeLessThanOrEqual(0.8);
+        expect(pt.y).toBeGreaterThanOrEqual(0.18);
+        expect(pt.y).toBeLessThanOrEqual(0.82);
+      }
     }
-
-    expect(wallSolved).toBe(true);
-    expect(preview._skillState.history).toEqual(expect.arrayContaining([
-      "dash",
-      "dashDestroy",
-      "teleport",
-      "phase",
-      "slowField",
-      "slowExplosion"
-    ]));
-    expect(preview._skillState.slowField).toBeTruthy();
   });
 
-  it("slows pipes that move through an active slow field", () => {
-    const { canvas } = makeCanvas();
-    const preview = new TrailPreview({
-      canvas,
-      playerImg: {},
-      requestFrame: null,
-      cancelFrame: null,
-      now: () => 0
-    });
-    preview.pipes = [{ x: 200, w: 40, gapY: 90, gapH: 80, speed: 200, wobble: 0, hue: 200, type: "pipe", solved: false }];
-    preview._skillState.slowField = { x: 200, y: 90, radius: 400, life: 1, max: 1 };
-
-    preview._updatePipes(0.25);
-
-    expect(preview.pipes[0].x).toBeGreaterThan(200 - 200 * 0.25); // slowed vs full speed
-  });
-
-  it("teleports toward a queued target when the teleport skill is active", () => {
-    const { canvas } = makeCanvas();
-    const preview = new TrailPreview({
-      canvas,
-      playerImg: {},
-      requestFrame: null,
-      cancelFrame: null,
-      now: () => 0
-    });
-    preview.player.x = preview.W * 0.1;
-    preview.player.y = preview.H * 0.1;
-    preview._skillState.pendingTeleport = { x: 0.8, y: 0.7, done: false };
-    preview._skillState.active = { name: "teleport", timer: 1, duration: 1, context: {} };
-
-    preview._updatePlayer(0.1);
-
-    expect(preview.player.x / preview.W).toBeCloseTo(0.8, 1);
-    expect(preview.player.y / preview.H).toBeCloseTo(0.7, 1);
-    expect(preview._skillState.pendingTeleport?.done).toBe(true);
-  });
-
-  it("wanders smoothly around the menu space without teleporting", () => {
+  it("glides along the bezier ribbon smoothly without harsh jumps", () => {
     const { canvas } = makeCanvas({ left: 0, top: 0, width: 1280, height: 720 });
     canvas.clientWidth = 1280;
     canvas.clientHeight = 720;
@@ -626,13 +494,11 @@ describe("TrailPreview", () => {
       cancelFrame: null,
       now: () => 0
     });
-    const seq = [0.2, 0.84, 0.6, 0.1, 0.48];
-    let i = 0;
-    preview._rand = () => seq[(i++) % seq.length];
+    preview._rand = () => 0.31;
     preview.resize();
 
     const positions = [];
-    for (let step = 0; step < 180; step++) {
+    for (let step = 0; step < 220; step++) {
       preview._updatePlayer(1 / 60);
       positions.push({ x: preview.player.x / preview.W, y: preview.player.y / preview.H });
     }
@@ -641,8 +507,65 @@ describe("TrailPreview", () => {
     const xs = positions.map((p) => p.x);
     const ys = positions.map((p) => p.y);
 
-    expect(Math.max(...xs) - Math.min(...xs)).toBeGreaterThan(0.26);
-    expect(Math.max(...ys) - Math.min(...ys)).toBeGreaterThan(0.22);
-    expect(Math.max(...gaps)).toBeLessThan(0.6);
+    expect(Math.max(...xs) - Math.min(...xs)).toBeGreaterThan(0.05);
+    expect(Math.max(...ys) - Math.min(...ys)).toBeGreaterThan(0.05);
+    expect(Math.max(...gaps)).toBeLessThan(0.5);
+  });
+
+  it("draws the current bezier ribbon so the preview window stays uncluttered", () => {
+    const { canvas, ctx } = makeCanvas();
+    const preview = new TrailPreview({
+      canvas,
+      playerImg: { complete: true, naturalWidth: 8, naturalHeight: 8 },
+      requestFrame: null,
+      cancelFrame: null,
+      now: () => 0
+    });
+    preview._rand = () => 0.4;
+    preview._advanceFlightPath(0.016, 0.16, 0.16);
+
+    preview._draw();
+
+    expect(ctx.moveTo).toHaveBeenCalled();
+    expect(ctx.bezierCurveTo).toHaveBeenCalled();
+    expect(ctx.arc).toHaveBeenCalled();
+    expect(ctx.drawImage).toHaveBeenCalled();
+  });
+
+  it("rebuilds flight state when switching trails to avoid stale motion", () => {
+    const { canvas } = makeCanvas();
+    const preview = new TrailPreview({
+      canvas,
+      playerImg: {},
+      requestFrame: null,
+      cancelFrame: null,
+      now: () => 0
+    });
+
+    preview.trailAcc = 5;
+    preview.trailGlintAcc = 3;
+    preview.trailSparkAcc = 2;
+    preview.trailAuraAcc = 4;
+    preview.parts = [{ life: 1, update: vi.fn() }];
+    preview._flightSegments = [{
+      start: { x: 0.5, y: 0.5 },
+      c1: { x: 0.5, y: 0.5 },
+      c2: { x: 0.5, y: 0.5 },
+      end: { x: 0.5, y: 0.5 },
+      duration: 1
+    }];
+    preview._flightTime = 0.9;
+    preview._flightDirection = 1;
+
+    preview.setTrail("aurora");
+
+    expect(preview.trailId).toBe("aurora");
+    expect(preview.parts.length).toBe(0);
+    expect(preview.trailAcc).toBe(1);
+    expect(preview.trailGlintAcc).toBe(1);
+    expect(preview.trailSparkAcc).toBe(1);
+    expect(preview.trailAuraAcc).toBe(1);
+    expect(preview._flightSegments.length).toBe(0);
+    expect(preview._flightTime).toBe(0);
   });
 });

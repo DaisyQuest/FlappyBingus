@@ -17,11 +17,6 @@ const MIN_MARGIN_X = 0.04;
 const MIN_MARGIN_Y = 0.05;
 const DEFAULT_OBSTRUCTION_PADDING = { x: 0.04, y: 0.06 };
 
-const ORB_TIMER_RANGE = [0.65, 1.45];
-const PIPE_TIMER_RANGE = [0.95, 1.55];
-const WALL_TIMER_RANGE = [4.4, 7.8];
-const SKILL_SEQUENCE = ["dash", "phase", "teleport", "dashDestroy", "slowField", "slowExplosion"];
-
 function lerp(a, b, t) { return a + (b - a) * t; }
 
 export class TrailPreview {
@@ -74,30 +69,24 @@ export class TrailPreview {
     this.running = false;
     this.lastTs = 0;
     this._rand = createSeededRand("trail-preview-classic");
-    this._wanderTarget = { x: 0.5, y: 0.56 };
-    this._wanderTimer = 0;
+    this._flightSegments = [];
+    this._flightTime = 0;
+    this._flightDirection = this._randRange(-Math.PI, Math.PI);
+    this._flightSpin = this._randRange(0.6, 1.2) * (this._randRange(0, 1) > 0.5 ? 1 : -1);
+    this._flightSway = this._randRange(0.06, 0.18);
+    this._flightEase = this._randRange(0.25, 0.45);
 
     this._resetSimulationState();
     this.resize();
   }
 
   _resetSimulationState() {
-    this.orbs = [];
-    this.pipes = [];
-    this._orbTimer = 0.2;
-    this._pipeTimer = 0.35;
-    this._wallTimer = 2.4;
-    this._skillTimer = 0.5;
-    this._activeTarget = { x: 0.5, y: 0.56 };
-    this._skillState = {
-      active: null,
-      cooldowns: {},
-      queue: SKILL_SEQUENCE.slice(),
-      queueIndex: 0,
-      history: [],
-      slowField: null,
-      pendingTeleport: null
-    };
+    this._flightSegments.length = 0;
+    this._flightTime = 0;
+    this._flightDirection = this._randRange(-Math.PI, Math.PI);
+    this._flightSpin = this._randRange(0.6, 1.2) * (this._randRange(0, 1) > 0.5 ? 1 : -1);
+    this._flightSway = this._randRange(0.06, 0.18);
+    this._flightEase = this._randRange(0.25, 0.45);
   }
 
   setTrail(id) {
@@ -284,59 +273,7 @@ export class TrailPreview {
     }
     this._computePlayerSize();
     const { x: marginX, y: marginY } = this._computeMargins();
-    this._updateSimulation(dt, marginX, marginY);
-
-    const phase = this.player.phase;
-    const wobbleX = Math.sin(phase * 0.82) * 0.08;
-    const wobbleY = Math.cos(phase * 0.7) * 0.07;
-    const lift = Math.sin(phase * 0.2) * 0.05;
-
-    const normalizedX = clamp((this.player.x || this.W * 0.5) / this.W, marginX, 1 - marginX);
-    const normalizedY = clamp((this.player.y || this.H * 0.5) / this.H, marginY, 1 - marginY);
-
-    const target = this._selectTarget(normalizedX, normalizedY, marginX, marginY);
-    this._wanderTimer -= dt;
-
-    if (this._wanderTimer <= 0 || Math.hypot(target.x - normalizedX, target.y - normalizedY) > 0.22) {
-      const mix = 0.45 + this._randRange(0, 0.22);
-      this._wanderTarget = {
-        x: clamp(lerp(normalizedX, target.x, mix), marginX, 1 - marginX),
-        y: clamp(lerp(normalizedY, target.y, mix), marginY, 1 - marginY)
-      };
-      this._wanderTimer = 0.6 + this._randRange(0.15, 0.65);
-    }
-
-    const skill = this._skillState.active;
-    const speedBoost = (skill?.name === "dash" || skill?.name === "dashDestroy") ? 1.9 : 1;
-    const pull = (skill ? 0.22 : 0.16) * (speedBoost > 1 ? 1.12 : 1);
-
-    let targetX = normalizedX + (this._wanderTarget.x - normalizedX) * pull + wobbleX;
-    let targetY = normalizedY + (this._wanderTarget.y - normalizedY) * pull + wobbleY + lift;
-
-    if (skill?.name === "phase") {
-      targetX = lerp(targetX, this._wanderTarget.x, 0.65);
-      targetY = lerp(targetY, this._wanderTarget.y, 0.65);
-    }
-
-    targetX = clamp(targetX, marginX, 1 - marginX);
-    targetY = clamp(targetY, marginY, 1 - marginY);
-
-    const pendingTeleport = this._skillState.pendingTeleport;
-    if (skill?.name === "teleport" && pendingTeleport && !pendingTeleport.done) {
-      const destX = clamp(pendingTeleport.x ?? targetX, marginX, 1 - marginX);
-      const destY = clamp(pendingTeleport.y ?? targetY, marginY, 1 - marginY);
-      this.player.prevX = this.player.x || this.W * destX;
-      this.player.prevY = this.player.y || this.H * destY;
-      this.player.x = this.W * destX;
-      this.player.y = this.H * destY;
-      pendingTeleport.done = true;
-    } else {
-      this.player.prevX = this.player.x || this.W * targetX;
-      this.player.prevY = this.player.y || this.H * targetY;
-      const drift = 1 + (speedBoost - 1) * 0.45;
-      this.player.x = this.W * lerp(normalizedX, targetX, drift);
-      this.player.y = this.H * lerp(normalizedY, targetY, drift);
-    }
+    this._advanceFlightPath(dt, marginX, marginY);
 
     this.player.phase += dt * 1.04;
     const radiusScale = DEFAULT_CONFIG.player.radiusScale;
@@ -389,261 +326,108 @@ export class TrailPreview {
     this.player.r = Math.min(this.player.w, this.player.h) * cfg.radiusScale;
   }
 
-  _spawnOrb(marginX, marginY) {
-    const x = this._randRange(marginX, 1 - marginX) * this.W;
-    const y = this._randRange(marginY, 1 - marginY) * this.H;
-    const driftAng = this._randRange(0, Math.PI * 2);
-    const driftSpd = this._randRange(10, 36);
-    const r = this._randRange(9, 14);
-    const life = this._randRange(6, 11);
-    this.orbs.push({ x, y, vx: Math.cos(driftAng) * driftSpd, vy: Math.sin(driftAng) * driftSpd, r, life, pulse: this._randRange(0, Math.PI * 2) });
-    this._orbTimer = this._randRange(ORB_TIMER_RANGE[0], ORB_TIMER_RANGE[1]);
+  _bezierPoint(t, p0, p1, p2, p3) {
+    const u = 1 - t;
+    const tt = t * t;
+    const uu = u * u;
+    const uuu = uu * u;
+    const ttt = tt * t;
+    const x = uuu * p0.x + 3 * uu * t * p1.x + 3 * u * tt * p2.x + ttt * p3.x;
+    const y = uuu * p0.y + 3 * uu * t * p1.y + 3 * u * tt * p2.y + ttt * p3.y;
+    return { x, y };
   }
 
-  _spawnPipe(marginX, marginY, wall = false) {
-    const width = clamp(this.W * 0.08, 28, 72) * (wall ? 1.15 : 1);
-    const gap = wall ? this.H * 0.22 : this._randRange(this.H * 0.28, this.H * 0.44);
-    const center = clamp(this._randRange(marginY, 1 - marginY) * this.H, gap * 0.65, this.H - gap * 0.65);
-    const speed = this._randRange(140, 220) * (wall ? 1.08 : 1);
-    const wobble = wall ? 0 : this._randRange(-0.35, 0.35);
-    const hue = this._randRange(180, 340);
-    this.pipes.push({
-      x: this.W + width,
-      w: width,
-      gapY: center,
-      gapH: gap,
-      speed,
-      wobble,
-      hue,
-      solved: false,
-      type: wall ? "wall" : "pipe"
-    });
+  _bezierTangent(t, p0, p1, p2, p3) {
+    const u = 1 - t;
+    const tt = t * t;
+    const uu = u * u;
+    const x = -3 * uu * p0.x + 3 * uu * p1.x - 6 * u * t * p1.x + 6 * u * t * p2.x - 3 * tt * p2.x + 3 * tt * p3.x;
+    const y = -3 * uu * p0.y + 3 * uu * p1.y - 6 * u * t * p1.y + 6 * u * t * p2.y - 3 * tt * p2.y + 3 * tt * p3.y;
+    return { x, y };
   }
 
-  _nearestPipeAhead(normalizedX) {
-    const px = normalizedX * this.W;
-    return this.pipes
-      .filter((p) => p.x + p.w > px)
-      .sort((a, b) => a.x - b.x)[0] || null;
+  _blendTowardAnchor(point, marginX, marginY) {
+    const anchorX = clamp(this.anchor?.x ?? 0.5, marginX, 1 - marginX);
+    const anchorY = clamp(this.anchor?.y ?? 0.5, marginY, 1 - marginY);
+    const bias = this._flightEase;
+    return {
+      x: clamp(lerp(point.x, anchorX, bias * 0.35), marginX, 1 - marginX),
+      y: clamp(lerp(point.y, anchorY, bias * 0.28), marginY, 1 - marginY)
+    };
   }
 
-  _nearestOrbAhead(nx, ny) {
-    const px = nx * this.W;
-    const py = ny * this.H;
-    const best = this.orbs
-      .filter((o) => o.x >= px - 24)
-      .map((o) => ({ o, d: Math.hypot(o.x - px, o.y - py) }))
-      .sort((a, b) => a.d - b.d)[0];
-    return best?.o || null;
+  _createFlightSegment(start, marginX, marginY) {
+    const travel = this._randRange(0.16, 0.32);
+    const heading = this._flightDirection + this._randRange(-0.38, 0.38);
+    const arcDir = heading + Math.PI * 0.5 * this._flightSpin;
+    const end = {
+      x: clamp(start.x + Math.cos(heading) * travel, marginX, 1 - marginX),
+      y: clamp(start.y + Math.sin(heading) * travel, marginY, 1 - marginY)
+    };
+    const bend = travel * (0.35 + this._flightEase * 0.65);
+    const sway = this._flightSway * travel;
+    const c1 = {
+      x: clamp(start.x + Math.cos(heading) * bend + Math.cos(arcDir) * sway, marginX, 1 - marginX),
+      y: clamp(start.y + Math.sin(heading) * bend + Math.sin(arcDir) * sway, marginY, 1 - marginY)
+    };
+    const c2 = {
+      x: clamp(end.x - Math.cos(heading) * bend + Math.cos(arcDir) * sway, marginX, 1 - marginX),
+      y: clamp(end.y - Math.sin(heading) * bend + Math.sin(arcDir) * sway, marginY, 1 - marginY)
+    };
+    const softenedEnd = this._blendTowardAnchor(end, marginX, marginY);
+    const softenedC2 = this._blendTowardAnchor(c2, marginX, marginY);
+    const duration = 1.05 + this._randRange(0.45, 0.95) + Math.hypot(softenedEnd.x - start.x, softenedEnd.y - start.y);
+    this._flightDirection = Math.atan2(softenedEnd.y - start.y, softenedEnd.x - start.x) + this._flightSpin * 0.2;
+    return {
+      start,
+      c1: this._blendTowardAnchor(c1, marginX, marginY),
+      c2: softenedC2,
+      end: softenedEnd,
+      duration
+    };
   }
 
-  _collectOrbs() {
-    const remaining = [];
-    for (const orb of this.orbs) {
-      const dx = orb.x - this.player.x;
-      const dy = orb.y - this.player.y;
-      const dist = Math.hypot(dx, dy);
-      if (dist <= orb.r + this.player.r * 0.7) {
-        const pop = new Part(orb.x, orb.y, 0, 0, 0.8, orb.r * 0.8, "rgba(255,240,180,.88)", true);
-        pop.twinkle = true;
-        this.parts.push(pop);
-        this._skillTimer = Math.max(this._skillTimer - 0.3, 0.4);
-        continue;
-      }
-      remaining.push(orb);
+  _ensureFlightSegments(marginX, marginY) {
+    const origin = {
+      x: clamp(this.anchor?.x ?? 0.5, marginX, 1 - marginX),
+      y: clamp(this.anchor?.y ?? 0.56, marginY, 1 - marginY)
+    };
+    if (!this._flightSegments.length) {
+      this._flightSegments.push(this._createFlightSegment(origin, marginX, marginY));
     }
-    this.orbs = remaining;
-  }
-
-  _updateOrbs(dt, marginX, marginY) {
-    const padX = marginX * this.W;
-    const padY = marginY * this.H;
-    const next = [];
-    for (const orb of this.orbs) {
-      orb.life -= dt;
-      if (orb.life <= 0) continue;
-      orb.pulse += dt * 2.6;
-      orb.x += orb.vx * dt;
-      orb.y += orb.vy * dt;
-      const pad = orb.r + 4;
-      if (orb.x < padX + pad) { orb.x = padX + pad; orb.vx = Math.abs(orb.vx); }
-      if (orb.x > this.W - padX - pad) { orb.x = this.W - padX - pad; orb.vx = -Math.abs(orb.vx); }
-      if (orb.y < padY + pad) { orb.y = padY + pad; orb.vy = Math.abs(orb.vy); }
-      if (orb.y > this.H - padY - pad) { orb.y = this.H - padY - pad; orb.vy = -Math.abs(orb.vy); }
-      next.push(orb);
-    }
-    this.orbs = next;
-  }
-
-  _updatePipes(dt) {
-    const next = [];
-    const slowField = this._skillState.slowField;
-    for (const pipe of this.pipes) {
-      const cx = pipe.x + pipe.w * 0.5;
-      const cy = pipe.gapY;
-      let speedMul = 1;
-      if (slowField) {
-        const d = Math.hypot(cx - slowField.x, cy - slowField.y);
-        if (d < slowField.radius) {
-          const factor = clamp(1 - (slowField.radius - d) / slowField.radius, 0.25, 1);
-          speedMul = 0.45 + factor * 0.35;
-        }
-      }
-
-      pipe.x -= pipe.speed * dt * speedMul;
-      pipe.gapY += Math.sin(pipe.wobble + pipe.x * 0.003) * 10 * dt;
-      if (pipe.x + pipe.w > -this.W * 0.2) next.push(pipe);
-    }
-    this.pipes = next;
-  }
-
-  _selectSkillFromQueue() {
-    for (let i = 0; i < this._skillState.queue.length; i++) {
-      const idx = (this._skillState.queueIndex + i) % this._skillState.queue.length;
-      const name = this._skillState.queue[idx];
-      if ((this._skillState.cooldowns[name] || 0) <= 0) {
-        this._skillState.queueIndex = (idx + 1) % this._skillState.queue.length;
-        return name;
-      }
-    }
-    return null;
-  }
-
-  _activateSkill(name, context = {}, marginX = 0.16, marginY = 0.18) {
-    if (!name) return;
-    const meta = DEFAULT_CONFIG.skills?.[name] || {};
-    const duration = meta.duration || 0.35;
-    const cooldown = meta.cooldown || 1.5;
-    this._skillState.active = { name, timer: duration, duration, context };
-    this._skillState.cooldowns[name] = cooldown;
-    this._skillState.history.push(name);
-
-    if (name === "teleport") {
-      const tx = clamp(context.targetX ?? this._activeTarget.x, marginX, 1 - marginX);
-      const ty = clamp(context.targetY ?? this._activeTarget.y, marginY, 1 - marginY);
-      this._skillState.pendingTeleport = { x: tx, y: ty, done: false };
-    }
-
-    if (name === "dashDestroy" && context.wall) {
-      context.wall.solved = true;
-      context.wall.gapH = Math.max(context.wall.gapH, this.H * 0.48);
-    }
-
-    if (name === "slowField" || name === "slowExplosion") {
-      const radius = (name === "slowExplosion")
-        ? (DEFAULT_CONFIG.skills.slowExplosion?.radius ?? 140)
-        : (DEFAULT_CONFIG.skills.slowField?.radius ?? 210);
-      const life = meta.duration || 0.6;
-      this._skillState.slowField = {
-        x: this.player.x || this.W * 0.55,
-        y: this.player.y || this.H * 0.55,
-        radius,
-        life,
-        max: life
-      };
-    }
-
-    this._skillTimer = this._randRange(0.9, 1.7);
-  }
-
-  _updateSkillTimers(dt) {
-    if (this._skillState.active) {
-      this._skillState.active.timer -= dt;
-      if (this._skillState.active.timer <= 0) {
-        this._skillState.active = null;
-        this._skillState.pendingTeleport = null;
-      }
-    }
-
-    for (const k of Object.keys(this._skillState.cooldowns)) {
-      this._skillState.cooldowns[k] = Math.max(0, this._skillState.cooldowns[k] - dt);
-    }
-
-    const slow = this._skillState.slowField;
-    if (slow) {
-      slow.life -= dt;
-      if (slow.life <= 0) this._skillState.slowField = null;
+    let cursor = this._flightSegments[this._flightSegments.length - 1].end;
+    while (this._flightSegments.length < 3) {
+      const next = this._createFlightSegment(cursor, marginX, marginY);
+      this._flightSegments.push(next);
+      cursor = next.end;
     }
   }
 
-  _findIncomingWall() {
-    const px = this.player.x || this.W * 0.5;
-    return this.pipes
-      .filter((p) => p.type === "wall" && !p.solved && p.x + p.w > px)
-      .sort((a, b) => a.x - b.x)[0] || null;
-  }
+  _advanceFlightPath(dt, marginX, marginY) {
+    this._ensureFlightSegments(marginX, marginY);
+    let seg = this._flightSegments[0];
+    const prevX = Number.isFinite(this.player.x) && this.player.x > 0 ? this.player.x : this.W * seg.start.x;
+    const prevY = Number.isFinite(this.player.y) && this.player.y > 0 ? this.player.y : this.H * seg.start.y;
+    this.player.prevX = prevX;
+    this.player.prevY = prevY;
 
-  _ensureSkillForWall(wall, marginX, marginY) {
-    const dist = wall.x - (this.player.x || this.W * 0.5);
-    if (dist > this.W * 0.38) return;
-    if (this._skillState.active?.name === "dashDestroy" && this._skillState.active.context?.wall === wall) return;
-    const priority = this._selectSkillFromQueue() || "dashDestroy";
-    const targetY = clamp(wall.gapY / this.H, marginY, 1 - marginY);
-    this._activateSkill(priority, { wall, targetX: clamp(wall.x / this.W, marginX, 1 - marginX), targetY }, marginX, marginY);
-  }
-
-  _updateSimulation(dt, marginX, marginY) {
-    this._updateSkillTimers(dt);
-
-    this._orbTimer -= dt;
-    this._pipeTimer -= dt;
-    this._wallTimer -= dt;
-    this._skillTimer -= dt;
-
-    if (this._orbTimer <= 0 && this.orbs.length < 6) {
-      this._spawnOrb(marginX, marginY);
+    this._flightTime += dt;
+    while (seg && this._flightTime >= seg.duration && this._flightSegments.length > 1) {
+      this._flightTime -= seg.duration;
+      this._flightSegments.shift();
+      this._ensureFlightSegments(marginX, marginY);
+      seg = this._flightSegments[0];
     }
+    let t = clamp(this._flightTime / Math.max(0.01, seg.duration), 0, 1);
+    const ease = t * t * (3 - 2 * t);
+    const pos = this._bezierPoint(ease, seg.start, seg.c1, seg.c2, seg.end);
+    const tan = this._bezierTangent(ease, seg.start, seg.c1, seg.c2, seg.end);
 
-    if (this._pipeTimer <= 0) {
-      this._spawnPipe(marginX, marginY, false);
-      this._pipeTimer = this._randRange(PIPE_TIMER_RANGE[0], PIPE_TIMER_RANGE[1]);
-    }
-
-    if (this._wallTimer <= 0) {
-      this._spawnPipe(marginX, marginY, true);
-      this._wallTimer = this._randRange(WALL_TIMER_RANGE[0], WALL_TIMER_RANGE[1]);
-    }
-
-    this._updateOrbs(dt, marginX, marginY);
-    this._updatePipes(dt);
-    const missingSkill = SKILL_SEQUENCE.find((s) => !this._skillState.history.includes(s));
-    if (missingSkill && this._skillTimer <= 0.2) {
-      this._activateSkill(missingSkill, {}, marginX, marginY);
-      this._skillTimer = this._randRange(1, 1.6);
-    }
-    const wall = this._findIncomingWall();
-    if (wall) {
-      this._ensureSkillForWall(wall, marginX, marginY);
-    } else if (this._skillTimer <= 0) {
-      const freestyleSkill = this._selectSkillFromQueue();
-      this._activateSkill(freestyleSkill, {}, marginX, marginY);
-      this._skillTimer = this._randRange(1.2, 2.2);
-    }
-
-    this._collectOrbs();
-  }
-
-  _selectTarget(nx, ny, marginX, marginY) {
-    const pipe = this._nearestPipeAhead(nx);
-    let targetX = clamp(nx + 0.12, marginX, 1 - marginX);
-    let targetY = clamp(0.56, marginY, 1 - marginY);
-
-    if (pipe) {
-      targetX = clamp(pipe.x / this.W - 0.05, marginX, 1 - marginX * 0.5);
-      targetY = clamp(pipe.gapY / this.H, marginY, 1 - marginY);
-      if (pipe.type === "wall" && pipe.solved) targetY = clamp(targetY + 0.08, marginY, 1 - marginY);
-    }
-
-    const orb = this._nearestOrbAhead(nx, ny);
-    if (orb) {
-      const ox = clamp(orb.x / this.W, marginX, 1 - marginX);
-      const oy = clamp(orb.y / this.H, marginY, 1 - marginY);
-      targetX = targetX * 0.55 + ox * 0.45;
-      targetY = targetY * 0.35 + oy * 0.65;
-    }
-
-    this._activeTarget = { x: targetX, y: targetY };
-    return this._activeTarget;
+    this.player.x = pos.x * this.W;
+    this.player.y = pos.y * this.H;
+    const tangentScale = 1 / Math.max(0.02, seg.duration);
+    this.player.vx = tan.x * this.W * tangentScale;
+    this.player.vy = tan.y * this.H * tangentScale;
   }
 
   _emitTrail(dt) {
@@ -789,70 +573,33 @@ export class TrailPreview {
     this.parts = next;
   }
 
-  _drawOrbs(ctx) {
-    for (const orb of this.orbs) {
-      ctx.save?.();
-      const grad = ctx.createRadialGradient?.(orb.x, orb.y, orb.r * 0.35, orb.x, orb.y, orb.r * 1.25) || null;
-      if (grad) {
-        grad.addColorStop(0, "rgba(255,255,255,.95)");
-        grad.addColorStop(0.7, "rgba(255,230,160,.55)");
-        grad.addColorStop(1, "rgba(255,180,120,.18)");
-        ctx.fillStyle = grad;
-      } else {
-        ctx.fillStyle = "rgba(255,230,170,.75)";
-      }
-      ctx.beginPath?.();
-      const wob = Math.sin(orb.pulse * 1.4) * orb.r * 0.15;
-      ctx.arc?.(orb.x, orb.y, orb.r + wob, 0, Math.PI * 2);
-      ctx.fill?.();
-      ctx.restore?.();
-    }
-  }
-
-  _drawPipes(ctx) {
-    for (const pipe of this.pipes) {
-      ctx.save?.();
-      const x = pipe.x;
-      const w = pipe.w;
-      const gapTop = clamp(pipe.gapY - pipe.gapH * 0.5, 0, this.H);
-      const gapBot = clamp(pipe.gapY + pipe.gapH * 0.5, 0, this.H);
-      const color = ctx.createLinearGradient?.(x, 0, x + w, 0) || null;
-      if (color) {
-        color.addColorStop(0, `hsla(${pipe.hue},68%,72%,0.85)`);
-        color.addColorStop(1, `hsla(${pipe.hue},62%,62%,0.85)`);
-      }
-      ctx.fillStyle = color || "rgba(160,220,180,.7)";
-      ctx.strokeStyle = "rgba(255,255,255,.18)";
-      ctx.lineWidth = 2.2;
-
-      ctx.beginPath?.();
-      ctx.rect?.(x, 0, w, gapTop);
-      ctx.rect?.(x, gapBot, w, this.H - gapBot);
-      ctx.fill?.();
-      ctx.stroke?.();
-
-      if (pipe.type === "wall") {
-        ctx.globalAlpha = pipe.solved ? 0.35 : 0.65;
-        ctx.fillStyle = "rgba(140,190,255,.22)";
-        ctx.fillRect?.(x - 4, 0, 4, this.H);
-      }
-      ctx.restore?.();
-    }
-  }
-
-  _drawSlowField(ctx) {
-    const slow = this._skillState.slowField;
-    if (!slow || !ctx.createRadialGradient) return;
-    const g = ctx.createRadialGradient(slow.x, slow.y, slow.radius * 0.25, slow.x, slow.y, slow.radius);
-    g.addColorStop(0, "rgba(160,200,255,0.28)");
-    g.addColorStop(1, "rgba(120,160,255,0.02)");
+  _drawPathGuides(ctx) {
+    if (!this._flightSegments.length) return;
     ctx.save?.();
-    ctx.globalCompositeOperation = "screen";
-    ctx.globalAlpha = clamp(slow.life / Math.max(0.01, slow.max), 0, 1);
-    ctx.fillStyle = g;
+    ctx.globalAlpha = 0.35;
+    ctx.lineWidth = 2.4;
+    ctx.strokeStyle = "rgba(160,210,255,0.35)";
     ctx.beginPath?.();
-    ctx.arc?.(slow.x, slow.y, slow.radius, 0, Math.PI * 2);
-    ctx.fill?.();
+    const first = this._flightSegments[0];
+    ctx.moveTo?.(first.start.x * this.W, first.start.y * this.H);
+    for (const seg of this._flightSegments) {
+      ctx.bezierCurveTo?.(
+        seg.c1.x * this.W, seg.c1.y * this.H,
+        seg.c2.x * this.W, seg.c2.y * this.H,
+        seg.end.x * this.W, seg.end.y * this.H
+      );
+    }
+    ctx.stroke?.();
+
+    ctx.globalAlpha = 0.65;
+    ctx.fillStyle = "rgba(200,230,255,0.35)";
+    for (const seg of this._flightSegments) {
+      const t = 0.4;
+      const crest = this._bezierPoint(t, seg.start, seg.c1, seg.c2, seg.end);
+      ctx.beginPath?.();
+      ctx.arc?.(crest.x * this.W, crest.y * this.H, 4.5, 0, Math.PI * 2);
+      ctx.fill?.();
+    }
     ctx.restore?.();
   }
 
@@ -880,9 +627,7 @@ export class TrailPreview {
       }
     }
 
-    this._drawPipes(ctx);
-    this._drawOrbs(ctx);
-    this._drawSlowField(ctx);
+    this._drawPathGuides(ctx);
 
     for (const part of this.parts) {
       part.draw(ctx);
