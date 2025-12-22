@@ -51,6 +51,42 @@ export const DEFAULT_PLAYER_ICONS = Object.freeze([
       glow: "#60a5fa",
       pattern: { type: "zigzag", stroke: "#0ea5e9", background: "#082f49" }
     }
+  },
+  {
+    id: "fire_cape",
+    name: "Fire Cape",
+    unlock: { type: "achievement", id: "score_fire_cape_1000", label: "Fire Cape Trial" },
+    style: {
+      fill: "#2c0b0b",
+      core: "#ff7a1c",
+      rim: "#0d0303",
+      glow: "#ffb347",
+      pattern: { type: "zigzag", stroke: "#ffb347", background: "#1f0a0a" },
+      animation: {
+        type: "lava",
+        palette: { base: "#1a0a0a", ember: "#9b2c1c", molten: "#f0651c", flare: "#ffd166" },
+        speed: 0.05,
+        layers: 3
+      }
+    }
+  },
+  {
+    id: "inferno_cape",
+    name: "Inferno Cape",
+    unlock: { type: "achievement", id: "score_inferno_cape_2000", label: "Inferno Challenge" },
+    style: {
+      fill: "#130606",
+      core: "#e23f1d",
+      rim: "#070404",
+      glow: "#ff9f43",
+      pattern: { type: "zigzag", stroke: "#ff9448", background: "#260909" },
+      animation: {
+        type: "lava",
+        palette: { base: "#0f0505", ember: "#7c1b1b", molten: "#f05b1b", flare: "#ffd39a" },
+        speed: 0.07,
+        layers: 4
+      }
+    }
   }
 ]);
 

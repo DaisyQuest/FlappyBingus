@@ -41,4 +41,12 @@ describe("swatchPainter", () => {
     const third = getCachedIconSprite(icon, { size: 72 });
     expect(third).not.toBe(first);
   });
+
+  it("stops cached sprite animations when clearing the cache", () => {
+    const icon = { id: "animated" };
+    const sprite = getCachedIconSprite(icon, { size: 48 });
+    sprite.__animation = { stop: vi.fn() };
+    clearIconSpriteCache();
+    expect(sprite.__animation.stop).toHaveBeenCalled();
+  });
 });
