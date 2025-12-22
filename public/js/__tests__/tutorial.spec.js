@@ -177,4 +177,37 @@ describe("Tutorial skill variants", () => {
     expect(spy).toHaveBeenCalled();
     tutorial.stop();
   });
+
+  it("keeps the bounce wall active until it enters the playfield", () => {
+    const game = setupGame();
+    const tutorial = new Tutorial({ game, input: game.input, getBinds: () => ({}), onExit: () => {} });
+    tutorial.start();
+
+    const reflectIdx = tutorial._steps().findIndex((s) => s.id === "dash_reflect");
+    tutorial._enterStep(reflectIdx);
+
+    const firstWall = tutorial._reflectWall;
+    expect(firstWall?.entered).toBe(false);
+
+    tutorial._stepDashReflect(0.016);
+    expect(tutorial._reflectWall).toBe(firstWall);
+    tutorial.stop();
+  });
+
+  it("respawns the bounce setup only after the wall passes through", () => {
+    const game = setupGame();
+    const tutorial = new Tutorial({ game, input: game.input, getBinds: () => ({}), onExit: () => {} });
+    tutorial.start();
+
+    const reflectIdx = tutorial._steps().findIndex((s) => s.id === "dash_reflect");
+    tutorial._enterStep(reflectIdx);
+
+    const firstWall = tutorial._reflectWall;
+    firstWall.entered = true;
+    firstWall.x = -200;
+
+    tutorial._stepDashReflect(0.016);
+    expect(tutorial._reflectWall).not.toBe(firstWall);
+    tutorial.stop();
+  });
 });
