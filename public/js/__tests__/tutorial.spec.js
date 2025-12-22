@@ -125,4 +125,56 @@ describe("Tutorial skill variants", () => {
     expect(spy).toHaveBeenCalled();
     tutorial.stop();
   });
+
+  it("enforces the slow-field variant even if the player prefers explosions", () => {
+    const game = setupGame();
+    game.setSkillSettings({ slowFieldBehavior: "explosion" });
+    const tutorial = new Tutorial({ game, input: game.input, getBinds: () => ({}), onExit: () => {} });
+    tutorial.start();
+
+    const slowIdx = tutorial._steps().findIndex((s) => s.id === "skill_slow");
+    tutorial._enterStep(slowIdx);
+
+    expect(game.skillSettings.slowFieldBehavior).toBe("slow");
+
+    const explosionIdx = tutorial._steps().findIndex((s) => s.id === "slow_explosion");
+    tutorial._enterStep(explosionIdx);
+    expect(game.skillSettings.slowFieldBehavior).toBe("explosion");
+    tutorial.stop();
+  });
+
+  it("boosts movement speed during the WASD step and restores it afterwards", () => {
+    const game = setupGame();
+    const origSpeed = game.cfg.player.maxSpeed;
+    const origAccel = game.cfg.player.accel;
+    const tutorial = new Tutorial({ game, input: game.input, getBinds: () => ({}), onExit: () => {} });
+    tutorial.start(); // lands on move
+
+    expect(game.cfg.player.maxSpeed).toBeGreaterThan(origSpeed);
+    expect(game.cfg.player.accel).toBeGreaterThan(origAccel);
+
+    tutorial._enterStep(1); // move -> orbs
+    expect(game.cfg.player.maxSpeed).toBe(origSpeed);
+    expect(game.cfg.player.accel).toBe(origAccel);
+    tutorial.stop();
+  });
+
+  it("credits the bounce lesson after a reflected dash reaches the target ring", () => {
+    const game = setupGame();
+    const tutorial = new Tutorial({ game, input: game.input, getBinds: () => ({}), onExit: () => {} });
+    tutorial.start();
+
+    const reflectIdx = tutorial._steps().findIndex((s) => s.id === "dash_reflect");
+    tutorial._enterStep(reflectIdx);
+
+    tutorial._reflectBounceSeen = true;
+    game.player.x = tutorial._reflectTarget.x;
+    game.player.y = tutorial._reflectTarget.y;
+
+    const spy = vi.spyOn(tutorial, "_nextStep");
+    tutorial._stepDashReflect(0.5);
+    tutorial._stepDashReflect(1.0);
+    expect(spy).toHaveBeenCalled();
+    tutorial.stop();
+  });
 });

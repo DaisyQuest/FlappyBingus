@@ -47,6 +47,41 @@ function wrapLines(ctx, text, maxWidth) {
   return out;
 }
 
+function bubblyGradient(ctx, cx, w) {
+  const g = ctx.createLinearGradient(cx - w * 0.5, 0, cx + w * 0.5, 0);
+  g.addColorStop(0, "#fff");
+  g.addColorStop(0.45, "#dff3ff");
+  g.addColorStop(1, "#ffe5ff");
+  return g;
+}
+
+function drawPill(ctx, { x, y, w, h, r = 16, fill, stroke, alpha = 1 }) {
+  const rr = Math.min(r, w * 0.5, h * 0.5);
+  ctx.save();
+  ctx.globalAlpha = alpha;
+  ctx.beginPath();
+  if (typeof ctx.arcTo === "function") {
+    ctx.moveTo(x + rr, y);
+    ctx.arcTo(x + w, y, x + w, y + h, rr);
+    ctx.arcTo(x + w, y + h, x, y + h, rr);
+    ctx.arcTo(x, y + h, x, y, rr);
+    ctx.arcTo(x, y, x + w, y, rr);
+  } else {
+    // Fallback for test canvases without arcTo.
+    ctx.rect(x, y, w, h);
+  }
+  if (fill) {
+    ctx.fillStyle = fill;
+    ctx.fill();
+  }
+  if (stroke) {
+    ctx.strokeStyle = stroke;
+    ctx.lineWidth = 2;
+    ctx.stroke();
+  }
+  ctx.restore();
+}
+
 function dist2(ax, ay, bx, by) {
   const dx = ax - bx, dy = ay - by;
   return dx * dx + dy * dy;
@@ -192,6 +227,7 @@ export class Tutorial {
     this._reflectTarget = null;
     this._reflectBounceSeen = false;
     this._reflectSuccessDelay = 0;
+    this._reflectBestDist = Infinity;
     this._reflectSeenSerial = 0;
     this._dashDestroyPipe = null;
     this._dashDestroySeen = false;
@@ -203,6 +239,9 @@ export class Tutorial {
     this._slowBurstSpawned = false;
     this._slowExplosionCleared = false;
     this._surviveT = 0;
+
+    // Temporary tuning (restored on step change)
+    this._movePlayerCfgBackup = null;
 
     // Config overrides (restored on stop)
     this._cfgBackup = null;
@@ -271,6 +310,7 @@ export class Tutorial {
     this._slowBurstSpawned = false;
 
     if (this._settingsBackup) this.game.setSkillSettings(this._settingsBackup);
+    this._restoreMovementTuning();
     this._restoreConfig();
   }
 
@@ -390,77 +430,96 @@ export class Tutorial {
   renderOverlay(ctx) {
     if (!this.active) return;
 
-    // Info panel
-    const pad = 14;
-    const w = Math.min(720, this.game.W - pad * 2);
-    const x = (this.game.W - w) * 0.5;
-
-    // Leave extra headroom: some HUD text lives at the very top on certain layouts,
-    // and mobile safe areas can clip the first line if we hug y=0.
-    const y = Math.max(pad, Math.min(72, Math.round(this.game.H * 0.075)));
-    const h = 156;
-
-    ctx.save();
-    ctx.globalAlpha = 0.92;
-    ctx.fillStyle = "rgba(10,14,20,.78)";
-    ctx.strokeStyle = "rgba(255,255,255,.14)";
-    ctx.lineWidth = 1.5;
-    roundRectPath(ctx, x, y, w, h, 14);
-    ctx.fill();
-    ctx.stroke();
-    ctx.restore();
-
-    const { title, body, objective } = this._uiCopy();
+    const { title, body, objective, hotkey } = this._uiCopy();
     const stepNum = this._stepIndex + 1;
     const stepTot = this._steps().length;
 
     ctx.save();
-    ctx.font = "900 16px system-ui,-apple-system,Segoe UI,Roboto,sans-serif";
-    ctx.fillStyle = "rgba(255,255,255,.92)";
-    ctx.textAlign = "left";
+    ctx.textAlign = "center";
     ctx.textBaseline = "top";
-    ctx.fillText(`Tutorial • Step ${stepNum}/${stepTot}`, x + 16, y + 14);
 
-    ctx.font = "950 22px system-ui,-apple-system,Segoe UI,Roboto,sans-serif";
-    ctx.fillStyle = "rgba(255,255,255,.96)";
-    ctx.fillText(title, x + 16, y + 36);
+    const cx = this.game.W * 0.5;
+    const top = Math.max(42, Math.min(88, this.game.H * 0.08));
+    const maxW = Math.min(this.game.W * 0.9, 980);
+    const textW = Math.max(240, maxW - 48);
 
-    ctx.font = "800 14px system-ui,-apple-system,Segoe UI,Roboto,sans-serif";
-    ctx.fillStyle = "rgba(255,255,255,.78)";
-const lines = wrapLines(ctx, body, w - 32);
+    // Step indicator
+    ctx.font = "800 18px \"Baloo 2\",system-ui,-apple-system,Segoe UI,Roboto,sans-serif";
+    ctx.fillStyle = "rgba(255,255,255,.88)";
+    ctx.shadowColor = "rgba(0,0,0,.45)";
+    ctx.shadowBlur = 12;
+    ctx.fillText(`Tutorial • Step ${stepNum}/${stepTot}`, cx, top);
 
-const bodyTop = y + 66;
-const objectiveTop = y + h - 34;
-const lineH = 18;
+    // Title (big + bubbly like menu)
+    const titleY = top + 24;
+    ctx.font = "900 46px \"Baloo 2\",system-ui,-apple-system,Segoe UI,Roboto,sans-serif";
+    const grad = bubblyGradient(ctx, cx, Math.min(maxW * 0.75, 820));
+    ctx.lineWidth = 4.2;
+    ctx.strokeStyle = "rgba(0,0,0,.55)";
+    ctx.strokeText(title, cx, titleY);
+    ctx.fillStyle = grad;
+    ctx.fillText(title, cx, titleY);
 
-// How many lines can fit without touching the objective strip?
-const maxLines = Math.max(
-  1,
-  Math.floor((objectiveTop - bodyTop - 4) / lineH)
-);
+    // Hotkey callout
+    let bodyY = titleY + 58;
+    if (hotkey?.label) {
+      ctx.font = "900 22px \"Baloo 2\",system-ui,-apple-system,Segoe UI,Roboto,sans-serif";
+      const keyTxt = String(hotkey.label).toUpperCase();
+      const keyW = ctx.measureText(keyTxt).width + 36;
+      const keyH = 36;
+      drawPill(ctx, {
+        x: cx - keyW * 0.5,
+        y: bodyY - 10,
+        w: keyW,
+        h: keyH,
+        r: 18,
+        fill: "rgba(255,255,255,.16)",
+        stroke: "rgba(255,255,255,.68)",
+        alpha: 0.98
+      });
+      ctx.fillStyle = "rgba(255,255,255,.96)";
+      ctx.strokeStyle = "rgba(0,0,0,.52)";
+      ctx.lineWidth = 2.2;
+      ctx.strokeText(keyTxt, cx, bodyY - 6);
+      ctx.fillText(keyTxt, cx, bodyY - 6);
+      if (hotkey.hint) {
+        ctx.font = "800 16px \"Baloo 2\",system-ui,-apple-system,Segoe UI,Roboto,sans-serif";
+        ctx.fillStyle = "rgba(220,240,255,.90)";
+        ctx.fillText(hotkey.hint, cx, bodyY + 20);
+        bodyY += 14;
+      }
+      bodyY += keyH * 0.8;
+    }
 
-let ty = bodyTop;
-for (const ln of lines.slice(0, maxLines)) {
-  ctx.fillText(ln, x + 16, ty);
-  ty += lineH;
-}
+    // Body copy
+    ctx.font = "800 22px \"Baloo 2\",system-ui,-apple-system,Segoe UI,Roboto,sans-serif";
+    ctx.fillStyle = "rgba(240,245,255,.95)";
+    ctx.strokeStyle = "rgba(0,0,0,.55)";
+    ctx.lineWidth = 3.2;
+    const lines = wrapLines(ctx, body, textW);
+    const lineH = 28;
+    for (const ln of lines) {
+      ctx.strokeText(ln, cx, bodyY);
+      ctx.fillText(ln, cx, bodyY);
+      bodyY += lineH;
+    }
 
-
-    // Objective strip
-    ctx.globalAlpha = 0.95;
-    ctx.fillStyle = "rgba(255,255,255,.06)";
-    roundRectPath(ctx, x + 16, y + h - 34, w - 32, 22, 999);
-    ctx.fill();
-
-    ctx.globalAlpha = 1;
-    ctx.font = "900 13px system-ui,-apple-system,Segoe UI,Roboto,sans-serif";
-    ctx.fillStyle = "rgba(255,255,255,.85)";
-    ctx.fillText(`Objective: ${objective}`, x + 26, y + h - 31);
+    // Objective (accent)
+    bodyY += 10;
+    const objTxt = `Objective: ${objective}`;
+    ctx.font = "900 24px \"Baloo 2\",system-ui,-apple-system,Segoe UI,Roboto,sans-serif";
+    ctx.fillStyle = "rgba(255,245,210,.96)";
+    ctx.strokeStyle = "rgba(0,0,0,.58)";
+    ctx.lineWidth = 3.4;
+    ctx.strokeText(objTxt, cx, bodyY);
+    ctx.fillText(objTxt, cx, bodyY);
 
     ctx.restore();
 
+    const meta = { panel: { x: cx - maxW * 0.5, y: top, w: maxW, h: bodyY - top + 36 }, textBottom: bodyY + 36 };
+
     // Guidance markers / per-step helpers
-    this._renderGuides(ctx, { panel: { x, y, w, h } });
+    this._renderGuides(ctx, meta);
 
     // Skill icon intro animation (on top)
     this._renderIconIntro(ctx);
@@ -470,13 +529,13 @@ for (const ln of lines.slice(0, maxLines)) {
       const a = clamp(this._msgFlashT / 1.1, 0, 1);
       ctx.save();
       ctx.globalAlpha = a;
-      ctx.font = "950 18px system-ui,-apple-system,Segoe UI,Roboto,sans-serif";
+      ctx.font = "950 20px \"Baloo 2\",system-ui,-apple-system,Segoe UI,Roboto,sans-serif";
       ctx.textAlign = "center";
       ctx.textBaseline = "middle";
       ctx.shadowColor = "rgba(0,0,0,.55)";
       ctx.shadowBlur = 14;
       ctx.fillStyle = "rgba(255,255,255,.92)";
-      ctx.fillText(this._msgFlash, this.game.W * 0.5, y + h + 22);
+      ctx.fillText(this._msgFlash, this.game.W * 0.5, bodyY + 28);
       ctx.restore();
     }
   }
@@ -509,6 +568,7 @@ for (const ln of lines.slice(0, maxLines)) {
     this._stepIndex = clamp(i | 0, 0, this._steps().length - 1);
     this._stepT = 0;
     this._iconIntro = null;
+    this._restoreMovementTuning();
 
     // Reset step-specific state
     this._allowed.clear();
@@ -535,6 +595,7 @@ for (const ln of lines.slice(0, maxLines)) {
     this._reflectTarget = null;
     this._reflectBounceSeen = false;
     this._reflectSuccessDelay = 0;
+    this._reflectBestDist = Infinity;
     this._reflectSeenSerial = this.game?.lastDashReflect?.serial || 0;
     this._dashDestroyPipe = null;
     this._dashDestroySeen = false;
@@ -569,6 +630,7 @@ for (const ln of lines.slice(0, maxLines)) {
     if (sid === "move") {
       this._setPerfectEnabled(false);
       this._allowed = new Set();
+      this._boostMovementTuning();
       this._spawnMovementScenario();
     }
 
@@ -626,6 +688,7 @@ for (const ln of lines.slice(0, maxLines)) {
     if (sid === "skill_slow") {
       this._setPerfectEnabled(false);
       this._allowed = new Set(["slowField"]);
+      this.game.setSkillSettings({ ...(this._settingsBackup || this.game.skillSettings), slowFieldBehavior: "slow" });
       this._beginSkillIntro("slowField");
     }
 
@@ -656,11 +719,11 @@ for (const ln of lines.slice(0, maxLines)) {
 // =====================================================
 // Steps: movement
 // =====================================================
-_spawnMovementScenario() {
-  // Match sketch:
-  // - Player starts on the right.
-  // - A tall, narrow wall sits between player and the left-side target.
-  // - Wall moves to the right.
+  _spawnMovementScenario() {
+    // Match sketch:
+    // - Player starts on the right.
+    // - A tall, narrow wall sits between player and the left-side target.
+    // - Wall moves to the right.
   // - Player must go around the wall (top/bottom) to reach the target zone.
 
   const W = this.game.W, H = this.game.H;
@@ -675,15 +738,14 @@ _spawnMovementScenario() {
     : Math.max(44, Math.min(W, H) * 0.075);
 
   const base = (this.game._pipeSpeed ? this.game._pipeSpeed() : 260);
-  const spd = Math.max(170, base * 0.75); // moving right, noticeable but fair
+  const spd = Math.max(190, base * 0.82); // moving right, noticeable but fair
 
 const minLane = Math.max(90, p.r * 4 + 40); // wider lanes
 const wallH = clamp(H * 0.34, H * 0.38, H * 0.44); // ~half previous height
 const wallW = th;
 
-
   // Place wall between left target and player (like the sketch).
-  const wx = clamp(W * 0.30, 20, W * 0.48);
+  const wx = clamp(W * 0.34, 20, W * 0.50);
   const wy = clamp(p.y - wallH * 0.5, 10, H - wallH - 10);
 
   this._moveWall = makePipeRect({ x: wx, y: wy, w: wallW, h: wallH, vx: spd, vy: 0 });
@@ -691,12 +753,12 @@ const wallW = th;
 
   // Success zone on the far left ("W" box), behind the wall.
   // Keep it roughly aligned with the player's Y so the wall blocks the straight-line path.
-  const tx = clamp(W * 0.10, 54, W * 0.18);
+  const tx = clamp(W * 0.22, 70, W * 0.32);
   const ty = clamp(p.y, 70, H - 70);
   this._moveTarget = {
     x: tx,
     y: ty,
-    r: clamp(Math.min(W, H) * 0.055, 40, 58)
+    r: clamp(Math.min(W, H) * 0.060, 42, 62)
   };
 }
 
@@ -1116,42 +1178,55 @@ _stepOrbs(dt) {
     const p = this.game.player;
 
     const th = this.game._thickness ? this.game._thickness() : Math.max(46, Math.min(W, H) * 0.08);
-    const wallH = clamp(H * 0.55, 180, H * 0.72);
-    const wx = clamp(W * 0.55, th + 10, W - th * 2);
-    const wy = clamp((H - wallH) * 0.5, 12, H - wallH - 12);
+    const wallH = clamp(H * 0.52, 170, H * 0.70);
+    const wx = W + th * 2.0;
+    const wy = clamp((H - wallH) * 0.48, 12, H - wallH - 12);
+    const spd = Math.max(180, (this.game._pipeSpeed ? this.game._pipeSpeed() : 260) * 0.90);
 
-    this._reflectWall = makePipeRect({ x: wx, y: wy, w: th, h: wallH, vx: 0, vy: 0 });
+    this._reflectWall = makePipeRect({ x: wx, y: wy, w: th, h: wallH, vx: -spd, vy: 0 });
     this.game.pipes.push(this._reflectWall);
 
-    p.x = clamp(wx + th * 1.8, p.r + 30, W - p.r - 30);
-    p.y = clamp(wy + wallH * 0.80, p.r + 30, H - p.r - 30);
+    p.x = clamp(W * 0.22, p.r + 30, W - p.r - 30);
+    p.y = clamp(H * 0.70, p.r + 30, H - p.r - 30);
     p.vx = 0; p.vy = 0; p.dashT = 0; p.dashBounces = 0;
     this.game.cds.dash = 0;
 
-    const tx = clamp(wx - th * 1.6, p.r + 40, W - 40);
-    const ty = clamp(wy + wallH * 0.25, p.r + 40, H - 40);
-    this._reflectTarget = { x: tx, y: ty, r: clamp(Math.min(W, H) * 0.055, 42, 60) };
+    const tx = clamp(W * 0.24, p.r + 40, W - 60);
+    const ty = clamp(H * 0.32, p.r + 40, H - 60);
+    this._reflectTarget = { x: tx, y: ty, r: clamp(Math.min(W, H) * 0.070, 52, 78) };
 
     this._reflectBounceSeen = false;
     this._reflectSuccessDelay = 0;
     this._reflectSeenSerial = this.game?.lastDashReflect?.serial || 0;
+    this._reflectBestDist = Infinity;
 
-    this._flash("Dash into the wall to bounce. Use Phase if you need to cancel the ricochet.");
+    this._flash("Dash into the moving wall to bounce. Use Phase if you need to cancel the ricochet.");
   }
 
   _stepDashReflect(dt) {
     if (!this._reflectTarget) return;
 
+    if (this._reflectWall && this._reflectWall.off(this.game.W, this.game.H, 120) && !this._reflectBounceSeen) {
+      this._hardClearWorld();
+      this._spawnDashReflectScenario();
+      return;
+    }
+
     const ev = this.game.lastDashReflect;
     if (ev && ev.serial !== this._reflectSeenSerial) {
       this._reflectSeenSerial = ev.serial;
       this._reflectBounceSeen = true;
+      this._reflectBestDist = Infinity;
       this._flash("Bounced! Now land in the ring.");
     }
 
     const p = this.game.player;
-    const ok = dist2(p.x, p.y, this._reflectTarget.x, this._reflectTarget.y) <= (this._reflectTarget.r * this._reflectTarget.r);
-    if (ok && this._reflectBounceSeen) this._reflectSuccessDelay = Math.max(this._reflectSuccessDelay, 0.75);
+    const d = Math.sqrt(dist2(p.x, p.y, this._reflectTarget.x, this._reflectTarget.y));
+    if (this._reflectBounceSeen) {
+      this._reflectBestDist = Math.min(this._reflectBestDist, d);
+      const ok = d <= this._reflectTarget.r * 1.25;
+      if (ok) this._reflectSuccessDelay = Math.max(this._reflectSuccessDelay, 0.95);
+    }
 
     if (this._reflectSuccessDelay > 0) {
       this._reflectSuccessDelay = Math.max(0, this._reflectSuccessDelay - dt);
@@ -1361,10 +1436,11 @@ _stepOrbs(dt) {
       return {
         title: "Movement (WASD)",
         body:
-          "Use W/A/S/D to move.\n\n" +
-          "A pipe is blocking the straight path to the left. Move around it and enter the highlighted zone.\n\n" +
+          "Use W/A/S/D to move — the tutorial bumps your speed so you can zip around.\n\n" +
+          "A moving wall blocks the straight path. Slip around it and dive into the glowing ring on the left.\n\n" +
           "Skills are disabled for now so you can focus on movement.",
-        objective: "Move into the highlighted zone on the left. (Auto-retries on failure.)"
+        objective: "Slide into the highlighted zone on the left. (Auto-retries on failure.)",
+        hotkey: { label: "W • A • S • D", hint: "Hold a direction to steer" }
       };
     }
 
@@ -1375,7 +1451,8 @@ _stepOrbs(dt) {
           "Pick up orbs to score points.\n" +
           "First orb = 5 points, then 6, then 7… (the combo bar shows your streak).\n" +
           "Walls will also start coming — dodge them while you collect orbs.",
-        objective: `Collect 5 orbs in a row. (Current combo: ${this.game.combo}/5)`
+        objective: `Collect 5 orbs in a row. (Current combo: ${this.game.combo}/5)`,
+        hotkey: { label: "W • A • S • D", hint: "Keep moving while you gather orbs" }
       };
     }
 
@@ -1386,7 +1463,8 @@ _stepOrbs(dt) {
           "When a wall crosses you, try to be exactly in the center of the opening.\n" +
           "The dashed line shows the exact center of the current gap.\n" +
           "Hit the center to earn a PERFECT banner (+10).",
-        objective: "Get 1 PERFECT by staying centered in the gap."
+        objective: "Get 1 PERFECT by staying centered in the gap.",
+        hotkey: { label: "W • A • S • D", hint: "Feather your movement to line up" }
       };
     }
 
@@ -1396,7 +1474,8 @@ _stepOrbs(dt) {
         body:
           `Press ${key("phase")} to become invulnerable briefly.\n` +
           "A solid wall is coming — you cannot dodge it. Use Phase right before it hits you.",
-        objective: `Use Phase (${key("phase")}) to pass through the full wall.`
+        objective: `Use Phase (${key("phase")}) to pass through the full wall.`,
+        hotkey: { label: key("phase") || "Phase", hint: "Tap right as the wall reaches you" }
       };
     }
 
@@ -1409,7 +1488,8 @@ _stepOrbs(dt) {
           `Hold a direction (W/A/S/D) and press ${key("dash")}.\n` +
           "Reach the highlighted zone in the top-right before the countdown ends.\n" +
           "You must use Dash at least once to advance.",
-        objective: `Reach the highlighted zone in ${t}s using Dash (${key("dash")}).`
+        objective: `Reach the highlighted zone in ${t}s using Dash (${key("dash")}).`,
+        hotkey: { label: key("dash") || "Dash", hint: "Hold a direction, then press to burst" }
       };
     }
 
@@ -1417,10 +1497,11 @@ _stepOrbs(dt) {
       return {
         title: "Dash Reflect",
         body:
-          `While Dash is active, hitting a wall or pipe will bounce you — unless Phase is active.\n` +
+          `While Dash is active, hitting a moving wall or pipe will bounce you — unless Phase is active.\n` +
           "Angle your dash into the surface to ricochet and keep your speed.\n" +
           `Phase + Dash still passes through cleanly; no bounce.`,
-        objective: `Dash into the marked wall (no Phase) and bounce into the target ring.`
+        objective: `Dash into the moving wall (no Phase) and bounce into the target ring.`,
+        hotkey: { label: key("dash") || "Dash", hint: "Aim slightly upward into the wall" }
       };
     }
 
@@ -1431,7 +1512,8 @@ _stepOrbs(dt) {
           `The Destroy variant trades ricochets for raw stopping power.\n` +
           `Hold a direction and press ${key("dash")} into the pipe — it will shatter instead of bouncing you.\n` +
           "Cooldown is longer, but it's perfect for removing a single blocker.",
-        objective: `Use Destroy Dash (${key("dash")}) to break the highlighted pipe.`
+        objective: `Use Destroy Dash (${key("dash")}) to break the highlighted pipe.`,
+        hotkey: { label: key("dash") || "Dash", hint: "Destroy dash = smash through" }
       };
     }
 
@@ -1442,7 +1524,8 @@ _stepOrbs(dt) {
           `Teleport jumps you instantly to your cursor.\n` +
           `Move your mouse to aim, then press ${key("teleport")}.\n` +
           "Teleport to the highlighted zone to escape the cage.",
-        objective: `Teleport (${key("teleport")}) into the highlighted circle.`
+        objective: `Teleport (${key("teleport")}) into the highlighted circle.`,
+        hotkey: { label: key("teleport") || "Teleport", hint: "Aim with your cursor, then tap" }
       };
     }
 
@@ -1453,7 +1536,8 @@ _stepOrbs(dt) {
           `Slow Field creates a circle that slows walls inside it.\n` +
           `Press ${key("slowField")} to place it on yourself.\n` +
           "After you cast it, a burst of walls will come — dodge them while they’re slowed.",
-        objective: `Cast Slow Field (${key("slowField")}) and survive the burst.`
+        objective: `Cast Slow Field (${key("slowField")}) and survive the burst.`,
+        hotkey: { label: key("slowField") || "Slow Field", hint: "We set it to Slow for this lesson" }
       };
     }
 
@@ -1464,7 +1548,8 @@ _stepOrbs(dt) {
           "Swap Slow Field to Explosion in Settings for a smaller, instant detonation.\n" +
           "Pipes in the blast radius are destroyed outright, but the cooldown is longer.\n" +
           `Stand near the cluster and press ${key("slowField")} to vaporize them.`,
-        objective: "Cast the explosive Slow Field to clear the nearby pipe cluster."
+        objective: "Cast the explosive Slow Field to clear the nearby pipe cluster.",
+        hotkey: { label: key("slowField") || "Slow Field", hint: "Explosion variant is auto-enabled here" }
       };
     }
 
@@ -1476,7 +1561,8 @@ _stepOrbs(dt) {
         "All abilities are unlocked with NO cooldown:\n" +
         "• Phase • Dash • Teleport • Slow Field\n\n" +
         "Practice as long as you want, then press Enter (or Esc) to exit.",
-      objective: "Use any skill freely. Press Enter (or Esc) to exit."
+      objective: "Use any skill freely. Press Enter (or Esc) to exit.",
+      hotkey: { label: "Enter / Esc", hint: "Leave when you’re ready" }
     };
   }
 
@@ -1607,6 +1693,28 @@ _stepOrbs(dt) {
   // =====================================================
   // Config overrides + world controls
   // =====================================================
+  _restoreMovementTuning() {
+    if (!this.game?.cfg?.player || !this._movePlayerCfgBackup) return;
+    const p = this.game.cfg.player;
+    const b = this._movePlayerCfgBackup;
+    p.maxSpeed = b.maxSpeed;
+    p.accel = b.accel;
+    this._movePlayerCfgBackup = null;
+  }
+
+  _boostMovementTuning() {
+    if (!this.game?.cfg?.player) return;
+    if (!this._movePlayerCfgBackup) {
+      this._movePlayerCfgBackup = {
+        maxSpeed: this.game.cfg.player.maxSpeed,
+        accel: this.game.cfg.player.accel
+      };
+    }
+    const p = this.game.cfg.player;
+    p.maxSpeed = Math.max(p.maxSpeed, 560);
+    p.accel = Math.max(p.accel, 3200);
+  }
+
   _backupAndOverrideConfig() {
     const cfg = this.game.cfg;
     // Only backup the fields we touch.
