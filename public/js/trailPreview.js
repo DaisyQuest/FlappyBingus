@@ -63,6 +63,11 @@ export class TrailPreview {
     this._rand = createSeededRand(`trail-preview-${nextId}`);
   }
 
+  setPlayerImage(playerImg) {
+    this.playerImg = playerImg;
+    this._computePlayerSize();
+  }
+
   resize() {
     if (!this.canvas || !this.ctx) return;
     const dpr = Math.max(1, (typeof window !== "undefined" ? window.devicePixelRatio || 1 : 1));
@@ -176,8 +181,8 @@ export class TrailPreview {
     const cfg = DEFAULT_CONFIG.player;
     const base = Math.min(this.W, this.H);
     const target = clamp(base * cfg.sizeScale, cfg.sizeMin, cfg.sizeMax);
-    const iw = this.playerImg?.naturalWidth || 1;
-    const ih = this.playerImg?.naturalHeight || 1;
+    const iw = this.playerImg?.naturalWidth || this.playerImg?.width || 1;
+    const ih = this.playerImg?.naturalHeight || this.playerImg?.height || 1;
     this.player.w = target;
     this.player.h = target * (ih / iw);
     this.player.r = Math.min(this.player.w, this.player.h) * cfg.radiusScale;
@@ -375,7 +380,10 @@ export class TrailPreview {
     const ang = Math.atan2(p.vy, p.vx) * 0.18;
     if (ctx.rotate) ctx.rotate(ang);
 
-    if (this.playerImg?.complete && this.playerImg?.naturalWidth > 0) {
+    const iw = this.playerImg?.naturalWidth || this.playerImg?.width || 0;
+    const ih = this.playerImg?.naturalHeight || this.playerImg?.height || 0;
+    const ready = this.playerImg?.complete !== false;
+    if (ready && iw > 0 && ih > 0) {
       ctx.drawImage?.(this.playerImg, -sizeX * 0.5, -sizeY * 0.5, sizeX, sizeY);
     } else {
       const body = ctx.createRadialGradient?.(0, 0, p.r * 0.35, 0, 0, p.r * 1.4) || null;

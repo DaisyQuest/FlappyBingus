@@ -10,6 +10,7 @@ function buildDeps(overrides = {}) {
     || vi.fn((u, opts) => ({ name: u.username, bestScore: u.bestScore, recordHolder: !!opts?.recordHolder }));
   const listHighscores = overrides.listHighscores || vi.fn(async () => [{ username: "a", bestScore: 1 }]);
   const trails = overrides.trails || [{ id: "classic" }];
+  const icons = overrides.icons || [{ id: "hi_vis_orange" }];
   const normalizeAchievements = overrides.normalizeAchievements || ((state) => state || { unlocked: {}, progress: {} });
   const validateRunStats =
     overrides.validateRunStats || (() => ({ ok: true, stats: { orbsCollected: null, abilitiesUsed: null, perfects: null } }));
@@ -23,6 +24,7 @@ function buildDeps(overrides = {}) {
     publicUser,
     listHighscores,
     trails,
+    icons,
     normalizeAchievements,
     validateRunStats,
     evaluateAchievements,
@@ -75,6 +77,7 @@ describe("scoreService", () => {
       ok: true,
       user: { name: "User", bestScore: 123, recordHolder: false },
       trails: deps.trails,
+      icons: deps.icons,
       highscores: [{ username: "a", bestScore: 1 }]
     });
     expect(res.body.achievements).toBeTruthy();

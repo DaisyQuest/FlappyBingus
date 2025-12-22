@@ -29,6 +29,7 @@ describe("uiLayout", () => {
     const selectPanel = mount.querySelector(".trail-select-panel");
     expect(selectPanel?.querySelectorAll("select")?.length).toBe(1);
     expect(selectPanel?.textContent.trim()).toBe("");
+    expect(ui.iconOptions?.className).toContain("icon-grid");
   });
 
   it("exposes interactive controls with expected defaults", () => {
@@ -39,6 +40,7 @@ describe("uiLayout", () => {
     expect(ui.exportGif?.disabled).toBe(true);
     expect(ui.exportMp4?.disabled).toBe(true);
     expect(ui.trailText?.textContent).toBe("classic");
+    expect(ui.iconText?.textContent).toBe("High-Vis Orange");
     expect(ui.seedInput?.maxLength).toBe(48);
     expect(ui.musicVolume?.value).toBe("70");
     expect(ui.sfxVolume?.value).toBe("80");
@@ -57,6 +59,9 @@ describe("uiLayout", () => {
       "hsWrap",
       "pbText",
       "trailText",
+      "iconText",
+      "iconOptions",
+      "iconHint",
       "bustercoinText",
       "trailPreviewCanvas",
       "final",

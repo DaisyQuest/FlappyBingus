@@ -407,3 +407,14 @@ input[type="range"]::-moz-range-thumb{
 .achievement-toast-title{font-size:12px;font-weight:900;color:var(--accent-strong);letter-spacing:.2px}
 .achievement-toast-name{font-weight:900;margin:2px 0}
 .achievement-toast-desc{color:var(--muted);font-size:12px}
+
+.icon-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px}
+.icon-option{display:flex;align-items:center;gap:12px;padding:10px 12px;background:rgba(15,23,42,.72);border:1px solid rgba(255,255,255,.08);border-radius:12px;cursor:pointer;transition:transform .12s ease,box-shadow .12s ease,border-color .12s ease;min-height:74px;text-align:left;color:#e5e7eb}
+.icon-option:hover{border-color:rgba(125,211,252,.65);box-shadow:0 14px 32px rgba(0,0,0,.28)}
+.icon-option.selected{border-color:#7dd3fc;box-shadow:0 14px 32px rgba(0,0,0,.38),0 0 0 1px rgba(125,211,252,.55);transform:translateY(-1px)}
+.icon-option.locked{opacity:.65;cursor:not-allowed}
+.icon-option .icon-swatch{width:52px;height:52px;border-radius:50%;background:radial-gradient(circle at 32% 32%,var(--icon-core,#ffc285),var(--icon-fill,#ff8c1a));box-shadow:0 0 0 2px var(--icon-rim,#0f172a),0 10px 24px rgba(0,0,0,.35),0 0 22px var(--icon-glow,rgba(255,200,120,.5))}
+.icon-option .icon-meta{display:flex;flex-direction:column;align-items:flex-start;gap:4px}
+.icon-option .icon-name{font-weight:800;letter-spacing:.01em}
+.icon-option .icon-status{font-size:13px;color:#cbd5f5}
+.icon-option.locked .icon-status{color:#fca5a5}

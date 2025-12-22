@@ -68,6 +68,7 @@ describe("api helpers", () => {
       apiRegister,
       apiSubmitScore,
       apiSetTrail,
+      apiSetIcon,
       apiSetKeybinds,
       apiGetHighscores
     } = await import("../api.js");
@@ -77,6 +78,7 @@ describe("api helpers", () => {
       [apiRegister, ["/api/register", { method: "POST", body: JSON.stringify({ username: "bingus" }) }]],
       [apiSubmitScore, ["/api/score", { method: "POST", body: JSON.stringify({ score: 9001, bustercoinsEarned: 0 }) }]],
       [apiSetTrail, ["/api/cosmetics/trail", { method: "POST", body: JSON.stringify({ trailId: "classic" }) }]],
+      [apiSetIcon, ["/api/cosmetics/icon", { method: "POST", body: JSON.stringify({ iconId: "hi_vis_orange" }) }]],
       [apiSetKeybinds, ["/api/binds", { method: "POST", body: JSON.stringify({ keybinds: { jump: "Space" } }) }]],
       [apiGetHighscores, ["/api/highscores?limit=25", { method: "GET" }]]
     ];
@@ -85,6 +87,7 @@ describe("api helpers", () => {
     await apiRegister("bingus");
     await apiSubmitScore(9001);
     await apiSetTrail("classic");
+    await apiSetIcon("hi_vis_orange");
     await apiSetKeybinds({ jump: "Space" });
     await apiGetHighscores(25);
 

@@ -8,6 +8,7 @@ import {
   apiRegister,
   apiGetHighscores,
   apiSetTrail,
+  apiSetIcon,
   apiSubmitScore,
   apiSetKeybinds,
   apiSetSettings
@@ -51,6 +52,15 @@ import {
 import { applyBustercoinEarnings } from "./bustercoins.js";
 import { ACHIEVEMENTS, normalizeAchievementState, renderAchievementsList, appendAchievementToast } from "./achievements.js";
 import { renderScoreBreakdown } from "./scoreBreakdown.js";
+import {
+  DEFAULT_PLAYER_ICON_ID,
+  DEFAULT_PLAYER_ICONS,
+  describeIconLock,
+  getUnlockedPlayerIcons,
+  normalizeIconSelection,
+  normalizePlayerIcons
+} from "./playerIcons.js";
+import { createPlayerIconSprite } from "./playerIconSprites.js";
 
 import { buildGameUI } from "./uiLayout.js";
 import { TrailPreview } from "./trailPreview.js";
@@ -79,6 +89,8 @@ const {
   trailSelect,
   trailHint,
   trailPreviewCanvas,
+  iconOptions,
+  iconHint,
   bindWrap,
   bindHint,
   dashBehaviorSelect,
@@ -86,6 +98,7 @@ const {
   hsWrap,
   pbText,
   trailText,
+  iconText,
   bustercoinText,
   final: finalEl,
   overPB,
@@ -151,6 +164,16 @@ function writeSettingsCookie(settings) {
   }
 }
 
+const ICON_COOKIE = "bingus_icon";
+function readIconCookie() {
+  const raw = getCookie(ICON_COOKIE);
+  return raw && typeof raw === "string" ? raw : null;
+}
+function writeIconCookie(id) {
+  if (!id) return;
+  setCookie(ICON_COOKIE, String(id), 3650);
+}
+
 function setUIMode(isUI) {
   // When UI is shown, let clicks go to HTML controls
   canvas.style.pointerEvents = isUI ? "none" : "auto";
@@ -163,6 +186,7 @@ const net = {
   online: true,
   user: null,
   trails: DEFAULT_TRAILS.map((t) => ({ ...t })),
+  icons: DEFAULT_PLAYER_ICONS.map((i) => ({ ...i })),
   highscores: [],
   achievements: { definitions: ACHIEVEMENTS, state: normalizeAchievementState() }
 };
@@ -175,12 +199,17 @@ let skillSettings = readSettingsCookie() || normalizeSkillSettings(DEFAULT_SKILL
 let CFG = null;
 let trailPreview = null;
 let currentTrailId = "classic";
+let playerIcons = normalizePlayerIcons(DEFAULT_PLAYER_ICONS);
+let currentIconId = normalizeIconSelection({
+  currentId: readIconCookie(),
+  unlockedIds: playerIcons.map((i) => i.id),
+  fallbackId: DEFAULT_PLAYER_ICON_ID
+});
 
 // assets
-const playerImg = new Image();
-playerImg.src = "file.png";
-playerImg.onload = () => { boot.imgReady = true; boot.imgOk = true; refreshBootUI(); };
-playerImg.onerror = () => { boot.imgReady = true; boot.imgOk = false; refreshBootUI(); };
+let playerImg = createPlayerIconSprite(playerIcons.find((i) => i.id === currentIconId));
+boot.imgReady = true; boot.imgOk = true;
+refreshBootUI();
 
 trailPreview = trailPreviewCanvas ? new TrailPreview({ canvas: trailPreviewCanvas, playerImg }) : null;
 
@@ -367,6 +396,101 @@ function setUserHint() {
   userHint.textContent = `Signed in as ${net.user.username}. Runs: ${net.user.runs} • Total: ${net.user.totalScore} • Bustercoins: ${coins}`;
 }
 
+function getIconDisplayName(id, icons = playerIcons) {
+  return icons.find((i) => i.id === id)?.name || id || DEFAULT_PLAYER_ICON_ID;
+}
+
+function syncIconCatalog(nextIcons = null) {
+  const normalized = normalizePlayerIcons(nextIcons || playerIcons);
+  playerIcons = normalized;
+  net.icons = normalized.map((i) => ({ ...i }));
+}
+
+function computeUnlockedIconSet(icons = playerIcons) {
+  const best = net.user ? (net.user.bestScore | 0) : readLocalBest();
+  const achievements = net.user?.achievements || net.achievements?.state;
+  const owned = net.user?.ownedIcons || [];
+  const isRecordHolder = Boolean(net.user?.isRecordHolder);
+  return new Set(
+    getUnlockedPlayerIcons(icons, {
+      bestScore: best,
+      ownedIconIds: owned,
+      achievements,
+      recordHolder: isRecordHolder
+    })
+  );
+}
+
+function renderIconOptions(selectedId = currentIconId, unlocked = computeUnlockedIconSet(playerIcons), icons = playerIcons) {
+  if (!iconOptions) return;
+  const doc = iconOptions.ownerDocument || document;
+  iconOptions.innerHTML = "";
+  const unlockedSet = unlocked instanceof Set ? unlocked : new Set(unlocked || []);
+
+  if (!icons.length) {
+    if (iconHint) {
+      iconHint.className = "hint bad";
+      iconHint.textContent = "No icons available.";
+    }
+    return;
+  }
+
+  icons.forEach((icon) => {
+    const unlockedIcon = unlockedSet.has(icon.id);
+    const btn = doc.createElement("button");
+    btn.type = "button";
+    btn.dataset.iconId = icon.id;
+    btn.className = "icon-option" + (icon.id === selectedId ? " selected" : "") + (unlockedIcon ? "" : " locked");
+    btn.disabled = !unlockedIcon;
+    btn.setAttribute("aria-pressed", icon.id === selectedId ? "true" : "false");
+
+    const swatch = doc.createElement("span");
+    swatch.className = "icon-swatch";
+    swatch.style.setProperty("--icon-fill", icon.style?.fill || "#ff8c1a");
+    swatch.style.setProperty("--icon-core", icon.style?.core || icon.style?.fill || "#ffc285");
+    swatch.style.setProperty("--icon-rim", icon.style?.rim || "#0f172a");
+    swatch.style.setProperty("--icon-glow", icon.style?.glow || "rgba(255,200,120,.5)");
+
+    const meta = doc.createElement("span");
+    meta.className = "icon-meta";
+    const name = doc.createElement("span");
+    name.className = "icon-name";
+    name.textContent = icon.name;
+    const status = doc.createElement("span");
+    status.className = "icon-status";
+    status.textContent = icon.id === selectedId && unlockedIcon
+      ? "Equipped"
+      : describeIconLock(icon, { unlocked: unlockedIcon });
+    meta.append(name, status);
+
+    btn.append(swatch, meta);
+    iconOptions.append(btn);
+  });
+
+  if (iconHint) {
+    iconHint.className = "hint";
+    iconHint.textContent = "Pick a high-contrast icon. More unlocks coming soon.";
+  }
+}
+
+function applyIconSelection(id = currentIconId, icons = playerIcons, unlocked = computeUnlockedIconSet(icons)) {
+  const nextId = normalizeIconSelection({
+    currentId: id || currentIconId || DEFAULT_PLAYER_ICON_ID,
+    userSelectedId: net.user?.selectedIcon,
+    unlockedIds: unlocked,
+    fallbackId: DEFAULT_PLAYER_ICON_ID
+  });
+  currentIconId = nextId;
+  if (iconText) iconText.textContent = getIconDisplayName(nextId, icons);
+  renderIconOptions(nextId, unlocked, icons);
+
+  playerImg = createPlayerIconSprite(icons.find((i) => i.id === nextId) || icons[0]);
+  game.setPlayerImage(playerImg);
+  trailPreview?.setPlayerImage(playerImg);
+  writeIconCookie(nextId);
+  return nextId;
+}
+
 function getTrailDisplayName(id, trails = net.trails) {
   return trails.find(t => t.id === id)?.name || id;
 }
@@ -515,11 +639,13 @@ async function refreshProfileAndHighscores() {
   if (!me) {
     net.online = false;
     net.user = null;
+    syncIconCatalog(net.icons || playerIcons);
     net.achievements = { definitions: ACHIEVEMENTS, state: normalizeAchievementState() };
   } else {
     net.online = true;
     net.user = me.user || null;
     net.trails = normalizeTrails(me.trails || net.trails);
+    syncIconCatalog(me.icons || net.icons);
     applyAchievementsPayload(me.achievements || { definitions: ACHIEVEMENTS, state: me.user?.achievements });
     if (net.user?.keybinds) binds = mergeBinds(DEFAULT_KEYBINDS, net.user.keybinds);
     if (net.user?.settings) await updateSkillSettings(net.user.settings, { persist: false });
@@ -536,6 +662,7 @@ async function refreshProfileAndHighscores() {
 
   setUserHint();
   fillTrailSelect();
+  applyIconSelection(net.user?.selectedIcon || currentIconId, playerIcons);
   renderHighscores({
     container: hsWrap,
     online: net.online,
@@ -561,6 +688,7 @@ saveUserBtn.addEventListener("click", async () => {
     net.online = true;
     net.user = res.user;
     net.trails = normalizeTrails(res.trails || net.trails);
+    syncIconCatalog(res.icons || net.icons);
     applyAchievementsPayload(res.achievements || { definitions: ACHIEVEMENTS, state: res.user?.achievements });
 
     binds = mergeBinds(DEFAULT_KEYBINDS, net.user.keybinds);
@@ -696,7 +824,58 @@ trailSelect.addEventListener("change", async () => {
     net.online = true;
     net.user = res.user;
     net.trails = normalizeTrails(res.trails || net.trails);
+    syncIconCatalog(res.icons || net.icons);
     fillTrailSelect();
+    applyIconSelection(net.user?.selectedIcon || currentIconId, playerIcons);
+  }
+});
+
+iconOptions?.addEventListener("click", async (e) => {
+  const btn = e.target.closest("button[data-icon-id]");
+  if (!btn) return;
+  const id = btn.dataset.iconId;
+  const unlocked = computeUnlockedIconSet(playerIcons);
+  if (!unlocked.has(id)) {
+    if (iconHint) {
+      iconHint.className = "hint bad";
+      iconHint.textContent = "That icon is locked.";
+    }
+    renderIconOptions(currentIconId, unlocked, playerIcons);
+    return;
+  }
+
+  const previous = currentIconId;
+  applyIconSelection(id, playerIcons, unlocked);
+  if (iconHint) {
+    iconHint.className = net.user ? "hint" : "hint good";
+    iconHint.textContent = net.user ? "Saving icon choice…" : "Equipped (guest mode).";
+  }
+
+  if (!net.user) return;
+
+  const res = await apiSetIcon(id);
+  if (!res) {
+    net.online = false;
+    setUserHint();
+    applyIconSelection(previous, playerIcons);
+    if (iconHint) {
+      iconHint.className = "hint bad";
+      iconHint.textContent = "Could not save icon (offline?).";
+    }
+    return;
+  }
+
+  if (res.ok) {
+    net.online = true;
+    net.user = res.user;
+    net.trails = normalizeTrails(res.trails || net.trails);
+    syncIconCatalog(res.icons || net.icons);
+    applyIconSelection(res.user?.selectedIcon || id, playerIcons);
+    setUserHint();
+    if (iconHint) {
+      iconHint.className = "hint good";
+      iconHint.textContent = "Icon saved.";
+    }
   }
 });
 
@@ -1004,10 +1183,12 @@ async function onGameOver(finalScore) {
       net.online = true;
       net.user = res.user;
       net.trails = normalizeTrails(res.trails || net.trails);
+      syncIconCatalog(res.icons || net.icons);
       net.highscores = res.highscores || net.highscores;
       applyAchievementsPayload(res.achievements || { definitions: ACHIEVEMENTS, state: res.user?.achievements });
 
       fillTrailSelect();
+      applyIconSelection(res.user?.selectedIcon || currentIconId, playerIcons);
       renderHighscores();
       renderAchievements();
 
@@ -1027,6 +1208,10 @@ async function onGameOver(finalScore) {
       const best = net.user ? (net.user.bestScore | 0) : readLocalBest();
       overPB.textContent = String(best);
     }
+  }
+
+  if (!net.user) {
+    applyIconSelection(currentIconId, playerIcons);
   }
 
   if (activeRun) {
@@ -1226,6 +1411,7 @@ function frame(ts) {
   }
 
   primeVolumeUI();
+  renderIconOptions(currentIconId, computeUnlockedIconSet(playerIcons), playerIcons);
 
   exportMp4Btn?.addEventListener("click", async () => {
     try {

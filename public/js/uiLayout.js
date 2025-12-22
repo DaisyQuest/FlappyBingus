@@ -135,6 +135,38 @@ function createTrailCard(doc, refs) {
   return card;
 }
 
+function createIconCard(doc, refs) {
+  const card = doc.createElement("div");
+  card.className = "info-card";
+
+  const title = doc.createElement("div");
+  title.className = "section-title";
+  title.textContent = "Player Icon";
+
+  const field = doc.createElement("div");
+  field.className = "field";
+
+  const label = doc.createElement("div");
+  label.className = "section-title small";
+  label.textContent = "Avatar";
+
+  const options = createElement(doc, refs, "div", {
+    id: "iconOptions",
+    className: "icon-grid",
+    attrs: { role: "group" }
+  });
+
+  const hint = createElement(doc, refs, "div", {
+    id: "iconHint",
+    className: "hint",
+    text: "Pick a high-contrast icon. More unlocks coming soon."
+  });
+
+  field.append(label, options, hint);
+  card.append(title, field);
+  return card;
+}
+
 function createTrailPreviewOverlay(doc, refs) {
   const overlay = doc.createElement("div");
   overlay.className = "trail-preview-overlay";
@@ -409,13 +441,19 @@ function createProfileCard(doc, refs) {
   const trailText = createElement(doc, refs, "span", { id: "trailText", className: "kbd", text: "classic" });
   trailBadge.append(trailText);
 
+  const iconBadge = doc.createElement("div");
+  iconBadge.className = "badge";
+  iconBadge.textContent = "Icon ";
+  const iconText = createElement(doc, refs, "span", { id: "iconText", className: "kbd", text: "High-Vis Orange" });
+  iconBadge.append(iconText);
+
   const busterBadge = doc.createElement("div");
   busterBadge.className = "badge";
   busterBadge.textContent = "Bustercoins ";
   const bustercoinText = createElement(doc, refs, "span", { id: "bustercoinText", className: "kbd", text: "0" });
   busterBadge.append(bustercoinText);
 
-  pills.append(pbBadge, trailBadge, busterBadge);
+  pills.append(pbBadge, trailBadge, iconBadge, busterBadge);
 
   field.append(label, row, userHint, pills);
   card.append(title, field);
@@ -499,7 +537,7 @@ function createMenuScreen(doc, refs) {
   mainPanel.className = "panel-main tab-panel";
   const mainGrid = doc.createElement("div");
   mainGrid.className = "info-grid";
-  mainGrid.append(createTrailCard(doc, refs), createHowToCard(doc));
+  mainGrid.append(createTrailCard(doc, refs), createIconCard(doc, refs), createHowToCard(doc));
   const toSettings = doc.createElement("div");
   toSettings.className = "tab-toggle";
   const settingsLabel = doc.createElement("label");

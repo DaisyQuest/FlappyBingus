@@ -134,6 +134,11 @@ export class Game {
     this.skillSettings = normalizeSkillSettings(settings || DEFAULT_SKILL_SETTINGS);
   }
 
+  setPlayerImage(playerImg) {
+    this.playerImg = playerImg || {};
+    if (this.cfg?.player) this._computePlayerSize();
+  }
+
   getRunStats() {
     const toInt = (v) => {
       const n = Number(v);
@@ -360,8 +365,8 @@ export class Game {
     const p = this.player;
     const base = Math.min(this.W, this.H);
     const target = clamp(base * this.cfg.player.sizeScale, this.cfg.player.sizeMin, this.cfg.player.sizeMax);
-    const iw = this.playerImg.naturalWidth || 1;
-    const ih = this.playerImg.naturalHeight || 1;
+    const iw = this.playerImg?.naturalWidth || this.playerImg?.width || 1;
+    const ih = this.playerImg?.naturalHeight || this.playerImg?.height || 1;
     p.w = target;
     p.h = target * (ih / iw);
     p.r = Math.min(p.w, p.h) * this.cfg.player.radiusScale;
@@ -1640,7 +1645,10 @@ _drawOrb(o) {
     ctx.shadowBlur = 18;
     ctx.shadowColor = (p.invT > 0) ? "rgba(160,220,255,.35)" : "rgba(120,210,255,.22)";
 
-    if (this.playerImg && this.playerImg.naturalWidth > 0) {
+    const iw = this.playerImg?.naturalWidth || this.playerImg?.width || 0;
+    const ih = this.playerImg?.naturalHeight || this.playerImg?.height || 0;
+    const ready = this.playerImg?.complete !== false;
+    if (ready && iw > 0 && ih > 0) {
       ctx.drawImage(this.playerImg, p.x - p.w * 0.5, p.y - p.h * 0.5, p.w, p.h);
     } else {
       ctx.fillStyle = "rgba(120,210,255,.92)";

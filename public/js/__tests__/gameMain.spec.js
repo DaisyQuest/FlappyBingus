@@ -236,4 +236,28 @@ describe("Game core loop hooks", () => {
     expect(stats.scoreBreakdown.orbs.points).toBe(0);
     expect(game.score).toBe(0);
   });
+
+  it("recomputes player size when swapping player sprites without natural dimensions", async () => {
+    makeWindow(200, 200, 1);
+    const { canvas, ctx } = baseCanvas();
+    const { Game } = await import("../game.js");
+    const cfg = cloneCfg();
+    const game = new Game({
+      canvas,
+      ctx,
+      config: cfg,
+      playerImg: { width: 10, height: 20 },
+      input: { getMove: () => ({ dx: 0, dy: 0 }), cursor: { has: false } },
+      getTrailId: () => "classic",
+      getBinds: () => ({}),
+      onGameOver: () => {}
+    });
+
+    game.resizeToWindow();
+    const prevR = game.player.r;
+    game.setPlayerImage({ width: 40, height: 20 });
+    expect(game.player.w).toBeGreaterThan(0);
+    expect(game.player.h / game.player.w).toBeCloseTo(0.5);
+    expect(game.player.r).not.toBe(prevR);
+  });
 });

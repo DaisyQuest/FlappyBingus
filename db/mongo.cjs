@@ -4,6 +4,7 @@ const { MongoClient } = require("mongodb");
 
 const MAX_SCORE = 1_000_000_000;
 const DEFAULT_TRAIL = "classic";
+const DEFAULT_ICON = "hi_vis_orange";
 const DEFAULT_ACHIEVEMENTS_STATE = Object.freeze({
   unlocked: Object.freeze({}),
   progress: Object.freeze({
@@ -222,6 +223,8 @@ class MongoDataStore {
             key: { $ifNull: ["$key", user.key] },
             username: { $ifNull: ["$username", user.username || user.key] },
             selectedTrail: { $ifNull: ["$selectedTrail", user.selectedTrail || DEFAULT_TRAIL] },
+            selectedIcon: { $ifNull: ["$selectedIcon", user.selectedIcon || DEFAULT_ICON] },
+            ownedIcons: { $ifNull: ["$ownedIcons", user.ownedIcons || []] },
             keybinds: { $ifNull: ["$keybinds", user.keybinds || null] },
             createdAt: { $ifNull: ["$createdAt", user.createdAt || now] },
 
@@ -248,6 +251,17 @@ class MongoDataStore {
     const res = await this.usersCollection().findOneAndUpdate(
       { key },
       { $set: { selectedTrail: trailId, updatedAt: now } },
+      { returnDocument: "after" }
+    );
+    return res.value;
+  }
+
+  async setIcon(key, iconId) {
+    await this.ensureConnected();
+    const now = Date.now();
+    const res = await this.usersCollection().findOneAndUpdate(
+      { key },
+      { $set: { selectedIcon: iconId, updatedAt: now } },
       { returnDocument: "after" }
     );
     return res.value;
