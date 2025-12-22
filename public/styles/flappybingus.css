@@ -47,6 +47,12 @@ canvas{position:absolute;inset:0;width:100%;height:100%;display:block;background
   box-shadow:none;
   backdrop-filter:none;
   -webkit-backdrop-filter:none;
+  position:relative;
+  display:flex;
+  flex-direction:column;
+  max-height:calc(100vh - 32px);
+  min-height:0;
+  overflow:hidden;
 }
 .menu-parallax{
   position:absolute;inset:-12% -10%;
@@ -133,7 +139,32 @@ canvas{position:absolute;inset:0;width:100%;height:100%;display:block;background
 .title.danger{color:var(--danger)}
 .sub{color:var(--muted);font-size:15px;line-height:1.55;margin:0;max-width:840px;text-shadow:0 6px 14px rgba(0,0,0,.25)}
 
-.menu-shell{display:grid;grid-template-columns:1.1fr .9fr;gap:14px;align-items:start;padding:8px}
+.menu-shell{
+  display:grid;
+  grid-template-columns:1.1fr .9fr;
+  gap:14px;
+  align-items:start;
+  padding:8px;
+  padding-right:14px;
+  min-height:0;
+  flex:1 1 auto;
+  overflow-y:auto;
+}
+.menu-shell::-webkit-scrollbar{width:12px}
+.menu-shell::-webkit-scrollbar-track{
+  background:rgba(255,255,255,.04);
+  border-radius:999px;
+}
+.menu-shell::-webkit-scrollbar-thumb{
+  background:linear-gradient(180deg,rgba(170,220,255,.75),rgba(150,180,255,.62));
+  border-radius:999px;
+  border:2px solid rgba(0,0,0,.25);
+  box-shadow:0 4px 10px rgba(0,0,0,.35);
+}
+.menu-shell::-webkit-scrollbar-thumb:hover{
+  background:linear-gradient(180deg,rgba(200,235,255,.9),rgba(170,205,255,.72));
+}
+.menu-shell{scrollbar-width:thin;scrollbar-color:rgba(180,220,255,.8) rgba(255,255,255,.06)}
 .menu-shell[data-view="settings"],.menu-shell[data-view="achievements"]{grid-template-columns:1fr}
 .menu-shell[data-view="settings"] .side-stack,.menu-shell[data-view="achievements"] .side-stack{display:none}
 @media (max-width: 900px){ .menu-shell{grid-template-columns:1fr} }
@@ -514,7 +545,25 @@ input[type="range"]::-moz-range-thumb{
   radial-gradient(50% 40% at 80% 10%,rgba(210,160,255,.2),transparent),
   radial-gradient(60% 50% at 70% 80%,rgba(255,170,220,.14),transparent);
   filter:blur(30px);opacity:.82;pointer-events:none;z-index:1}
-.content-layer{position:relative;z-index:2}
+.content-layer{
+  position:relative;
+  z-index:2;
+  display:flex;
+  flex-direction:column;
+  gap:12px;
+  flex:1 1 auto;
+  min-height:0;
+  overflow:hidden;
+}
+.menu-body{
+  position:relative;
+  display:flex;
+  flex-direction:column;
+  gap:12px;
+  flex:1 1 auto;
+  min-height:0;
+  overflow:hidden;
+}
 
 @keyframes floatIn{
   from{opacity:0;transform:translateY(8px)}
