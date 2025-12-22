@@ -337,3 +337,27 @@
 - Implement the Game Over layout and typography changes, including the new PB badge and status text.
 - Update score breakdown styles to use the compact grid and larger text sizing.
 - Add targeted unit tests for the PB helpers and the updated Game Over layout.
+
+# Meeting Notes
+- Date: 2025-12-22
+- Attendees: ChatGPT (GPT-5.1-Codex-Max)
+
+## Agenda
+- Expand automated tests for achievements, trail/icon selection, and perfect gap handling.
+- Verify teleport explosion behavior destroys overlapping walls.
+
+## Discussion
+- Every achievement definition now has a targeted test case that satisfies its requirement to prevent gaps in coverage.
+- Trail and icon selection helpers gained checks that ensure all unlocked cosmetics remain selectable with accurate labels.
+- Perfect gap resolution now tracks runStats increments and early exits reliably, keeping combo tracking consistent.
+- Teleport explosion coverage confirms pipes at the landing spot are shattered while distant pipes persist.
+
+## Decisions
+- Keep achievement validation table-driven so new requirements get coverage automatically.
+- Treat unlocked cosmetic sets as fully selectable with consistent aria and name metadata.
+- Preserve existing jsdom canvas shims while noting getContext warnings during test runs.
+
+## Action Items
+- Monitor future achievement additions to extend the table-driven test harness.
+- Re-run the full headless test suite after gameplay tweaks that touch skills or perfect gap handling.
+- Keep an eye on canvas API warnings; add mocks if they become disruptive.

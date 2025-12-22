@@ -78,6 +78,27 @@ describe("player icon helpers", () => {
     expect(describeIconLock(DEFAULT_PLAYER_ICONS[0], { unlocked: true })).toBe("Free");
   });
 
+  it("allows equipping every skin when all prerequisite achievements are complete", () => {
+    const achievementMap = DEFAULT_PLAYER_ICONS.reduce((acc, icon) => {
+      if (icon.unlock?.type === "achievement") acc[icon.unlock.id] = Date.now();
+      return acc;
+    }, {});
+
+    const unlocked = getUnlockedPlayerIcons(DEFAULT_PLAYER_ICONS, { achievements: { unlocked: achievementMap } });
+    const unlockedSet = new Set(unlocked);
+
+    expect(unlockedSet.size).toBe(DEFAULT_PLAYER_ICONS.length);
+    expect(unlockedSet).toEqual(new Set(DEFAULT_PLAYER_ICONS.map((icon) => icon.id)));
+
+    const selection = normalizeIconSelection({
+      currentId: "inferno_cape",
+      userSelectedId: "fire_cape",
+      unlockedIds: unlockedSet,
+      fallbackId: DEFAULT_PLAYER_ICON_ID
+    });
+    expect(selection).toBe("inferno_cape");
+  });
+
   it("locks fire and inferno capes behind their score achievements", () => {
     const fire = DEFAULT_PLAYER_ICONS.find((icon) => icon.id === "fire_cape");
     const inferno = DEFAULT_PLAYER_ICONS.find((icon) => icon.id === "inferno_cape");
