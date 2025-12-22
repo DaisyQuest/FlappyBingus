@@ -408,24 +408,6 @@ function createAchievementsCard(doc, refs) {
   const card = doc.createElement("div");
   card.className = "info-card achievements-card";
 
-  const header = doc.createElement("div");
-  header.className = "achievements-header";
-
-  const backLabel = doc.createElement("label");
-  backLabel.setAttribute("for", "viewMain");
-  backLabel.className = "tab-pill achievements-back";
-  backLabel.textContent = "←";
-
-  const title = doc.createElement("div");
-  title.className = "section-title";
-  title.textContent = "Achievements";
-
-  header.append(backLabel, title);
-
-  const blurb = doc.createElement("div");
-  blurb.className = "compact";
-  blurb.textContent = "Track long-term goals. Rewards unlock cosmetics in a future update.";
-
   const controls = doc.createElement("div");
   controls.className = "achievement-controls";
   const filters = doc.createElement("div");
@@ -464,7 +446,7 @@ function createAchievementsCard(doc, refs) {
   const list = createElement(doc, refs, "div", { id: "achievementsList", className: "achievement-list" });
   list.style.maxHeight = "520px";
 
-  card.append(header, blurb, controls, list);
+  card.append(controls, list);
   return card;
 }
 
@@ -562,6 +544,15 @@ function createMenuScreen(doc, refs) {
 
   const header = doc.createElement("div");
   header.className = "menu-header";
+  const titleRow = doc.createElement("div");
+  titleRow.className = "menu-title-row";
+  const achievementsBack = createElement(doc, refs, "label", {
+    id: "achievementsHeaderBack",
+    className: "tab-pill achievements-back",
+    attrs: { for: "viewMain" },
+    text: "← Back to Main"
+  });
+  achievementsBack.hidden = true;
   const cloud = doc.createElement("div");
   cloud.className = "title-cloud";
   const title = createElement(doc, refs, "div", {
@@ -570,13 +561,14 @@ function createMenuScreen(doc, refs) {
     text: "Flappy Bingus"
   });
   cloud.append(title);
+  titleRow.append(achievementsBack, cloud);
 
   const subtitle = doc.createElement("p");
   subtitle.className = "sub menu-subtitle";
   const subtitleText = "Thank you for playing!";
   subtitle.textContent = subtitleText;
 
-  header.append(cloud, subtitle);
+  header.append(titleRow, subtitle);
 
   const viewMain = createElement(doc, refs, "input", {
     id: "viewMain",
@@ -656,6 +648,7 @@ function createMenuScreen(doc, refs) {
   sideStack.append(createProfileCard(doc, refs), createHighscoreCard(doc, refs));
 
   shell.append(mainCard, sideStack);
+  const achievementsHeaderBack = refs.achievementsHeaderBack;
 
   const updateMenuView = () => {
     const view = viewSettings.checked ? "settings" : viewAchievements.checked ? "achievements" : "main";
@@ -663,6 +656,7 @@ function createMenuScreen(doc, refs) {
     sideStack.hidden = view !== "main";
     title.textContent = view === "settings" ? "Settings" : view === "achievements" ? "Achievements" : "Flappy Bingus";
     subtitle.hidden = view === "achievements";
+    if (achievementsHeaderBack) achievementsHeaderBack.hidden = view !== "achievements";
     if (view !== "achievements") subtitle.textContent = subtitleText;
   };
 
