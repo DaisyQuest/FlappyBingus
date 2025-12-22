@@ -29,6 +29,15 @@ describe("server player icon catalog", () => {
     expect(unlocked).toEqual(expect.arrayContaining(["free", "score", "ach", "paid", "record"]));
   });
 
+  it("unlocks the Perfect Ten reward icon when the achievement is earned", () => {
+    const unlocked = unlockedIcons(
+      { achievements: { unlocked: { perfects_run_10: Date.now() } } },
+      { icons: PLAYER_ICONS, recordHolder: false }
+    );
+    expect(unlocked).toContain("perfect_ten_liner");
+    expect(unlocked).not.toContain("orb_free_zigzag");
+  });
+
   it("falls back to default icon when none are unlocked", () => {
     const icons = [{ id: "locked", unlock: { type: "score", minScore: 99999 } }];
     const unlocked = unlockedIcons({ bestScore: 0 }, { icons, recordHolder: false });

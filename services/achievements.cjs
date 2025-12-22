@@ -170,7 +170,7 @@ const ACHIEVEMENTS = Object.freeze([
     description: "Clear 10 perfect gaps in a single run.",
     requirement: { minPerfects: 10 },
     progressKey: "maxPerfectsInRun",
-    reward: "Cosmetics coming soon"
+    reward: "Unlocks the Perfect Line Beacon icon"
   },
   {
     id: "perfects_total_100",

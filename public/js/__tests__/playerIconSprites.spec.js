@@ -49,10 +49,12 @@ describe("player icon sprites", () => {
       stroke: () => calls.push("stroke"),
       clearRect: () => calls.push("clearRect"),
       lineTo: () => calls.push("lineTo"),
+      moveTo: () => calls.push("moveTo"),
       set lineWidth(v) { this._lineWidth = v; },
       set strokeStyle(v) { this._strokeStyle = v; },
       set shadowColor(v) { this._shadowColor = v; },
-      set shadowBlur(v) { this._shadowBlur = v; }
+      set shadowBlur(v) { this._shadowBlur = v; },
+      set lineCap(v) { this._lineCap = v; }
     };
     const canvas = {
       width: 64,
@@ -76,5 +78,49 @@ describe("player icon sprites", () => {
 
     expect(sprite.__pattern?.type).toBe("zigzag");
     expect(calls).toContain("stroke");
+  });
+
+  it("renders a centerline guide pattern to help with perfect gap alignment", () => {
+    const calls = [];
+    const ctx = {
+      save: () => calls.push("save"),
+      restore: () => calls.push("restore"),
+      translate: () => calls.push("translate"),
+      beginPath: () => calls.push("beginPath"),
+      arc: () => calls.push("arc"),
+      fill: () => calls.push("fill"),
+      stroke: () => calls.push("stroke"),
+      clearRect: () => calls.push("clearRect"),
+      lineTo: () => calls.push("lineTo"),
+      moveTo: () => calls.push("moveTo"),
+      set lineWidth(v) { this._lineWidth = v; },
+      set strokeStyle(v) { this._strokeStyle = v; },
+      set shadowColor(v) { this._shadowColor = v; },
+      set shadowBlur(v) { this._shadowBlur = v; },
+      set lineCap(v) { this._lineCap = v; }
+    };
+    const canvas = {
+      width: 80,
+      height: 80,
+      naturalWidth: 80,
+      naturalHeight: 80,
+      complete: true,
+      getContext: () => ctx
+    };
+    global.document = {
+      createElement: (tag) => (tag === "canvas" ? canvas : {})
+    };
+
+    const sprite = createPlayerIconSprite({
+      style: {
+        fill: "#0b1120",
+        core: "#f8fafc",
+        pattern: { type: "centerline", stroke: "#f8fafc", accent: "#facc15" }
+      }
+    }, { size: 80 });
+
+    expect(sprite.__pattern?.type).toBe("centerline");
+    expect(calls.filter((c) => c === "stroke").length).toBeGreaterThanOrEqual(2);
+    expect(calls).toContain("moveTo");
   });
 });

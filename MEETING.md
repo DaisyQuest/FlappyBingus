@@ -165,3 +165,28 @@
 ## Action Items
 - Ship the layout, styling, and test updates that lock in the new settings hierarchy.
 - Watch for any UI regressions tied to the settings grid or seed row alignment in future changes.
+
+# Meeting Notes
+- Date: 2025-12-22
+- Attendees: ChatGPT (GPT-5.1-Codex-Max)
+
+## Agenda
+- Add a Perfect Ten reward icon with high-contrast center guides for lining up perfect gaps.
+- Extend icon sprite rendering to support the new centerline pattern.
+- Update unlock text and automated coverage for the new cosmetic.
+
+## Discussion
+- The Perfect Ten achievement lacked a concrete cosmetic, leaving perfect-gap specialists without a visual goal.
+- The new Perfect Line Beacon uses a dark shell with bright vertical and horizontal guides to aid alignment at a glance.
+- Sprite generation gained a reusable centerline pattern layer so future alignment-focused icons can share the renderer without extra loops.
+- Tests now exercise the unlock path and rendering branch to keep icon coverage high.
+
+## Decisions
+- Gate the Perfect Line Beacon behind the Perfect Ten achievement with explicit reward text.
+- Render the beacon with a centerline overlay (vertical + horizontal bars and focal point) on a high-contrast palette.
+- Keep other achievement rewards unchanged for stability while we monitor the new cosmetic path.
+
+## Action Items
+- Land the Perfect Line Beacon icon and centerline sprite support.
+- Ensure tests cover both the unlock logic and the rendering path for the new pattern.
+- Monitor icon picker hints to confirm the Perfect Ten reward label surfaces correctly for locked users.
