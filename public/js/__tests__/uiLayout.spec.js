@@ -112,6 +112,34 @@ describe("uiLayout", () => {
     expect(ui.slowFieldBehaviorSelect?.querySelectorAll("option")?.length).toBeGreaterThanOrEqual(2);
   });
 
+  it("prioritizes skills in the settings layout while compacting utilities", () => {
+    buildGameUI({ document, mount });
+    const settingsGrid = document.querySelector(".settings-grid");
+    expect(settingsGrid?.classList.contains("info-grid")).toBe(true);
+
+    const featureCards = Array.from(settingsGrid?.querySelectorAll(".settings-feature") || []);
+    const featureTitles = featureCards.map(card => card.querySelector(".section-title")?.textContent);
+    expect(featureCards.length).toBe(2);
+    expect(featureTitles).toContain("Skill Behaviors");
+    expect(featureTitles).toContain("Skill Keybinds");
+    expect(settingsGrid?.firstElementChild?.querySelector(".section-title")?.textContent).toBe("Skill Behaviors");
+
+    const secondary = settingsGrid?.querySelector(".settings-secondary");
+    expect(secondary?.querySelector("#musicVolume")).toBeInstanceOf(window.HTMLInputElement);
+    expect(secondary?.querySelector("#sfxVolume")).toBeInstanceOf(window.HTMLInputElement);
+
+    const utilityTitles = Array.from(settingsGrid?.querySelectorAll(".settings-utility .section-title") || []).map(
+      el => el?.textContent
+    );
+    expect(utilityTitles).toContain("Status");
+    expect(utilityTitles).toContain("Level Seed");
+
+    const seedRow = document.querySelector(".seed-row");
+    expect(seedRow?.classList.contains("minirow")).toBe(true);
+    expect(seedRow?.querySelector("#seedInput")).toBeInstanceOf(window.HTMLInputElement);
+    expect(seedRow?.querySelector("#seedRandomBtn")).toBeInstanceOf(window.HTMLButtonElement);
+  });
+
   it("layers the trail preview behind panel content while keeping menus interactive", () => {
     buildGameUI({ document, mount });
     const screen = mount.querySelector("#menu.screen");
