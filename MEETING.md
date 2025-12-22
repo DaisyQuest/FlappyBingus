@@ -285,3 +285,29 @@
 - Verify cooldown badge values whenever production config overrides defaults.
 - Watch responsive breakpoints for the skill matrix, seed row, and status alignment to ensure no wrap-induced overlap.
 - Maintain uiLayout test coverage when iterating on settings copy or spacing.
+
+# Meeting Notes
+- Date: 2025-12-22
+- Attendees: ChatGPT (GPT-5.1-Codex-Max)
+
+## Agenda
+- Refresh the Game Over screen layout and typography to make scores clearer and actions easier to reach.
+- Add logic to surface new personal bests immediately in the Game Over menu.
+- Tighten score breakdown spacing while keeping replay/export controls accessible.
+
+## Discussion
+- The Game Over headline was centered but the surrounding copy and action rows were uneven, and the final score lacked emphasis.
+- Personal bests only showed as a number; there was no celebratory indicator when a run set a new record.
+- The breakdown table used wide gutters and boxed rows that felt over-segmented relative to the rest of the UI.
+- Primary actions (restart, retry seed, main menu) needed to sit above the score summary, with replay/export controls anchored at the bottom.
+
+## Decisions
+- Center the headline/subtitle, move primary actions directly under the headline, and place replay/export controls at the bottom of the card.
+- Introduce a large, bright final-score display with a slightly enlarged personal best line plus a badge and status line that light up on new PBs.
+- Rework the breakdown list into a tighter grid with larger type and reduced column gaps to soften the segmentation.
+- Add helper utilities to compute/update PB state so network/guest flows stay consistent.
+
+## Action Items
+- Implement the Game Over layout and typography changes, including the new PB badge and status text.
+- Update score breakdown styles to use the compact grid and larger text sizing.
+- Add targeted unit tests for the PB helpers and the updated Game Over layout.

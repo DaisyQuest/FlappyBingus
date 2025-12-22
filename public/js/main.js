@@ -52,6 +52,7 @@ import {
 import { applyBustercoinEarnings } from "./bustercoins.js";
 import { ACHIEVEMENTS, normalizeAchievementState, renderAchievementsList, appendAchievementToast } from "./achievements.js";
 import { renderScoreBreakdown } from "./scoreBreakdown.js";
+import { computePersonalBestStatus, updatePersonalBestElements } from "./personalBest.js";
 import {
   DEFAULT_PLAYER_ICON_ID,
   DEFAULT_PLAYER_ICONS,
@@ -127,6 +128,8 @@ const {
   bustercoinText,
   final: finalEl,
   overPB,
+  overPbBadge,
+  overPbStatus,
   scoreBreakdown,
   seedInput,
   seedRandomBtn,
@@ -157,6 +160,22 @@ function readLocalBest() {
 }
 function writeLocalBest(v) {
   setCookie(LOCAL_BEST_COOKIE, String(Math.max(0, Math.min(1e9, v | 0))), 3650);
+}
+function updatePersonalBestUI(finalScore, userBestScore) {
+  if (!overPB) return;
+  const personalBestStatus = computePersonalBestStatus(finalScore, userBestScore, readLocalBest());
+  if (personalBestStatus.shouldPersistLocalBest) {
+    writeLocalBest(personalBestStatus.score);
+  }
+  const refreshedStatus = computePersonalBestStatus(finalScore, userBestScore, readLocalBest());
+  updatePersonalBestElements(
+    {
+      personalBestEl: overPB,
+      badgeEl: overPbBadge,
+      statusEl: overPbStatus
+    },
+    refreshedStatus
+  );
 }
 
 // ---- Seed cookie ----
@@ -1353,12 +1372,7 @@ async function onGameOver(finalScore) {
   finalEl.textContent = String(finalScore | 0);
   const runStats = game?.getRunStats ? game.getRunStats() : null;
   renderScoreBreakdown(scoreBreakdown, runStats, finalScore);
-
-  const localBest = readLocalBest();
-  if ((finalScore | 0) > (localBest | 0)) writeLocalBest(finalScore | 0);
-
-  const pb = net.user ? (net.user.bestScore | 0) : readLocalBest();
-  overPB.textContent = String(pb);
+  updatePersonalBestUI(finalScore, net.user?.bestScore);
 
   over.classList.remove("hidden");
 
@@ -1383,7 +1397,7 @@ async function onGameOver(finalScore) {
       renderHighscores();
       renderAchievements();
 
-      overPB.textContent = String(net.user.bestScore | 0);
+      updatePersonalBestUI(finalScore, net.user.bestScore);
     } else {
       if (optimistic.applied && net.user?.bustercoins !== undefined) {
         // Preserve optimistic balance locally so the menu reflects the run's pickups even if the
@@ -1396,8 +1410,7 @@ async function onGameOver(finalScore) {
       await refreshProfileAndHighscores();
 
       // Keep PB display meaningful even if the submission failed.
-      const best = net.user ? (net.user.bestScore | 0) : readLocalBest();
-      overPB.textContent = String(best);
+      updatePersonalBestUI(finalScore, net.user?.bestScore);
     }
   }
 
