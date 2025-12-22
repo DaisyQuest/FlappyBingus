@@ -70,8 +70,8 @@ describe("uiLayout", () => {
       "bootText",
       "bindWrap",
       "bindHint",
-      "dashBehaviorSelect",
-      "slowFieldBehaviorSelect",
+      "dashBehaviorOptions",
+      "slowFieldBehaviorOptions",
       "hsWrap",
       "pbText",
       "trailText",
@@ -102,7 +102,8 @@ describe("uiLayout", () => {
       "achievementsHideCompleted",
       "achievementsList",
       "achievementToasts",
-      "viewAchievements"
+      "viewAchievements",
+      "settingsHeaderBack"
     ];
 
     for (const key of requiredRefs) {
@@ -113,8 +114,8 @@ describe("uiLayout", () => {
     expect(howToItems?.length).toBe(6);
     expect(ui.seedHint?.textContent).toContain("pipe/orb");
     expect(ui.trailHint?.textContent).toContain("Unlock trails");
-    expect(ui.dashBehaviorSelect?.querySelectorAll("option")?.length).toBeGreaterThanOrEqual(2);
-    expect(ui.slowFieldBehaviorSelect?.querySelectorAll("option")?.length).toBeGreaterThanOrEqual(2);
+    expect(ui.dashBehaviorOptions?.querySelectorAll(".skill-option")?.length).toBe(2);
+    expect(ui.slowFieldBehaviorOptions?.querySelectorAll(".skill-option")?.length).toBe(2);
   });
 
   it("positions the trail swatch to the left of the launcher text and exposes the overlay grid", () => {
@@ -224,12 +225,14 @@ describe("uiLayout", () => {
     const achievementsRadio = document.getElementById("viewAchievements");
     const mainRadio = document.getElementById("viewMain");
     const achievementsBack = document.getElementById("achievementsHeaderBack");
+    const settingsBack = document.getElementById("settingsHeaderBack");
 
     expect(title?.textContent).toBe("Flappy Bingus");
     expect(subtitle?.hidden).toBe(false);
     expect(shell?.dataset.view).toBe("main");
     expect(sideStack?.hidden).toBe(false);
     expect(achievementsBack?.hidden).toBe(true);
+    expect(settingsBack?.hidden).toBe(true);
 
     settingsRadio.checked = true;
     settingsRadio.dispatchEvent(new window.Event("change"));
@@ -238,6 +241,7 @@ describe("uiLayout", () => {
     expect(shell?.dataset.view).toBe("settings");
     expect(sideStack?.hidden).toBe(true);
     expect(achievementsBack?.hidden).toBe(true);
+    expect(settingsBack?.hidden).toBe(false);
 
     achievementsRadio.checked = true;
     achievementsRadio.dispatchEvent(new window.Event("change"));
@@ -246,6 +250,7 @@ describe("uiLayout", () => {
     expect(shell?.dataset.view).toBe("achievements");
     expect(sideStack?.hidden).toBe(true);
     expect(achievementsBack?.hidden).toBe(false);
+    expect(settingsBack?.hidden).toBe(true);
 
     mainRadio.checked = true;
     mainRadio.dispatchEvent(new window.Event("change"));
@@ -254,30 +259,42 @@ describe("uiLayout", () => {
     expect(shell?.dataset.view).toBe("main");
     expect(sideStack?.hidden).toBe(false);
     expect(achievementsBack?.hidden).toBe(true);
+    expect(settingsBack?.hidden).toBe(true);
   });
 
   it("places the achievements back control beside the menu title and removes the card heading", () => {
     buildGameUI({ document, mount });
     const menuTitleRow = document.querySelector(".menu-title-row");
     const headerBack = document.getElementById("achievementsHeaderBack");
+    const settingsBack = document.getElementById("settingsHeaderBack");
     const achievementList = document.getElementById("achievementsList");
     const achievementToggle = document.querySelector(".panel-achievements .tab-toggle");
+    const settingsToggle = document.querySelector(".panel-settings .tab-toggle");
     const achievementsHeading = document.querySelector(".achievements-card .section-title");
     const blurb = document.querySelector(".achievements-card .compact");
     const achievementsRadio = document.getElementById("viewAchievements");
+    const settingsRadio = document.getElementById("viewSettings");
     const mainRadio = document.getElementById("viewMain");
     const subtitle = document.querySelector(".menu-subtitle");
 
     expect(menuTitleRow?.firstElementChild).toBe(headerBack);
+    expect(menuTitleRow?.children?.[1]).toBe(settingsBack);
     expect(headerBack?.hidden).toBe(true);
+    expect(settingsBack?.hidden).toBe(true);
     expect(achievementToggle).toBeFalsy();
+    expect(settingsToggle).toBeFalsy();
     expect(achievementsHeading).toBeFalsy();
     expect(blurb).toBeFalsy();
+
+    settingsRadio.checked = true;
+    settingsRadio.dispatchEvent(new window.Event("change"));
+    expect(settingsBack?.hidden).toBe(false);
 
     achievementsRadio.checked = true;
     achievementsRadio.dispatchEvent(new window.Event("change"));
     expect(headerBack?.hidden).toBe(false);
     expect(subtitle?.hidden).toBe(true);
+    expect(settingsBack?.hidden).toBe(true);
 
     mainRadio.checked = true;
     mainRadio.dispatchEvent(new window.Event("change"));
