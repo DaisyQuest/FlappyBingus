@@ -215,7 +215,13 @@ const AUDIO = Object.freeze({
   bounceUrl: "/audio/dash-bounce.mp3",
   shatterUrl: "/audio/dash-destroy.mp3",
   slowFieldUrl: "/audio/slow-field.mp3",
-  slowExplosionUrl: "/audio/slow-explosion.mp3"
+  slowExplosionUrl: "/audio/slow-explosion.mp3",
+  dashStartUrl: "/audio/dash-start.mp3",
+  dashBreakUrl: "/audio/dash-break.mp3",
+  teleportUrl: "/audio/teleport.mp3",
+  phaseUrl: "/audio/phase.mp3",
+  explosionUrl: "/audio/explosion.mp3",
+  gameOverUrl: "/audio/game-over.mp3"
 });
 
 // Volume UI defaults (match HTML defaults in flappybingus.html)
@@ -799,7 +805,13 @@ async function ensureAudioReady() {
       bounceUrl: AUDIO.bounceUrl,
       shatterUrl: AUDIO.shatterUrl,
       slowFieldUrl: AUDIO.slowFieldUrl,
-      slowExplosionUrl: AUDIO.slowExplosionUrl
+      slowExplosionUrl: AUDIO.slowExplosionUrl,
+      dashStartUrl: AUDIO.dashStartUrl,
+      dashBreakUrl: AUDIO.dashBreakUrl,
+      teleportUrl: AUDIO.teleportUrl,
+      phaseUrl: AUDIO.phaseUrl,
+      explosionUrl: AUDIO.explosionUrl,
+      gameOverUrl: AUDIO.gameOverUrl
     });
     applyVolumeFromUI();
 

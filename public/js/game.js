@@ -13,10 +13,16 @@ import { resolveGapPerfect } from "./perfectGaps.js";
 import {
   sfxOrbBoop,
   sfxPerfectNice,
+  sfxDashStart,
   sfxDashBounce,
   sfxDashDestroy,
   sfxSlowField,
-  sfxSlowExplosion
+  sfxSlowExplosion,
+  sfxDashBreak,
+  sfxTeleport,
+  sfxPhase,
+  sfxExplosion,
+  sfxGameOver
 } from "./audio.js";
 import { DEFAULT_SKILL_SETTINGS, normalizeSkillSettings } from "./settings.js";
 
@@ -209,6 +215,36 @@ export class Game {
   _perfectNiceSfx() {
     if (!this.audioEnabled) return;
     sfxPerfectNice();
+  }
+
+  _dashStartSfx() {
+    if (!this.audioEnabled) return;
+    sfxDashStart();
+  }
+
+  _dashBreakSfx() {
+    if (!this.audioEnabled) return;
+    sfxDashBreak();
+  }
+
+  _phaseSfx() {
+    if (!this.audioEnabled) return;
+    sfxPhase();
+  }
+
+  _teleportSfx() {
+    if (!this.audioEnabled) return;
+    sfxTeleport();
+  }
+
+  _explosionSfx() {
+    if (!this.audioEnabled) return;
+    sfxExplosion({ allowFallback: false });
+  }
+
+  _gameOverSfx() {
+    if (!this.audioEnabled) return;
+    sfxGameOver();
   }
 
 
@@ -567,6 +603,7 @@ export class Game {
   _slowExplosionSfx() {
     if (!this.audioEnabled) return;
     sfxSlowExplosion();
+    this._explosionSfx();
   }
 
   _spawnDashReflectFx(x, y, nx, ny, power = 1) {
@@ -745,11 +782,13 @@ export class Game {
         this._applyDashReflect(hit);
         return "reflected";
       }
+      this._gameOverSfx();
       this.state = STATE.OVER; // exceeded reflect cap -> normal collision
       this.onGameOver(this.score | 0);
       return "over";
     }
 
+    this._gameOverSfx();
     this.state = STATE.OVER; // freeze
     this.onGameOver(this.score | 0);
     return "over";
@@ -823,6 +862,7 @@ export class Game {
       const dur = clamp(Number(ph.duration) || 0, 0, 2.0);
       p.invT = Math.max(p.invT, dur);
       this.cds.phase = Math.max(0, Number(ph.cooldown) || 0);
+      this._phaseSfx();
       this.floats.push(new FloatText("PHASE", p.x, p.y - p.r * 1.6, "rgba(160,220,255,.95)"));
       used = true;
     }
@@ -879,6 +919,7 @@ export class Game {
       p.vx *= 0.25; p.vy *= 0.25;
 
       this.cds.teleport = Math.max(0, Number(t.cooldown) || 0);
+      this._teleportSfx();
       this.floats.push(new FloatText("TELEPORT", p.x, p.y - p.r * 1.7, "rgba(230,200,255,.95)"));
 
       for (let i = 0; i < 26; i++) {
@@ -932,6 +973,7 @@ export class Game {
     const p = this.player;
     p.dashMode = "ricochet";
     this.cds.dash = Math.max(0, Number(d.cooldown) || 0);
+    this._dashStartSfx();
 
     for (let i = 0; i < 18; i++) {
       const a = rand(0, Math.PI * 2), sp = rand(40, 260);
@@ -948,6 +990,7 @@ export class Game {
     const p = this.player;
     p.dashMode = "destroy";
     this.cds.dash = Math.max(0, Number(d.cooldown) || 0);
+    this._dashStartSfx();
 
     for (let i = 0; i < 26; i++) {
       const a = rand(0, Math.PI * 2), sp = rand(60, 320);
@@ -1045,17 +1088,33 @@ export class Game {
     p.y += p.vy * dt;
 
     let wallBounce = null;
-    if (p.dashT > 0 && p.invT <= 0 && p.dashBounces < this._dashBounceMax()) {
-      if (p.x < pad) wallBounce = { nx: 1, ny: 0, contactX: pad, contactY: p.y, penetration: pad - p.x };
-      else if (p.x > this.W - pad) wallBounce = { nx: -1, ny: 0, contactX: this.W - pad, contactY: p.y, penetration: p.x - (this.W - pad) };
-      else if (p.y < pad) wallBounce = { nx: 0, ny: 1, contactX: p.x, contactY: pad, penetration: pad - p.y };
-      else if (p.y > this.H - pad) wallBounce = { nx: 0, ny: -1, contactX: p.x, contactY: this.H - pad, penetration: p.y - (this.H - pad) };
+    let wallContact = null;
+    const bounceCap = this._dashBounceMax();
+    if (p.dashT > 0 && p.invT <= 0) {
+      const candidate =
+        (p.x < pad) ? { nx: 1, ny: 0, contactX: pad, contactY: p.y, penetration: pad - p.x }
+          : (p.x > this.W - pad) ? { nx: -1, ny: 0, contactX: this.W - pad, contactY: p.y, penetration: p.x - (this.W - pad) }
+            : (p.y < pad) ? { nx: 0, ny: 1, contactX: p.x, contactY: pad, penetration: pad - p.y }
+              : (p.y > this.H - pad) ? { nx: 0, ny: -1, contactX: p.x, contactY: this.H - pad, penetration: p.y - (this.H - pad) }
+                : null;
+      if (candidate) {
+        wallContact = candidate;
+        if (p.dashBounces < bounceCap) wallBounce = candidate;
+      }
     }
 
     p.x = clamp(p.x, pad, this.W - pad);
     p.y = clamp(p.y, pad, this.H - pad);
 
     if (wallBounce) this._applyDashReflect(wallBounce);
+    else if (wallContact && Number.isFinite(bounceCap)) {
+      this._dashBreakSfx();
+      p.dashMode = null;
+      p.dashT = 0;
+      p.dashBounces = bounceCap;
+      p.vx = 0;
+      p.vy = 0;
+    }
   }
 
   _trailStyle(id) {

@@ -12,8 +12,14 @@ import { ACTIONS } from "../keybinds.js";
 vi.mock("../audio.js", () => ({
   sfxOrbBoop: vi.fn(),
   sfxPerfectNice: vi.fn(),
+  sfxDashStart: vi.fn(),
   sfxDashBounce: vi.fn(),
   sfxDashDestroy: vi.fn(),
+  sfxDashBreak: vi.fn(),
+  sfxTeleport: vi.fn(),
+  sfxPhase: vi.fn(),
+  sfxExplosion: vi.fn(),
+  sfxGameOver: vi.fn(),
   sfxSlowField: vi.fn(),
   sfxSlowExplosion: vi.fn()
 }));
@@ -185,12 +191,24 @@ describe("Game core utilities", () => {
     game._perfectNiceSfx();
     expect(audio.sfxPerfectNice).toHaveBeenCalledTimes(1);
 
+    game._dashStartSfx();
     game._dashBounceSfx(2);
     game._dashDestroySfx();
+    game._dashBreakSfx();
+    game._teleportSfx();
+    game._phaseSfx();
+    game._explosionSfx();
+    game._gameOverSfx();
     game._slowFieldSfx();
     game._slowExplosionSfx();
+    expect(audio.sfxDashStart).toHaveBeenCalled();
     expect(audio.sfxDashBounce).toHaveBeenCalled();
     expect(audio.sfxDashDestroy).toHaveBeenCalled();
+    expect(audio.sfxDashBreak).toHaveBeenCalled();
+    expect(audio.sfxTeleport).toHaveBeenCalled();
+    expect(audio.sfxPhase).toHaveBeenCalled();
+    expect(audio.sfxExplosion).toHaveBeenCalledTimes(2);
+    expect(audio.sfxGameOver).toHaveBeenCalled();
     expect(audio.sfxSlowField).toHaveBeenCalled();
     expect(audio.sfxSlowExplosion).toHaveBeenCalled();
 
@@ -198,9 +216,21 @@ describe("Game core utilities", () => {
     game._perfectNiceSfx();
     game._dashDestroySfx();
     game._slowExplosionSfx();
+    game._dashStartSfx();
+    game._dashBreakSfx();
+    game._teleportSfx();
+    game._phaseSfx();
+    game._explosionSfx();
+    game._gameOverSfx();
     expect(audio.sfxPerfectNice).toHaveBeenCalledTimes(1);
     expect(audio.sfxDashDestroy).toHaveBeenCalledTimes(1);
     expect(audio.sfxSlowExplosion).toHaveBeenCalledTimes(1);
+    expect(audio.sfxDashStart).toHaveBeenCalledTimes(1);
+    expect(audio.sfxDashBreak).toHaveBeenCalledTimes(1);
+    expect(audio.sfxTeleport).toHaveBeenCalledTimes(1);
+    expect(audio.sfxPhase).toHaveBeenCalledTimes(1);
+    expect(audio.sfxExplosion).toHaveBeenCalledTimes(2);
+    expect(audio.sfxGameOver).toHaveBeenCalledTimes(1);
   });
 
   it("handles state transitions and run resets", () => {
@@ -551,6 +581,32 @@ describe("Player movement and trail emission", () => {
     game.player.y = game.H - game.player.r + 1;
     game._updatePlayer(0.016);
     expect(reflectSpy).toHaveBeenCalledWith(expect.objectContaining({ nx: 0, ny: -1 }));
+  });
+
+  it("stops the dash and plays break SFX when the bounce cap is exhausted", () => {
+    const { game } = buildGame({
+      skills: { dash: { ...DEFAULT_CONFIG.skills.dash, maxBounces: 0, duration: 0.1, speed: 200 } }
+    });
+    game.resizeToWindow();
+    const breakSpy = vi.spyOn(game, "_dashBreakSfx");
+    const reflectSpy = vi.spyOn(game, "_applyDashReflect");
+    game.pipeT = 10;
+    game.specialT = 10;
+    game.player.dashT = 0.1;
+    game.player.invT = 0;
+    game.player.dashBounces = 0;
+    game.player.dashVX = -1;
+    game.player.dashVY = 0;
+    game.player.x = game.player.r - 1;
+    game.player.y = game.player.r + 2;
+
+    game._updatePlayer(0.016);
+
+    expect(reflectSpy).not.toHaveBeenCalled();
+    expect(breakSpy).toHaveBeenCalledTimes(1);
+    expect(game.player.dashT).toBe(0);
+    expect(game.player.vx).toBe(0);
+    expect(game.player.vy).toBe(0);
   });
 
   it("uses default fallbacks when optional hooks or viewport data are missing", () => {
