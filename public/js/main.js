@@ -60,7 +60,6 @@ import {
   normalizeIconSelection,
   normalizePlayerIcons
 } from "./playerIcons.js";
-import { createPlayerIconSprite } from "./playerIconSprites.js";
 import { classifyIconSaveResponse } from "./iconSave.js";
 import {
   DEFAULT_ICON_HINT,
@@ -70,7 +69,7 @@ import {
   resetIconHint,
   toggleIconMenu
 } from "./iconMenu.js";
-import { IconTrailPreviewer } from "./iconTrailPreviewer.js";
+import { clearIconSpriteCache, getCachedIconSprite, paintIconCanvas } from "./swatchPainter.js";
 
 import { buildGameUI } from "./uiLayout.js";
 import { TrailPreview } from "./trailPreview.js";
@@ -233,12 +232,11 @@ let currentIconId = normalizeIconSelection({
 });
 
 // assets
-let playerImg = createPlayerIconSprite(playerIcons.find((i) => i.id === currentIconId));
+let playerImg = getCachedIconSprite(playerIcons.find((i) => i.id === currentIconId));
 boot.imgReady = true; boot.imgOk = true;
 refreshBootUI();
 
 trailPreview = trailPreviewCanvas ? new TrailPreview({ canvas: trailPreviewCanvas, playerImg }) : null;
-const iconTrailPreviewer = new IconTrailPreviewer();
 syncLauncherSwatch(currentIconId, playerIcons, playerImg);
 
 // ---- Input + Game ----
@@ -432,6 +430,11 @@ function syncIconCatalog(nextIcons = null) {
   const normalized = normalizePlayerIcons(nextIcons || playerIcons);
   playerIcons = normalized;
   net.icons = normalized.map((i) => ({ ...i }));
+  clearIconSpriteCache();
+  playerImg = getCachedIconSprite(playerIcons.find((i) => i.id === currentIconId) || playerIcons[0]);
+  game?.setPlayerImage(playerImg);
+  trailPreview?.setPlayerImage(playerImg);
+  syncLauncherSwatch(currentIconId, playerIcons, playerImg);
 }
 
 function computeUnlockedIconSet(icons = playerIcons) {
@@ -455,15 +458,12 @@ function computeUnlockedTrailSet(trails = net.trails) {
   return new Set(getUnlockedTrails(trails, achievements, { isRecordHolder }));
 }
 
-function syncLauncherSwatch(iconId = currentIconId, icons = playerIcons, image = playerImg, trailId = currentTrailId) {
-  if (!iconTrailPreviewer) return;
+function syncLauncherSwatch(iconId = currentIconId, icons = playerIcons, image = playerImg) {
   const icon = icons.find((i) => i.id === iconId) || icons[0];
-  const entries = [];
-  const iconSwatch = iconLauncher?.querySelector(".icon-swatch");
-  if (iconSwatch) entries.push({ element: iconSwatch, icon, playerImg: image });
-  const trailSwatch = trailLauncher?.querySelector(".trail-swatch");
-  if (trailSwatch) entries.push({ element: trailSwatch, icon, playerImg: image });
-  iconTrailPreviewer.sync(entries, { trailId, group: "launcher" });
+  const iconCanvas = iconLauncher?.querySelector("canvas.icon-swatch-canvas");
+  const trailCanvas = trailLauncher?.querySelector("canvas.trail-swatch-canvas");
+  paintIconCanvas(iconCanvas, icon, { sprite: image });
+  paintIconCanvas(trailCanvas, icon, { sprite: image });
 }
 
 function renderIconOptions(
@@ -480,14 +480,10 @@ function renderIconOptions(
     unlockedIds: unlocked,
     onRenderSwatch: (data) => swatches.push(data)
   });
-  iconTrailPreviewer?.sync(
-    swatches.map((entry) => ({
-      element: entry.swatch,
-      icon: entry.icon,
-      playerImg: entry.icon.id === selectedId ? selectedImg : null
-    })),
-    { trailId: currentTrailId, group: "options" }
-  );
+  swatches.forEach((entry) => {
+    const sprite = entry.icon.id === selectedId ? selectedImg : getCachedIconSprite(entry.icon);
+    paintIconCanvas(entry.canvas, entry.icon, { sprite });
+  });
   if (iconHint) {
     const text = rendered ? DEFAULT_ICON_HINT : "No icons available.";
     iconHint.className = rendered ? "hint" : "hint bad";
@@ -512,7 +508,7 @@ function applyIconSelection(id = currentIconId, icons = playerIcons, unlocked = 
     if (nameEl) nameEl.textContent = getIconDisplayName(nextId, icons);
   }
 
-  playerImg = createPlayerIconSprite(icons.find((i) => i.id === nextId) || icons[0]);
+  playerImg = getCachedIconSprite(icons.find((i) => i.id === nextId) || icons[0]);
   game.setPlayerImage(playerImg);
   trailPreview?.setPlayerImage(playerImg);
   syncLauncherSwatch(nextId, icons, playerImg);
@@ -537,8 +533,7 @@ function applyTrailSelection(id, trails = net.trails) {
     if (nameEl) nameEl.textContent = getTrailDisplayName(safeId, trails);
   }
   trailPreview?.setTrail(safeId);
-  iconTrailPreviewer?.setTrail(safeId);
-  syncLauncherSwatch(currentIconId, playerIcons, playerImg, safeId);
+  syncLauncherSwatch(currentIconId, playerIcons, playerImg);
 }
 
 function setTrailHint(hint, { persist = true } = {}) {
@@ -590,14 +585,9 @@ function refreshTrailMenu(selectedId = currentTrailId) {
     onRenderSwatch: (data) => swatches.push(data)
   });
   const activeIcon = playerIcons.find((i) => i.id === currentIconId) || playerIcons[0];
-  iconTrailPreviewer?.sync(
-    swatches.map((entry) => ({
-      element: entry.swatch,
-      icon: activeIcon,
-      playerImg
-    })),
-    { trailId: selected, group: "trail-options" }
-  );
+  swatches.forEach((entry) => {
+    paintIconCanvas(entry.canvas, activeIcon, { sprite: playerImg });
+  });
 
   pbText.textContent = String(best);
   if (bustercoinText) bustercoinText.textContent = String(net.user?.bustercoins ?? 0);
