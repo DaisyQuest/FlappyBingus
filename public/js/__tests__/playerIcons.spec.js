@@ -77,4 +77,26 @@ describe("player icon helpers", () => {
     expect(describeIconLock(score, { unlocked: false }).toLowerCase()).toContain("score");
     expect(describeIconLock(DEFAULT_PLAYER_ICONS[0], { unlocked: true })).toBe("Free");
   });
+
+  it("locks fire and inferno capes behind their score achievements", () => {
+    const fire = DEFAULT_PLAYER_ICONS.find((icon) => icon.id === "fire_cape");
+    const inferno = DEFAULT_PLAYER_ICONS.find((icon) => icon.id === "inferno_cape");
+    expect(fire?.unlock?.id).toBe("score_fire_cape_1000");
+    expect(inferno?.unlock?.id).toBe("score_inferno_cape_2000");
+
+    const none = getUnlockedPlayerIcons(DEFAULT_PLAYER_ICONS, { achievements: { unlocked: {} } });
+    expect(none).not.toContain("fire_cape");
+    expect(none).not.toContain("inferno_cape");
+
+    const fireOnly = getUnlockedPlayerIcons(DEFAULT_PLAYER_ICONS, {
+      achievements: { unlocked: { score_fire_cape_1000: Date.now() } }
+    });
+    expect(fireOnly).toContain("fire_cape");
+    expect(fireOnly).not.toContain("inferno_cape");
+
+    const infernoOnly = getUnlockedPlayerIcons(DEFAULT_PLAYER_ICONS, {
+      achievements: { unlocked: { score_inferno_cape_2000: Date.now() } }
+    });
+    expect(infernoOnly).toContain("inferno_cape");
+  });
 });

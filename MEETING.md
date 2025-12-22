@@ -213,3 +213,26 @@
 ## Action Items
 - Ship the markup changes for the trail menu and launcher.
 - Refresh related unit tests to validate the text-only menu and updated badge structure.
+
+# Meeting Notes
+- Date: 2025-02-02
+- Attendees: ChatGPT (GPT-5.1-Codex-Max)
+
+## Agenda
+- Add animated Fire Cape and Inferno Cape player icons inspired by Old School RuneScape.
+- Gate the new icons behind single-run score achievements (1,000 and 2,000).
+- Maintain full automated test coverage for the new unlocks and animations.
+
+## Discussion
+- The icon system needed lava-like motion to capture the melting cape aesthetic while staying within the existing canvas renderer.
+- Unlocks should respect the existing achievement flow so the icons appear only after their score goals are completed.
+- Tests must validate both the achievement wiring and the new animation path without relying on browser APIs beyond requestAnimationFrame.
+
+## Decisions
+- Introduce a reusable “lava” animation mode to the player icon sprite generator with palette controls and layered gradients.
+- Define Fire Cape (1,000 score) and Inferno Cape (2,000 score) achievements and gate their icons behind those completions.
+- Expand unit coverage to assert achievement gating, cache teardown for animated sprites, and the lava animation rendering path.
+
+## Action Items
+- Ship the lava animation renderer, new icon definitions, and associated achievements.
+- Update tests for icon unlock logic, sprite animation, and cache cleanup behaviors to keep coverage high.

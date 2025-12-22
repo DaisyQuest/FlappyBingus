@@ -141,6 +141,22 @@ export const ACHIEVEMENTS = Object.freeze([
     progressKey: "bestScore",
     reward: "Unlocks World Record Cherry Blossom (record holders only)"
   },
+  {
+    id: "score_fire_cape_1000",
+    title: "Fire Cape Trial",
+    description: "Score 1,000 in a single run to temper the Fire Cape.",
+    requirement: { minScore: 1000 },
+    progressKey: "bestScore",
+    reward: "Unlocks the Fire Cape icon"
+  },
+  {
+    id: "score_inferno_cape_2000",
+    title: "Inferno Challenge",
+    description: "Score 2,000 in one run to seize the Inferno Cape.",
+    requirement: { minScore: 2000 },
+    progressKey: "bestScore",
+    reward: "Unlocks the Inferno Cape icon"
+  },
 
   // Skill achievements
   {

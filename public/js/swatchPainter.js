@@ -21,6 +21,11 @@ export function getCachedIconSprite(icon, { size = 96 } = {}) {
 }
 
 export function clearIconSpriteCache() {
+  for (const sprite of spriteCache.values()) {
+    if (sprite?.__animation?.stop) {
+      sprite.__animation.stop();
+    }
+  }
   spriteCache.clear();
 }
 

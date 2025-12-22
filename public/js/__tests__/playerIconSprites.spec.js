@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { JSDOM } from "jsdom";
 import { createPlayerIconSprite } from "../playerIconSprites.js";
 
@@ -8,8 +8,15 @@ describe("player icon sprites", () => {
   beforeEach(() => {
     const dom = new JSDOM("<!doctype html><body></body>");
     global.document = dom.window.document;
+    const originalGetContext = global.HTMLCanvasElement?.prototype?.getContext;
+    if (global.HTMLCanvasElement?.prototype) {
+      global.HTMLCanvasElement.prototype.getContext = () => null;
+    }
     cleanup = () => {
       delete global.document;
+      if (global.HTMLCanvasElement?.prototype) {
+        global.HTMLCanvasElement.prototype.getContext = originalGetContext;
+      }
     };
   });
 
@@ -164,5 +171,83 @@ describe("player icon sprites", () => {
 
     const translation = operations.find((op) => op.type === "translate");
     expect(translation).toEqual({ type: "translate", x: 50, y: 50 });
+  });
+
+  it("animates lava icons with a flowing gradient fill", () => {
+    const operations = [];
+    const gradients = [];
+    const ctx = {
+      _lineWidth: 1,
+      save: () => operations.push({ type: "save" }),
+      restore: () => operations.push({ type: "restore" }),
+      translate: (x, y) => operations.push({ type: "translate", x, y }),
+      beginPath: () => operations.push({ type: "beginPath" }),
+      arc: () => operations.push({ type: "arc" }),
+      fill: () =>
+        operations.push({
+          type: "fill",
+          fillStyle: ctx.fillStyle
+        }),
+      stroke: () => operations.push({ type: "stroke", strokeStyle: ctx.strokeStyle, lineWidth: ctx.lineWidth }),
+      clearRect: () => operations.push({ type: "clearRect" }),
+      lineTo: () => {},
+      moveTo: () => {},
+      set lineWidth(v) { this._lineWidth = v; },
+      get lineWidth() { return this._lineWidth; },
+      set strokeStyle(v) { this._strokeStyle = v; },
+      get strokeStyle() { return this._strokeStyle; },
+      set fillStyle(v) { this._fillStyle = v; },
+      get fillStyle() { return this._fillStyle; },
+      set shadowColor(v) { this._shadowColor = v; },
+      set shadowBlur(v) { this._shadowBlur = v; },
+      set lineCap(v) { this._lineCap = v; },
+      createLinearGradient: () => {
+        const grad = { stops: [], addColorStop(pos, color) { this.stops.push({ pos, color }); } };
+        gradients.push(grad);
+        return grad;
+      }
+    };
+    const canvas = {
+      width: 80,
+      height: 80,
+      naturalWidth: 80,
+      naturalHeight: 80,
+      complete: true,
+      getContext: () => ctx
+    };
+    const prevDocument = global.document;
+    const prevRaf = global.requestAnimationFrame;
+    const prevCaf = global.cancelAnimationFrame;
+    const rafCallbacks = [];
+    global.document = { createElement: (tag) => (tag === "canvas" ? canvas : {}) };
+    global.requestAnimationFrame = (cb) => {
+      rafCallbacks.push(cb);
+      return rafCallbacks.length;
+    };
+    global.cancelAnimationFrame = vi.fn();
+
+    try {
+      const sprite = createPlayerIconSprite({
+        style: {
+          fill: "#220b0b",
+          core: "#ff8c1a",
+          rim: "#0f0f0f",
+          glow: "#ffb347",
+          animation: { type: "lava", speed: 0.5, layers: 2 }
+        }
+      }, { size: 80 });
+
+      expect(sprite.__animation?.running).toBe(true);
+      expect(gradients.length).toBeGreaterThan(0);
+      const firstFill = operations.find((op) => op.type === "fill");
+      expect(firstFill?.fillStyle).toBe(gradients[0]);
+
+      rafCallbacks[0]?.(16);
+      expect(gradients.length).toBeGreaterThan(1);
+    } finally {
+      global.document = prevDocument;
+      global.requestAnimationFrame = prevRaf;
+      global.cancelAnimationFrame = prevCaf;
+    }
   });
 });

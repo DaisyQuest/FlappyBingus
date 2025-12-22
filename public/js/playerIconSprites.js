@@ -7,6 +7,16 @@ const DEFAULT_FILL = "#ff8c1a";
 const DEFAULT_RIM = "#0f172a";
 const DEFAULT_CORE = "#ffc285";
 const DEFAULT_GLOW = "rgba(255, 200, 120, 0.75)";
+const DEFAULT_LAVA_PALETTE = Object.freeze({
+  base: "#1a0a0a",
+  ember: "#7b1e1e",
+  molten: "#f06b1a",
+  flare: "#ffd166"
+});
+
+function clamp01(v) {
+  return Math.min(1, Math.max(0, v));
+}
 
 function drawZigZag(ctx, radius, {
   stroke = "#fff",
@@ -107,6 +117,120 @@ function fillCircle(ctx, radius, fill, shadow) {
   ctx.fill();
 }
 
+function createLavaGradient(ctx, radius, animation = {}, phase = 0) {
+  if (!ctx || typeof ctx.createLinearGradient !== "function") return animation.fallback || DEFAULT_FILL;
+  const palette = {
+    ...DEFAULT_LAVA_PALETTE,
+    ...(animation.palette || {})
+  };
+  const layers = Math.max(1, Math.floor(animation.layers) || 2);
+  const travel = radius * 2.6;
+  const start = -radius * 1.3 + travel * phase;
+  const end = start + travel;
+  const grad = ctx.createLinearGradient(0, start, 0, end);
+
+  for (let i = 0; i < layers; i += 1) {
+    const offset = clamp01((phase + i * 0.18) % 1);
+    const wobble = Math.sin((phase + i) * Math.PI * 2) * 0.06;
+    const stops = [
+      { pos: 0, color: palette.base },
+      { pos: clamp01(0.18 + wobble + offset * 0.08), color: palette.ember },
+      { pos: clamp01(0.42 + wobble * 0.5 + offset * 0.12), color: palette.molten },
+      { pos: clamp01(0.6 + wobble * 0.3 + offset * 0.1), color: palette.flare },
+      { pos: clamp01(0.82 + wobble * 0.35 + offset * 0.1), color: palette.molten },
+      { pos: 1, color: palette.base }
+    ];
+    stops.forEach((stop) => grad.addColorStop(stop.pos, stop.color));
+  }
+
+  return grad;
+}
+
+function renderIconFrame(ctx, canvas, icon = {}, { animationPhase = 0 } = {}) {
+  if (!ctx || !canvas) return;
+  const style = icon.style || {};
+  const fill = style.fill || DEFAULT_FILL;
+  const core = style.core || style.fill || DEFAULT_CORE;
+  const rim = style.rim || DEFAULT_RIM;
+  const glow = style.glow || DEFAULT_GLOW;
+  const pattern = style.pattern;
+  const animation = style.animation;
+
+  ctx.clearRect?.(0, 0, canvas.width, canvas.height);
+  ctx.save?.();
+  ctx.translate?.(canvas.width * 0.5, canvas.height * 0.5);
+
+  const outer = canvas.width * 0.46;
+  const inner = outer * 0.68;
+
+  const fillStyle = animation?.type === "lava"
+    ? createLavaGradient(ctx, outer, animation, animationPhase)
+    : fill;
+
+  fillCircle(ctx, outer, fillStyle, { color: glow, blur: Math.max(6, canvas.width * 0.12) });
+  if (ctx.lineWidth !== undefined) {
+    ctx.shadowBlur = 0;
+    ctx.lineWidth = Math.max(2, canvas.width * 0.06);
+    ctx.strokeStyle = rim;
+    ctx.beginPath();
+    ctx.arc(0, 0, outer * 0.96, 0, Math.PI * 2);
+    ctx.stroke();
+  }
+  fillCircle(ctx, inner, core, { color: glow, blur: Math.max(4, canvas.width * 0.08) });
+
+  if (pattern?.type === "zigzag") {
+    drawZigZag(ctx, outer * 0.75, {
+      stroke: pattern.stroke || rim,
+      width: Math.max(2, canvas.width * 0.05),
+      amplitude: 0.22,
+      waves: 6,
+      glow: pattern.background || glow
+    });
+    canvas.__pattern = { type: "zigzag" };
+  } else if (pattern?.type === "centerline") {
+    drawCenterlineGuides(ctx, outer * 0.82, {
+      stroke: pattern.stroke || "#f8fafc",
+      accent: pattern.accent || rim,
+      width: Math.max(2, canvas.width * 0.065),
+      accentWidth: Math.max(2, canvas.width * 0.04),
+      glow: pattern.glow || glow
+    });
+    canvas.__pattern = { type: "centerline" };
+  }
+
+  ctx.restore?.();
+}
+
+function maybeStartSpriteAnimation(canvas, icon, renderFrame) {
+  const animation = icon?.style?.animation;
+  if (!animation || animation.type !== "lava") return null;
+  const raf = typeof requestAnimationFrame === "function" ? requestAnimationFrame : null;
+  const caf = typeof cancelAnimationFrame === "function" ? cancelAnimationFrame : null;
+  if (!raf) return null;
+  const speed = Math.max(0.001, Number(animation.speed) || 0.04);
+  let lastTs = null;
+  let phase = 0;
+  const state = { running: true, rafId: null };
+
+  const step = (ts) => {
+    if (!state.running) return;
+    if (lastTs === null) lastTs = ts;
+    const dt = Math.max(0, (ts - lastTs) / 1000);
+    lastTs = ts;
+    phase = (phase + dt * speed) % 1;
+    renderFrame({ animationPhase: phase });
+    state.rafId = raf(step);
+  };
+
+  state.stop = () => {
+    state.running = false;
+    if (state.rafId && caf) caf(state.rafId);
+  };
+
+  state.rafId = raf(step);
+  return state;
+}
+
 export function createPlayerIconSprite(icon = {}, { size = 96 } = {}) {
   const canvas = makeCanvas(size);
   let ctx = null;
@@ -117,57 +241,21 @@ export function createPlayerIconSprite(icon = {}, { size = 96 } = {}) {
   }
 
   if (ctx) {
-    const fill = icon.style?.fill || DEFAULT_FILL;
-    const core = icon.style?.core || icon.style?.fill || DEFAULT_CORE;
-    const rim = icon.style?.rim || DEFAULT_RIM;
-    const glow = icon.style?.glow || DEFAULT_GLOW;
-    const pattern = icon.style?.pattern;
-    ctx.clearRect?.(0, 0, canvas.width, canvas.height);
-    ctx.save?.();
-    ctx.translate?.(canvas.width * 0.5, canvas.height * 0.5);
-
-    const outer = canvas.width * 0.46;
-    const inner = outer * 0.68;
-
-    fillCircle(ctx, outer, fill, { color: glow, blur: Math.max(6, canvas.width * 0.12) });
-    if (ctx.lineWidth !== undefined) {
-      ctx.shadowBlur = 0;
-      ctx.lineWidth = Math.max(2, canvas.width * 0.06);
-      ctx.strokeStyle = rim;
-      ctx.beginPath();
-      ctx.arc(0, 0, outer * 0.96, 0, Math.PI * 2);
-      ctx.stroke();
-    }
-    fillCircle(ctx, inner, core, { color: glow, blur: Math.max(4, canvas.width * 0.08) });
-
-    if (pattern?.type === "zigzag") {
-      drawZigZag(ctx, outer * 0.75, {
-        stroke: pattern.stroke || rim,
-        width: Math.max(2, canvas.width * 0.05),
-        amplitude: 0.22,
-        waves: 6,
-        glow: pattern.background || glow
-      });
-      canvas.__pattern = { type: "zigzag" };
-    } else if (pattern?.type === "centerline") {
-      drawCenterlineGuides(ctx, outer * 0.82, {
-        stroke: pattern.stroke || "#f8fafc",
-        accent: pattern.accent || rim,
-        width: Math.max(2, canvas.width * 0.065),
-        accentWidth: Math.max(2, canvas.width * 0.04),
-        glow: pattern.glow || glow
-      });
-      canvas.__pattern = { type: "centerline" };
-    }
-
-    ctx.restore?.();
+    const renderFrame = (opts = {}) => renderIconFrame(ctx, canvas, icon, opts);
+    renderFrame();
+    const animation = maybeStartSpriteAnimation(canvas, icon, renderFrame);
+    if (animation) canvas.__animation = animation;
   }
 
   return canvas;
 }
 
 export const __testables = {
+  clamp01,
   fillCircle,
   drawZigZag,
-  drawCenterlineGuides
+  drawCenterlineGuides,
+  createLavaGradient,
+  renderIconFrame,
+  maybeStartSpriteAnimation
 };
