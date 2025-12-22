@@ -1,13 +1,152 @@
 "use strict";
 
 const ACHIEVEMENTS = Object.freeze([
+  // Trail unlock path
+  {
+    id: "trail_classic_1",
+    title: "1-Point Liftoff",
+    description: "Score 1 point to claim your Classic trail.",
+    requirement: { minScore: 1 },
+    progressKey: "bestScore",
+    reward: "Unlocks Classic trail"
+  },
+  {
+    id: "trail_ember_100",
+    title: "100-Point Ignition",
+    description: "Score 100 in a single run to spark the Ember Core trail.",
+    requirement: { minScore: 100 },
+    progressKey: "bestScore",
+    reward: "Unlocks Ember Core trail"
+  },
+  {
+    id: "trail_sunset_250",
+    title: "250 Sundown Sprint",
+    description: "Score 250 in one run to paint the Sunset Fade trail.",
+    requirement: { minScore: 250 },
+    progressKey: "bestScore",
+    reward: "Unlocks Sunset Fade trail"
+  },
+  {
+    id: "trail_gothic_400",
+    title: "400 Dusk March",
+    description: "Score 400 in a single run to earn Garnet Dusk.",
+    requirement: { minScore: 400 },
+    progressKey: "bestScore",
+    reward: "Unlocks Garnet Dusk trail"
+  },
+  {
+    id: "trail_glacier_575",
+    title: "575 Frostline Trek",
+    description: "Score 575 in one run to unveil Glacial Drift.",
+    requirement: { minScore: 575 },
+    progressKey: "bestScore",
+    reward: "Unlocks Glacial Drift trail"
+  },
+  {
+    id: "trail_ocean_750",
+    title: "750 Current Rider",
+    description: "Score 750 in a single run to unlock Tidal Current.",
+    requirement: { minScore: 750 },
+    progressKey: "bestScore",
+    reward: "Unlocks Tidal Current trail"
+  },
+  {
+    id: "trail_miami_950",
+    title: "950 Neon Rush",
+    description: "Score 950 in one run to light up Neon Miami.",
+    requirement: { minScore: 950 },
+    progressKey: "bestScore",
+    reward: "Unlocks Neon Miami trail"
+  },
+  {
+    id: "trail_aurora_1150",
+    title: "1150 Aurora Chase",
+    description: "Score 1150 in a single run to awaken Aurora.",
+    requirement: { minScore: 1150 },
+    progressKey: "bestScore",
+    reward: "Unlocks Aurora trail"
+  },
+  {
+    id: "trail_rainbow_1350",
+    title: "1350 Spectrum Sprint",
+    description: "Score 1350 in one run to reveal the Prismatic Ribbon.",
+    requirement: { minScore: 1350 },
+    progressKey: "bestScore",
+    reward: "Unlocks Prismatic Ribbon trail"
+  },
+  {
+    id: "trail_solar_1550",
+    title: "1550 Solar Ascent",
+    description: "Score 1550 in a single run to ride the Solar Flare.",
+    requirement: { minScore: 1550 },
+    progressKey: "bestScore",
+    reward: "Unlocks Solar Flare trail"
+  },
+  {
+    id: "trail_storm_1750",
+    title: "1750 Thunder Run",
+    description: "Score 1750 in one run to command Stormstrike.",
+    requirement: { minScore: 1750 },
+    progressKey: "bestScore",
+    reward: "Unlocks Stormstrike trail"
+  },
+  {
+    id: "trail_magma_1950",
+    title: "1950 Forgeflight",
+    description: "Score 1950 in a single run to forge the Magma trail.",
+    requirement: { minScore: 1950 },
+    progressKey: "bestScore",
+    reward: "Unlocks Forgefire trail"
+  },
+  {
+    id: "trail_plasma_2150",
+    title: "2150 Arc Sprint",
+    description: "Score 2150 in one run to channel the Plasma Arc.",
+    requirement: { minScore: 2150 },
+    progressKey: "bestScore",
+    reward: "Unlocks Plasma Arc trail"
+  },
+  {
+    id: "trail_nebula_2350",
+    title: "2350 Nebula Drift",
+    description: "Score 2350 in a single run to bloom the Nebula trail.",
+    requirement: { minScore: 2350 },
+    progressKey: "bestScore",
+    reward: "Unlocks Nebula Bloom trail"
+  },
+  {
+    id: "trail_dragonfire_2600",
+    title: "2600 Dragon Dash",
+    description: "Score 2600 in one run to unleash Dragonfire.",
+    requirement: { minScore: 2600 },
+    progressKey: "bestScore",
+    reward: "Unlocks Dragonfire trail"
+  },
+  {
+    id: "trail_ultraviolet_2800",
+    title: "2800 Ultraviolet Pulse",
+    description: "Score 2800 in a single run to pulse Ultraviolet.",
+    requirement: { minScore: 2800 },
+    progressKey: "bestScore",
+    reward: "Unlocks Ultraviolet Pulse trail"
+  },
+  {
+    id: "trail_world_record_3000",
+    title: "3000 Blossom Crown",
+    description: "Score 3000 in one run to earn the cherry blossom crown.",
+    requirement: { minScore: 3000 },
+    progressKey: "bestScore",
+    reward: "Unlocks World Record Cherry Blossom (record holders only)"
+  },
+
+  // Skill achievements
   {
     id: "no_orbs_100",
     title: "Orb-Free Century",
     description: "Score 100 points in one run without picking up an orb.",
     requirement: { minScore: 100, maxOrbs: 0 },
     progressKey: "maxScoreNoOrbs",
-    reward: "Cosmetics coming soon"
+    reward: "Unlocks the orb-free icon variant"
   },
   {
     id: "no_abilities_100",
@@ -60,6 +199,7 @@ const ACHIEVEMENTS = Object.freeze([
 ]);
 
 const DEFAULT_PROGRESS = Object.freeze({
+  bestScore: 0,
   maxScoreNoOrbs: 0,
   maxScoreNoAbilities: 0,
   maxPerfectsInRun: 0,
@@ -140,11 +280,14 @@ function validateRunStats(raw) {
   };
 }
 
-function evaluateRunForAchievements({ previous, runStats, score, totalScore, now = Date.now() } = {}) {
+function evaluateRunForAchievements({ previous, runStats, score, totalScore, bestScore, now = Date.now() } = {}) {
   const state = normalizeAchievementState(previous);
   const unlocked = [];
 
   const safeScore = clampScoreProgress(score);
+  const baseBestScore = clampScoreProgress(
+    Math.max(previous?.progress?.bestScore ?? 0, bestScore ?? 0)
+  );
   const { orbsCollected, abilitiesUsed, perfects } = runStats || {};
   const hasOrbs = orbsCollected !== null && orbsCollected !== undefined;
   const hasAbilities = abilitiesUsed !== null && abilitiesUsed !== undefined;
@@ -154,6 +297,8 @@ function evaluateRunForAchievements({ previous, runStats, score, totalScore, now
   const safePerfects = clampScoreProgress(perfects ?? 0);
   const baseTotalScore = totalScore === undefined ? state.progress.totalScore : clampScoreProgress(totalScore);
 
+  const bestScoreProgress = Math.max(safeScore, baseBestScore, state.progress.bestScore || 0);
+  state.progress.bestScore = bestScoreProgress;
   state.progress.totalScore = clampScoreProgress(baseTotalScore + safeScore);
   if (hasOrbs) {
     state.progress.totalOrbsCollected = clampScoreProgress(state.progress.totalOrbsCollected + safeOrbs);
@@ -174,7 +319,8 @@ function evaluateRunForAchievements({ previous, runStats, score, totalScore, now
   for (const def of ACHIEVEMENTS) {
     if (state.unlocked[def.id]) continue;
     const minScore = def.requirement?.minScore ?? 0;
-    const meetsScore = safeScore >= minScore;
+    const scoreOnlyRequirement = Object.keys(def.requirement || {}).every((key) => key === "minScore");
+    const meetsScore = scoreOnlyRequirement ? bestScoreProgress >= minScore : safeScore >= minScore;
 
     const orbsOk =
       def.requirement?.maxOrbs === undefined

@@ -2,21 +2,24 @@
 // FILE: public/js/trailHint.js
 // =====================
 import { clamp } from "./util.js";
+import { getUnlockedTrails } from "./trailProgression.js";
 
 function coerceScore(v) {
   const n = Number.parseInt(v, 10);
   return clamp(Number.isFinite(n) ? n : 0, 0, 1e9);
 }
 
-export function buildTrailHint({ online, user, bestScore, trails } = {}) {
+export function buildTrailHint({ online, user, bestScore, trails, achievements } = {}) {
   const best = coerceScore(bestScore);
   const isRecordHolder = Boolean(user?.isRecordHolder);
   const recordLocked = Array.isArray(trails)
     ? trails.some((t) => t?.requiresRecordHolder)
     : false;
-  const hasLockedTrails = Array.isArray(trails)
-    ? trails.some((t) => Number.isFinite(t?.minScore) && t.minScore > best)
-    : false;
+  const totalTrails = Array.isArray(trails)
+    ? trails.filter((t) => !t.requiresRecordHolder || isRecordHolder).length
+    : 0;
+  const unlockedTrailIds = getUnlockedTrails(trails, achievements, { isRecordHolder });
+  const lockedCount = Math.max(0, totalTrails - unlockedTrailIds.length);
 
   if (!online) {
     return {
@@ -35,12 +38,12 @@ export function buildTrailHint({ online, user, bestScore, trails } = {}) {
   if (recordLocked && !isRecordHolder) {
     return {
       className: "hint",
-      text: "Exclusive trails unlock automatically once you qualify."
+      text: "Exclusive trails unlock automatically once you qualify as the record holder."
     };
   }
 
-  const detail = hasLockedTrails
-    ? "Climb higher scores to unlock sparkling new trails."
+  const detail = lockedCount > 0
+    ? `Complete achievements to unlock ${lockedCount} more trail${lockedCount === 1 ? "" : "s"}.`
     : "All trails unlocked!";
 
   return {

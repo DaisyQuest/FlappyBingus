@@ -12,19 +12,21 @@ import {
 describe("achievements definitions", () => {
   it("exposes the expected default set", () => {
     const ids = ACHIEVEMENTS.map((a) => a.id);
-    expect(ids).toContain("no_orbs_100");
-    expect(ids).toContain("no_abilities_100");
-    expect(ids).toContain("total_score_10000");
-    expect(ids).toContain("perfects_run_10");
-    expect(ids).toContain("perfects_total_100");
-    expect(ids).toContain("orbs_run_100");
-    expect(ids).toContain("orbs_total_2000");
+    expect(ids).toEqual(expect.arrayContaining([
+      "trail_classic_1",
+      "trail_miami_950",
+      "trail_world_record_3000",
+      "no_orbs_100",
+      "total_score_10000"
+    ]));
+    expect(ids.length).toBeGreaterThan(10);
   });
 
   it("normalizes malformed state safely", () => {
     const normalized = normalizeAchievementState({
-      unlocked: { no_orbs_100: "not-a-number", no_abilities_100: 1234 },
+      unlocked: { no_orbs_100: "not-a-number", no_abilities_100: 1234, trail_ember_100: "9000" },
       progress: {
+        bestScore: "1200",
         maxScoreNoOrbs: -5,
         maxScoreNoAbilities: 101.8,
         maxPerfectsInRun: 10.5,
@@ -35,8 +37,9 @@ describe("achievements definitions", () => {
       }
     });
 
-    expect(normalized.unlocked).toEqual({ no_abilities_100: 1234 });
+    expect(normalized.unlocked).toEqual({ no_abilities_100: 1234, trail_ember_100: 9000 });
     expect(normalized.progress).toEqual({
+      bestScore: 1200,
       maxScoreNoOrbs: 0,
       maxScoreNoAbilities: 101,
       maxPerfectsInRun: 10,
@@ -81,7 +84,7 @@ describe("evaluateRunForAchievements", () => {
       now: 500
     });
 
-    expect(unlocked).toEqual([]);
+    expect(unlocked.filter((id) => !id.startsWith("trail_"))).toEqual([]);
     expect(state.progress.maxScoreNoOrbs).toBe(80);
     expect(state.progress.maxScoreNoAbilities).toBe(0);
     expect(state.progress.totalScore).toBe(80);
@@ -96,7 +99,8 @@ describe("evaluateRunForAchievements", () => {
       now
     });
 
-    expect(unlocked.sort()).toEqual(["no_abilities_100", "no_orbs_100"].sort());
+    const nonTrail = unlocked.filter((id) => !id.startsWith("trail_")).sort();
+    expect(nonTrail).toEqual(["no_abilities_100", "no_orbs_100"].sort());
     expect(state.unlocked.no_abilities_100).toBe(now);
     expect(state.unlocked.no_orbs_100).toBe(now);
   });
@@ -115,7 +119,8 @@ describe("evaluateRunForAchievements", () => {
         score: 100,
         now: 2_000
       });
-      expect(unlocked).toEqual(expected);
+      const nonTrail = unlocked.filter((id) => !id.startsWith("trail_"));
+      expect(nonTrail).toEqual(expected);
     });
   });
 
@@ -131,7 +136,8 @@ describe("evaluateRunForAchievements", () => {
       now: 10_000
     });
 
-    expect(unlocked).toEqual(["no_abilities_100"]);
+    const nonTrail = unlocked.filter((id) => !id.startsWith("trail_"));
+    expect(nonTrail).toEqual(["no_abilities_100"]);
     expect(state.unlocked.no_orbs_100).toBe(111);
   });
 
@@ -142,7 +148,7 @@ describe("evaluateRunForAchievements", () => {
       score: 150,
       now: 10
     });
-    expect(first.unlocked).toEqual(["no_abilities_100"]);
+    expect(first.unlocked.filter((id) => !id.startsWith("trail_"))).toEqual(["no_abilities_100"]);
     expect(first.state.progress.maxScoreNoOrbs).toBe(0);
 
     const clean = evaluateRunForAchievements({
@@ -207,8 +213,21 @@ describe("evaluateRunForAchievements", () => {
       now: 10,
       totalScore: 0
     });
-    expect(unlocked).toEqual([]);
+    expect(unlocked.filter((id) => !id.startsWith("trail_"))).toEqual([]);
     expect(state.progress.totalScore).toBe(150);
     expect(state.progress.maxScoreNoOrbs).toBe(0);
+  });
+
+  it("unlocks score-only trail achievements using bestScore progress", () => {
+    const { state, unlocked } = evaluateRunForAchievements({
+      previous: { unlocked: {}, progress: { ...DEFAULT_PROGRESS, bestScore: 1200 } },
+      runStats: null,
+      score: 10,
+      now: 10,
+      totalScore: 0
+    });
+
+    expect(state.progress.bestScore).toBe(1200);
+    expect(unlocked).toEqual(expect.arrayContaining(["trail_miami_950"]));
   });
 });

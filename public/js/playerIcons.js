@@ -27,6 +27,18 @@ export const DEFAULT_PLAYER_ICONS = Object.freeze([
       rim: "#0f172a",
       glow: "#ffd7d3"
     }
+  },
+  {
+    id: "orb_free_zigzag",
+    name: "Azure Zigzag",
+    unlock: { type: "achievement", id: "no_orbs_100", label: "Orb-Free Century" },
+    style: {
+      fill: "#1e3a8a",
+      core: "#38bdf8",
+      rim: "#0b1224",
+      glow: "#60a5fa",
+      pattern: { type: "zigzag", stroke: "#0ea5e9", background: "#082f49" }
+    }
   }
 ]);
 

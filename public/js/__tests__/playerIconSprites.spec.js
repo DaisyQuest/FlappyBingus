@@ -36,4 +36,45 @@ describe("player icon sprites", () => {
     expect(sprite.height).toBe(32);
     expect(sprite.naturalWidth).toBe(32);
   });
+
+  it("applies a zigzag pattern when defined", () => {
+    const calls = [];
+    const ctx = {
+      save: () => calls.push("save"),
+      restore: () => calls.push("restore"),
+      translate: () => calls.push("translate"),
+      beginPath: () => calls.push("beginPath"),
+      arc: () => calls.push("arc"),
+      fill: () => calls.push("fill"),
+      stroke: () => calls.push("stroke"),
+      clearRect: () => calls.push("clearRect"),
+      lineTo: () => calls.push("lineTo"),
+      set lineWidth(v) { this._lineWidth = v; },
+      set strokeStyle(v) { this._strokeStyle = v; },
+      set shadowColor(v) { this._shadowColor = v; },
+      set shadowBlur(v) { this._shadowBlur = v; }
+    };
+    const canvas = {
+      width: 64,
+      height: 64,
+      naturalWidth: 64,
+      naturalHeight: 64,
+      complete: true,
+      getContext: () => ctx
+    };
+    global.document = {
+      createElement: (tag) => (tag === "canvas" ? canvas : {})
+    };
+
+    const sprite = createPlayerIconSprite({
+      style: {
+        fill: "#1e3a8a",
+        core: "#38bdf8",
+        pattern: { type: "zigzag", stroke: "#0ea5e9" }
+      }
+    }, { size: 64 });
+
+    expect(sprite.__pattern?.type).toBe("zigzag");
+    expect(calls).toContain("stroke");
+  });
 });

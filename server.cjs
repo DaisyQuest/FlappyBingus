@@ -87,23 +87,23 @@ const DEFAULT_SETTINGS = Object.freeze({
 });
 
 const TRAILS = Object.freeze([
-  { id: "classic", name: "Classic", minScore: 0 },
-  { id: "ember", name: "Ember Core", minScore: 100 },
-  { id: "sunset", name: "Sunset Fade", minScore: 250 },
-  { id: "gothic", name: "Garnet Dusk", minScore: 400 },
-  { id: "glacier", name: "Glacial Drift", minScore: 575 },
-  { id: "ocean", name: "Tidal Current", minScore: 750 },
-  { id: "miami", name: "Neon Miami", minScore: 950 },
-  { id: "aurora", name: "Aurora", minScore: 1150 },
-  { id: "rainbow", name: "Prismatic Ribbon", minScore: 1350 },
-  { id: "solar", name: "Solar Flare", minScore: 1550 },
-  { id: "storm", name: "Stormstrike", minScore: 1750 },
-  { id: "magma", name: "Forgefire", minScore: 1950 },
-  { id: "plasma", name: "Plasma Arc", minScore: 2150 },
-  { id: "nebula", name: "Nebula Bloom", minScore: 2350 },
-  { id: "dragonfire", name: "Dragonfire", minScore: 2600 },
-  { id: "ultraviolet", name: "Ultraviolet Pulse", minScore: 2800 },
-  { id: "world_record", name: "World Record Cherry Blossom", minScore: 0, requiresRecordHolder: true }
+  { id: "classic", name: "Classic", minScore: 0, achievementId: "trail_classic_1", alwaysUnlocked: true },
+  { id: "ember", name: "Ember Core", minScore: 100, achievementId: "trail_ember_100" },
+  { id: "sunset", name: "Sunset Fade", minScore: 250, achievementId: "trail_sunset_250" },
+  { id: "gothic", name: "Garnet Dusk", minScore: 400, achievementId: "trail_gothic_400" },
+  { id: "glacier", name: "Glacial Drift", minScore: 575, achievementId: "trail_glacier_575" },
+  { id: "ocean", name: "Tidal Current", minScore: 750, achievementId: "trail_ocean_750" },
+  { id: "miami", name: "Neon Miami", minScore: 950, achievementId: "trail_miami_950" },
+  { id: "aurora", name: "Aurora", minScore: 1150, achievementId: "trail_aurora_1150" },
+  { id: "rainbow", name: "Prismatic Ribbon", minScore: 1350, achievementId: "trail_rainbow_1350" },
+  { id: "solar", name: "Solar Flare", minScore: 1550, achievementId: "trail_solar_1550" },
+  { id: "storm", name: "Stormstrike", minScore: 1750, achievementId: "trail_storm_1750" },
+  { id: "magma", name: "Forgefire", minScore: 1950, achievementId: "trail_magma_1950" },
+  { id: "plasma", name: "Plasma Arc", minScore: 2150, achievementId: "trail_plasma_2150" },
+  { id: "nebula", name: "Nebula Bloom", minScore: 2350, achievementId: "trail_nebula_2350" },
+  { id: "dragonfire", name: "Dragonfire", minScore: 2600, achievementId: "trail_dragonfire_2600" },
+  { id: "ultraviolet", name: "Ultraviolet Pulse", minScore: 2800, achievementId: "trail_ultraviolet_2800" },
+  { id: "world_record", name: "World Record Cherry Blossom", minScore: 3000, achievementId: "trail_world_record_3000", requiresRecordHolder: true }
 ]);
 
 const ICONS = normalizePlayerIcons(PLAYER_ICONS);
@@ -281,9 +281,37 @@ function keyForUsername(username) {
   return String(username).trim().toLowerCase();
 }
 
-function unlockedTrails(bestScore, { recordHolder = false } = {}) {
-  const s = Number(bestScore) || 0;
-  return TRAILS.filter((t) => s >= t.minScore && (!t.requiresRecordHolder || recordHolder)).map((t) => t.id);
+function unlockedTrails({ achievements, bestScore = 0 } = {}, { recordHolder = false } = {}) {
+  const normalized = normalizeAchievementState(achievements);
+  const unlockedAchievements = normalized.unlocked || {};
+  const best = Math.max(Number(bestScore) || 0, normalized.progress?.bestScore || 0);
+
+  return TRAILS.filter((t) => {
+    if (t.alwaysUnlocked) return true;
+    if (t.requiresRecordHolder && !recordHolder) return false;
+    const required = t.achievementId;
+    if (required && unlockedAchievements[required]) return true;
+    if (required && best >= (t.minScore || 0) && !unlockedAchievements[required]) return true;
+    return false;
+  }).map((t) => t.id);
+}
+
+function syncTrailAchievementsState(state, { bestScore = 0, recordHolder = false, now = nowMs() } = {}) {
+  const normalized = normalizeAchievementState(state);
+  const safeBest = normalizeScore(bestScore);
+  normalized.progress.bestScore = Math.max(normalized.progress.bestScore || 0, safeBest);
+
+  for (const t of TRAILS) {
+    if (!t.achievementId) continue;
+    if (t.requiresRecordHolder && !recordHolder) continue;
+    const meetsScore = safeBest >= (t.minScore || 0);
+    if (!meetsScore) continue;
+    if (!normalized.unlocked[t.achievementId]) {
+      normalized.unlocked[t.achievementId] = now;
+    }
+  }
+
+  return normalized;
 }
 
 function ensureUserSchema(u, { recordHolder = false } = {}) {
@@ -292,7 +320,7 @@ function ensureUserSchema(u, { recordHolder = false } = {}) {
   u.runs = normalizeCount(u.runs);
   u.totalScore = normalizeTotal(u.totalScore);
   u.bustercoins = normalizeCount(u.bustercoins);
-  u.achievements = normalizeAchievementState(u.achievements);
+  u.achievements = syncTrailAchievementsState(u.achievements, { bestScore: u.bestScore, recordHolder });
   if (typeof u.selectedTrail !== "string") u.selectedTrail = "classic";
   if (typeof u.selectedIcon !== "string") u.selectedIcon = DEFAULT_PLAYER_ICON_ID;
   if (!Array.isArray(u.ownedIcons)) u.ownedIcons = [];
@@ -307,7 +335,7 @@ function ensureUserSchema(u, { recordHolder = false } = {}) {
   u.settings = normalizeSettings(u.settings);
 
   // Ensure selected trail is unlocked
-  const unlocked = unlockedTrails(u.bestScore | 0, { recordHolder });
+  const unlocked = unlockedTrails({ achievements: u.achievements, bestScore: u.bestScore }, { recordHolder });
   if (!unlocked.includes(u.selectedTrail)) u.selectedTrail = "classic";
 
   const availableIconIds = unlockedIcons(u, { icons: ICONS, recordHolder });
@@ -419,7 +447,7 @@ function publicUser(u, { recordHolder = false } = {}) {
     totalScore: u.totalScore | 0,
     bustercoins: u.bustercoins | 0,
     achievements: normalizeAchievementState(u.achievements),
-    unlockedTrails: unlockedTrails(u.bestScore | 0, { recordHolder }),
+    unlockedTrails: unlockedTrails({ achievements: u.achievements, bestScore: u.bestScore }, { recordHolder }),
     unlockedIcons: unlockedIcons(u, { icons: ICONS, recordHolder }),
     isRecordHolder: Boolean(recordHolder)
   };
@@ -892,7 +920,7 @@ async function route(req, res) {
     if (!exists) return badRequest(res, "invalid_trail");
 
     const recordHolder = Boolean(u?.isRecordHolder);
-    const unlocked = unlockedTrails(u.bestScore | 0, { recordHolder });
+    const unlocked = unlockedTrails({ achievements: u.achievements, bestScore: u.bestScore }, { recordHolder });
     if (!unlocked.includes(trailId)) return badRequest(res, "trail_locked");
 
     const updated = await dataStore.setTrail(u.key, trailId);

@@ -20,24 +20,13 @@ describe("buildTrailHint", () => {
       online: true,
       user: { username: "pilot" },
       bestScore: "99",
-      trails: [{ id: "classic", minScore: 0 }, { id: "aurora", minScore: 700 }]
+      trails: [{ id: "classic", achievementId: "a", alwaysUnlocked: true }, { id: "aurora", achievementId: "b", minScore: 700 }],
+      achievements: { unlocked: { a: 1 } }
     });
 
     expect(hint.className).toBe("hint");
-    expect(hint.text).toContain("Climb higher scores");
+    expect(hint.text).toContain("Complete achievements");
     expect(hint.text).toContain("99");
-  });
-
-  it("highlights record-holder exclusivity when applicable", () => {
-    const hint = buildTrailHint({
-      online: true,
-      user: { username: "pilot", isRecordHolder: false },
-      bestScore: 9999,
-      trails: [{ id: "classic", minScore: 0 }, { id: "world_record", minScore: 0, requiresRecordHolder: true }]
-    });
-
-    expect(hint.text).toContain("Exclusive trails");
-    expect(hint.text.toLowerCase()).not.toContain("world record");
   });
 
   it("celebrates when all trails are unlocked", () => {
@@ -45,10 +34,27 @@ describe("buildTrailHint", () => {
       online: true,
       user: { username: "pilot" },
       bestScore: 9999,
-      trails: [{ id: "classic", minScore: 0 }]
+      trails: [{ id: "classic", minScore: 0, achievementId: "a" }],
+      achievements: { unlocked: { a: 1 } }
     });
 
     expect(hint.text).toContain("All trails unlocked");
     expect(hint.text).toContain("9999");
+  });
+
+  it("accounts for record-holder gated trails when counting locks", () => {
+    const hint = buildTrailHint({
+      online: true,
+      user: { username: "pilot", isRecordHolder: false },
+      bestScore: 5000,
+      trails: [
+        { id: "classic", minScore: 0, achievementId: "a" },
+        { id: "world_record", achievementId: "b", requiresRecordHolder: true }
+      ],
+      achievements: { unlocked: { a: 1 } }
+    });
+
+    expect(hint.text).toContain("Exclusive trails");
+    expect(hint.text.toLowerCase()).toContain("record holder");
   });
 });

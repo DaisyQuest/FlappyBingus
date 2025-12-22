@@ -155,7 +155,8 @@ describe("scoreService", () => {
       previous: { unlocked: {}, progress: {} },
       runStats: { orbsCollected: 0, abilitiesUsed: 0 },
       score: 101,
-      totalScore: 50
+      totalScore: 50,
+      bestScore: undefined
     });
     expect(res.body.achievements).toEqual({ unlocked: ["b"], definitions: ["defs"], state: updated.achievements });
   });

@@ -8,6 +8,7 @@ const DEFAULT_ICON = "hi_vis_orange";
 const DEFAULT_ACHIEVEMENTS_STATE = Object.freeze({
   unlocked: Object.freeze({}),
   progress: Object.freeze({
+    bestScore: 0,
     maxScoreNoOrbs: 0,
     maxScoreNoAbilities: 0,
     maxPerfectsInRun: 0,

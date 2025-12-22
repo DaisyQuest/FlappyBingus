@@ -510,8 +510,9 @@ function pauseTrailPreview() {
 function fillTrailSelect() {
   const best = (net.user ? (net.user.bestScore | 0) : readLocalBest());
   const isRecordHolder = Boolean(net.user?.isRecordHolder);
+  const achievements = net.user?.achievements || net.achievements?.state;
   const orderedTrails = sortTrailsForDisplay(net.trails, { isRecordHolder });
-  const unlocked = new Set(getUnlockedTrails(orderedTrails, best, { isRecordHolder }));
+  const unlocked = new Set(getUnlockedTrails(orderedTrails, achievements, { isRecordHolder }));
   const selected = normalizeTrailSelection({
     currentId: currentTrailId,
     userSelectedId: net.user?.selectedTrail,
@@ -529,7 +530,8 @@ function fillTrailSelect() {
     online: net.online,
     user: net.user,
     bestScore: best,
-    trails: orderedTrails
+    trails: orderedTrails,
+    achievements
   });
   if (trailHint) {
     trailHint.className = hint.className;
