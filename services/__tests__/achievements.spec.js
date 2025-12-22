@@ -245,4 +245,51 @@ describe("evaluateRunForAchievements", () => {
     expect(state.progress.bestScore).toBe(2100);
     expect(unlocked).toEqual(expect.arrayContaining(["score_fire_cape_1000", "score_inferno_cape_2000"]));
   });
+
+  it("can unlock every defined achievement when its requirement is satisfied", () => {
+    const now = 321;
+    ACHIEVEMENTS.forEach((def) => {
+      const req = def.requirement || {};
+      const progress = { ...DEFAULT_PROGRESS };
+      const runStats = { orbsCollected: null, abilitiesUsed: null, perfects: null };
+
+      let score = req.minScore ?? 0;
+      let bestScore = req.minScore ?? 0;
+      let totalScore = progress.totalScore;
+
+      if (req.maxOrbs !== undefined) runStats.orbsCollected = req.maxOrbs;
+      if (req.minOrbs !== undefined) runStats.orbsCollected = req.minOrbs;
+      if (req.totalOrbs !== undefined) {
+        progress.totalOrbsCollected = Math.max(0, req.totalOrbs - 1);
+        runStats.orbsCollected = runStats.orbsCollected ?? 1;
+      }
+
+      if (req.maxAbilities !== undefined) runStats.abilitiesUsed = req.maxAbilities;
+
+      if (req.minPerfects !== undefined) runStats.perfects = req.minPerfects;
+      if (req.totalPerfects !== undefined) {
+        progress.totalPerfects = Math.max(0, req.totalPerfects - 1);
+        runStats.perfects = runStats.perfects ?? 1;
+      }
+
+      if (req.totalScore !== undefined) {
+        progress.totalScore = Math.max(0, req.totalScore - 1);
+        totalScore = progress.totalScore;
+        score = Math.max(score, 2);
+      }
+
+      const previous = { unlocked: {}, progress };
+      const { state, unlocked } = evaluateRunForAchievements({
+        previous,
+        runStats,
+        score,
+        bestScore,
+        totalScore,
+        now
+      });
+
+      expect(unlocked).toContain(def.id);
+      expect(state.unlocked[def.id]).toBe(now);
+    });
+  });
 });
