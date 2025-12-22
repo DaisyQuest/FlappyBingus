@@ -83,6 +83,7 @@ import {
   renderTrailOptions as renderTrailMenuOptions,
   toggleTrailMenu
 } from "./trailMenu.js";
+import { bindSkillOptionGroup, markSkillOptionSelection } from "./skillOptions.js";
 
 // ---- DOM ----
 const ui = buildGameUI();
@@ -114,8 +115,8 @@ const {
   iconLauncher,
   bindWrap,
   bindHint,
-  dashBehaviorSelect,
-  slowFieldBehaviorSelect,
+  dashBehaviorOptions,
+  slowFieldBehaviorOptions,
   hsWrap,
   pbText,
   trailText,
@@ -684,8 +685,8 @@ function renderBindUI(listeningActionId = null) {
 
 function applySkillSettingsToUI(settings = skillSettings) {
   const normalized = normalizeSkillSettings(settings || DEFAULT_SKILL_SETTINGS);
-  if (dashBehaviorSelect) dashBehaviorSelect.value = normalized.dashBehavior;
-  if (slowFieldBehaviorSelect) slowFieldBehaviorSelect.value = normalized.slowFieldBehavior;
+  markSkillOptionSelection(dashBehaviorOptions, normalized.dashBehavior);
+  markSkillOptionSelection(slowFieldBehaviorOptions, normalized.slowFieldBehavior);
 }
 
 async function updateSkillSettings(next, { persist = true } = {}) {
@@ -1143,11 +1144,11 @@ bindWrap.addEventListener("click", (e) => {
   beginRebind(actionId);
 });
 
-dashBehaviorSelect?.addEventListener("change", () => {
-  updateSkillSettings({ ...skillSettings, dashBehavior: dashBehaviorSelect.value });
+bindSkillOptionGroup(dashBehaviorOptions, (value) => {
+  updateSkillSettings({ ...skillSettings, dashBehavior: value });
 });
-slowFieldBehaviorSelect?.addEventListener("change", () => {
-  updateSkillSettings({ ...skillSettings, slowFieldBehavior: slowFieldBehaviorSelect.value });
+bindSkillOptionGroup(slowFieldBehaviorOptions, (value) => {
+  updateSkillSettings({ ...skillSettings, slowFieldBehavior: value });
 });
 
 // ---- Menu/game over buttons ----

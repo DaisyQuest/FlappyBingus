@@ -390,6 +390,93 @@ function createBindCard(doc, refs) {
   return card;
 }
 
+function createSkillGlyph(doc, type) {
+  const svg = doc.createElementNS("http://www.w3.org/2000/svg", "svg");
+  svg.setAttribute("viewBox", "0 0 64 64");
+  svg.setAttribute("aria-hidden", "true");
+  svg.classList.add("skill-glyph");
+  const node = (tag, attrs = {}) => {
+    const el = doc.createElementNS("http://www.w3.org/2000/svg", tag);
+    Object.entries(attrs).forEach(([k, v]) => el.setAttribute(k, v));
+    return el;
+  };
+
+  if (type === "ricochet") {
+    svg.append(
+      node("rect", { x: "8", y: "12", width: "6", height: "40", rx: "3", class: "skill-glyph-wall" }),
+      node("rect", { x: "50", y: "12", width: "6", height: "40", rx: "3", class: "skill-glyph-wall" }),
+      node("polyline", { points: "18,44 42,32 18,20", class: "skill-glyph-path" }),
+      node("polygon", { points: "16,18 26,20 18,26", class: "skill-glyph-accent" }),
+      node("circle", { cx: "42", cy: "32", r: "3.5", class: "skill-glyph-node" })
+    );
+  } else if (type === "destroy") {
+    svg.append(
+      node("rect", { x: "25", y: "10", width: "14", height: "44", rx: "6", class: "skill-glyph-wall" }),
+      node("rect", { x: "22", y: "12", width: "20", height: "12", rx: "4", class: "skill-glyph-wall" }),
+      node("polygon", { points: "18,28 28,30 24,36 32,34 30,44 38,32 44,40 42,28 48,30 42,22 36,24 32,16 30,26 22,22", class: "skill-glyph-accent" }),
+      node("path", { d: "M24 48c5-3 11-3 16 0", class: "skill-glyph-crack" })
+    );
+  } else if (type === "slow") {
+    svg.append(
+      node("path", { d: "M32 12v26", class: "skill-glyph-path" }),
+      node("polygon", { points: "24,32 32,46 40,32", class: "skill-glyph-accent" }),
+      node("path", { d: "M18 40c4 4 0 8 4 12", class: "skill-glyph-wave" }),
+      node("path", { d: "M46 40c-4 4 0 8-4 12", class: "skill-glyph-wave" })
+    );
+  } else {
+    svg.append(
+      node("circle", { cx: "28", cy: "38", r: "12", class: "skill-glyph-fill" }),
+      node("path", { d: "M36 30c2-8 10-10 16-14", class: "skill-glyph-path" }),
+      node("polygon", { points: "46,12 50,14 54,12 52,16 54,20 50,18 46,20 48,16", class: "skill-glyph-accent" }),
+      node("circle", { cx: "28", cy: "38", r: "6", class: "skill-glyph-node" })
+    );
+  }
+
+  const wrap = doc.createElement("div");
+  wrap.className = "skill-option-icon";
+  wrap.append(svg);
+  return wrap;
+}
+
+function createSkillOptionGroup(doc, refs, { id, label, options }) {
+  const row = doc.createElement("div");
+  row.className = "field skill-option-group";
+  const groupLabel = doc.createElement("div");
+  groupLabel.className = "lbl";
+  groupLabel.textContent = label;
+
+  const grid = createElement(doc, refs, "div", {
+    id,
+    className: "skill-option-grid",
+    attrs: { role: "group", "aria-label": label }
+  });
+
+  options.forEach(({ value, title, description }) => {
+    const btn = doc.createElement("button");
+    btn.type = "button";
+    btn.className = `skill-option behavior-${value}`;
+    btn.dataset.value = value;
+    btn.setAttribute("aria-pressed", "false");
+
+    const icon = createSkillGlyph(doc, value);
+    const textWrap = doc.createElement("div");
+    textWrap.className = "skill-option-text";
+    const name = doc.createElement("div");
+    name.className = "skill-option-title";
+    name.textContent = title;
+    const desc = doc.createElement("div");
+    desc.className = "skill-option-sub";
+    desc.textContent = description;
+    textWrap.append(name, desc);
+
+    btn.append(icon, textWrap);
+    grid.append(btn);
+  });
+
+  row.append(groupLabel, grid);
+  return row;
+}
+
 function createSkillSettingsCard(doc, refs) {
   const card = doc.createElement("div");
   card.className = "info-card settings-feature";
@@ -398,39 +485,23 @@ function createSkillSettingsCard(doc, refs) {
   title.className = "section-title";
   title.textContent = "Skill Behaviors";
 
-  const dashRow = doc.createElement("div");
-  dashRow.className = "field";
-  const dashLbl = doc.createElement("div");
-  dashLbl.className = "lbl";
-  dashLbl.textContent = "Dash behavior";
-  const dashSelect = createElement(doc, refs, "select", { id: "dashBehaviorSelect" });
-  [
-    { value: "ricochet", text: "Ricochet (bounce infinitely)" },
-    { value: "destroy", text: "Destroy on impact" }
-  ].forEach(({ value, text }) => {
-    const opt = doc.createElement("option");
-    opt.value = value;
-    opt.textContent = text;
-    dashSelect.append(opt);
+  const dashRow = createSkillOptionGroup(doc, refs, {
+    id: "dashBehaviorOptions",
+    label: "Dash behavior",
+    options: [
+      { value: "ricochet", title: "Reflect", description: "Bounce off walls to keep the dash alive." },
+      { value: "destroy", title: "Break", description: "Shatter pipes on impact for a quick escape." }
+    ]
   });
-  dashRow.append(dashLbl, dashSelect);
 
-  const slowRow = doc.createElement("div");
-  slowRow.className = "field";
-  const slowLbl = doc.createElement("div");
-  slowLbl.className = "lbl";
-  slowLbl.textContent = "Slow Field behavior";
-  const slowSelect = createElement(doc, refs, "select", { id: "slowFieldBehaviorSelect" });
-  [
-    { value: "slow", text: "Slow zone" },
-    { value: "explosion", text: "Pipe-clearing blast" }
-  ].forEach(({ value, text }) => {
-    const opt = doc.createElement("option");
-    opt.value = value;
-    opt.textContent = text;
-    slowSelect.append(opt);
+  const slowRow = createSkillOptionGroup(doc, refs, {
+    id: "slowFieldBehaviorOptions",
+    label: "Slow Field behavior",
+    options: [
+      { value: "slow", title: "Slow Field", description: "Drop a slowing air pocket that drags enemies." },
+      { value: "explosion", title: "Explode", description: "Launch a bomb that clears nearby pipes." }
+    ]
   });
-  slowRow.append(slowLbl, slowSelect);
 
   const hint = doc.createElement("div");
   hint.className = "hint";
@@ -584,11 +655,18 @@ function createMenuScreen(doc, refs) {
   titleRow.className = "menu-title-row";
   const achievementsBack = createElement(doc, refs, "label", {
     id: "achievementsHeaderBack",
-    className: "tab-pill achievements-back",
+    className: "tab-pill menu-back achievements-back",
     attrs: { for: "viewMain" },
     text: "← Back to Main"
   });
   achievementsBack.hidden = true;
+  const settingsBack = createElement(doc, refs, "label", {
+    id: "settingsHeaderBack",
+    className: "tab-pill menu-back settings-back",
+    attrs: { for: "viewMain" },
+    text: "← Back to Main"
+  });
+  settingsBack.hidden = true;
   const cloud = doc.createElement("div");
   cloud.className = "title-cloud";
   const title = createElement(doc, refs, "div", {
@@ -597,7 +675,7 @@ function createMenuScreen(doc, refs) {
     text: "Flappy Bingus"
   });
   cloud.append(title);
-  titleRow.append(achievementsBack, cloud);
+  titleRow.append(achievementsBack, settingsBack, cloud);
 
   const subtitle = doc.createElement("p");
   subtitle.className = "sub menu-subtitle";
@@ -651,13 +729,6 @@ function createMenuScreen(doc, refs) {
 
   const settingsPanel = doc.createElement("div");
   settingsPanel.className = "panel-settings tab-panel";
-  const toMain = doc.createElement("div");
-  toMain.className = "tab-toggle";
-  const mainLabel = doc.createElement("label");
-  mainLabel.setAttribute("for", "viewMain");
-  mainLabel.className = "tab-pill";
-  mainLabel.textContent = "← Back to Main";
-  toMain.append(mainLabel);
   const settingsGrid = doc.createElement("div");
   settingsGrid.className = "info-grid settings-grid";
   settingsGrid.append(
@@ -667,7 +738,7 @@ function createMenuScreen(doc, refs) {
     createStatusCard(doc, refs),
     createSeedCard(doc, refs)
   );
-  settingsPanel.append(toMain, settingsGrid);
+  settingsPanel.append(settingsGrid);
 
   const achievementsPanel = doc.createElement("div");
   achievementsPanel.className = "panel-achievements tab-panel";
@@ -685,6 +756,7 @@ function createMenuScreen(doc, refs) {
 
   shell.append(mainCard, sideStack);
   const achievementsHeaderBack = refs.achievementsHeaderBack;
+  const settingsHeaderBack = refs.settingsHeaderBack;
 
   const updateMenuView = () => {
     const view = viewSettings.checked ? "settings" : viewAchievements.checked ? "achievements" : "main";
@@ -693,6 +765,7 @@ function createMenuScreen(doc, refs) {
     title.textContent = view === "settings" ? "Settings" : view === "achievements" ? "Achievements" : "Flappy Bingus";
     subtitle.hidden = view === "achievements";
     if (achievementsHeaderBack) achievementsHeaderBack.hidden = view !== "achievements";
+    if (settingsHeaderBack) settingsHeaderBack.hidden = view !== "settings";
     if (view !== "achievements") subtitle.textContent = subtitleText;
   };
 
