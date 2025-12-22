@@ -159,7 +159,7 @@ describe("Tutorial skill variants", () => {
     tutorial.stop();
   });
 
-  it("credits the bounce lesson after a reflected dash reaches the target ring", () => {
+  it("spawns a stationary 90° corner for the bounce lesson", () => {
     const game = setupGame();
     const tutorial = new Tutorial({ game, input: game.input, getBinds: () => ({}), onExit: () => {} });
     tutorial.start();
@@ -167,18 +167,45 @@ describe("Tutorial skill variants", () => {
     const reflectIdx = tutorial._steps().findIndex((s) => s.id === "dash_reflect");
     tutorial._enterStep(reflectIdx);
 
-    tutorial._reflectBounceSeen = true;
-    game.player.x = tutorial._reflectTarget.x;
-    game.player.y = tutorial._reflectTarget.y;
+    expect(tutorial._reflectWalls).toHaveLength(2);
+    const horiz = tutorial._reflectWalls.find(({ pipe }) => pipe.w > pipe.h)?.pipe;
+    const vert = tutorial._reflectWalls.find(({ pipe }) => pipe.h > pipe.w)?.pipe;
+    expect(horiz?.vy).toBe(0);
+    expect(vert?.vx).toBe(0);
+    expect(vert?.x).toBeCloseTo((horiz?.x || 0) + (horiz?.w || 0) - (vert?.w || 0));
+    expect(vert?.y).toBeCloseTo(horiz?.y || 0);
+    tutorial.stop();
+  });
+
+  it("advances only after two unique wall bounces during the same dash", () => {
+    const game = setupGame();
+    const tutorial = new Tutorial({ game, input: game.input, getBinds: () => ({}), onExit: () => {} });
+    tutorial.start();
+
+    const reflectIdx = tutorial._steps().findIndex((s) => s.id === "dash_reflect");
+    tutorial._enterStep(reflectIdx);
+
+    const first = tutorial._reflectWalls[0].pipe;
+    const second = tutorial._reflectWalls[1].pipe;
+    const bounce = (pipe, serial, count) => {
+      tutorial.game.lastDashReflect = { x: pipe.x + pipe.w * 0.5, y: pipe.y + pipe.h * 0.5, serial, count };
+      tutorial._stepDashReflect(0.016);
+    };
 
     const spy = vi.spyOn(tutorial, "_nextStep");
-    tutorial._stepDashReflect(0.5);
+    bounce(first, 1, 1);
+    expect(tutorial._reflectHitsThisDash).toBe(1);
+    expect(tutorial._reflectSuccessDelay).toBe(0);
+
+    bounce(second, 2, 2);
+    expect(tutorial._reflectHitsThisDash).toBe(2);
+    expect(tutorial._reflectSuccessDelay).toBeGreaterThan(0);
     tutorial._stepDashReflect(1.0);
     expect(spy).toHaveBeenCalled();
     tutorial.stop();
   });
 
-  it("keeps the bounce wall active until it enters the playfield", () => {
+  it("resets bounce tracking when a new dash starts", () => {
     const game = setupGame();
     const tutorial = new Tutorial({ game, input: game.input, getBinds: () => ({}), onExit: () => {} });
     tutorial.start();
@@ -186,28 +213,20 @@ describe("Tutorial skill variants", () => {
     const reflectIdx = tutorial._steps().findIndex((s) => s.id === "dash_reflect");
     tutorial._enterStep(reflectIdx);
 
-    const firstWall = tutorial._reflectWall;
-    expect(firstWall?.entered).toBe(false);
+    const first = tutorial._reflectWalls[0].pipe;
+    const bounce = (pipe, serial, count) => {
+      tutorial.game.lastDashReflect = { x: pipe.x + pipe.w * 0.5, y: pipe.y + pipe.h * 0.5, serial, count };
+      tutorial._stepDashReflect(0.016);
+    };
 
-    tutorial._stepDashReflect(0.016);
-    expect(tutorial._reflectWall).toBe(firstWall);
-    tutorial.stop();
-  });
+    bounce(first, 1, 1);
+    expect(tutorial._reflectHitsThisDash).toBe(1);
 
-  it("respawns the bounce setup only after the wall passes through", () => {
-    const game = setupGame();
-    const tutorial = new Tutorial({ game, input: game.input, getBinds: () => ({}), onExit: () => {} });
-    tutorial.start();
-
-    const reflectIdx = tutorial._steps().findIndex((s) => s.id === "dash_reflect");
-    tutorial._enterStep(reflectIdx);
-
-    const firstWall = tutorial._reflectWall;
-    firstWall.entered = true;
-    firstWall.x = -200;
-
-    tutorial._stepDashReflect(0.016);
-    expect(tutorial._reflectWall).not.toBe(firstWall);
+    // New dash = bounce count resets to 1, which should clear prior hits.
+    bounce(first, 2, 1);
+    expect(tutorial._reflectHitsThisDash).toBe(1);
+    expect(tutorial._reflectWallsHit.size).toBe(1);
+    expect(tutorial._reflectSuccessDelay).toBe(0);
     tutorial.stop();
   });
 });
