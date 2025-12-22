@@ -8,6 +8,35 @@ const DEFAULT_RIM = "#0f172a";
 const DEFAULT_CORE = "#ffc285";
 const DEFAULT_GLOW = "rgba(255, 200, 120, 0.75)";
 
+function drawZigZag(ctx, radius, {
+  stroke = "#fff",
+  width = 3,
+  amplitude = 0.18,
+  waves = 6,
+  glow = null
+} = {}) {
+  if (!ctx) return;
+  const amp = Math.max(0.05, Math.min(0.9, amplitude)) * radius;
+  const segments = Math.max(2, Math.floor(waves));
+  const step = (radius * 2) / segments;
+  ctx.save?.();
+  ctx.translate?.(-radius, 0);
+  ctx.lineWidth = width;
+  ctx.strokeStyle = stroke;
+  if (glow) {
+    ctx.shadowColor = glow;
+    ctx.shadowBlur = Math.max(6, width * 3);
+  }
+  ctx.beginPath();
+  for (let i = 0; i <= segments; i++) {
+    const x = i * step;
+    const y = (i % 2 === 0 ? -amp : amp);
+    ctx.lineTo(x, y);
+  }
+  ctx.stroke();
+  ctx.restore?.();
+}
+
 function makeCanvas(size) {
   const safeSize = Math.max(16, Math.floor(size) || 96);
   const isJsdom = typeof navigator !== "undefined" && /jsdom/i.test(navigator.userAgent || "");
@@ -58,6 +87,7 @@ export function createPlayerIconSprite(icon = {}, { size = 96 } = {}) {
     const core = icon.style?.core || icon.style?.fill || DEFAULT_CORE;
     const rim = icon.style?.rim || DEFAULT_RIM;
     const glow = icon.style?.glow || DEFAULT_GLOW;
+    const pattern = icon.style?.pattern;
     ctx.clearRect?.(0, 0, canvas.width, canvas.height);
     ctx.save?.();
     ctx.translate?.(canvas.width * 0.5, canvas.height * 0.5);
@@ -76,6 +106,17 @@ export function createPlayerIconSprite(icon = {}, { size = 96 } = {}) {
     }
     fillCircle(ctx, inner, core, { color: glow, blur: Math.max(4, canvas.width * 0.08) });
 
+    if (pattern?.type === "zigzag") {
+      drawZigZag(ctx, outer * 0.75, {
+        stroke: pattern.stroke || rim,
+        width: Math.max(2, canvas.width * 0.05),
+        amplitude: 0.22,
+        waves: 6,
+        glow: pattern.background || glow
+      });
+      canvas.__pattern = { type: "zigzag" };
+    }
+
     ctx.restore?.();
   }
 
@@ -83,5 +124,6 @@ export function createPlayerIconSprite(icon = {}, { size = 96 } = {}) {
 }
 
 export const __testables = {
-  fillCircle
+  fillCircle,
+  drawZigZag
 };

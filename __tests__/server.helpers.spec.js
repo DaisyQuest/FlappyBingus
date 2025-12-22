@@ -24,14 +24,14 @@ describe("server helpers (trails)", () => {
     const u = baseUser();
     server.ensureUserSchema(u, { recordHolder: false });
     expect(u.selectedTrail).toBe("classic");
-    expect(server.unlockedTrails(u.bestScore, { recordHolder: false })).not.toContain("world_record");
+    expect(server.unlockedTrails({ achievements: u.achievements, bestScore: u.bestScore }, { recordHolder: false })).not.toContain("world_record");
   });
 
   it("preserves record-holder trails when flagged as record holder", () => {
     const u = baseUser();
     server.ensureUserSchema(u, { recordHolder: true });
     expect(u.selectedTrail).toBe("world_record");
-    expect(server.unlockedTrails(u.bestScore, { recordHolder: true })).toContain("world_record");
+    expect(server.unlockedTrails({ achievements: u.achievements, bestScore: u.bestScore }, { recordHolder: true })).toContain("world_record");
   });
 
   it("exposes the correct unlock list via publicUser with record-holder status", () => {
@@ -65,18 +65,17 @@ describe("server helpers (trails)", () => {
     const u = baseUser();
     u.achievements = null;
     server.ensureUserSchema(u, { recordHolder: false });
-    expect(u.achievements).toEqual({
-      unlocked: {},
-      progress: {
-        maxScoreNoOrbs: 0,
-        maxScoreNoAbilities: 0,
-        maxPerfectsInRun: 0,
-        totalPerfects: 0,
-        maxOrbsInRun: 0,
-        totalOrbsCollected: 0,
-        totalScore: 0
-      }
+    expect(u.achievements.progress).toMatchObject({
+      bestScore: u.bestScore,
+      maxScoreNoOrbs: 0,
+      maxScoreNoAbilities: 0,
+      maxPerfectsInRun: 0,
+      totalPerfects: 0,
+      maxOrbsInRun: 0,
+      totalOrbsCollected: 0,
+      totalScore: 0
     });
+    expect(Object.keys(u.achievements.unlocked || {})).toEqual(expect.arrayContaining(["trail_classic_1"]));
   });
 
   it("normalizes invalid binds/settings and clamps counters", () => {

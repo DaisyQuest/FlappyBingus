@@ -58,7 +58,8 @@ function createScoreService(deps) {
       previous: normalizeAchievements(user.achievements),
       runStats,
       score,
-      totalScore: user.totalScore
+      totalScore: user.totalScore,
+      bestScore: user.bestScore
     });
 
     try {

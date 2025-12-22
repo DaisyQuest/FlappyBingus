@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { MongoDataStore } from "../mongo.cjs";
 
 const DEFAULT_PROGRESS = {
+  bestScore: 0,
   maxScoreNoOrbs: 0,
   maxScoreNoAbilities: 0,
   maxPerfectsInRun: 0,

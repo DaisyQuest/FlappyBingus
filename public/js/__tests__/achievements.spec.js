@@ -26,6 +26,7 @@ describe("achievements helpers", () => {
     const normalized = normalizeAchievementState({
       unlocked: { no_orbs_100: "2000", bogus: "bad" },
       progress: {
+        bestScore: 999,
         maxScoreNoOrbs: 150.9,
         maxScoreNoAbilities: -5,
         maxPerfectsInRun: 12.2,
@@ -37,6 +38,7 @@ describe("achievements helpers", () => {
     });
     expect(normalized.unlocked).toEqual({ no_orbs_100: 2000 });
     expect(normalized.progress).toEqual({
+      bestScore: 999,
       maxScoreNoOrbs: 150,
       maxScoreNoAbilities: 0,
       maxPerfectsInRun: 12,

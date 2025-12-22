@@ -10,14 +10,20 @@ describe("trailProgression helpers", () => {
 
   it("unlocks record-holder trails only when eligible", () => {
     const trails = [
-      { id: "classic", minScore: 0 },
-      { id: "world_record", minScore: 0, requiresRecordHolder: true }
+      { id: "classic", achievementId: "a", alwaysUnlocked: true },
+      { id: "world_record", achievementId: "b", requiresRecordHolder: true }
     ];
-    const locked = getUnlockedTrails(trails, 9999, { isRecordHolder: false });
-    const unlocked = getUnlockedTrails(trails, 9999, { isRecordHolder: true });
+    const achievements = { unlocked: { a: Date.now(), b: Date.now() } };
+    const locked = getUnlockedTrails(trails, achievements, { isRecordHolder: false });
+    const unlocked = getUnlockedTrails(trails, achievements, { isRecordHolder: true });
 
     expect(locked).not.toContain("world_record");
     expect(unlocked).toContain("world_record");
+  });
+
+  it("keeps classic available even without achievements", () => {
+    const unlocked = getUnlockedTrails(DEFAULT_TRAILS, null, { isRecordHolder: false });
+    expect(unlocked).toContain("classic");
   });
 
   it("places record-holder trails at the top when available", () => {
