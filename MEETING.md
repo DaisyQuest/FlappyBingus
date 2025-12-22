@@ -311,3 +311,25 @@
 - Implement the Game Over layout and typography changes, including the new PB badge and status text.
 - Update score breakdown styles to use the compact grid and larger text sizing.
 - Add targeted unit tests for the PB helpers and the updated Game Over layout.
+
+# Meeting Notes
+- Date: 2025-12-22
+- Attendees: ChatGPT (GPT-5.1-Codex-Max)
+
+## Agenda
+- Add new statistics to the Game Over menu and persist per-skill usage for future achievements.
+
+## Discussion
+- Game Over needs to display how often each skill was used in the completed run to improve post-run clarity.
+- Run metadata already tracks total abilities used; we need per-skill counts surfaced in both UI and API payloads.
+- Persisting cumulative skill usage per user will unlock future achievement logic and analytics without reprocessing replays.
+
+## Decisions
+- Track per-run skill usage for dash, phase, teleport, and slow field and render it in the Game Over menu.
+- Validate and persist skill usage stats via the score submission pipeline, storing cumulative totals in the database.
+- Add regression tests covering run stat validation, persistence, and the new Game Over skill usage layout.
+
+## Action Items
+- Implement per-skill run stat tracking and rendering in the Game Over panel.
+- Update score submission validation and Mongo persistence to aggregate skill usage totals.
+- Expand automated tests for run stats, persistence, and UI to keep coverage high.

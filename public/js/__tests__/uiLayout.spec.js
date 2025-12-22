@@ -91,6 +91,7 @@ describe("uiLayout", () => {
       "trailPreviewCanvas",
       "final",
       "overPB",
+      "skillUsageStats",
       "seedInput",
       "seedRandomBtn",
       "seedHint",

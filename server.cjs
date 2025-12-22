@@ -21,6 +21,7 @@ const {
   evaluateRunForAchievements,
   buildAchievementsPayload
 } = require("./services/achievements.cjs");
+const { DEFAULT_SKILL_TOTALS, normalizeSkillTotals } = require("./services/skillConsts.cjs");
 const {
   DEFAULT_PLAYER_ICON_ID,
   PLAYER_ICONS,
@@ -323,6 +324,7 @@ function ensureUserSchema(u, { recordHolder = false } = {}) {
   u.totalScore = normalizeTotal(u.totalScore);
   u.bustercoins = normalizeCount(u.bustercoins);
   u.achievements = syncTrailAchievementsState(u.achievements, { bestScore: u.bestScore, recordHolder });
+  u.skillTotals = normalizeSkillTotals(u.skillTotals || DEFAULT_SKILL_TOTALS);
   if (typeof u.selectedTrail !== "string") u.selectedTrail = "classic";
   if (typeof u.selectedIcon !== "string") u.selectedIcon = DEFAULT_PLAYER_ICON_ID;
   if (!Array.isArray(u.ownedIcons)) u.ownedIcons = [];
@@ -454,6 +456,7 @@ function publicUser(u, { recordHolder = false } = {}) {
     runs: u.runs | 0,
     totalScore: u.totalScore | 0,
     bustercoins: u.bustercoins | 0,
+    skillTotals: normalizeSkillTotals(u.skillTotals || DEFAULT_SKILL_TOTALS),
     achievements: normalizeAchievementState(u.achievements),
     unlockedTrails: unlockedTrails({ achievements: u.achievements, bestScore: u.bestScore }, { recordHolder }),
     unlockedIcons: unlockedIcons(u, { icons: ICONS, recordHolder }),
@@ -494,6 +497,7 @@ function buildUserDefaults(username, key) {
     runs: 0,
     totalScore: 0,
     bustercoins: 0,
+    skillTotals: structuredClone(DEFAULT_SKILL_TOTALS),
     achievements: normalizeAchievementState(),
     createdAt: now,
     updatedAt: now

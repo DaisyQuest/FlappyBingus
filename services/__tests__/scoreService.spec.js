@@ -141,23 +141,33 @@ describe("scoreService", () => {
       unlocked: ["b"]
     }));
     const buildAchievementsPayload = vi.fn(() => ({ unlocked: ["b"], definitions: ["defs"], state: updated.achievements }));
+    const recordScore = vi.fn(async () => updated);
     const svc = createScoreService({
       ...deps,
-      dataStore: { recordScore: vi.fn(async () => updated) },
+      dataStore: { recordScore },
       evaluateAchievements,
       buildAchievementsPayload,
-      validateRunStats: () => ({ ok: true, stats: { orbsCollected: 0, abilitiesUsed: 0 } })
+      validateRunStats: () => ({
+        ok: true,
+        stats: { orbsCollected: 0, abilitiesUsed: 0, skillUsage: { dash: 1, phase: 0, teleport: 0, slowField: 0 } }
+      })
     });
 
-    const res = await svc.submitScore(user, 101, 0, { orbsCollected: 0, abilitiesUsed: 0 });
+    const res = await svc.submitScore(user, 101, 0, { orbsCollected: 0, abilitiesUsed: 0, skillUsage: { dash: 1, phase: 0, teleport: 0, slowField: 0 } });
 
     expect(evaluateAchievements).toHaveBeenCalledWith({
       previous: { unlocked: {}, progress: {} },
-      runStats: { orbsCollected: 0, abilitiesUsed: 0 },
+      runStats: { orbsCollected: 0, abilitiesUsed: 0, skillUsage: { dash: 1, phase: 0, teleport: 0, slowField: 0 } },
       score: 101,
       totalScore: 50,
       bestScore: undefined
     });
+    expect(res.ok).toBe(true);
+    expect(recordScore).toHaveBeenCalledWith(
+      user,
+      101,
+      expect.objectContaining({ skillUsage: { dash: 1, phase: 0, teleport: 0, slowField: 0 } })
+    );
     expect(res.body.achievements).toEqual({ unlocked: ["b"], definitions: ["defs"], state: updated.achievements });
   });
 

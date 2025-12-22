@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { MongoDataStore } from "../mongo.cjs";
+import { DEFAULT_SKILL_TOTALS } from "../../services/skillConsts.cjs";
 
 const DEFAULT_PROGRESS = {
   bestScore: 0,
@@ -9,7 +10,8 @@ const DEFAULT_PROGRESS = {
   totalPerfects: 0,
   maxOrbsInRun: 0,
   totalOrbsCollected: 0,
-  totalScore: 0
+  totalScore: 0,
+  skillTotals: DEFAULT_SKILL_TOTALS
 };
 
 class FakeCollection {
@@ -72,23 +74,44 @@ class FakeCollection {
     }
   }
 
-  evaluateExpression(expr) {
+  evaluateExpression(expr, vars = {}) {
     if (expr && typeof expr === "object") {
+      if (Object.prototype.hasOwnProperty.call(expr, "$let")) {
+        const { vars: localVars = {}, in: inner } = expr.$let;
+        const resolvedVars = { ...vars };
+        for (const [key, val] of Object.entries(localVars || {})) {
+          resolvedVars[key] = this.evaluateExpression(val, resolvedVars);
+        }
+        return this.evaluateExpression(inner, resolvedVars);
+      }
       if (Object.prototype.hasOwnProperty.call(expr, "$ifNull")) {
         const [first, fallback] = expr.$ifNull;
-        const firstVal = this.evaluateExpression(first);
-        return firstVal == null ? this.evaluateExpression(fallback) : firstVal;
+        const firstVal = this.evaluateExpression(first, vars);
+        return firstVal == null ? this.evaluateExpression(fallback, vars) : firstVal;
       }
       if (Object.prototype.hasOwnProperty.call(expr, "$add")) {
-        const values = expr.$add.map((v) => this.evaluateExpression(v));
+        const values = expr.$add.map((v) => this.evaluateExpression(v, vars));
         return values.reduce((sum, v) => sum + v, 0);
       }
       if (Object.prototype.hasOwnProperty.call(expr, "$max")) {
-        const values = expr.$max.map((v) => this.evaluateExpression(v));
+        const values = expr.$max.map((v) => this.evaluateExpression(v, vars));
         return Math.max(...values);
       }
+      if (!Array.isArray(expr)) {
+        const mapped = {};
+        for (const [key, val] of Object.entries(expr)) {
+          mapped[key] = this.evaluateExpression(val, vars);
+        }
+        return mapped;
+      }
+      return expr.map((v) => this.evaluateExpression(v, vars));
     }
 
+    if (typeof expr === "string" && expr.startsWith("$$")) {
+      const path = expr.slice(2).split(".");
+      const root = vars[path.shift()];
+      return path.reduce((val, key) => (val && val[key] !== undefined ? val[key] : undefined), root);
+    }
     if (typeof expr === "string" && expr.startsWith("$")) {
       return this.doc[expr.slice(1)];
     }
@@ -137,6 +160,8 @@ describe("MongoDataStore.recordScore", () => {
       keybinds: null,
       bustercoins: 0,
       achievements: { unlocked: {}, progress: DEFAULT_PROGRESS }
+      ,
+      skillTotals: DEFAULT_SKILL_TOTALS
     });
   });
 
@@ -165,7 +190,8 @@ describe("MongoDataStore.recordScore", () => {
       bestScore: 25,
       createdAt: now,
       updatedAt: now,
-      achievements: { unlocked: {}, progress: DEFAULT_PROGRESS }
+      achievements: { unlocked: {}, progress: DEFAULT_PROGRESS },
+      skillTotals: DEFAULT_SKILL_TOTALS
     });
   });
 
@@ -194,7 +220,8 @@ describe("MongoDataStore.recordScore", () => {
       bustercoins: 0,
       createdAt: 10,
       updatedAt: now,
-      achievements: { unlocked: {}, progress: DEFAULT_PROGRESS }
+      achievements: { unlocked: {}, progress: DEFAULT_PROGRESS },
+      skillTotals: DEFAULT_SKILL_TOTALS
     });
   });
 
@@ -232,7 +259,8 @@ describe("MongoDataStore.recordScore", () => {
       keybinds: null,
       bustercoins: 0,
       updatedAt: now,
-      achievements: { unlocked: {}, progress: DEFAULT_PROGRESS }
+      achievements: { unlocked: {}, progress: DEFAULT_PROGRESS },
+      skillTotals: DEFAULT_SKILL_TOTALS
     });
   });
 
@@ -264,6 +292,33 @@ describe("MongoDataStore.recordScore", () => {
     expect(result.bustercoins).toBe(1);
     expect(result.totalScore).toBe(130);
     expect(result.runs).toBe(2);
+  });
+
+  it("adds per-skill usage totals when provided", async () => {
+    const now = 6_000;
+    vi.spyOn(Date, "now").mockReturnValue(now);
+
+    const store = new MongoDataStore({ uri: "mongodb://test", dbName: "db" });
+    store.ensureConnected = vi.fn();
+    const existing = {
+      key: "jason",
+      username: "jason",
+      runs: 1,
+      totalScore: 10,
+      bestScore: 10,
+      selectedTrail: "classic",
+      selectedIcon: "hi_vis_orange",
+      ownedIcons: [],
+      skillTotals: { dash: 2, phase: 1, teleport: 0, slowField: 0 }
+    };
+    const collection = new FakeCollection(existing);
+    store.usersCollection = () => collection;
+
+    const result = await store.recordScore(existing, 5, { skillUsage: { dash: 3, teleport: 2 } });
+
+    expect(result.skillTotals).toEqual({ dash: 5, phase: 1, teleport: 2, slowField: 0 });
+    expect(result.runs).toBe(2);
+    expect(result.totalScore).toBe(15);
   });
 
   it("throws when attempting to record a score without a user key", async () => {

@@ -57,6 +57,18 @@ describe("game over layout", () => {
     expect(status?.textContent).toMatch(/personal best/i);
   });
 
+  it("renders a skill usage section before the breakdown list", () => {
+    const refs = {};
+    const screen = createOverScreen(dom.window.document, refs);
+    const panel = screen.querySelector(".panel");
+    const skillUsage = screen.querySelector(".skill-usage");
+    const breakdown = screen.querySelector(".score-breakdown");
+
+    expect(skillUsage).toBeTruthy();
+    expect(refs.skillUsageStats).toBeTruthy();
+    expect(Array.from(panel.children).indexOf(skillUsage)).toBeLessThan(Array.from(panel.children).indexOf(breakdown));
+  });
+
   it("keeps replay controls grouped at the bottom", () => {
     const refs = {};
     const screen = createOverScreen(dom.window.document, refs);

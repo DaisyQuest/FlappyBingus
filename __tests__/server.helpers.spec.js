@@ -78,9 +78,11 @@ describe("server helpers (trails)", () => {
       totalPerfects: 0,
       maxOrbsInRun: 0,
       totalOrbsCollected: 0,
-      totalScore: 0
+      totalScore: 0,
+      skillTotals: { dash: 0, phase: 0, teleport: 0, slowField: 0 }
     });
     expect(Object.keys(u.achievements.unlocked || {})).toEqual(expect.arrayContaining(["trail_classic_1"]));
+    expect(u.skillTotals).toEqual({ dash: 0, phase: 0, teleport: 0, slowField: 0 });
   });
 
   it("normalizes invalid binds/settings and clamps counters", () => {
