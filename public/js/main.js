@@ -240,8 +240,7 @@ refreshBootUI();
 
 trailPreview = trailPreviewCanvas ? new TrailPreview({
   canvas: trailPreviewCanvas,
-  playerImg,
-  obstructionElement: menuPanel
+  playerImg
 }) : null;
 syncLauncherSwatch(currentIconId, playerIcons, playerImg);
 
