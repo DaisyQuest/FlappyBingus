@@ -878,7 +878,7 @@ function createMenuScreen(doc, refs) {
 function createOverScreen(doc, refs) {
   const screen = createElement(doc, refs, "div", { id: "over", className: "screen hidden" });
   const panel = doc.createElement("div");
-  panel.className = "panel";
+  panel.className = "panel over-panel";
 
   const title = doc.createElement("div");
   title.className = "title danger";
@@ -886,15 +886,46 @@ function createOverScreen(doc, refs) {
 
   const subtitle = doc.createElement("p");
   subtitle.className = "sub over-subtitle";
-  subtitle.textContent = "One collision = instant death. Gameplay is frozen.";
+  subtitle.textContent = "Take a breath, then jump back in.";
 
-  const stats = doc.createElement("div");
-  stats.className = "stats";
-  const final = createElement(doc, refs, "span", { id: "final", className: "kbd", text: "0" });
-  const best = createElement(doc, refs, "span", { id: "overPB", className: "kbd", text: "0" });
-  stats.innerHTML = "Final score: ";
-  stats.append(final, doc.createElement("br"));
-  stats.append("Personal best: ", best);
+  const primaryActions = doc.createElement("div");
+  primaryActions.className = "row actions-row over-primary-actions";
+  primaryActions.append(
+    createElement(doc, refs, "button", { id: "restart", text: "Restart (new seed)" }),
+    createElement(doc, refs, "button", { id: "retrySeed", text: "Retry Previous Seed" }),
+    createElement(doc, refs, "button", { id: "toMenu", text: "Main Menu" })
+  );
+
+  const summary = doc.createElement("div");
+  summary.className = "over-summary";
+
+  const finalCard = doc.createElement("div");
+  finalCard.className = "over-stat-card over-final-card";
+  const finalLabel = doc.createElement("div");
+  finalLabel.className = "over-stat-label";
+  finalLabel.textContent = "Final score";
+  const final = createElement(doc, refs, "span", { id: "final", className: "over-final-score", text: "0" });
+  finalCard.append(finalLabel, final);
+
+  const bestCard = doc.createElement("div");
+  bestCard.className = "over-stat-card over-best-card";
+  const bestLabel = doc.createElement("div");
+  bestLabel.className = "over-stat-label";
+  bestLabel.textContent = "Personal best";
+  const bestValue = createElement(doc, refs, "span", { id: "overPB", className: "over-personal-best", text: "0" });
+  const bestBadge = createElement(doc, refs, "div", {
+    id: "overPbBadge",
+    className: "over-pb-badge hidden",
+    text: "New personal best!"
+  });
+  bestCard.append(bestLabel, bestValue, bestBadge);
+  summary.append(finalCard, bestCard);
+
+  const pbStatus = createElement(doc, refs, "div", {
+    id: "overPbStatus",
+    className: "over-pb-status",
+    text: "Score again to chase a new personal best."
+  });
 
   const breakdown = doc.createElement("div");
   breakdown.className = "score-breakdown";
@@ -907,28 +938,25 @@ function createOverScreen(doc, refs) {
   });
   breakdown.append(breakdownTitle, breakdownList);
 
-  const actions = doc.createElement("div");
-  actions.className = "row actions-row";
-  actions.append(
-    createElement(doc, refs, "button", { id: "restart", text: "Restart (new seed)" }),
-    createElement(doc, refs, "button", { id: "retrySeed", text: "Retry Previous Seed" }),
-    createElement(doc, refs, "button", { id: "toMenu", text: "Main Menu" }),
-    createElement(doc, refs, "button", { id: "watchReplay", text: "Watch Replay" }),
-    createElement(doc, refs, "button", { id: "exportGif", text: "Export GIF", props: { disabled: true } }),
-    createElement(doc, refs, "button", { id: "exportMp4", text: "Export MP4", props: { disabled: true } })
-  );
-
   const replayStatus = createElement(doc, refs, "div", {
     id: "replayStatus",
     className: "hint space-top replay-hint",
     text: "Replay will be available after a run."
   });
 
+  const replayActions = doc.createElement("div");
+  replayActions.className = "row actions-row over-replay-actions";
+  replayActions.append(
+    createElement(doc, refs, "button", { id: "watchReplay", text: "Watch Replay" }),
+    createElement(doc, refs, "button", { id: "exportGif", text: "Export GIF", props: { disabled: true } }),
+    createElement(doc, refs, "button", { id: "exportMp4", text: "Export MP4", props: { disabled: true } })
+  );
+
   const shortcuts = doc.createElement("div");
   shortcuts.className = "stats";
   shortcuts.innerHTML = 'Shortcuts: <span class="kbd">R</span> restart, <span class="kbd">Esc</span> menu.';
 
-  panel.append(title, subtitle, stats, breakdown, actions, replayStatus);
+  panel.append(title, subtitle, primaryActions, summary, pbStatus, breakdown, replayActions, replayStatus);
   screen.append(panel, shortcuts);
   return screen;
 }
