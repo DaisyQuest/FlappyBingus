@@ -58,4 +58,47 @@ describe("renderHighscores", () => {
     expect(container.className).toContain("warn");
     expect(container.textContent).toBe("hello");
   });
+
+  it("caps the visible leaderboard height to the first 10 entries", () => {
+    const highscores = Array.from({ length: 14 }, (_, i) => ({ username: `user${i + 1}`, bestScore: 200 - i }));
+    renderHighscores({ container, online: true, highscores });
+
+    const scroll = container.querySelector(".hsTableWrap");
+    expect(scroll?.style.maxHeight).toBe("376px"); // 36 header + 10 * 34px rows (fallbacks)
+  });
+
+  it("applies real DOM measurements when available", () => {
+    const scroll = document.createElement("div");
+    const thead = document.createElement("thead");
+    const headerRow = document.createElement("tr");
+    headerRow.getBoundingClientRect = () => ({ height: 20, width: 0, x: 0, y: 0, top: 0, left: 0, bottom: 0, right: 0 });
+    thead.append(headerRow);
+
+    const tbody = document.createElement("tbody");
+    for (let i = 0; i < 3; i += 1) {
+      const row = document.createElement("tr");
+      row.getBoundingClientRect = () => ({
+        height: 18,
+        width: 0,
+        x: 0,
+        y: 0,
+        top: 0,
+        left: 0,
+        bottom: 0,
+        right: 0
+      });
+      tbody.append(row);
+    }
+
+    const maxHeight = __testables.applyLeaderboardHeight(scroll, thead, tbody);
+    expect(maxHeight).toBe(20 + 3 * 18);
+    expect(scroll.style.maxHeight).toBe("74px");
+  });
+
+  it("measureHeight falls back when measurements are missing", () => {
+    expect(__testables.measureHeight(null, 10)).toBe(10);
+    expect(__testables.measureHeight({}, 12)).toBe(12);
+    expect(__testables.measureHeight({ getBoundingClientRect: () => ({ height: 0 }) }, 4)).toBe(4);
+    expect(__testables.measureHeight({ getBoundingClientRect: () => ({ height: 5 }) }, 9)).toBe(5);
+  });
 });
