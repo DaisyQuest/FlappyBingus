@@ -391,6 +391,9 @@ input[type="range"]::-moz-range-thumb{
 .howto-list{list-style:disc;margin:0;padding:0 0 0 18px;display:inline-flex;flex-direction:column;gap:6px;text-align:left}
 .howto-list li{color:var(--text);font-weight:800;text-shadow:0 6px 12px rgba(0,0,0,.24)}
 .howto-list li::marker{color:var(--bubble)}
+.howto-list .howto-practice{list-style:none;display:flex;align-items:center;gap:10px;padding-left:0;flex-wrap:wrap}
+.howto-list .howto-practice::marker{content:none}
+.howto-practice-note{font-size:12px;color:var(--muted);font-weight:800}
 
 .light-aurora{position:absolute;inset:-12% -8%;background:
   radial-gradient(60% 50% at 20% 30%,rgba(120,190,255,.18),transparent),

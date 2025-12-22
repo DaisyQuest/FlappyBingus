@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { Tutorial } from "../tutorial.js";
+import { Tutorial, __practiceTuning } from "../tutorial.js";
 import { Game } from "../game.js";
 import { DEFAULT_CONFIG } from "../config.js";
 
@@ -228,5 +228,39 @@ describe("Tutorial skill variants", () => {
     expect(tutorial._reflectWallsHit.size).toBe(1);
     expect(tutorial._reflectSuccessDelay).toBe(0);
     tutorial.stop();
+  });
+
+  it("can jump straight into the ultra-easy practice sandbox with zero cooldowns", () => {
+    const game = setupGame();
+    const tutorial = new Tutorial({ game, input: game.input, getBinds: () => ({}), onExit: () => {} });
+    tutorial.start({ startAtPractice: true });
+
+    expect(tutorial._stepId()).toBe("practice");
+    expect(game.cfg.pipes.spawnInterval.start).toBeCloseTo(__practiceTuning.spawnInterval.start);
+    expect(game.cfg.pipes.spawnInterval.max).toBeCloseTo(__practiceTuning.spawnInterval.max);
+    expect(game.cfg.pipes.speed.start).toBeCloseTo(__practiceTuning.speed.start);
+    expect(game.cfg.pipes.gap.min).toBeCloseTo(__practiceTuning.gap.min);
+    expect(game.cfg.pipes.patternWeights.aimed).toEqual(__practiceTuning.patternWeights.aimed);
+    expect(game.pipeT).toBeCloseTo(__practiceTuning.spawnInterval.start);
+    expect(game.specialT).toBeCloseTo(__practiceTuning.special.startCadence);
+    expect(game.orbT).toBeCloseTo(1.2);
+    expect(game.cds).toEqual({ dash: 0, phase: 0, teleport: 0, slowField: 0 });
+    tutorial.stop();
+  });
+
+  it("restores the base config after leaving practice mode", () => {
+    const game = setupGame();
+    const baseline = structuredClone(game.cfg);
+    const tutorial = new Tutorial({ game, input: game.input, getBinds: () => ({}), onExit: () => {} });
+
+    tutorial.start({ startAtPractice: true });
+    tutorial.stop();
+
+    expect(game.cfg.pipes.spawnInterval.start).toBe(baseline.pipes.spawnInterval.start);
+    expect(game.cfg.pipes.speed.end).toBe(baseline.pipes.speed.end);
+    expect(game.cfg.pipes.gap.endScale).toBe(baseline.pipes.gap.endScale);
+    expect(game.cfg.pipes.patternWeights.wall).toEqual(baseline.pipes.patternWeights.wall);
+    expect(game.cfg.skills.dash.cooldown).toBe(baseline.skills.dash.cooldown);
+    expect(game.cfg.scoring.pipeDodge).toBe(baseline.scoring.pipeDodge);
   });
 });

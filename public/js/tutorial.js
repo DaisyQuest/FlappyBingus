@@ -149,6 +149,23 @@ function makeGate(axis, pos, v, gapCenter, gapHalf, thick) {
   };
 }
 
+const PRACTICE_PIPE_TUNING = {
+  difficulty: {
+    timeToMax: 9999,
+    scoreToMax: 999999,
+    mixTime: 0.65,
+    mixScore: 0.35,
+    scoreRampStart: 9999,
+    timeRampStart: 120,
+    earlyCurvePower: 1
+  },
+  spawnInterval: { start: 1.8, end: 1.3, min: 1.0, max: 2.0 },
+  speed: { start: 150, end: 260 },
+  gap: { startScale: 0.42, endScale: 0.36, min: 170, max: 240 },
+  special: { startCadence: 8.5, endCadence: 7.5, jitterMin: 0.65, jitterMax: 1.4 },
+  patternWeights: { wall: [0.18, 0.24], aimed: [0.02, 0.05] }
+};
+
 function makeOrb({ x, y, r = 12, life = 8, vx = 0, vy = 0 }) {
   return {
     x, y, vx, vy,
@@ -266,7 +283,7 @@ export class Tutorial {
   }
 
   // ----- lifecycle -----
-  start() {
+  start({ startAtPractice = false } = {}) {
     if (this.active) return;
     if (!this.game?.cfg) throw new Error("Tutorial.start(): game.cfg must be loaded first.");
 
@@ -284,8 +301,11 @@ export class Tutorial {
     this._msgFlashT = 0;
     this._msgFlash = "";
 
-    this._stepIndex = 0;
-    this._enterStep(0);
+    const steps = this._steps();
+    const practiceIndex = steps.findIndex((s) => s.id === "practice");
+    const startIndex = startAtPractice && practiceIndex >= 0 ? practiceIndex : 0;
+    this._stepIndex = startIndex;
+    this._enterStep(startIndex);
   }
 
   stop() {
@@ -1574,10 +1594,10 @@ _stepOrbs(dt) {
       title: "Practice Mode",
       body:
         "Tutorial complete.\n\n" +
-        "All abilities are unlocked with NO cooldown:\n" +
+        "The sandbox here is tuned WAY down: slow spawns, wide gaps, and all abilities unlocked with NO cooldown:\n" +
         "• Phase • Dash • Teleport • Slow Field\n\n" +
         "Practice as long as you want, then press Enter (or Esc) to exit.",
-      objective: "Use any skill freely. Press Enter (or Esc) to exit.",
+      objective: "Enjoy the ultra-easy sandbox. Press Enter (or Esc) to exit.",
       hotkey: { label: "Enter / Esc", hint: "Leave when you’re ready" }
     };
   }
@@ -1727,6 +1747,43 @@ _stepOrbs(dt) {
       perfectWindowScale: cfg?.scoring?.perfect?.windowScale,
       perfectFlashDuration: cfg?.scoring?.perfect?.flashDuration,
       catalystsOrbsEnabled: cfg?.catalysts?.orbs?.enabled,
+      pipes: cfg?.pipes ? {
+        difficulty: {
+          timeToMax: cfg.pipes.difficulty?.timeToMax,
+          scoreToMax: cfg.pipes.difficulty?.scoreToMax,
+          mixTime: cfg.pipes.difficulty?.mixTime,
+          mixScore: cfg.pipes.difficulty?.mixScore,
+          scoreRampStart: cfg.pipes.difficulty?.scoreRampStart,
+          timeRampStart: cfg.pipes.difficulty?.timeRampStart,
+          earlyCurvePower: cfg.pipes.difficulty?.earlyCurvePower
+        },
+        spawnInterval: {
+          start: cfg.pipes.spawnInterval?.start,
+          end: cfg.pipes.spawnInterval?.end,
+          min: cfg.pipes.spawnInterval?.min,
+          max: cfg.pipes.spawnInterval?.max
+        },
+        speed: {
+          start: cfg.pipes.speed?.start,
+          end: cfg.pipes.speed?.end
+        },
+        gap: {
+          startScale: cfg.pipes.gap?.startScale,
+          endScale: cfg.pipes.gap?.endScale,
+          min: cfg.pipes.gap?.min,
+          max: cfg.pipes.gap?.max
+        },
+        special: {
+          startCadence: cfg.pipes.special?.startCadence,
+          endCadence: cfg.pipes.special?.endCadence,
+          jitterMin: cfg.pipes.special?.jitterMin,
+          jitterMax: cfg.pipes.special?.jitterMax
+        },
+        patternWeights: {
+          wall: Array.isArray(cfg.pipes.patternWeights?.wall) ? cfg.pipes.patternWeights.wall.slice() : null,
+          aimed: Array.isArray(cfg.pipes.patternWeights?.aimed) ? cfg.pipes.patternWeights.aimed.slice() : null
+        }
+      } : null,
       // Skill tuning (gentle tutorial-friendly values)
       dashCooldown: cfg?.skills?.dash?.cooldown,
       phaseCooldown: cfg?.skills?.phase?.cooldown,
@@ -1766,10 +1823,50 @@ _stepOrbs(dt) {
     }
   }
 
+  _applyPracticeTuning() {
+    const cfg = this.game?.cfg;
+    const practice = PRACTICE_PIPE_TUNING;
+    if (!cfg?.pipes || !practice) return;
+
+    const backup = this._cfgBackup?.pipes;
+    const assignKeys = (target, src, keys) => {
+      if (!target || !src) return;
+      for (const k of keys) {
+        if (src[k] !== undefined) target[k] = src[k];
+      }
+    };
+
+    assignKeys(cfg.pipes.difficulty, practice.difficulty, [
+      "timeToMax",
+      "scoreToMax",
+      "mixTime",
+      "mixScore",
+      "scoreRampStart",
+      "timeRampStart",
+      "earlyCurvePower"
+    ]);
+    assignKeys(cfg.pipes.spawnInterval, practice.spawnInterval, ["start", "end", "min", "max"]);
+    assignKeys(cfg.pipes.speed, practice.speed, ["start", "end"]);
+    assignKeys(cfg.pipes.gap, practice.gap, ["startScale", "endScale", "min", "max"]);
+    assignKeys(cfg.pipes.special, practice.special, ["startCadence", "endCadence", "jitterMin", "jitterMax"]);
+
+    if (cfg.pipes.patternWeights && practice.patternWeights) {
+      const wall = Array.isArray(practice.patternWeights.wall)
+        ? practice.patternWeights.wall.slice()
+        : (backup?.patternWeights?.wall ? backup.patternWeights.wall.slice() : null);
+      const aimed = Array.isArray(practice.patternWeights.aimed)
+        ? practice.patternWeights.aimed.slice()
+        : (backup?.patternWeights?.aimed ? backup.patternWeights.aimed.slice() : null);
+      if (wall) cfg.pipes.patternWeights.wall = wall;
+      if (aimed) cfg.pipes.patternWeights.aimed = aimed;
+    }
+  }
+
   _enablePracticeSandbox() {
     // Re-enable normal spawns (pipes/orbs/specials) while keeping skills at 0 cooldown.
     const cfg = this.game.cfg;
     const b = this._cfgBackup;
+    const practice = PRACTICE_PIPE_TUNING || {};
 
     if (cfg?.catalysts?.orbs && b) cfg.catalysts.orbs.enabled = !!b.catalystsOrbsEnabled;
 
@@ -1785,10 +1882,15 @@ _stepOrbs(dt) {
       if (cfg.scoring.perfect) cfg.scoring.perfect.enabled = true;
     }
 
-    // Ensure a quick start to the sandbox.
-    this.game.pipeT = Math.min(this.game.pipeT || 0.7, 0.7);
-    this.game.specialT = Math.min(this.game.specialT || 4.5, 4.5);
-    this.game.orbT = Math.min(this.game.orbT || 1.6, 1.6);
+    this._applyPracticeTuning();
+
+    // Ensure a gentle, low-pressure start to the sandbox.
+    const pipeStart = practice.spawnInterval?.start || 1.8;
+    const specialStart = practice.special?.startCadence || 7.5;
+    const orbStart = 1.2;
+    this.game.pipeT = pipeStart;
+    this.game.specialT = specialStart;
+    this.game.orbT = orbStart;
 
     // Keep skill cooldowns at zero for practice (config + live cds).
     if (cfg?.skills?.dash) cfg.skills.dash.cooldown = 0;
@@ -1820,6 +1922,44 @@ _stepOrbs(dt) {
       }
     }
     if (cfg?.catalysts?.orbs) cfg.catalysts.orbs.enabled = b.catalystsOrbsEnabled;
+
+    if (cfg?.pipes && b.pipes) {
+      if (cfg.pipes.difficulty && b.pipes.difficulty) {
+        cfg.pipes.difficulty.timeToMax = b.pipes.difficulty.timeToMax;
+        cfg.pipes.difficulty.scoreToMax = b.pipes.difficulty.scoreToMax;
+        cfg.pipes.difficulty.mixTime = b.pipes.difficulty.mixTime;
+        cfg.pipes.difficulty.mixScore = b.pipes.difficulty.mixScore;
+        cfg.pipes.difficulty.scoreRampStart = b.pipes.difficulty.scoreRampStart;
+        cfg.pipes.difficulty.timeRampStart = b.pipes.difficulty.timeRampStart;
+        cfg.pipes.difficulty.earlyCurvePower = b.pipes.difficulty.earlyCurvePower;
+      }
+      if (cfg.pipes.spawnInterval && b.pipes.spawnInterval) {
+        cfg.pipes.spawnInterval.start = b.pipes.spawnInterval.start;
+        cfg.pipes.spawnInterval.end = b.pipes.spawnInterval.end;
+        cfg.pipes.spawnInterval.min = b.pipes.spawnInterval.min;
+        cfg.pipes.spawnInterval.max = b.pipes.spawnInterval.max;
+      }
+      if (cfg.pipes.speed && b.pipes.speed) {
+        cfg.pipes.speed.start = b.pipes.speed.start;
+        cfg.pipes.speed.end = b.pipes.speed.end;
+      }
+      if (cfg.pipes.gap && b.pipes.gap) {
+        cfg.pipes.gap.startScale = b.pipes.gap.startScale;
+        cfg.pipes.gap.endScale = b.pipes.gap.endScale;
+        cfg.pipes.gap.min = b.pipes.gap.min;
+        cfg.pipes.gap.max = b.pipes.gap.max;
+      }
+      if (cfg.pipes.special && b.pipes.special) {
+        cfg.pipes.special.startCadence = b.pipes.special.startCadence;
+        cfg.pipes.special.endCadence = b.pipes.special.endCadence;
+        cfg.pipes.special.jitterMin = b.pipes.special.jitterMin;
+        cfg.pipes.special.jitterMax = b.pipes.special.jitterMax;
+      }
+      if (cfg.pipes.patternWeights && b.pipes.patternWeights) {
+        if (b.pipes.patternWeights.wall) cfg.pipes.patternWeights.wall = b.pipes.patternWeights.wall.slice();
+        if (b.pipes.patternWeights.aimed) cfg.pipes.patternWeights.aimed = b.pipes.patternWeights.aimed.slice();
+      }
+    }
 
     if (cfg?.skills?.dash) cfg.skills.dash.cooldown = b.dashCooldown;
     if (cfg?.skills?.phase) {
@@ -1876,3 +2016,5 @@ _stepOrbs(dt) {
     this._msgFlashT = 1.1;
   }
 }
+
+export const __practiceTuning = PRACTICE_PIPE_TUNING;

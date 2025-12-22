@@ -94,6 +94,7 @@ const {
   over,
   start: startBtn,
   tutorial: tutorialBtn,
+  practice: practiceBtn,
   restart: restartBtn,
   retrySeed: retrySeedBtn,
   toMenu: toMenuBtn,
@@ -395,6 +396,7 @@ window.visualViewport?.addEventListener("resize", () => {
 function refreshBootUI() {
   startBtn.disabled = !(boot.imgReady && boot.cfgReady);
   if (tutorialBtn) tutorialBtn.disabled = startBtn.disabled;
+  if (practiceBtn) practiceBtn.disabled = startBtn.disabled;
 
   bootPill.classList.remove("ok", "bad", "neutral");
   const ready = boot.imgReady && boot.cfgReady;
@@ -1185,6 +1187,10 @@ tutorialBtn?.addEventListener("click", async () => {
   await ensureAudioReady();
   startTutorial();
 });
+practiceBtn?.addEventListener("click", async () => {
+  await ensureAudioReady();
+  startTutorial({ startAtPractice: true });
+});
 restartBtn.addEventListener("click", async () => {
   await ensureAudioReady();
   await startGame({ mode: "new" });
@@ -1240,7 +1246,7 @@ function toMenu() {
   refreshProfileAndHighscores();
 }
 
-function startTutorial() {
+function startTutorial({ startAtPractice = false } = {}) {
   // Tutorial is gameplay-like: music on, UI hidden, no replay recording.
   musicStop();
   pauseTrailPreview();
@@ -1261,7 +1267,7 @@ function startTutorial() {
   over.classList.add("hidden");
 
   acc = 0;
-  tutorial.start();
+  tutorial.start({ startAtPractice });
   musicStartLoop();
   window.focus();
 }

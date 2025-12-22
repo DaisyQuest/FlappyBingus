@@ -60,6 +60,9 @@ describe("uiLayout", () => {
     expect(howtoCard?.contains(ui.tutorial)).toBe(true);
     expect(ui.tutorial?.className).toContain("wide");
     expect(ui.tutorial?.className).not.toContain("small");
+    expect(ui.practice?.className).toContain("small");
+    const practiceNote = mount.querySelector(".howto-practice-note");
+    expect(practiceNote?.textContent).toMatch(/unlimited cooldowns/i);
     expect(ui.iconHint?.textContent).toBe("");
   });
 
@@ -103,7 +106,8 @@ describe("uiLayout", () => {
       "achievementsList",
       "achievementToasts",
       "viewAchievements",
-      "settingsHeaderBack"
+      "settingsHeaderBack",
+      "practice"
     ];
 
     for (const key of requiredRefs) {
@@ -112,6 +116,7 @@ describe("uiLayout", () => {
 
     const howToItems = ui.menu?.querySelectorAll(".howto-list li");
     expect(howToItems?.length).toBe(6);
+    expect(ui.practice?.closest("li")?.classList.contains("howto-practice")).toBe(true);
     expect(ui.seedHint?.textContent).toContain("pipe/orb");
     expect(ui.trailHint?.textContent).toContain("Unlock trails");
     expect(ui.dashBehaviorOptions?.querySelectorAll(".skill-option")?.length).toBe(2);

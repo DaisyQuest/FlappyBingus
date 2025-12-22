@@ -6,8 +6,7 @@ const HOW_TO_STEPS = [
   "Use abilities to stay alive",
   "Gain points by surviving",
   "Orbs award bonus points",
-  "Perfect gaps award bonus points",
-  "Practice in Tutorial"
+  "Perfect gaps award bonus points"
 ];
 
 function createElement(doc, refs, tag, options = {}, children = []) {
@@ -76,6 +75,19 @@ function createHowToCard(doc, refs) {
     li.innerHTML = step;
     list.append(li);
   });
+  const practiceLi = doc.createElement("li");
+  practiceLi.className = "howto-practice";
+  const practiceBtn = createElement(doc, refs, "button", {
+    id: "practice",
+    className: "cta-btn small",
+    text: "Practice",
+    attrs: { type: "button" }
+  });
+  const practiceCopy = doc.createElement("span");
+  practiceCopy.className = "howto-practice-note";
+  practiceCopy.textContent = "Super-easy sandbox with unlimited cooldowns.";
+  practiceLi.append(practiceBtn, practiceCopy);
+  list.append(practiceLi);
 
   wrapper.append(howToTitle, list);
   card.append(header, wrapper);
