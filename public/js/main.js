@@ -99,6 +99,7 @@ const {
   trailSelect,
   trailHint,
   trailPreviewCanvas,
+  trailSelectPreview: trailSelectPreviewCanvas,
   iconOptions,
   iconHint,
   iconOverlay,
@@ -214,6 +215,7 @@ let skillSettings = readSettingsCookie() || normalizeSkillSettings(DEFAULT_SKILL
 // config + assets
 let CFG = null;
 let trailPreview = null;
+let trailSelectBorderPreview = null;
 let currentTrailId = "classic";
 let playerIcons = normalizePlayerIcons(DEFAULT_PLAYER_ICONS);
 let currentIconId = normalizeIconSelection({
@@ -228,6 +230,21 @@ boot.imgReady = true; boot.imgOk = true;
 refreshBootUI();
 
 trailPreview = trailPreviewCanvas ? new TrailPreview({ canvas: trailPreviewCanvas, playerImg }) : null;
+trailSelectBorderPreview = trailSelectPreviewCanvas
+  ? new TrailPreview({
+    canvas: trailSelectPreviewCanvas,
+    playerImg,
+    mode: "static",
+    anchor: { x: 0.5, y: 0.5 },
+    drawBackground: false,
+    renderPlayer: false,
+    staticDrift: { speed: 210, swing: 0.62, wobble: 0.44, rate: 1.1, heading: Math.PI * 1.2 }
+  })
+  : null;
+if (trailSelectBorderPreview) {
+  trailSelectBorderPreview.setTrail(currentTrailId);
+  trailSelectBorderPreview.step?.(1 / 30, performance?.now?.() ?? Date.now());
+}
 const iconTrailPreviewer = new IconTrailPreviewer();
 syncLauncherSwatch(currentIconId, playerIcons, playerImg);
 
@@ -371,11 +388,13 @@ tutorial = new Tutorial({
 window.addEventListener("resize", () => {
   game.resizeToWindow();
   trailPreview?.resize();
+  trailSelectBorderPreview?.resize();
 });
 // On some browsers, zoom changes fire visualViewport resize without window resize.
 window.visualViewport?.addEventListener("resize", () => {
   game.resizeToWindow();
   trailPreview?.resize();
+  trailSelectBorderPreview?.resize();
 });
 
 // ---- Boot UI ----
@@ -440,16 +459,8 @@ function computeUnlockedIconSet(icons = playerIcons) {
 }
 
 function syncLauncherSwatch(iconId = currentIconId, icons = playerIcons, image = playerImg) {
-  if (!iconTrailPreviewer || !iconLauncher) return;
-  const swatch = iconLauncher.querySelector(".icon-swatch");
-  const icon = icons.find((i) => i.id === iconId) || icons[0];
-  if (!swatch || !icon) return;
-  iconTrailPreviewer.attach(swatch, {
-    icon,
-    playerImg: image,
-    trailId: currentTrailId,
-    group: "launcher"
-  });
+  if (!iconTrailPreviewer) return;
+  iconTrailPreviewer.sync([], { group: "launcher" });
 }
 
 function renderIconOptions(
@@ -501,6 +512,7 @@ function applyIconSelection(id = currentIconId, icons = playerIcons, unlocked = 
   playerImg = createPlayerIconSprite(icons.find((i) => i.id === nextId) || icons[0]);
   game.setPlayerImage(playerImg);
   trailPreview?.setPlayerImage(playerImg);
+  trailSelectBorderPreview?.setPlayerImage(playerImg);
   syncLauncherSwatch(nextId, icons, playerImg);
   renderIconOptions(nextId, unlocked, icons, playerImg);
   writeIconCookie(nextId);
@@ -521,16 +533,19 @@ function applyTrailSelection(id, trails = net.trails) {
     trailSelect.value = safeId;
   }
   trailPreview?.setTrail(safeId);
+  trailSelectBorderPreview?.setTrail(safeId);
   iconTrailPreviewer?.setTrail(safeId);
 }
 
 function resumeTrailPreview(selectedId = trailSelect?.value || "classic") {
   applyTrailSelection(selectedId || currentTrailId || "classic");
   trailPreview?.start();
+  trailSelectBorderPreview?.start();
 }
 
 function pauseTrailPreview() {
   trailPreview?.stop();
+  trailSelectBorderPreview?.stop();
 }
 
 function fillTrailSelect() {

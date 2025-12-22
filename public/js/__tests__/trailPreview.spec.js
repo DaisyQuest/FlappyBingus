@@ -228,6 +228,25 @@ describe("TrailPreview", () => {
     expect(gradientLessCtx.arc).toHaveBeenCalled();
   });
 
+  it("can render particles without drawing the player avatar", () => {
+    const { canvas, ctx } = makeCanvas();
+    const preview = new TrailPreview({
+      canvas,
+      playerImg: { complete: true, naturalWidth: 12, naturalHeight: 12 },
+      requestFrame: null,
+      cancelFrame: null,
+      now: () => 0,
+      renderPlayer: false
+    });
+    const drawPlayer = vi.spyOn(preview, "_drawPlayer");
+
+    preview._draw();
+
+    expect(drawPlayer).not.toHaveBeenCalled();
+    expect(ctx.drawImage).not.toHaveBeenCalled();
+    expect(ctx.arc).not.toHaveBeenCalled();
+  });
+
   it("pins the player in static mode while still emitting a trail", () => {
     const { canvas } = makeCanvas();
     const preview = new TrailPreview({
