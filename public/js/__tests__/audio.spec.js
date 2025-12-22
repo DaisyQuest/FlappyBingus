@@ -241,7 +241,7 @@ describe("audio volume controls", () => {
     expect(boop.playbackRate.value).toBeGreaterThan(1);
     expect(nice.playbackRate.value).toBe(1); // untouched
     // Follows clamp invocation order in audio.js (min,value,max)
-    const expectedBounce = Math.max(speed * 0.25 + 1, Math.min(1.35, 0.85));
+    const expectedBounce = Math.max(0.85, Math.min(1.35, 1 + speed * 0.25));
     expect(bounce.playbackRate.value).toBeCloseTo(expectedBounce);
     expect(destroy.playbackRate.value).toBe(1);
     expect(dashBreak.playbackRate.value).toBe(1);
@@ -252,5 +252,42 @@ describe("audio volume controls", () => {
     expect(slowField.playbackRate.value).toBe(1);
     expect(slowExplosion.playbackRate.value).toBe(1);
     expect(ctx.createdOscillators.at(-1)?.start).toHaveBeenCalled();
+  });
+
+  it("falls back to dash break, then bounce, when dash start audio is unavailable", async () => {
+    const { audioInit, sfxDashStart } = await import("../audio.js");
+
+    globalThis.fetch.mockImplementation(async (url) => ({
+      ok: true,
+      arrayBuffer: async () => `${url}-buf`
+    }));
+
+    await audioInit({
+      boopUrl: "boop",
+      bounceUrl: "bounce",
+      dashBreakUrl: "dashBreak"
+    });
+
+    sfxDashStart();
+    const ctx = globalThis.__audioContexts.at(-1);
+    expect(ctx.createdSources.at(-1)?.buffer).toBe("dashBreak-buf");
+
+    // Reset to verify the bounce fallback (no dashBreak present).
+    vi.resetModules();
+    installAudioContext();
+    globalThis.fetch.mockImplementation(async (url) => ({
+      ok: true,
+      arrayBuffer: async () => `${url}-buf`
+    }));
+
+    const { audioInit: audioInit2, sfxDashStart: sfxDashStart2 } = await import("../audio.js");
+    await audioInit2({
+      boopUrl: "boop",
+      bounceUrl: "bounce"
+    });
+
+    sfxDashStart2();
+    const ctx2 = globalThis.__audioContexts.at(-1);
+    expect(ctx2.createdSources.at(-1)?.buffer).toBe("bounce-buf");
   });
 });

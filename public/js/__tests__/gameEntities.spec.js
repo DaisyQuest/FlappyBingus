@@ -73,7 +73,10 @@ const createGameForAudio = async () => {
     ctx,
     config: cfg,
     playerImg: { naturalWidth: 10, naturalHeight: 10 },
-    input: { snapshot: () => ({ move: { x: 0, y: 0 }, cursor: {} }) },
+    input: {
+      snapshot: () => ({ move: { x: 0, y: 0 }, cursor: {} }),
+      getMove: () => ({ dx: 0, dy: 0 })
+    },
     getTrailId: () => "classic",
     getBinds: () => ({}),
     onGameOver: () => {}
@@ -242,6 +245,32 @@ describe("Game audio enable/disable", () => {
     expect(sfxOrbBoop).toHaveBeenCalledTimes(1);
     expect(sfxPerfectNice).toHaveBeenCalledTimes(1);
     expect(sfxDashBounce).toHaveBeenCalledTimes(1);
+
+    cleanup();
+  });
+
+  it("plays bounce SFX when ricocheting off arena walls", async () => {
+    const { game, audio, cleanup } = await createGameForAudio();
+    const { sfxDashBounce } = audio;
+
+    game.setAudioEnabled(true);
+    game.startRun();
+    game.W = 200;
+    game.H = 120;
+    const pad = game.player.r + 2;
+    game.player.x = pad - 1; // ensure a wall collision on the left edge
+    game.player.y = game.H * 0.5;
+    game.player.vx = -500;
+    game.player.vy = 0;
+    game.player.dashT = 0.1;
+    game.player.dashMode = "ricochet";
+    game.player.dashVX = -1;
+    game.player.dashVY = 0;
+
+    sfxDashBounce.mockClear();
+    game.update(0.05);
+
+    expect(sfxDashBounce).toHaveBeenCalled();
 
     cleanup();
   });
