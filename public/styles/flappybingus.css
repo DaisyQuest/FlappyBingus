@@ -419,9 +419,27 @@ input[type="range"]::-moz-range-thumb{
 .achievement-toast-name{font-weight:900;margin:2px 0}
 .achievement-toast-desc{color:var(--muted);font-size:12px}
 
-.icon-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(80px,1fr));gap:10px}
-.icon-option{display:flex;align-items:center;justify-content:center;padding:10px;background:rgba(15,23,42,.72);border:1px solid rgba(255,255,255,.08);border-radius:12px;cursor:pointer;transition:transform .12s ease,box-shadow .12s ease,border-color .12s ease;min-height:78px;color:#e5e7eb}
-.icon-option:hover{border-color:rgba(125,211,252,.65);box-shadow:0 14px 32px rgba(0,0,0,.28)}
-.icon-option.selected{border-color:#7dd3fc;box-shadow:0 14px 32px rgba(0,0,0,.38),0 0 0 1px rgba(125,211,252,.55);transform:translateY(-1px)}
-.icon-option.locked{opacity:.65;cursor:not-allowed}
-.icon-option .icon-swatch{width:58px;height:58px;border-radius:50%;background:radial-gradient(circle at 32% 32%,var(--icon-core,#ffc285),var(--icon-fill,#ff8c1a));box-shadow:0 0 0 2px var(--icon-rim,#0f172a),0 10px 24px rgba(0,0,0,.35),0 0 22px var(--icon-glow,rgba(255,200,120,.5))}
+.icon-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:14px}
+.icon-option{display:flex;align-items:center;justify-content:center;flex-direction:column;gap:10px;padding:10px;background:transparent;border:none;border-radius:14px;cursor:pointer;transition:transform .12s ease,filter .12s ease;color:#e5e7eb;position:relative}
+.icon-option:hover{transform:translateY(-2px);filter:drop-shadow(0 12px 22px rgba(0,0,0,.35))}
+.icon-option:focus-visible{outline:2px solid var(--accent-strong);outline-offset:6px}
+.icon-option.selected .icon-swatch{box-shadow:0 0 0 4px rgba(125,211,252,.5),0 8px 18px rgba(0,0,0,.35),0 0 22px var(--icon-glow,rgba(255,200,120,.5))}
+.icon-option.locked{opacity:.7;cursor:not-allowed}
+.icon-option .icon-swatch{width:78px;height:78px;border-radius:50%;background:radial-gradient(circle at 32% 32%,var(--icon-core,#ffc285),var(--icon-fill,#ff8c1a));box-shadow:0 0 0 2px var(--icon-rim,#0f172a),0 12px 26px rgba(0,0,0,.45),0 0 22px var(--icon-glow,rgba(255,200,120,.5));transition:box-shadow .12s ease}
+.icon-option-name{font-weight:800;font-size:14px;text-align:center;max-width:120px}
+.icon-lock{position:absolute;right:18px;top:18px;font-size:16px;filter:drop-shadow(0 4px 10px rgba(0,0,0,.45))}
+.icon-overlay{position:fixed;inset:0;z-index:80;display:flex;align-items:center;justify-content:center;background:rgba(6,12,24,.72);backdrop-filter:blur(4px)}
+.icon-overlay-panel{background:linear-gradient(180deg,rgba(30,41,59,.95),rgba(15,23,42,.95));border:1px solid rgba(255,255,255,.12);border-radius:16px;padding:18px;box-shadow:0 24px 60px rgba(0,0,0,.45);width:min(900px,90vw);max-height:82vh;overflow:auto;display:flex;flex-direction:column;gap:12px}
+.icon-overlay-header{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.icon-overlay-close{background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);color:#e5e7eb;border-radius:10px;padding:6px 10px;font-weight:800;cursor:pointer;transition:transform .12s ease,box-shadow .12s ease}
+.icon-overlay-close:hover{transform:translateY(-1px);box-shadow:0 10px 24px rgba(0,0,0,.35)}
+.icon-overlay-grid{padding:4px}
+.icon-launcher{display:flex;align-items:center;gap:12px;padding:12px 14px;border-radius:14px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);box-shadow:inset 0 1px 0 rgba(255,255,255,.05);cursor:pointer;transition:transform .12s ease,box-shadow .12s ease,border-color .12s ease}
+.icon-launcher:hover{transform:translateY(-1px);border-color:rgba(125,211,252,.65);box-shadow:0 14px 32px rgba(0,0,0,.28)}
+.icon-launcher:focus-visible{outline:2px solid var(--accent-strong);outline-offset:4px}
+.icon-launcher-badge{display:flex;align-items:center;gap:12px}
+.icon-launcher .icon-swatch{width:64px;height:64px;border-radius:50%;background:radial-gradient(circle at 32% 32%,var(--icon-core,#ffc285),var(--icon-fill,#ff8c1a));box-shadow:0 0 0 2px var(--icon-rim,#0f172a),0 10px 24px rgba(0,0,0,.35),0 0 22px var(--icon-glow,rgba(255,200,120,.5))}
+.icon-launcher-label{display:flex;flex-direction:column;align-items:flex-start;gap:2px}
+.icon-launcher-name{font-weight:900;letter-spacing:.2px}
+.icon-launcher-action{font-size:13px;color:var(--muted)}
+.icon-field-launcher{position:relative}
