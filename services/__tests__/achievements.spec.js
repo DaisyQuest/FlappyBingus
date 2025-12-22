@@ -48,17 +48,26 @@ describe("achievements definitions", () => {
       totalPerfects: 55,
       maxOrbsInRun: 33,
       totalOrbsCollected: 200,
-      totalScore: 5000
+      totalScore: 5000,
+      skillTotals: {
+        dash: 0,
+        phase: 0,
+        teleport: 0,
+        slowField: 0
+      }
     });
   });
 });
 
 describe("validateRunStats", () => {
   it("accepts omitted stats while rejecting malformed payloads", () => {
-    expect(validateRunStats()).toEqual({ ok: true, stats: { orbsCollected: null, abilitiesUsed: null, perfects: null } });
+    expect(validateRunStats()).toEqual({
+      ok: true,
+      stats: { orbsCollected: null, abilitiesUsed: null, perfects: null, skillUsage: null }
+    });
     expect(validateRunStats({ orbsCollected: 2, abilitiesUsed: 1 })).toEqual({
       ok: true,
-      stats: { orbsCollected: 2, abilitiesUsed: 1, perfects: null }
+      stats: { orbsCollected: 2, abilitiesUsed: 1, perfects: null, skillUsage: null }
     });
     expect(validateRunStats({ orbsCollected: -1 })).toEqual({ ok: false, error: "invalid_run_stats" });
     expect(validateRunStats({ perfects: "bad" })).toEqual({ ok: false, error: "invalid_run_stats" });
@@ -71,9 +80,16 @@ describe("validateRunStats", () => {
         orbsCollected: 0,
         abilitiesUsed: 0,
         perfects: 1,
-        scoreBreakdown: { orbs: { points: 99 } }
+        scoreBreakdown: { orbs: { points: 99 } },
+        skillUsage: { dash: 2, phase: 0, teleport: 1, slowField: 0 }
       })
-    ).toEqual({ ok: true, stats: { orbsCollected: 0, abilitiesUsed: 0, perfects: 1 } });
+    ).toEqual({
+      ok: true,
+      stats: { orbsCollected: 0, abilitiesUsed: 0, perfects: 1, skillUsage: { dash: 2, phase: 0, teleport: 1, slowField: 0 } }
+    });
+
+    expect(validateRunStats({ skillUsage: { dash: -1 } })).toEqual({ ok: false, error: "invalid_run_stats" });
+    expect(validateRunStats({ skillUsage: "bad" })).toEqual({ ok: false, error: "invalid_run_stats" });
   });
 });
 
@@ -124,6 +140,17 @@ describe("evaluateRunForAchievements", () => {
       const nonTrail = unlocked.filter((id) => !id.startsWith("trail_"));
       expect(nonTrail).toEqual(expected);
     });
+  });
+
+  it("accumulates per-skill totals when provided", () => {
+    const { state } = evaluateRunForAchievements({
+      previous: { unlocked: {}, progress: DEFAULT_PROGRESS },
+      runStats: { orbsCollected: 1, abilitiesUsed: 1, skillUsage: { dash: 2, phase: 1, teleport: 0, slowField: 3 } },
+      score: 50,
+      now: 123
+    });
+
+    expect(state.progress.skillTotals).toEqual({ dash: 2, phase: 1, teleport: 0, slowField: 3 });
   });
 
   it("does not regress unlocked achievements", () => {

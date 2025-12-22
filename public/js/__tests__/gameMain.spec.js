@@ -187,6 +187,7 @@ describe("Game core loop hooks", () => {
     game.state = 1; // PLAY
     game._useSkill("dash");
     expect(game.getRunStats().abilitiesUsed).toBe(1);
+    expect(game.getRunStats().skillUsage).toEqual({ dash: 1, phase: 0, teleport: 0, slowField: 0 });
 
     const orb = {
       x: game.player.x,
@@ -233,6 +234,7 @@ describe("Game core loop hooks", () => {
     expect(stats.perfects).toBe(0);
     expect(stats.pipesDodged).toBe(0);
     expect(stats.abilitiesUsed).toBe(0);
+    expect(stats.skillUsage).toEqual({ dash: 0, phase: 0, teleport: 0, slowField: 0 });
     expect(stats.scoreBreakdown.orbs.points).toBe(0);
     expect(game.score).toBe(0);
   });

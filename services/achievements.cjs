@@ -1,5 +1,7 @@
 "use strict";
 
+const { DEFAULT_SKILL_TOTALS, SKILL_IDS, normalizeSkillTotals, parseSkillTotals } = require("./skillConsts.cjs");
+
 const ACHIEVEMENTS = Object.freeze([
   // Trail unlock path
   {
@@ -222,7 +224,8 @@ const DEFAULT_PROGRESS = Object.freeze({
   totalPerfects: 0,
   maxOrbsInRun: 0,
   totalOrbsCollected: 0,
-  totalScore: 0
+  totalScore: 0,
+  skillTotals: DEFAULT_SKILL_TOTALS
 });
 
 function clampTimestamp(v) {
@@ -247,11 +250,15 @@ function normalizeAchievementState(raw) {
     }
   }
 
-  const progress = { ...DEFAULT_PROGRESS };
+  const progress = { ...DEFAULT_PROGRESS, skillTotals: { ...DEFAULT_PROGRESS.skillTotals } };
   if (raw?.progress && typeof raw.progress === "object") {
     for (const key of Object.keys(DEFAULT_PROGRESS)) {
       if (raw.progress[key] !== undefined) {
-        progress[key] = clampScoreProgress(raw.progress[key]);
+        if (key === "skillTotals") {
+          progress.skillTotals = normalizeSkillTotals(raw.progress.skillTotals);
+        } else {
+          progress[key] = clampScoreProgress(raw.progress[key]);
+        }
       }
     }
   }
@@ -268,13 +275,17 @@ function parseNonNegativeInt(v) {
 
 function validateRunStats(raw) {
   if (raw === null || raw === undefined) {
-    return { ok: true, stats: { orbsCollected: null, abilitiesUsed: null, perfects: null } };
+    return { ok: true, stats: { orbsCollected: null, abilitiesUsed: null, perfects: null, skillUsage: null } };
   }
   if (typeof raw !== "object") return { ok: false, error: "invalid_run_stats" };
 
   const orbs = parseNonNegativeInt(raw.orbsCollected);
   const abilities = parseNonNegativeInt(raw.abilitiesUsed);
   const perfects = parseNonNegativeInt(raw.perfects);
+  const skills =
+    raw.skillUsage === undefined || raw.skillUsage === null
+      ? null
+      : parseSkillTotals(raw.skillUsage);
 
   if (raw.orbsCollected !== undefined && raw.orbsCollected !== null && orbs === null) {
     return { ok: false, error: "invalid_run_stats" };
@@ -285,13 +296,17 @@ function validateRunStats(raw) {
   if (raw.perfects !== undefined && raw.perfects !== null && perfects === null) {
     return { ok: false, error: "invalid_run_stats" };
   }
+  if (raw.skillUsage !== undefined && raw.skillUsage !== null && !skills) {
+    return { ok: false, error: "invalid_run_stats" };
+  }
 
   return {
     ok: true,
     stats: {
       orbsCollected: orbs,
       abilitiesUsed: abilities,
-      perfects
+      perfects,
+      skillUsage: skills
     }
   };
 }
@@ -304,7 +319,7 @@ function evaluateRunForAchievements({ previous, runStats, score, totalScore, bes
   const baseBestScore = clampScoreProgress(
     Math.max(previous?.progress?.bestScore ?? 0, bestScore ?? 0)
   );
-  const { orbsCollected, abilitiesUsed, perfects } = runStats || {};
+  const { orbsCollected, abilitiesUsed, perfects, skillUsage } = runStats || {};
   const hasOrbs = orbsCollected !== null && orbsCollected !== undefined;
   const hasAbilities = abilitiesUsed !== null && abilitiesUsed !== undefined;
   const hasPerfects = perfects !== null && perfects !== undefined;
@@ -312,6 +327,7 @@ function evaluateRunForAchievements({ previous, runStats, score, totalScore, bes
   const safeAbilities = hasAbilities ? abilitiesUsed : null;
   const safePerfects = clampScoreProgress(perfects ?? 0);
   const baseTotalScore = totalScore === undefined ? state.progress.totalScore : clampScoreProgress(totalScore);
+  const safeSkillTotals = skillUsage ? normalizeSkillTotals(skillUsage) : null;
 
   const bestScoreProgress = Math.max(safeScore, baseBestScore, state.progress.bestScore || 0);
   state.progress.bestScore = bestScoreProgress;
@@ -330,6 +346,14 @@ function evaluateRunForAchievements({ previous, runStats, score, totalScore, bes
   }
   if (safeAbilities === 0 && hasAbilities) {
     state.progress.maxScoreNoAbilities = Math.max(state.progress.maxScoreNoAbilities, safeScore);
+  }
+  if (safeSkillTotals) {
+    const totals = state.progress.skillTotals || DEFAULT_SKILL_TOTALS;
+    const merged = {};
+    for (const id of SKILL_IDS) {
+      merged[id] = clampScoreProgress(totals[id] + safeSkillTotals[id]);
+    }
+    state.progress.skillTotals = merged;
   }
 
   for (const def of ACHIEVEMENTS) {

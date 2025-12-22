@@ -145,6 +145,11 @@ export class Game {
       if (!Number.isFinite(n) || n < 0) return 0;
       return Math.floor(n);
     };
+    const skills = {};
+    const rawSkills = this.runStats?.skillUsage || {};
+    for (const id of ["dash", "phase", "teleport", "slowField"]) {
+      skills[id] = toInt(rawSkills[id]);
+    }
     const bucket = (b = {}) => ({
       points: toInt(b.points),
       count: toInt(b.count)
@@ -156,6 +161,7 @@ export class Game {
       perfects: toInt(this.runStats?.perfects),
       pipesDodged: toInt(this.runStats?.pipesDodged),
       totalScore: toInt(this.score),
+      skillUsage: skills,
       scoreBreakdown: {
         orbs: bucket(breakdown.orbs),
         perfects: bucket(breakdown.perfects),
@@ -171,6 +177,12 @@ export class Game {
       abilitiesUsed: 0,
       perfects: 0,
       pipesDodged: 0,
+      skillUsage: {
+        dash: 0,
+        phase: 0,
+        teleport: 0,
+        slowField: 0
+      },
       scoreBreakdown: {
         orbs: { points: 0, count: 0 },
         perfects: { points: 0, count: 0 },
@@ -978,6 +990,9 @@ export class Game {
 
     if (used) {
       this.runStats.abilitiesUsed = (this.runStats.abilitiesUsed || 0) + 1;
+      if (this.runStats.skillUsage && Object.prototype.hasOwnProperty.call(this.runStats.skillUsage, name)) {
+        this.runStats.skillUsage[name] = (this.runStats.skillUsage[name] || 0) + 1;
+      }
     }
   }
 

@@ -1076,6 +1076,17 @@ function createOverScreen(doc, refs) {
   });
   breakdown.append(breakdownTitle, breakdownList);
 
+  const skillUsage = doc.createElement("div");
+  skillUsage.className = "skill-usage";
+  const skillUsageTitle = doc.createElement("div");
+  skillUsageTitle.className = "section-title";
+  skillUsageTitle.textContent = "Skill usage";
+  const skillUsageList = createElement(doc, refs, "div", {
+    id: "skillUsageStats",
+    className: "skill-usage-list"
+  });
+  skillUsage.append(skillUsageTitle, skillUsageList);
+
   const replayStatus = createElement(doc, refs, "div", {
     id: "replayStatus",
     className: "hint space-top replay-hint",
@@ -1094,7 +1105,7 @@ function createOverScreen(doc, refs) {
   shortcuts.className = "stats";
   shortcuts.innerHTML = 'Shortcuts: <span class="kbd">R</span> restart, <span class="kbd">Esc</span> menu.';
 
-  panel.append(title, subtitle, primaryActions, summary, pbStatus, breakdown, replayActions, replayStatus);
+  panel.append(title, subtitle, primaryActions, summary, pbStatus, skillUsage, breakdown, replayActions, replayStatus);
   screen.append(panel, shortcuts);
   return screen;
 }

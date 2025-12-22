@@ -65,7 +65,8 @@ function createScoreService(deps) {
     try {
       const updated = await dataStore.recordScore(user, score, {
         bustercoinsEarned,
-        achievements: achievementEval.state
+        achievements: achievementEval.state,
+        skillUsage: runStats?.skillUsage
       });
       const highscores = await listHighscores();
       const recordHolder = highscores?.[0]?.username === updated.username;

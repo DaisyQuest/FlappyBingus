@@ -86,6 +86,7 @@ import {
   toggleTrailMenu
 } from "./trailMenu.js";
 import { bindSkillOptionGroup, markSkillOptionSelection } from "./skillOptions.js";
+import { renderSkillUsageStats } from "./skillUsageStats.js";
 
 // ---- DOM ----
 const ui = buildGameUI();
@@ -131,6 +132,7 @@ const {
   overPB,
   overPbBadge,
   overPbStatus,
+  skillUsageStats,
   scoreBreakdown,
   seedInput,
   seedRandomBtn,
@@ -1383,6 +1385,7 @@ async function onGameOver(finalScore) {
   finalEl.textContent = String(finalScore | 0);
   const runStats = game?.getRunStats ? game.getRunStats() : null;
   renderScoreBreakdown(scoreBreakdown, runStats, finalScore);
+  renderSkillUsageStats(skillUsageStats, runStats?.skillUsage);
   updatePersonalBestUI(finalScore, net.user?.bestScore);
 
   over.classList.remove("hidden");

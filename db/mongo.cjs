@@ -1,6 +1,7 @@
 "use strict";
 
 const { MongoClient } = require("mongodb");
+const { DEFAULT_SKILL_TOTALS, SKILL_IDS, normalizeSkillTotals } = require("../services/skillConsts.cjs");
 
 const MAX_SCORE = 1_000_000_000;
 const DEFAULT_TRAIL = "classic";
@@ -15,7 +16,8 @@ const DEFAULT_ACHIEVEMENTS_STATE = Object.freeze({
     totalPerfects: 0,
     maxOrbsInRun: 0,
     totalOrbsCollected: 0,
-    totalScore: 0
+    totalScore: 0,
+    skillTotals: DEFAULT_SKILL_TOTALS
   })
 });
 
@@ -198,7 +200,7 @@ class MongoDataStore {
     }
   }
 
-  async recordScore(user, score, { bustercoinsEarned = 0, achievements } = {}) {
+  async recordScore(user, score, { bustercoinsEarned = 0, achievements, skillUsage } = {}) {
     await this.ensureConnected();
     if (!user || !user.key) throw new Error("user_key_required");
 
@@ -207,6 +209,8 @@ class MongoDataStore {
     const earnedCoins = Math.max(0, normalizeCount(bustercoinsEarned));
     const nextAchievements =
       achievements && typeof achievements === "object" ? achievements : null;
+    const baseSkillTotals = normalizeSkillTotals(user.skillTotals || DEFAULT_SKILL_TOTALS);
+    const runSkillTotals = normalizeSkillTotals(skillUsage);
 
     // Seed values from payload (only used if the doc is missing those fields)
     const safeRuns = normalizeCount(user.runs);
@@ -234,6 +238,22 @@ class MongoDataStore {
             bestScore: { $max: [{ $ifNull: ["$bestScore", safeBestScore] }, safeScore] },
             bustercoins: { $add: [{ $ifNull: ["$bustercoins", safeCoins] }, earnedCoins] },
             achievements: nextAchievements ?? { $ifNull: ["$achievements", user.achievements || DEFAULT_ACHIEVEMENTS_STATE] },
+            skillTotals: {
+              $let: {
+                vars: {
+                  current: { $ifNull: ["$skillTotals", baseSkillTotals] }
+                },
+                in: SKILL_IDS.reduce((acc, id) => {
+                  acc[id] = {
+                    $add: [
+                      { $ifNull: [`$$current.${id}`, baseSkillTotals[id]] },
+                      runSkillTotals[id] || 0
+                    ]
+                  };
+                  return acc;
+                }, {})
+              }
+            },
 
             updatedAt: now
           }
