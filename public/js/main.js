@@ -117,6 +117,9 @@ const {
   replayStatus,
   achievementsList,
   achievementsHideCompleted,
+  achievementsFilterScore,
+  achievementsFilterPerfects,
+  achievementsFilterOrbs,
   achievementToasts
 } = ui;
 
@@ -543,10 +546,19 @@ function renderAchievements(payload = null) {
   if (!achievementsList) return;
   const state = payload?.state || net.achievements?.state || net.user?.achievements;
   const definitions = payload?.definitions || net.achievements?.definitions || ACHIEVEMENTS;
+  const categories = [];
+  if (achievementsFilterScore?.checked) categories.push("score");
+  if (achievementsFilterPerfects?.checked) categories.push("perfects");
+  if (achievementsFilterOrbs?.checked) categories.push("orbs");
+  // Always include special achievements so they remain discoverable
+  categories.push("other");
   renderAchievementsList(achievementsList, {
     state: normalizeAchievementState(state),
     definitions,
-    hideCompleted: achievementsHideCompleted?.checked
+    filters: {
+      hideCompleted: achievementsHideCompleted?.checked,
+      categories
+    }
   });
 }
 
@@ -573,6 +585,10 @@ function notifyAchievements(unlockedIds = []) {
 
 achievementsHideCompleted?.addEventListener("change", () => {
   renderAchievements();
+});
+
+[achievementsFilterScore, achievementsFilterPerfects, achievementsFilterOrbs].forEach((input) => {
+  input?.addEventListener("change", () => renderAchievements());
 });
 
 function renderBindUI(listeningActionId = null) {

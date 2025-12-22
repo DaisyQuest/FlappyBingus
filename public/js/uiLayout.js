@@ -367,7 +367,29 @@ function createAchievementsCard(doc, refs) {
 
   const controls = doc.createElement("div");
   controls.className = "achievement-controls";
-  const hideCompletedToggle = createElement(doc, refs, "label", { className: "checkbox" });
+  const filters = doc.createElement("div");
+  filters.className = "achievement-filter-group";
+
+  const filterLabel = doc.createElement("div");
+  filterLabel.className = "achievement-filter-label";
+  filterLabel.textContent = "Filter by";
+
+  const filterChecks = [
+    { id: "achievementsFilterScore", label: "Score" },
+    { id: "achievementsFilterPerfects", label: "Perfect Gaps" },
+    { id: "achievementsFilterOrbs", label: "Orb Collection" }
+  ].map(({ id, label }) => {
+    const wrap = createElement(doc, refs, "label", { className: "checkbox pill" });
+    const input = createElement(doc, refs, "input", { id, attrs: { type: "checkbox", checked: true } });
+    const text = doc.createElement("span");
+    text.textContent = label;
+    wrap.append(input, text);
+    return wrap;
+  });
+
+  filters.append(filterLabel, ...filterChecks);
+
+  const hideCompletedToggle = createElement(doc, refs, "label", { className: "checkbox pill" });
   const hideCompletedInput = createElement(doc, refs, "input", {
     id: "achievementsHideCompleted",
     attrs: { type: "checkbox" }
@@ -375,7 +397,8 @@ function createAchievementsCard(doc, refs) {
   const hideCompletedText = doc.createElement("span");
   hideCompletedText.textContent = "Hide completed";
   hideCompletedToggle.append(hideCompletedInput, hideCompletedText);
-  controls.append(hideCompletedToggle);
+
+  controls.append(filters, hideCompletedToggle);
 
   const list = createElement(doc, refs, "div", { id: "achievementsList", className: "achievement-list" });
 

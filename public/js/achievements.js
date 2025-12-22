@@ -221,6 +221,20 @@ function clampScore(v) {
   return Math.min(1_000_000_000, Math.floor(n));
 }
 
+const ACHIEVEMENT_CATEGORIES = Object.freeze({
+  score: "score",
+  perfects: "perfects",
+  orbs: "orbs",
+  other: "other"
+});
+
+const ACHIEVEMENT_CATEGORY_LABELS = Object.freeze({
+  [ACHIEVEMENT_CATEGORIES.score]: "Score",
+  [ACHIEVEMENT_CATEGORIES.perfects]: "Perfect Gaps",
+  [ACHIEVEMENT_CATEGORIES.orbs]: "Orb Collection",
+  [ACHIEVEMENT_CATEGORIES.other]: "Special"
+});
+
 export function normalizeAchievementState(raw) {
   const unlocked = {};
   if (raw?.unlocked && typeof raw.unlocked === "object") {
@@ -256,22 +270,69 @@ function progressFor(def, state) {
   return { best, pct, target };
 }
 
+function classifyAchievement(def) {
+  const req = def?.requirement || {};
+  if (req.minPerfects !== undefined || req.totalPerfects !== undefined) return ACHIEVEMENT_CATEGORIES.perfects;
+  if (req.minOrbs !== undefined || req.totalOrbs !== undefined) return ACHIEVEMENT_CATEGORIES.orbs;
+  if (req.minScore !== undefined || req.totalScore !== undefined) return ACHIEVEMENT_CATEGORIES.score;
+  return ACHIEVEMENT_CATEGORIES.other;
+}
+
+function describeRequirement(def) {
+  const req = def?.requirement || {};
+  if (req.minScore !== undefined) return `Score ${req.minScore} in one run`;
+  if (req.totalScore !== undefined) return `Score ${req.totalScore} total`;
+  if (req.minPerfects !== undefined) return `Clear ${req.minPerfects} perfect gap${req.minPerfects === 1 ? "" : "s"} in one run`;
+  if (req.totalPerfects !== undefined) return `Clear ${req.totalPerfects} perfect gap${req.totalPerfects === 1 ? "" : "s"} total`;
+  if (req.minOrbs !== undefined) return `Collect ${req.minOrbs} orb${req.minOrbs === 1 ? "" : "s"} in one run`;
+  if (req.totalOrbs !== undefined) return `Collect ${req.totalOrbs} orb${req.totalOrbs === 1 ? "" : "s"} total`;
+  return "Unlock with a special challenge";
+}
+
+function normalizeFilters(raw = {}) {
+  const allowed = Object.values(ACHIEVEMENT_CATEGORIES);
+  const provided = raw.categories !== undefined;
+  let selected;
+  if (Array.isArray(raw.categories)) {
+    selected = raw.categories.filter((c) => allowed.includes(c));
+  } else if (raw.categories && typeof raw.categories === "object") {
+    selected = allowed.filter((c) => Boolean(raw.categories[c]));
+  } else {
+    selected = allowed;
+  }
+
+  const categories = new Set(selected);
+  const requestedEmpty = provided && selected.length === 0;
+
+  return {
+    hideCompleted: Boolean(raw.hideCompleted),
+    categories,
+    requestedEmpty
+  };
+}
+
 export function renderAchievementsList(listEl, payload = {}) {
   if (!listEl) return;
   const definitions = payload.definitions?.length ? payload.definitions : ACHIEVEMENTS;
   const state = resolveAchievementState(payload.state || payload);
-  const hideCompleted = Boolean(payload.hideCompleted ?? payload.filters?.hideCompleted);
+  const filters = normalizeFilters(payload.filters || payload);
+  const hideCompleted = filters.hideCompleted;
 
   listEl.innerHTML = "";
 
-  const filtered = hideCompleted ? definitions.filter((def) => !state.unlocked?.[def.id]) : definitions;
+  const filtered = (hideCompleted ? definitions.filter((def) => !state.unlocked?.[def.id]) : definitions)
+    .filter((def) => filters.categories.has(classifyAchievement(def)));
 
   if (!filtered.length) {
     const empty = document.createElement("div");
     empty.className = "achievement-empty";
-    empty.textContent = hideCompleted
-      ? "Everything here is unlocked. Toggle the filter to see completed achievements."
-      : "Achievements are loading.";
+    if (filters.requestedEmpty) {
+      empty.textContent = "Select at least one filter to see achievements.";
+    } else if (hideCompleted) {
+      empty.textContent = "Everything here is unlocked. Toggle the filter or show completed achievements.";
+    } else {
+      empty.textContent = "Achievements are loading.";
+    }
     listEl.append(empty);
     return;
   }
@@ -279,18 +340,37 @@ export function renderAchievementsList(listEl, payload = {}) {
   filtered.forEach((def) => {
     const item = document.createElement("div");
     item.className = "achievement-row";
+    const category = classifyAchievement(def);
+    item.dataset.category = category;
+
+    const header = document.createElement("div");
+    header.className = "achievement-header";
 
     const title = document.createElement("div");
     title.className = "achievement-title";
     title.textContent = def.title;
 
+    const tag = document.createElement("div");
+    tag.className = "achievement-tag";
+    tag.textContent = ACHIEVEMENT_CATEGORY_LABELS[category] || "Achievement";
+    header.append(title, tag);
+
     const desc = document.createElement("div");
     desc.className = "achievement-desc";
     desc.textContent = def.description;
 
+    const meta = document.createElement("div");
+    meta.className = "achievement-meta";
+
+    const requirement = document.createElement("div");
+    requirement.className = "achievement-requirement";
+    requirement.textContent = describeRequirement(def);
+
     const reward = document.createElement("div");
     reward.className = "achievement-reward";
     reward.textContent = def.reward || "Reward: Coming soon";
+
+    meta.append(requirement, reward);
 
     const status = document.createElement("div");
     status.className = "achievement-status";
@@ -306,6 +386,7 @@ export function renderAchievementsList(listEl, payload = {}) {
     meter.append(fill);
 
     if (unlockedAt) {
+      item.classList.add("unlocked");
       status.classList.add("unlocked");
       status.textContent = "Unlocked!";
       fill.classList.add("filled");
@@ -314,7 +395,7 @@ export function renderAchievementsList(listEl, payload = {}) {
       status.textContent = `Progress: ${best}/${target || 0} (needs ${needed} more)`;
     }
 
-    item.append(title, desc, reward, meter, status);
+    item.append(header, desc, meta, meter, status);
     listEl.append(item);
   });
 }
@@ -337,5 +418,7 @@ export function appendAchievementToast(target, def) {
 }
 
 export const __testables = {
-  progressFor
+  progressFor,
+  classifyAchievement,
+  normalizeFilters
 };
