@@ -58,4 +58,22 @@ describe("server player icon catalog", () => {
     expect(unlocked).not.toContain("locked");
     expect(PLAYER_ICONS.map((i) => i.id)).toContain(DEFAULT_PLAYER_ICON_ID);
   });
+
+  it("locks fire and inferno capes behind their score achievements", () => {
+    const fire = PLAYER_ICONS.find((icon) => icon.id === "fire_cape");
+    const inferno = PLAYER_ICONS.find((icon) => icon.id === "inferno_cape");
+    expect(fire?.unlock?.id).toBe("score_fire_cape_1000");
+    expect(inferno?.unlock?.id).toBe("score_inferno_cape_2000");
+
+    const none = unlockedIcons({ achievements: { unlocked: {} } }, { icons: PLAYER_ICONS, recordHolder: false });
+    expect(none).not.toContain("fire_cape");
+    expect(none).not.toContain("inferno_cape");
+
+    const fireOnly = unlockedIcons({ achievements: { unlocked: { score_fire_cape_1000: Date.now() } } }, { icons: PLAYER_ICONS });
+    expect(fireOnly).toContain("fire_cape");
+    expect(fireOnly).not.toContain("inferno_cape");
+
+    const infernoOnly = unlockedIcons({ achievements: { unlocked: { score_inferno_cape_2000: Date.now() } } }, { icons: PLAYER_ICONS });
+    expect(infernoOnly).toContain("inferno_cape");
+  });
 });

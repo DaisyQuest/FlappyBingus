@@ -16,6 +16,8 @@ describe("achievements definitions", () => {
       "trail_classic_1",
       "trail_miami_950",
       "trail_world_record_3000",
+      "score_fire_cape_1000",
+      "score_inferno_cape_2000",
       "no_orbs_100",
       "total_score_10000"
     ]));
@@ -229,5 +231,18 @@ describe("evaluateRunForAchievements", () => {
 
     expect(state.progress.bestScore).toBe(1200);
     expect(unlocked).toEqual(expect.arrayContaining(["trail_miami_950"]));
+  });
+
+  it("unlocks fire and inferno capes from a single best-score update", () => {
+    const { state, unlocked } = evaluateRunForAchievements({
+      previous: { unlocked: {}, progress: { ...DEFAULT_PROGRESS, bestScore: 999 } },
+      runStats: null,
+      score: 0,
+      bestScore: 2100,
+      now: 25
+    });
+
+    expect(state.progress.bestScore).toBe(2100);
+    expect(unlocked).toEqual(expect.arrayContaining(["score_fire_cape_1000", "score_inferno_cape_2000"]));
   });
 });
