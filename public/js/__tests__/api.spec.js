@@ -14,6 +14,7 @@ describe("api helpers", () => {
     const fetchMock = vi.fn(() =>
       Promise.resolve({
         ok: true,
+        status: 200,
         json: () => Promise.resolve(mockResponse)
       })
     );
@@ -28,7 +29,7 @@ describe("api helpers", () => {
       headers: { "Content-Type": "application/json" },
       method: "GET"
     });
-    expect(res).toEqual(mockResponse);
+    expect(res).toEqual({ ...mockResponse, status: 200 });
   });
 
   it("stops calling fetch when the client limit is exceeded", async () => {
@@ -112,25 +113,31 @@ describe("api helpers", () => {
     expect(fetchResult).toBeNull();
     expect(failingFetch).toHaveBeenCalledTimes(1);
 
-    const badStatusFetch = vi.fn(() =>
-      Promise.resolve({ ok: false, json: () => Promise.resolve({ ok: false }) })
-    );
-    // eslint-disable-next-line no-undef
-    global.fetch = badStatusFetch;
-    const { apiSubmitScore } = await import("../api.js");
-    const badStatusResult = await apiSubmitScore(1);
-    expect(badStatusResult).toBeNull();
-    expect(badStatusFetch).toHaveBeenCalledTimes(1);
-
     const invalidJsonFetch = vi.fn(() =>
-      Promise.resolve({ ok: true, json: () => Promise.reject(new Error("parse error")) })
+      Promise.resolve({ ok: true, status: 200, json: () => Promise.reject(new Error("parse error")) })
     );
     // eslint-disable-next-line no-undef
     global.fetch = invalidJsonFetch;
     const { apiSetTrail } = await import("../api.js");
     const invalidJsonResult = await apiSetTrail("any");
-    expect(invalidJsonResult).toBeNull();
+    expect(invalidJsonResult).toEqual({ ok: false, status: 200 });
     expect(invalidJsonFetch).toHaveBeenCalledTimes(1);
+  });
+
+  it("returns structured errors for non-OK responses", async () => {
+    const badStatusFetch = vi.fn(() =>
+      Promise.resolve({
+        ok: false,
+        status: 503,
+        json: () => Promise.resolve({ ok: false, error: "database_unavailable" })
+      })
+    );
+    // eslint-disable-next-line no-undef
+    global.fetch = badStatusFetch;
+    const { apiSubmitScore } = await import("../api.js");
+    const badStatusResult = await apiSubmitScore(1);
+    expect(badStatusResult).toEqual({ ok: false, status: 503, error: "database_unavailable" });
+    expect(badStatusFetch).toHaveBeenCalledTimes(1);
   });
 
   it("resets client rate limits after their window elapses", async () => {

@@ -38,8 +38,11 @@ async function requestJson(url, opts = {}) {
       }
     });
     const data = await res.json().catch(() => null);
-    if (!res.ok || !data) return null;
-    return data;
+    return {
+      ...(data || {}),
+      ok: res.ok && data !== null && data?.ok !== false,
+      status: res.status
+    };
   } catch {
     return null;
   }
