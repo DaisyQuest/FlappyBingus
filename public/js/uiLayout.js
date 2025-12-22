@@ -638,6 +638,7 @@ function createMenuScreen(doc, refs) {
   const trailOverlay = createTrailPreviewOverlay(doc, refs);
   const panel = doc.createElement("div");
   panel.className = "panel";
+  refs.menuPanel = panel;
   const aurora = doc.createElement("div");
   aurora.className = "light-aurora";
   const content = doc.createElement("div");
