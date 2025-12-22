@@ -1,6 +1,16 @@
+import fs from "node:fs";
 import { describe, it, expect, beforeEach } from "vitest";
 import { JSDOM } from "jsdom";
 import { buildGameUI, formatCooldownSeconds } from "../uiLayout.js";
+
+const applyStyles = (doc) => {
+  if (doc.head.querySelector("style[data-test-style='flappy']")) return;
+  const css = fs.readFileSync(new URL("../../styles/flappybingus.css", import.meta.url), "utf8");
+  const style = doc.createElement("style");
+  style.dataset.testStyle = "flappy";
+  style.textContent = css;
+  doc.head.append(style);
+};
 
 describe("uiLayout", () => {
   let document;
@@ -61,6 +71,29 @@ describe("uiLayout", () => {
     expect(ui.tutorial?.className).toContain("wide");
     expect(ui.tutorial?.className).not.toContain("small");
     expect(ui.iconHint?.textContent).toBe("");
+  });
+
+  it("moves Settings and Achievements navigation into the primary cards", () => {
+    buildGameUI({ document, mount });
+
+    const trailCard = document.querySelector(".panel-main .info-card:not(.howto-card)");
+    const howtoCard = document.querySelector(".panel-main .howto-card");
+    const achievementsNav = trailCard?.querySelector(".card-actions .card-nav[for='viewAchievements']");
+    const settingsNav = howtoCard?.querySelector(".card-actions .card-nav[for='viewSettings']");
+    const achievementsRadio = document.getElementById("viewAchievements");
+    const settingsRadio = document.getElementById("viewSettings");
+
+    expect(achievementsNav).toBeInstanceOf(window.HTMLLabelElement);
+    expect(settingsNav).toBeInstanceOf(window.HTMLLabelElement);
+    expect(trailCard?.querySelectorAll(".card-actions").length).toBeGreaterThanOrEqual(1);
+    expect(howtoCard?.querySelectorAll(".card-actions").length).toBeGreaterThanOrEqual(1);
+    expect(document.querySelector(".panel-main .tab-toggle")).toBeFalsy();
+
+    achievementsNav?.dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+    expect(achievementsRadio?.checked).toBe(true);
+
+    settingsNav?.dispatchEvent(new window.KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
+    expect(settingsRadio?.checked).toBe(true);
   });
 
   it("renders all expected controls needed by main.js wiring", () => {
@@ -194,6 +227,35 @@ describe("uiLayout", () => {
     expect(cooldowns).toContain("3.5s");
     expect(cooldowns).toContain("4.2s");
     expect(cooldowns).toContain("17s");
+  });
+
+  it("wraps the settings view in a scrollable shell with constrained height", () => {
+    applyStyles(document);
+    buildGameUI({ document, mount });
+
+    const panel = document.querySelector(".menu-panel");
+    const contentLayer = document.querySelector(".content-layer");
+    const menuBody = document.querySelector(".menu-body");
+    const menuShell = document.querySelector(".menu-shell");
+
+    expect(panel).toBeTruthy();
+    expect(contentLayer).toBeTruthy();
+    expect(menuBody?.contains(menuShell)).toBe(true);
+
+    const panelStyle = window.getComputedStyle(panel);
+    const contentStyle = window.getComputedStyle(contentLayer);
+    const bodyStyle = window.getComputedStyle(menuBody);
+    const shellStyle = window.getComputedStyle(menuShell);
+    const zeroLike = ["0px", "0"];
+
+    expect(panelStyle.maxHeight).not.toBe("none");
+    expect(contentStyle.display).toBe("flex");
+    expect(zeroLike).toContain(contentStyle.minHeight);
+    expect(zeroLike).toContain(bodyStyle.minHeight);
+    expect(zeroLike).toContain(shellStyle.minHeight);
+    expect(shellStyle.flexGrow).toBe("1");
+    expect(["auto", "scroll"]).toContain(shellStyle.overflowY);
+    expect(Number.parseFloat(shellStyle.paddingRight)).toBeGreaterThan(0);
   });
 
   it("updates cooldown badges when provided a config override", () => {

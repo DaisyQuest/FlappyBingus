@@ -54,7 +54,7 @@ describe("buildTrailHint", () => {
       achievements: { unlocked: { a: 1 } }
     });
 
-    expect(hint.text).toContain("Exclusive trails");
-    expect(hint.text.toLowerCase()).toContain("record holder");
+    expect(hint.text).toContain("Record-holder exclusives");
+    expect(hint.text.toLowerCase()).toContain("top score");
   });
 });

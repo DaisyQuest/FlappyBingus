@@ -26,6 +26,18 @@ describe("trailProgression helpers", () => {
     expect(unlocked).toContain("classic");
   });
 
+  it("unlocks the full trail lineup when achievements are completed and record-holder status is true", () => {
+    const achievements = {
+      unlocked: DEFAULT_TRAILS.reduce((acc, trail) => {
+        if (trail.achievementId) acc[trail.achievementId] = Date.now();
+        return acc;
+      }, {})
+    };
+
+    const unlocked = getUnlockedTrails(DEFAULT_TRAILS, achievements, { isRecordHolder: true });
+    expect(new Set(unlocked)).toEqual(new Set(DEFAULT_TRAILS.map((t) => t.id)));
+  });
+
   it("places record-holder trails at the top when available", () => {
     const ordered = sortTrailsForDisplay(DEFAULT_TRAILS, { isRecordHolder: true });
     expect(ordered[0].id).toBe("world_record");

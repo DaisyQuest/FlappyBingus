@@ -38,7 +38,7 @@ export function buildTrailHint({ online, user, bestScore, trails, achievements }
   if (recordLocked && !isRecordHolder) {
     return {
       className: "hint",
-      text: "Exclusive trails unlock automatically once you qualify as the record holder."
+      text: "Record-holder exclusives unlock when you claim the top score."
     };
   }
 

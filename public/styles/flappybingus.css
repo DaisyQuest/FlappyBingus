@@ -47,6 +47,12 @@ canvas{position:absolute;inset:0;width:100%;height:100%;display:block;background
   box-shadow:none;
   backdrop-filter:none;
   -webkit-backdrop-filter:none;
+  position:relative;
+  display:flex;
+  flex-direction:column;
+  max-height:calc(100vh - 32px);
+  min-height:0;
+  overflow:hidden;
 }
 .menu-parallax{
   position:absolute;inset:-12% -10%;
@@ -133,7 +139,32 @@ canvas{position:absolute;inset:0;width:100%;height:100%;display:block;background
 .title.danger{color:var(--danger)}
 .sub{color:var(--muted);font-size:15px;line-height:1.55;margin:0;max-width:840px;text-shadow:0 6px 14px rgba(0,0,0,.25)}
 
-.menu-shell{display:grid;grid-template-columns:1.1fr .9fr;gap:14px;align-items:start;padding:8px}
+.menu-shell{
+  display:grid;
+  grid-template-columns:1.1fr .9fr;
+  gap:14px;
+  align-items:start;
+  padding:8px;
+  padding-right:14px;
+  min-height:0;
+  flex:1 1 auto;
+  overflow-y:auto;
+}
+.menu-shell::-webkit-scrollbar{width:12px}
+.menu-shell::-webkit-scrollbar-track{
+  background:rgba(255,255,255,.04);
+  border-radius:999px;
+}
+.menu-shell::-webkit-scrollbar-thumb{
+  background:linear-gradient(180deg,rgba(170,220,255,.75),rgba(150,180,255,.62));
+  border-radius:999px;
+  border:2px solid rgba(0,0,0,.25);
+  box-shadow:0 4px 10px rgba(0,0,0,.35);
+}
+.menu-shell::-webkit-scrollbar-thumb:hover{
+  background:linear-gradient(180deg,rgba(200,235,255,.9),rgba(170,205,255,.72));
+}
+.menu-shell{scrollbar-width:thin;scrollbar-color:rgba(180,220,255,.8) rgba(255,255,255,.06)}
 .menu-shell[data-view="settings"],.menu-shell[data-view="achievements"]{grid-template-columns:1fr}
 .menu-shell[data-view="settings"] .side-stack,.menu-shell[data-view="achievements"] .side-stack{display:none}
 @media (max-width: 900px){ .menu-shell{grid-template-columns:1fr} }
@@ -152,19 +183,23 @@ canvas{position:absolute;inset:0;width:100%;height:100%;display:block;background
 .row.space-between{justify-content:space-between}
 .row.actions-row{margin-top:14px}
 .top-actions{gap:12px;justify-content:center}
+.card-actions{display:flex;justify-content:flex-start;gap:10px;margin-top:8px}
+.card-actions.center{justify-content:center}
+.card-actions .card-nav{min-width:180px}
 
-button{
+button,.card-nav{
   appearance:none;border:1px solid rgba(255,255,255,.25);background:linear-gradient(180deg,rgba(255,255,255,.16),rgba(255,255,255,.06));
   color:var(--text);padding:12px 16px;border-radius:16px;font-weight:900;font-size:16px;cursor:pointer;
   box-shadow:0 12px 28px rgba(0,0,0,.38),0 0 0 1px rgba(255,255,255,.08);
   transition:transform .08s ease,box-shadow .18s ease,background .16s ease,translate .08s ease,filter .14s ease;
+  display:inline-flex;align-items:center;justify-content:center;text-decoration:none;
 }
-button:hover{background:linear-gradient(180deg,rgba(255,255,255,.22),rgba(255,255,255,.1));transform:translateY(-1px);box-shadow:0 16px 32px rgba(0,0,0,.32),0 0 0 1px rgba(255,255,255,.14);filter:drop-shadow(0 8px 18px rgba(255,200,255,.18))}
-button:active{transform:translateY(0);translate:0 1px}
-button.primary{border-color:rgba(170,230,255,.65);background:linear-gradient(180deg,rgba(180,230,255,.46),rgba(140,210,255,.22));color:#0d1a27;text-shadow:0 1px 0 rgba(255,255,255,.4)}
-button.primary:hover{background:linear-gradient(180deg,rgba(205,240,255,.7),rgba(150,210,255,.28))}
+button:hover,.card-nav:hover{background:linear-gradient(180deg,rgba(255,255,255,.22),rgba(255,255,255,.1));transform:translateY(-1px);box-shadow:0 16px 32px rgba(0,0,0,.32),0 0 0 1px rgba(255,255,255,.14);filter:drop-shadow(0 8px 18px rgba(255,200,255,.18))}
+button:active,.card-nav:active{transform:translateY(0);translate:0 1px}
+button.primary,.card-nav.primary{border-color:rgba(170,230,255,.65);background:linear-gradient(180deg,rgba(180,230,255,.46),rgba(140,210,255,.22));color:#0d1a27;text-shadow:0 1px 0 rgba(255,255,255,.4)}
+button.primary:hover,.card-nav.primary:hover{background:linear-gradient(180deg,rgba(205,240,255,.7),rgba(150,210,255,.28))}
 button[disabled]{opacity:.58;cursor:not-allowed;transform:none;translate:0}
-button:focus-visible,input:focus-visible,select:focus-visible{
+button:focus-visible,.card-nav:focus-visible,input:focus-visible,select:focus-visible{
   outline:2px solid rgba(180,230,255,.9);outline-offset:2px;box-shadow:0 0 0 4px rgba(180,230,255,.2)
 }
 .cta-btn{padding:14px 26px;min-width:160px;font-size:17px;letter-spacing:.3px}
@@ -499,7 +534,7 @@ input[type="range"]::-moz-range-thumb{
 
 .howto-card{display:grid;grid-template-columns:1fr;gap:10px;align-items:center;text-align:center;padding:16px;background:linear-gradient(180deg,rgba(255,255,255,.08),rgba(180,180,255,.08));border:1px solid rgba(255,255,255,.12)}
 .howto-card .section-title{font-size:16px;letter-spacing:.8px}
-.howto-header{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.howto-header{display:flex;align-items:center;justify-content:center;gap:10px}
 .howto-heading{font-weight:900;letter-spacing:.8px;color:var(--text);text-transform:uppercase;font-size:13px}
 .howto-list{list-style:disc;margin:0;padding:0 0 0 18px;display:inline-flex;flex-direction:column;gap:6px;text-align:left}
 .howto-list li{color:var(--text);font-weight:800;text-shadow:0 6px 12px rgba(0,0,0,.24)}
@@ -510,7 +545,25 @@ input[type="range"]::-moz-range-thumb{
   radial-gradient(50% 40% at 80% 10%,rgba(210,160,255,.2),transparent),
   radial-gradient(60% 50% at 70% 80%,rgba(255,170,220,.14),transparent);
   filter:blur(30px);opacity:.82;pointer-events:none;z-index:1}
-.content-layer{position:relative;z-index:2}
+.content-layer{
+  position:relative;
+  z-index:2;
+  display:flex;
+  flex-direction:column;
+  gap:12px;
+  flex:1 1 auto;
+  min-height:0;
+  overflow:hidden;
+}
+.menu-body{
+  position:relative;
+  display:flex;
+  flex-direction:column;
+  gap:12px;
+  flex:1 1 auto;
+  min-height:0;
+  overflow:hidden;
+}
 
 @keyframes floatIn{
   from{opacity:0;transform:translateY(8px)}

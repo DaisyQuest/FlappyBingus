@@ -1,4 +1,30 @@
 # Meeting Notes
+- Date: 2025-02-05
+- Attendees: ChatGPT (GPT-5.1-Codex-Max)
+
+## Agenda
+- Center the tutorial CTA within its card header.
+- Relocate the Achievements and Settings navigation controls into the main info cards.
+- Retire the record-holder trail hint copy while keeping unlock guidance clear.
+
+## Discussion
+- The tutorial button sat against the left edge of its header, which felt unbalanced compared to the surrounding content.
+- Achievements and Settings navigation pills beneath the info grid pushed critical controls out of context with the cards they impact.
+- The record-holder trail hint text referenced “Exclusive trails” verbage that needed to be removed while still explaining gating.
+- Keyboard activation needed to work for the relocated nav controls because they are now label-based toggles.
+
+## Decisions
+- Center the tutorial CTA inside the how-to header and add shared card-action styling to keep CTA alignment consistent.
+- Move the Achievements control beneath the trail/aura selection card and place the Settings control under the how-to checklist, wiring both to the existing radio tabs.
+- Replace the record-holder hint with concise “top score” wording so the prior phrase is no longer emitted.
+- Add keyboard activation to the new card nav controls to mirror click behavior when switching tabs.
+
+## Action Items
+- Ship the layout updates, hint copy change, and supporting styles.
+- Keep uiLayout and trail hint tests in sync with the new structure and copy.
+- Verify the full Vitest coverage suite after the UI changes.
+
+# Meeting Notes
 - Date: 2025-12-22
 - Attendees: ChatGPT (GPT-5.1-Codex-Max)
 
@@ -333,3 +359,21 @@
 - Implement per-skill run stat tracking and rendering in the Game Over panel.
 - Update score submission validation and Mongo persistence to aggregate skill usage totals.
 - Expand automated tests for run stats, persistence, and UI to keep coverage high.
+- Expand automated tests for achievements, trail/icon selection, and perfect gap handling.
+- Verify teleport explosion behavior destroys overlapping walls.
+
+## Discussion
+- Every achievement definition now has a targeted test case that satisfies its requirement to prevent gaps in coverage.
+- Trail and icon selection helpers gained checks that ensure all unlocked cosmetics remain selectable with accurate labels.
+- Perfect gap resolution now tracks runStats increments and early exits reliably, keeping combo tracking consistent.
+- Teleport explosion coverage confirms pipes at the landing spot are shattered while distant pipes persist.
+
+## Decisions
+- Keep achievement validation table-driven so new requirements get coverage automatically.
+- Treat unlocked cosmetic sets as fully selectable with consistent aria and name metadata.
+- Preserve existing jsdom canvas shims while noting getContext warnings during test runs.
+
+## Action Items
+- Monitor future achievement additions to extend the table-driven test harness.
+- Re-run the full headless test suite after gameplay tweaks that touch skills or perfect gap handling.
+- Keep an eye on canvas API warnings; add mocks if they become disruptive.

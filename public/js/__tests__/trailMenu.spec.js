@@ -61,4 +61,27 @@ describe("trailMenu helpers", () => {
     expect(overlay.classList.contains("hidden")).toBe(true);
     expect(overlay.getAttribute("aria-hidden")).toBe("true");
   });
+
+  it("keeps every unlocked trail selectable with preserved names and aria state", () => {
+    const trails = [
+      { id: "classic", name: "Classic", minScore: 0 },
+      { id: "ember", name: "Ember Core", minScore: 100 },
+      { id: "sunset", name: "Sunset Fade", minScore: 250 }
+    ];
+    const unlockedIds = new Set(trails.map((t) => t.id));
+
+    const { rendered } = renderTrailOptions({
+      container,
+      trails,
+      selectedId: "ember",
+      unlockedIds
+    });
+
+    const buttons = Array.from(container.querySelectorAll("button[data-trail-id]"));
+    expect(rendered).toBe(trails.length);
+    expect(buttons.every((btn) => btn.classList.contains("locked") === false)).toBe(true);
+    expect(buttons.every((btn) => btn.getAttribute("aria-disabled") === "false")).toBe(true);
+    expect(buttons.map((btn) => btn.dataset.trailName)).toEqual(trails.map((t) => t.name));
+    expect(buttons.find((btn) => btn.dataset.trailId === "ember")?.getAttribute("aria-pressed")).toBe("true");
+  });
 });

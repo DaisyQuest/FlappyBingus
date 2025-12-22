@@ -426,6 +426,26 @@ describe("Skill usage", () => {
     expect(game.floats.some((f) => f.txt === "TELEPORT")).toBe(true);
   });
 
+  it("breaks the pipe landed on with exploding teleport while leaving distant pipes intact", () => {
+    const { game, canvas } = buildGame();
+    game.setSkillSettings({ teleportBehavior: "explode" });
+    game.W = 240; game.H = 240;
+    canvas.width = 240; canvas.height = 240;
+    game.player.r = 8;
+    game.input.cursor = { has: true, x: 120, y: 120 };
+
+    const smashed = pipeStub({ x: 112, y: 112, w: 16, h: 16 });
+    const distant = pipeStub({ x: 200, y: 10, w: 8, h: 8 });
+    game.pipes.push(smashed, distant);
+
+    game._useSkill("teleport");
+
+    expect(game.pipes).toContain(distant);
+    expect(game.pipes).not.toContain(smashed);
+    expect(game.lastPipeShatter?.cause).toBe("teleportExplode");
+    expect(game.cds.teleport).toBeCloseTo(game.cfg.skills.teleport.cooldown * 2);
+  });
+
   it("doubles phase duration and cooldown when using long invulnerability", () => {
     const { game } = buildGame({ skills: { phase: { duration: 0.5, cooldown: 1 } } });
     game.setSkillSettings({ invulnBehavior: "long" });

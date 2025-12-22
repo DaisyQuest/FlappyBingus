@@ -123,7 +123,17 @@ function createHowToCard(doc, refs) {
   });
 
   wrapper.append(howToTitle, list);
-  card.append(header, wrapper);
+
+  const settingsAction = createElement(doc, refs, "label", {
+    className: "cta-btn wide card-nav",
+    attrs: { for: "viewSettings", role: "button", tabindex: "0" },
+    text: "Settings"
+  });
+  const actions = doc.createElement("div");
+  actions.className = "card-actions center";
+  actions.append(settingsAction);
+
+  card.append(header, wrapper, actions);
   return card;
 }
 
@@ -266,11 +276,20 @@ function createTrailCard(doc, refs) {
     text: "Unlock trails by improving your personal best."
   });
 
+  const achievementsAction = createElement(doc, refs, "label", {
+    className: "cta-btn wide card-nav",
+    attrs: { for: "viewAchievements", role: "button", tabindex: "0" },
+    text: "Achievements"
+  });
+  const actionsRow = doc.createElement("div");
+  actionsRow.className = "card-actions center";
+  actionsRow.append(achievementsAction);
+
   trailOverlayPanel.append(trailOverlayHeader, trailOptions);
   trailOverlay.append(trailOverlayPanel);
 
   trailField.append(trailLauncher, trailOverlay, trailHint);
-  card.append(actions, divider, iconField, trailField);
+  card.append(actions, divider, iconField, trailField, actionsRow);
   return card;
 }
 
@@ -811,6 +830,7 @@ function createMenuParallax(doc, refs) {
 
 function createMenuScreen(doc, refs) {
   const screen = createElement(doc, refs, "div", { id: "menu", className: "screen" });
+  const defaultView = doc?.defaultView || (typeof window !== "undefined" ? window : null);
   const trailOverlay = createTrailPreviewOverlay(doc, refs);
   const panel = doc.createElement("div");
   panel.className = "panel menu-panel";
@@ -904,18 +924,7 @@ function createMenuScreen(doc, refs) {
   const mainGrid = doc.createElement("div");
   mainGrid.className = "info-grid";
   mainGrid.append(createTrailCard(doc, refs), createHowToCard(doc, refs));
-  const toSettings = doc.createElement("div");
-  toSettings.className = "tab-toggle";
-  const settingsLabel = doc.createElement("label");
-  settingsLabel.setAttribute("for", "viewSettings");
-  settingsLabel.className = "tab-pill";
-  settingsLabel.textContent = "Settings";
-  const achievementsLabel = doc.createElement("label");
-  achievementsLabel.setAttribute("for", "viewAchievements");
-  achievementsLabel.className = "tab-pill";
-  achievementsLabel.textContent = "Achievements";
-  toSettings.append(settingsLabel, achievementsLabel);
-  mainPanel.append(mainGrid, toSettings);
+  mainPanel.append(mainGrid);
 
   const settingsPanel = doc.createElement("div");
   settingsPanel.className = "panel-settings tab-panel";
@@ -940,6 +949,10 @@ function createMenuScreen(doc, refs) {
   viewArea.append(mainPanel, settingsPanel, achievementsPanel);
   mainCard.append(viewArea);
 
+  const menuBody = doc.createElement("div");
+  menuBody.className = "menu-body";
+  menuBody.append(viewMain, viewSettings, viewAchievements, shell);
+
   const sideStack = doc.createElement("div");
   sideStack.className = "side-stack";
   sideStack.append(createProfileCard(doc, refs), createHighscoreCard(doc, refs));
@@ -947,6 +960,9 @@ function createMenuScreen(doc, refs) {
   shell.append(mainCard, sideStack);
   const achievementsHeaderBack = refs.achievementsHeaderBack;
   const settingsHeaderBack = refs.settingsHeaderBack;
+
+  const achievementsNav = mainPanel.querySelector('[for="viewAchievements"]');
+  const settingsNav = mainPanel.querySelector('[for="viewSettings"]');
 
   const updateMenuView = () => {
     const view = viewSettings.checked ? "settings" : viewAchievements.checked ? "achievements" : "main";
@@ -959,11 +975,39 @@ function createMenuScreen(doc, refs) {
     if (view !== "achievements") subtitle.textContent = subtitleText;
   };
 
+  const wireNav = (el, radio) => {
+    if (!el || !radio) return;
+    const emitChange = () => {
+      const EventCtor = defaultView?.Event || (typeof Event === "function" ? Event : null);
+      if (EventCtor) {
+        radio.dispatchEvent(new EventCtor("change", { bubbles: true }));
+      } else if (doc && typeof doc.createEvent === "function") {
+        const evt = doc.createEvent("Event");
+        evt.initEvent("change", true, true);
+        radio.dispatchEvent(evt);
+      }
+    };
+    const activate = () => {
+      radio.checked = true;
+      emitChange();
+    };
+    el.addEventListener("click", activate);
+    el.addEventListener("keydown", (ev) => {
+      if (ev.key === "Enter" || ev.key === " ") {
+        ev.preventDefault();
+        activate();
+      }
+    });
+  };
+
+  wireNav(achievementsNav, viewAchievements);
+  wireNav(settingsNav, viewSettings);
+
   [viewMain, viewSettings, viewAchievements].forEach(radio => {
     radio.addEventListener("change", updateMenuView);
   });
   updateMenuView();
-  content.append(header, viewMain, viewSettings, viewAchievements, shell);
+  content.append(header, menuBody);
   panel.append(parallax, aurora, content);
   screen.append(trailOverlay, panel);
   return screen;

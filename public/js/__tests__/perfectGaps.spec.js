@@ -251,4 +251,55 @@ describe("resolveGapPerfect", () => {
     expect(game.perfectCombo).toBe(1);
     expect(game.score).toBeGreaterThan(0);
   });
+
+  it("increments runStats perfect counters and clamps the flash duration", () => {
+    const game = {
+      score: 0,
+      perfectCombo: 0,
+      perfectT: 0,
+      perfectMax: 0,
+      runStats: { perfects: 0 },
+      _gapMeta: new Map(),
+      _perfectNiceSfx: vi.fn()
+    };
+    const gate = prepGate({ axis: "x", gapCenter: 140, gapHalf: 16, gapId: 99 });
+    game._gapMeta.set(99, { perfected: false });
+
+    const res = resolveGapPerfect({
+      gate,
+      game,
+      playerAxis: 60,
+      prevPerpAxis: 140,
+      currPerpAxis: 140,
+      bonus: 4,
+      flashDuration: 5, // clamps to max 2s
+      windowScale: 0.2
+    });
+
+    expect(res.awarded).toBe(true);
+    expect(game.runStats.perfects).toBe(1);
+    expect(game.perfectMax).toBeCloseTo(2);
+    expect(game.perfectCombo).toBe(1);
+  });
+
+  it("short-circuits when a gate was already perfected while still reporting the threshold", () => {
+    const game = makeGame();
+    const gate = prepGate({ axis: "x", gapCenter: 120, gapHalf: 10, gapId: 100 });
+    gate.perfected = true;
+
+    const res = resolveGapPerfect({
+      gate,
+      game,
+      playerAxis: 40,
+      prevPerpAxis: 120,
+      currPerpAxis: 120,
+      bonus: 6,
+      windowScale: 0.25
+    });
+
+    expect(res.awarded).toBe(false);
+    expect(res.crossed).toBe(false);
+    expect(res.distance).toBe(Infinity);
+    expect(res.threshold).toBeGreaterThan(0);
+  });
 });
