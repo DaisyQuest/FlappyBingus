@@ -172,7 +172,7 @@ input[type="text"]::placeholder{color:rgba(255,255,255,.45)}
 }
 .skill-behavior-header{align-items:end}
 .skill-row-label{
-  font-size:12px;
+  font-size:13px;
   color:rgba(255,255,255,.7);
   font-weight:900;
   letter-spacing:.35px;
@@ -184,7 +184,7 @@ input[type="text"]::placeholder{color:rgba(255,255,255,.45)}
   font-weight:900;
   letter-spacing:.35px;
   text-transform:uppercase;
-  font-size:12px;
+  font-size:13px;
   color:rgba(255,255,255,.9);
   padding:10px 12px;
   border-radius:12px;
@@ -223,6 +223,22 @@ input[type="text"]::placeholder{color:rgba(255,255,255,.45)}
 .skill-option.behavior-slow{
   --skill-accent:rgba(170,210,255,.90);
   --skill-accent-strong:rgba(210,235,255,.98);
+}
+.skill-option.behavior-normal{
+  --skill-accent:rgba(195,200,255,.94);
+  --skill-accent-strong:rgba(230,236,255,.98);
+}
+.skill-option.behavior-explode{
+  --skill-accent:rgba(255,170,160,.94);
+  --skill-accent-strong:rgba(255,205,195,.98);
+}
+.skill-option.behavior-short{
+  --skill-accent:rgba(160,230,210,.94);
+  --skill-accent-strong:rgba(200,250,235,.98);
+}
+.skill-option.behavior-long{
+  --skill-accent:rgba(200,180,255,.94);
+  --skill-accent-strong:rgba(225,210,255,.98);
 }
 .skill-option:hover{
   background:linear-gradient(180deg,rgba(255,255,255,.12),rgba(255,255,255,.06));

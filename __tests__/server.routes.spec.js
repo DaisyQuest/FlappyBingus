@@ -10,7 +10,12 @@ const baseUser = () => ({
   selectedIcon: "hi_vis_orange",
   ownedIcons: [],
   keybinds: {},
-  settings: { dashBehavior: "ricochet", slowFieldBehavior: "slow" },
+  settings: {
+    dashBehavior: "ricochet",
+    slowFieldBehavior: "slow",
+    teleportBehavior: "normal",
+    invulnBehavior: "short"
+  },
   runs: 3,
   totalScore: 5000,
   bustercoins: 10
@@ -111,7 +116,10 @@ describe("server routes and helpers", () => {
     expect(success.headers["Set-Cookie"]).toMatch(/sugar=ValidUser/);
     expect(success.headers["Set-Cookie"]).toMatch(/HttpOnly/);
     expect(success.headers["Set-Cookie"]).toMatch(/Secure/);
-    expect(readJson(success).user.settings.dashBehavior).toBe("ricochet");
+    const savedSettings = readJson(success).user.settings;
+    expect(savedSettings.dashBehavior).toBe("ricochet");
+    expect(savedSettings.teleportBehavior).toBe("normal");
+    expect(savedSettings.invulnBehavior).toBe("short");
 
     process.env.COOKIE_SECURE = prevSecure;
   });
@@ -172,7 +180,12 @@ describe("server routes and helpers", () => {
     const { server } = await importServer({
       getUserByKey: vi.fn(async () => ({
         ...baseUser(),
-        settings: { dashBehavior: "destroy", slowFieldBehavior: "explosion" }
+        settings: {
+          dashBehavior: "destroy",
+          slowFieldBehavior: "explosion",
+          teleportBehavior: "explode",
+          invulnBehavior: "long"
+        }
       }))
     });
     const res = createRes();
@@ -180,7 +193,12 @@ describe("server routes and helpers", () => {
     await server.route(createReq({ method: "GET", url: "/api/me", headers: { cookie: "sugar=PlayerOne" } }), res);
 
     expect(res.status).toBe(200);
-    expect(readJson(res).user.settings).toEqual({ dashBehavior: "destroy", slowFieldBehavior: "explosion" });
+    expect(readJson(res).user.settings).toEqual({
+      dashBehavior: "destroy",
+      slowFieldBehavior: "explosion",
+      teleportBehavior: "explode",
+      invulnBehavior: "long"
+    });
     expect(readJson(res).icons?.length).toBeGreaterThan(0);
   });
 
@@ -375,7 +393,14 @@ describe("server routes and helpers", () => {
       createReq({
         method: "POST",
         url: "/api/settings",
-        body: JSON.stringify({ settings: { dashBehavior: "destroy", slowFieldBehavior: "explosion" } }),
+        body: JSON.stringify({
+          settings: {
+            dashBehavior: "destroy",
+            slowFieldBehavior: "explosion",
+            teleportBehavior: "explode",
+            invulnBehavior: "long"
+          }
+        }),
         headers: { cookie: "sugar=PlayerOne" }
       }),
       valid
@@ -384,9 +409,16 @@ describe("server routes and helpers", () => {
     expect(valid.status).toBe(200);
     expect(mockDataStore.setSettings).toHaveBeenCalledWith("player-one", {
       dashBehavior: "destroy",
-      slowFieldBehavior: "explosion"
+      slowFieldBehavior: "explosion",
+      teleportBehavior: "explode",
+      invulnBehavior: "long"
     });
-    expect(readJson(valid).user.settings.dashBehavior).toBe("destroy");
+    expect(readJson(valid).user.settings).toEqual({
+      dashBehavior: "destroy",
+      slowFieldBehavior: "explosion",
+      teleportBehavior: "explode",
+      invulnBehavior: "long"
+    });
   });
 
   it("serves previews as JSON by default and HTML when requested", async () => {

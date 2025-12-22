@@ -49,7 +49,12 @@ describe("server helpers (trails)", () => {
   it("applies default skill settings when missing", () => {
     const u = baseUser();
     server.ensureUserSchema(u, { recordHolder: false });
-    expect(u.settings).toEqual({ dashBehavior: "ricochet", slowFieldBehavior: "slow" });
+    expect(u.settings).toEqual({
+      dashBehavior: "ricochet",
+      slowFieldBehavior: "slow",
+      teleportBehavior: "normal",
+      invulnBehavior: "short"
+    });
   });
 
   it("normalizes icon selection to an unlocked default", () => {
@@ -90,7 +95,7 @@ describe("server helpers (trails)", () => {
         teleport: { type: "mouse", button: 9 }, // invalid button -> default
         slowField: { type: "key", code: "Slow Field" } // invalid code -> default
       },
-      settings: { dashBehavior: "laser", slowFieldBehavior: "plasma" },
+      settings: { dashBehavior: "laser", slowFieldBehavior: "plasma", teleportBehavior: "storm", invulnBehavior: "forever" },
       runs: -10,
       totalScore: -99
     };
@@ -100,7 +105,12 @@ describe("server helpers (trails)", () => {
     expect(u.keybinds.teleport).toEqual({ type: "mouse", button: 0 });
     expect(u.keybinds.phase).toEqual({ type: "mouse", button: 2 });
     expect(u.keybinds.slowField).toEqual({ type: "key", code: "KeyE" });
-    expect(u.settings).toEqual({ dashBehavior: "ricochet", slowFieldBehavior: "slow" });
+    expect(u.settings).toEqual({
+      dashBehavior: "ricochet",
+      slowFieldBehavior: "slow",
+      teleportBehavior: "normal",
+      invulnBehavior: "short"
+    });
     expect(u.runs).toBe(0);
     expect(u.totalScore).toBe(0);
     expect(u.bustercoins).toBe(0);

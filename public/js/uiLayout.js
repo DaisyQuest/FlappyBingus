@@ -15,16 +15,26 @@ const HOW_TO_STEPS = [
 const SKILL_COOLDOWN_REFS = [
   { ref: "dashCooldownValue", key: "dash", label: "Reflect cooldown" },
   { ref: "dashDestroyCooldownValue", key: "dashDestroy", label: "Break cooldown" },
+  { ref: "teleportCooldownValue", key: "teleport", label: "Teleport cooldown" },
+  { ref: "teleportExplodeCooldownValue", key: "teleport", label: "Explode teleport cooldown", multiplier: 2 },
+  { ref: "invulnShortCooldownValue", key: "phase", label: "Invulnerability cooldown" },
+  { ref: "invulnLongCooldownValue", key: "phase", label: "Invulnerability cooldown", multiplier: 2 },
   { ref: "slowFieldCooldownValue", key: "slowField", label: "Slow Field cooldown" },
   { ref: "slowExplosionCooldownValue", key: "slowExplosion", label: "Explode cooldown" }
 ];
 
-function readCooldown(cfg, key) {
+function readCooldown(cfg, key, { multiplier = 1 } = {}) {
   const fallback = Number(DEFAULT_CONFIG?.skills?.[key]?.cooldown);
   const raw = Number(cfg?.skills?.[key]?.cooldown);
-  if (Number.isFinite(raw) && raw >= 0) return raw;
-  if (Number.isFinite(fallback) && fallback >= 0) return fallback;
-  return null;
+  const base = (Number.isFinite(raw) && raw >= 0)
+    ? raw
+    : (Number.isFinite(fallback) && fallback >= 0)
+      ? fallback
+      : null;
+  if (base == null) return null;
+  const val = base * multiplier;
+  if (!Number.isFinite(val) || val < 0) return null;
+  return val;
 }
 
 export function formatCooldownSeconds(value) {
@@ -35,10 +45,10 @@ export function formatCooldownSeconds(value) {
 }
 
 function applySkillCooldowns(refs, cfg = DEFAULT_CONFIG) {
-  SKILL_COOLDOWN_REFS.forEach(({ ref, key, label }) => {
+  SKILL_COOLDOWN_REFS.forEach(({ ref, key, label, multiplier = 1 }) => {
     const el = refs[ref];
     if (!el) return;
-    const val = readCooldown(cfg, key);
+    const val = readCooldown(cfg, key, { multiplier });
     const text = formatCooldownSeconds(val);
     el.textContent = text;
     el.setAttribute("aria-label", `${label}: ${text}`);
@@ -448,6 +458,23 @@ function createSkillGlyph(doc, type) {
       node("path", { d: "M18 40c4 4 0 8 4 12", class: "skill-glyph-wave" }),
       node("path", { d: "M46 40c-4 4 0 8-4 12", class: "skill-glyph-wave" })
     );
+  } else if (type === "teleport") {
+    svg.append(
+      node("circle", { cx: "32", cy: "32", r: "11", class: "skill-glyph-fill" }),
+      node("circle", { cx: "32", cy: "32", r: "4.5", class: "skill-glyph-node" }),
+      node("path", { d: "M18 22c5-6 25-6 30 0", class: "skill-glyph-path" }),
+      node("path", { d: "M20 42c4 7 20 7 24 0", class: "skill-glyph-path" }),
+      node("polyline", { points: "32,12 32,20 36,16 32,12 28,16 32,20", class: "skill-glyph-accent" }),
+      node("polyline", { points: "32,44 32,52 36,48 32,44 28,48 32,52", class: "skill-glyph-accent" })
+    );
+  } else if (type === "phase") {
+    svg.append(
+      node("rect", { x: "14", y: "18", width: "36", height: "28", rx: "8", class: "skill-glyph-wall" }),
+      node("rect", { x: "18", y: "22", width: "28", height: "20", rx: "6", class: "skill-glyph-fill" }),
+      node("path", { d: "M20 32c2-5 8-8 12-8s10 3 12 8", class: "skill-glyph-path" }),
+      node("circle", { cx: "26", cy: "32", r: "3", class: "skill-glyph-node" }),
+      node("circle", { cx: "38", cy: "32", r: "3", class: "skill-glyph-node" })
+    );
   } else {
     svg.append(
       node("circle", { cx: "28", cy: "38", r: "12", class: "skill-glyph-fill" }),
@@ -463,14 +490,14 @@ function createSkillGlyph(doc, type) {
   return wrap;
 }
 
-function createSkillOptionButton(doc, refs, { value, title, description, cooldownKey, cooldownRef }) {
+function createSkillOptionButton(doc, refs, { value, title, description, cooldownKey, cooldownRef, glyph }) {
   const btn = doc.createElement("button");
   btn.type = "button";
   btn.className = `skill-option behavior-${value}`;
   btn.dataset.value = value;
   btn.setAttribute("aria-pressed", "false");
 
-  const icon = createSkillGlyph(doc, value);
+  const icon = createSkillGlyph(doc, glyph || value);
   const textWrap = doc.createElement("div");
   textWrap.className = "skill-option-text";
   const name = doc.createElement("div");
@@ -581,7 +608,53 @@ function createSkillSettingsCard(doc, refs) {
     ]
   });
 
-  matrix.append(headerRow, dashRow, slowRow);
+  const teleportRow = createSkillBehaviorRow(doc, refs, {
+    id: "teleportBehaviorOptions",
+    label: "Teleport behavior",
+    options: [
+      {
+        value: "normal",
+        glyph: "teleport",
+        title: "Teleport",
+        description: "Blink to your cursor for precise repositioning.",
+        cooldownKey: "teleport",
+        cooldownRef: "teleportCooldownValue"
+      },
+      {
+        value: "explode",
+        glyph: "teleport",
+        title: "Exploding Teleport",
+        description: "Shatter any pipes you land on. Higher cooldown.",
+        cooldownKey: "teleportExplode",
+        cooldownRef: "teleportExplodeCooldownValue"
+      }
+    ]
+  });
+
+  const invulnRow = createSkillBehaviorRow(doc, refs, {
+    id: "invulnBehaviorOptions",
+    label: "Invulnerability behavior",
+    options: [
+      {
+        value: "short",
+        glyph: "phase",
+        title: "Invulnerability (Short)",
+        description: "A quick phase to dodge danger.",
+        cooldownKey: "invulnShort",
+        cooldownRef: "invulnShortCooldownValue"
+      },
+      {
+        value: "long",
+        glyph: "phase",
+        title: "Invulnerability (Long)",
+        description: "Lasts twice as long but recharges slower.",
+        cooldownKey: "invulnLong",
+        cooldownRef: "invulnLongCooldownValue"
+      }
+    ]
+  });
+
+  matrix.append(headerRow, dashRow, slowRow, teleportRow, invulnRow);
   card.append(title, matrix);
   refs.updateSkillCooldowns = (cfg) => applySkillCooldowns(refs, cfg);
   refs.updateSkillCooldowns(DEFAULT_CONFIG);

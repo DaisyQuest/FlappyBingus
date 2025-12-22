@@ -408,6 +408,36 @@ describe("Skill usage", () => {
     expect(game.floats.some((f) => f.txt === "SLOW FIELD")).toBe(true);
   });
 
+  it("shatters overlapping pipes and doubles cooldown with exploding teleport", () => {
+    const { game, canvas } = buildGame();
+    game.setSkillSettings({ teleportBehavior: "explode" });
+    game.W = 200; game.H = 200;
+    canvas.width = 200; canvas.height = 200;
+    game.player.r = 10;
+    game.input.cursor = { has: true, x: 100, y: 100 };
+    const first = pipeStub({ x: 90, y: 90, w: 24, h: 24 });
+    const second = pipeStub({ x: 96, y: 96, w: 18, h: 18 });
+    game.pipes.push(first, second);
+
+    game._useSkill("teleport");
+
+    expect(game.pipes.length).toBe(0);
+    expect(game.cds.teleport).toBeCloseTo(game.cfg.skills.teleport.cooldown * 2);
+    expect(game.floats.some((f) => f.txt === "TELEPORT")).toBe(true);
+  });
+
+  it("doubles phase duration and cooldown when using long invulnerability", () => {
+    const { game } = buildGame({ skills: { phase: { duration: 0.5, cooldown: 1 } } });
+    game.setSkillSettings({ invulnBehavior: "long" });
+    game.player.invT = 0;
+    game.cds.phase = 0;
+
+    game._useSkill("phase");
+
+    expect(game.player.invT).toBeCloseTo(1);
+    expect(game.cds.phase).toBeCloseTo(2);
+  });
+
   it("shows cooldown popups with colors based on remaining time", () => {
     const { game } = buildGame({ skills: { dash: { cooldown: 3, duration: 0.2, speed: 200 } } });
     game.player.r = 6;
