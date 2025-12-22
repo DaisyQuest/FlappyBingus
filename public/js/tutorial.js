@@ -1206,7 +1206,8 @@ _stepOrbs(dt) {
   _stepDashReflect(dt) {
     if (!this._reflectTarget) return;
 
-    if (this._reflectWall && this._reflectWall.off(this.game.W, this.game.H, 120) && !this._reflectBounceSeen) {
+    const wall = this._reflectWall;
+    if (wall && wall.entered && wall.off(this.game.W, this.game.H, 120) && !this._reflectBounceSeen) {
       this._hardClearWorld();
       this._spawnDashReflectScenario();
       return;
