@@ -145,6 +145,10 @@ describe("uiLayout", () => {
     expect(mainRadio?.checked).toBe(true);
     expect(settingsRadio?.checked).toBe(false);
     expect(achievementsRadio?.checked).toBe(false);
+    const shell = document.querySelector(".menu-shell");
+    expect(shell?.dataset.view).toBe("main");
+    const sideStack = document.querySelector(".side-stack");
+    expect(sideStack?.hidden).toBe(false);
   });
 
   it("recreates the layout cleanly on repeated mounts", () => {
@@ -154,5 +158,37 @@ describe("uiLayout", () => {
     expect(mount.querySelectorAll("#wrap").length).toBe(1);
     expect(second.bindWrap?.classList.contains("bindList")).toBe(true);
     expect(second.userHint?.textContent).toBe("Not signed in.");
+  });
+
+  it("updates the title and layout when switching to settings or achievements", () => {
+    buildGameUI({ document, mount });
+    const title = document.getElementById("menuTitle");
+    const shell = document.querySelector(".menu-shell");
+    const sideStack = document.querySelector(".side-stack");
+    const settingsRadio = document.getElementById("viewSettings");
+    const achievementsRadio = document.getElementById("viewAchievements");
+    const mainRadio = document.getElementById("viewMain");
+
+    expect(title?.textContent).toBe("Flappy Bingus");
+    expect(shell?.dataset.view).toBe("main");
+    expect(sideStack?.hidden).toBe(false);
+
+    settingsRadio.checked = true;
+    settingsRadio.dispatchEvent(new window.Event("change"));
+    expect(title?.textContent).toBe("Settings");
+    expect(shell?.dataset.view).toBe("settings");
+    expect(sideStack?.hidden).toBe(true);
+
+    achievementsRadio.checked = true;
+    achievementsRadio.dispatchEvent(new window.Event("change"));
+    expect(title?.textContent).toBe("Achievements");
+    expect(shell?.dataset.view).toBe("achievements");
+    expect(sideStack?.hidden).toBe(true);
+
+    mainRadio.checked = true;
+    mainRadio.dispatchEvent(new window.Event("change"));
+    expect(title?.textContent).toBe("Flappy Bingus");
+    expect(shell?.dataset.view).toBe("main");
+    expect(sideStack?.hidden).toBe(false);
   });
 });
