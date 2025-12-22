@@ -20,24 +20,23 @@ describe("uiLayout", () => {
     expect(mount.querySelectorAll("#wrap").length).toBe(1);
     expect(ui.canvas).toBeInstanceOf(window.HTMLCanvasElement);
     expect(ui.trailPreviewCanvas).toBeInstanceOf(window.HTMLCanvasElement);
-    expect(ui.trailSelectPreview).toBeInstanceOf(window.HTMLCanvasElement);
+    expect(ui.trailLauncher).toBeInstanceOf(window.HTMLElement);
+    expect(ui.trailLauncher?.querySelector(".trail-swatch-canvas")).toBeInstanceOf(window.HTMLCanvasElement);
     expect(ui.menu?.id).toBe("menu");
     expect(ui.over?.id).toBe("over");
     expect(ui.start?.textContent).toContain("Start");
     const readyCard = mount.querySelector(".panel-main .info-card");
     const readyFields = readyCard?.querySelectorAll(".field");
     expect(readyFields?.[0]?.querySelector("#iconOptions")).toBeInstanceOf(window.HTMLElement);
-    expect(readyFields?.[1]?.querySelector("#trailSelect")).toBeInstanceOf(window.HTMLElement);
+    expect(readyFields?.[1]?.querySelector("#trailLauncher")).toBeInstanceOf(window.HTMLElement);
     expect(ui.iconLauncher).toBeInstanceOf(window.HTMLElement);
     expect(ui.iconLauncher?.querySelector(".icon-swatch-canvas")).toBeInstanceOf(window.HTMLCanvasElement);
     expect(ui.iconOverlay?.classList.contains("hidden")).toBe(true);
     const overlay = mount.querySelector("#menu .trail-preview-overlay");
     expect(overlay?.querySelectorAll(".trail-preview-canvas")?.length).toBe(1);
     expect(overlay?.querySelectorAll(".trail-preview-glow")?.length).toBe(1);
-    const selectPanel = mount.querySelector(".trail-select-panel");
-    expect(selectPanel?.querySelectorAll("select")?.length).toBe(1);
-    expect(selectPanel?.querySelectorAll("#trailSelectPreview")?.length).toBe(1);
-    expect(selectPanel?.textContent.trim()).toBe("");
+    const trailOverlay = mount.querySelector("#trailOverlay");
+    expect(trailOverlay?.querySelector("#trailOptions")).toBeInstanceOf(window.HTMLElement);
     expect(ui.iconOptions?.className).toContain("icon-grid");
     const mainTitles = Array.from(mount.querySelectorAll(".panel-main .section-title")).map(el => el.textContent);
     expect(mainTitles).not.toContain("Ready to fly");
@@ -69,7 +68,6 @@ describe("uiLayout", () => {
     const requiredRefs = [
       "bootPill",
       "bootText",
-      "trailSelect",
       "bindWrap",
       "bindHint",
       "dashBehaviorSelect",
@@ -83,9 +81,12 @@ describe("uiLayout", () => {
       "iconOverlay",
       "iconOverlayClose",
       "iconLauncher",
+      "trailLauncher",
+      "trailOptions",
+      "trailOverlay",
+      "trailOverlayClose",
       "bustercoinText",
       "trailPreviewCanvas",
-      "trailSelectPreview",
       "final",
       "overPB",
       "seedInput",
@@ -116,15 +117,20 @@ describe("uiLayout", () => {
     expect(ui.slowFieldBehaviorSelect?.querySelectorAll("option")?.length).toBeGreaterThanOrEqual(2);
   });
 
-  it("wraps the trail select with an overlaid preview canvas", () => {
+  it("positions the trail swatch to the left of the launcher text and exposes the overlay grid", () => {
     buildGameUI({ document, mount });
-    const wrap = mount.querySelector(".trail-select-wrap");
-    const preview = wrap?.querySelector("#trailSelectPreview");
-    const select = wrap?.querySelector("#trailSelect");
+    const launcher = mount.querySelector("#trailLauncher");
+    const badge = launcher?.querySelector(".trail-launcher-badge");
+    const swatch = launcher?.querySelector(".trail-swatch");
+    const label = launcher?.querySelector(".trail-launcher-label");
+    const overlay = mount.querySelector("#trailOverlay");
+    const options = overlay?.querySelector("#trailOptions");
 
-    expect(wrap?.firstElementChild).toBe(preview);
-    expect(preview?.nextElementSibling).toBe(select);
-    expect(preview?.getAttribute("aria-hidden")).toBe("true");
+    expect(badge?.firstElementChild).toBe(swatch);
+    expect(swatch?.nextElementSibling).toBe(label);
+    expect(label?.querySelector(".trail-launcher-name")?.textContent).toBe("Classic");
+    expect(options?.getAttribute("role")).toBe("listbox");
+    expect(overlay?.getAttribute("aria-modal")).toBe("true");
   });
 
   it("prioritizes skills in the settings layout while compacting utilities", () => {

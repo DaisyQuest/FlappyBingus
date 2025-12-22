@@ -167,31 +167,59 @@ function createTrailCard(doc, refs) {
   iconField.append(iconLauncher, iconOverlay);
 
   const trailField = doc.createElement("div");
-  trailField.className = "field";
+  trailField.className = "field trail-field trail-field-launcher";
 
-  const trailRow = doc.createElement("div");
-  trailRow.className = "minirow trail-row";
-  const trailShell = doc.createElement("div");
-  trailShell.className = "trail-preview-shell";
-  const selectWrap = doc.createElement("div");
-  selectWrap.className = "trail-select-wrap selectwrap";
-  const trailSelectPreview = createElement(doc, refs, "canvas", {
-    id: "trailSelectPreview",
-    className: "trail-select-preview",
-    attrs: { "aria-hidden": "true" }
+  const trailLauncher = createElement(doc, refs, "button", {
+    id: "trailLauncher",
+    className: "trail-launcher",
+    attrs: { type: "button" }
   });
-  const select = createElement(doc, refs, "select", {
-    id: "trailSelect",
-    attrs: { "aria-label": "Select a trail" }
+  const trailBadge = doc.createElement("div");
+  trailBadge.className = "trail-launcher-badge";
+  const trailSwatch = doc.createElement("span");
+  trailSwatch.className = "icon-swatch trail-swatch";
+  const trailCanvas = doc.createElement("canvas");
+  trailCanvas.className = "icon-swatch-canvas trail-swatch-canvas";
+  trailCanvas.setAttribute("aria-hidden", "true");
+  trailSwatch.append(trailCanvas);
+  const trailLabel = doc.createElement("div");
+  trailLabel.className = "trail-launcher-label";
+  const trailName = doc.createElement("div");
+  trailName.className = "trail-launcher-name";
+  trailName.textContent = "Classic";
+  const trailAction = doc.createElement("div");
+  trailAction.className = "trail-launcher-action";
+  trailAction.textContent = "Change trail";
+  trailLabel.append(trailName, trailAction);
+  trailBadge.append(trailSwatch, trailLabel);
+  trailLauncher.append(trailBadge);
+
+  const trailOverlay = createElement(doc, refs, "div", {
+    id: "trailOverlay",
+    className: "trail-overlay hidden",
+    attrs: { role: "dialog", "aria-modal": "true", "aria-labelledby": "trailOverlayTitle", "aria-hidden": "true" }
   });
-  selectWrap.append(trailSelectPreview, select);
+  const trailOverlayPanel = doc.createElement("div");
+  trailOverlayPanel.className = "trail-overlay-panel icon-overlay-panel";
+  const trailOverlayHeader = doc.createElement("div");
+  trailOverlayHeader.className = "trail-overlay-header icon-overlay-header";
+  const trailOverlayTitle = doc.createElement("div");
+  trailOverlayTitle.id = "trailOverlayTitle";
+  trailOverlayTitle.className = "section-title";
+  trailOverlayTitle.textContent = "Choose your Trail";
+  const trailOverlayClose = createElement(doc, refs, "button", {
+    id: "trailOverlayClose",
+    className: "trail-overlay-close icon-overlay-close",
+    attrs: { type: "button" },
+    text: "Close"
+  });
+  trailOverlayHeader.append(trailOverlayTitle, trailOverlayClose);
 
-  const selectPanel = doc.createElement("div");
-  selectPanel.className = "trail-select-panel";
-  selectPanel.append(selectWrap);
-
-  trailShell.append(selectPanel);
-  trailRow.append(trailShell);
+  const trailOptions = createElement(doc, refs, "div", {
+    id: "trailOptions",
+    className: "trail-grid icon-grid",
+    attrs: { role: "listbox" }
+  });
 
   const trailHint = createElement(doc, refs, "div", {
     id: "trailHint",
@@ -199,7 +227,10 @@ function createTrailCard(doc, refs) {
     text: "Unlock trails by improving your personal best."
   });
 
-  trailField.append(trailRow, trailHint);
+  trailOverlayPanel.append(trailOverlayHeader, trailOptions);
+  trailOverlay.append(trailOverlayPanel);
+
+  trailField.append(trailLauncher, trailOverlay, trailHint);
   card.append(actions, divider, iconField, trailField);
   return card;
 }
