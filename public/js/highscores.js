@@ -1,5 +1,24 @@
 import { escapeHtml } from "./util.js";
 
+const MAX_VISIBLE_ROWS = 10;
+
+function measureHeight(node, fallback) {
+  if (!node || typeof node.getBoundingClientRect !== "function") return fallback;
+  const rect = node.getBoundingClientRect();
+  return rect && Number.isFinite(rect.height) && rect.height > 0 ? rect.height : fallback;
+}
+
+function applyLeaderboardHeight(scroll, thead, tbody) {
+  if (!scroll || !thead || !tbody) return null;
+  const rowCount = tbody.childElementCount || 0;
+  const visibleRows = Math.min(Math.max(rowCount, 1), MAX_VISIBLE_ROWS);
+  const headerHeight = measureHeight(thead.querySelector("tr"), 36);
+  const rowHeight = measureHeight(tbody.querySelector("tr"), 34);
+  const maxHeight = headerHeight + visibleRows * rowHeight;
+  scroll.style.maxHeight = `${maxHeight}px`;
+  return maxHeight;
+}
+
 function setWrapState(container, classNames = [], text = "") {
   container.className = ["hsWrap", ...classNames].filter(Boolean).join(" ");
   container.textContent = text;
@@ -42,10 +61,11 @@ export function renderHighscores({ container, online = true, highscores = [], cu
   });
   table.appendChild(tbody);
   scroll.appendChild(table);
+  applyLeaderboardHeight(scroll, thead, tbody);
 
   container.innerHTML = "";
   container.appendChild(scroll);
   return container;
 }
 
-export const __testables = { setWrapState };
+export const __testables = { setWrapState, applyLeaderboardHeight, measureHeight };
