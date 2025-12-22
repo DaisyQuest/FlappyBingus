@@ -648,20 +648,29 @@ function createMenuScreen(doc, refs) {
   header.className = "menu-header";
   const titleRow = doc.createElement("div");
   titleRow.className = "menu-title-row";
+  const backSlot = doc.createElement("div");
+  backSlot.className = "menu-back-slot";
+
   const achievementsBack = createElement(doc, refs, "label", {
     id: "achievementsHeaderBack",
-    className: "tab-pill menu-back achievements-back",
-    attrs: { for: "viewMain" },
-    text: "← Back to Main"
+    className: "menu-back achievements-back",
+    attrs: { for: "viewMain", "aria-label": "Back to Main", title: "Back to Main" },
+    text: "←"
   });
   achievementsBack.hidden = true;
+
   const settingsBack = createElement(doc, refs, "label", {
     id: "settingsHeaderBack",
-    className: "tab-pill menu-back settings-back",
-    attrs: { for: "viewMain" },
-    text: "← Back to Main"
+    className: "menu-back settings-back",
+    attrs: { for: "viewMain", "aria-label": "Back to Main", title: "Back to Main" },
+    text: "←"
   });
   settingsBack.hidden = true;
+
+  backSlot.append(achievementsBack, settingsBack);
+
+  const titleShell = doc.createElement("div");
+  titleShell.className = "menu-title-shell";
   const cloud = doc.createElement("div");
   cloud.className = "title-cloud";
   const title = createElement(doc, refs, "div", {
@@ -670,7 +679,16 @@ function createMenuScreen(doc, refs) {
     text: "Flappy Bingus"
   });
   cloud.append(title);
-  titleRow.append(achievementsBack, settingsBack, cloud);
+  titleShell.append(cloud);
+
+  const backPlaceholder = doc.createElement("div");
+  backPlaceholder.className = "menu-back-slot menu-back-placeholder";
+  const backGhost = doc.createElement("div");
+  backGhost.className = "menu-back-ghost";
+  backGhost.setAttribute("aria-hidden", "true");
+  backPlaceholder.append(backGhost);
+
+  titleRow.append(backSlot, titleShell, backPlaceholder);
 
   const subtitle = doc.createElement("p");
   subtitle.className = "sub menu-subtitle";

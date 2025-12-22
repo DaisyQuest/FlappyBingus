@@ -261,11 +261,14 @@ describe("uiLayout", () => {
     expect(settingsBack?.hidden).toBe(true);
   });
 
-  it("places the achievements back control beside the menu title and removes the card heading", () => {
+  it("places the achievements back control beside the centered menu title and removes the card heading", () => {
     buildGameUI({ document, mount });
     const menuTitleRow = document.querySelector(".menu-title-row");
     const headerBack = document.getElementById("achievementsHeaderBack");
     const settingsBack = document.getElementById("settingsHeaderBack");
+    const backSlot = document.querySelector(".menu-back-slot");
+    const backPlaceholder = document.querySelector(".menu-back-placeholder");
+    const titleShell = document.querySelector(".menu-title-shell");
     const achievementList = document.getElementById("achievementsList");
     const achievementToggle = document.querySelector(".panel-achievements .tab-toggle");
     const settingsToggle = document.querySelector(".panel-settings .tab-toggle");
@@ -276,8 +279,11 @@ describe("uiLayout", () => {
     const mainRadio = document.getElementById("viewMain");
     const subtitle = document.querySelector(".menu-subtitle");
 
-    expect(menuTitleRow?.firstElementChild).toBe(headerBack);
-    expect(menuTitleRow?.children?.[1]).toBe(settingsBack);
+    expect(menuTitleRow?.firstElementChild).toBe(backSlot);
+    expect(menuTitleRow?.children?.[1]).toBe(titleShell);
+    expect(menuTitleRow?.children?.[2]).toBe(backPlaceholder);
+    expect(backSlot?.contains(headerBack)).toBe(true);
+    expect(backPlaceholder?.querySelector(".menu-back-ghost")).toBeTruthy();
     expect(headerBack?.hidden).toBe(true);
     expect(settingsBack?.hidden).toBe(true);
     expect(achievementToggle).toBeFalsy();
@@ -300,5 +306,7 @@ describe("uiLayout", () => {
     expect(headerBack?.hidden).toBe(true);
     expect(subtitle?.hidden).toBe(false);
     expect(achievementList?.style.maxHeight).toBe("520px");
+    expect(headerBack?.textContent).toBe("←");
+    expect(settingsBack?.textContent).toBe("←");
   });
 });
