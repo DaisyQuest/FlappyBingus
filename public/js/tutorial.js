@@ -223,11 +223,11 @@ export class Tutorial {
     this._dashWasInZone = false;
     this._dashSuccessDelay = 0;
     this._dashWallsSpawned = 0;
-    this._reflectWall = null;
-    this._reflectTarget = null;
-    this._reflectBounceSeen = false;
+    this._reflectWalls = [];
+    this._reflectWallsHit = new Set();
+    this._reflectHitsThisDash = 0;
+    this._reflectPrevBounceCount = 0;
     this._reflectSuccessDelay = 0;
-    this._reflectBestDist = Infinity;
     this._reflectSeenSerial = 0;
     this._dashDestroyPipe = null;
     this._dashDestroySeen = false;
@@ -591,11 +591,11 @@ export class Tutorial {
     this._dashWasInZone = false;
     this._dashSuccessDelay = 0;
     this._dashWallsSpawned = 0;
-    this._reflectWall = null;
-    this._reflectTarget = null;
-    this._reflectBounceSeen = false;
+    this._reflectWalls = [];
+    this._reflectWallsHit = new Set();
+    this._reflectHitsThisDash = 0;
+    this._reflectPrevBounceCount = 0;
     this._reflectSuccessDelay = 0;
-    this._reflectBestDist = Infinity;
     this._reflectSeenSerial = this.game?.lastDashReflect?.serial || 0;
     this._dashDestroyPipe = null;
     this._dashDestroySeen = false;
@@ -1178,55 +1178,70 @@ _stepOrbs(dt) {
     const p = this.game.player;
 
     const th = this.game._thickness ? this.game._thickness() : Math.max(46, Math.min(W, H) * 0.08);
-    const wallH = clamp(H * 0.52, 170, H * 0.70);
-    const wx = W + th * 2.0;
-    const wy = clamp((H - wallH) * 0.48, 12, H - wallH - 12);
-    const spd = Math.max(180, (this.game._pipeSpeed ? this.game._pipeSpeed() : 260) * 0.90);
+    const wallH = clamp(H * 0.46, 160, H * 0.62);
+    const wallW = clamp(W * 0.32, 220, W * 0.48);
 
-    this._reflectWall = makePipeRect({ x: wx, y: wy, w: th, h: wallH, vx: -spd, vy: 0 });
-    this.game.pipes.push(this._reflectWall);
-
-    p.x = clamp(W * 0.22, p.r + 30, W - p.r - 30);
-    p.y = clamp(H * 0.70, p.r + 30, H - p.r - 30);
+    p.x = clamp(W * 0.32, p.r + 30, W - p.r - 30);
+    p.y = clamp(H * 0.68, p.r + 30, H - p.r - 30);
     p.vx = 0; p.vy = 0; p.dashT = 0; p.dashBounces = 0;
     this.game.cds.dash = 0;
 
-    const tx = clamp(W * 0.24, p.r + 40, W - 60);
-    const ty = clamp(H * 0.32, p.r + 40, H - 60);
-    this._reflectTarget = { x: tx, y: ty, r: clamp(Math.min(W, H) * 0.070, 52, 78) };
+    const wallY = clamp(p.y - wallH * 0.55, 24, H - wallH - 24);
+    const wallX = clamp(p.x + wallW * 0.35, 60, W - wallW - 60);
+    const horiz = makePipeRect({ x: wallX, y: wallY, w: wallW, h: th, vx: 0, vy: 0 });
+    const vert = makePipeRect({ x: wallX + wallW - th, y: wallY, w: th, h: wallH, vx: 0, vy: 0 });
 
-    this._reflectBounceSeen = false;
+    this._reflectWalls = [
+      { id: "front", pipe: horiz },
+      { id: "side", pipe: vert },
+    ];
+    this._reflectWallsHit = new Set();
+    this._reflectHitsThisDash = 0;
+    this._reflectPrevBounceCount = 0;
     this._reflectSuccessDelay = 0;
     this._reflectSeenSerial = this.game?.lastDashReflect?.serial || 0;
-    this._reflectBestDist = Infinity;
 
-    this._flash("Dash into the moving wall to bounce. Use Phase if you need to cancel the ricochet.");
+    this.game.pipes.push(horiz, vert);
+    this._flash("Dash into the cornered walls and ricochet twice in one dash.");
+  }
+
+  _findReflectWall(x, y) {
+    if (!this._reflectWalls?.length) return null;
+    const px = Number.isFinite(x) ? x : this.game.player.x;
+    const py = Number.isFinite(y) ? y : this.game.player.y;
+    const pad = 10;
+    return this._reflectWalls.find(({ pipe }) =>
+      px >= pipe.x - pad && px <= pipe.x + pipe.w + pad &&
+      py >= pipe.y - pad && py <= pipe.y + pipe.h + pad
+    );
   }
 
   _stepDashReflect(dt) {
-    if (!this._reflectTarget) return;
-
-    const wall = this._reflectWall;
-    if (wall && wall.entered && wall.off(this.game.W, this.game.H, 120) && !this._reflectBounceSeen) {
-      this._hardClearWorld();
-      this._spawnDashReflectScenario();
-      return;
-    }
+    if (!this._reflectWalls?.length) return;
 
     const ev = this.game.lastDashReflect;
     if (ev && ev.serial !== this._reflectSeenSerial) {
       this._reflectSeenSerial = ev.serial;
-      this._reflectBounceSeen = true;
-      this._reflectBestDist = Infinity;
-      this._flash("Bounced! Now land in the ring.");
-    }
 
-    const p = this.game.player;
-    const d = Math.sqrt(dist2(p.x, p.y, this._reflectTarget.x, this._reflectTarget.y));
-    if (this._reflectBounceSeen) {
-      this._reflectBestDist = Math.min(this._reflectBestDist, d);
-      const ok = d <= this._reflectTarget.r * 1.25;
-      if (ok) this._reflectSuccessDelay = Math.max(this._reflectSuccessDelay, 0.95);
+      const bounceCount = Number(ev.count) || 0;
+      if (bounceCount <= 1 || bounceCount < this._reflectPrevBounceCount) {
+        this._reflectWallsHit.clear();
+        this._reflectHitsThisDash = 0;
+      }
+      this._reflectPrevBounceCount = bounceCount;
+
+      const hitWall = this._findReflectWall(ev.x, ev.y);
+      if (hitWall && !this._reflectWallsHit.has(hitWall.id)) {
+        this._reflectWallsHit.add(hitWall.id);
+        this._reflectHitsThisDash += 1;
+        this._flash(this._reflectHitsThisDash >= 2
+          ? "Nice — double ricochet in one dash!"
+          : "Good bounce — now carom into the second wall.");
+      }
+
+      if (this._reflectHitsThisDash >= 2 && this._reflectWallsHit.size >= 2) {
+        this._reflectSuccessDelay = Math.max(this._reflectSuccessDelay, 0.85);
+      }
     }
 
     if (this._reflectSuccessDelay > 0) {
@@ -1498,11 +1513,11 @@ _stepOrbs(dt) {
       return {
         title: "Dash Reflect",
         body:
-          `While Dash is active, hitting a moving wall or pipe will bounce you — unless Phase is active.\n` +
-          "Angle your dash into the surface to ricochet and keep your speed.\n" +
+          `While Dash is active, hitting a wall will bounce you — unless Phase is active.\n` +
+          "A stationary corner is in front of you: bounce off BOTH walls during a single dash.\n" +
           `Phase + Dash still passes through cleanly; no bounce.`,
-        objective: `Dash into the moving wall (no Phase) and bounce into the target ring.`,
-        hotkey: { label: key("dash") || "Dash", hint: "Aim slightly upward into the wall" }
+        objective: `Double-ricochet in one dash: hit both walls before the dash ends.`,
+        hotkey: { label: key("dash") || "Dash", hint: "Aim a 45° dash into the corner" }
       };
     }
 
@@ -1644,31 +1659,14 @@ _stepOrbs(dt) {
       ctx.restore();
     }
 
-    // Dash reflect: highlight the bounce wall + landing zone.
-    if (sid === "dash_reflect" && this._reflectTarget) {
+    // Dash reflect: outline both walls to visualize the 90° corner.
+    if (sid === "dash_reflect" && this._reflectWalls?.length) {
       ctx.save();
-      ctx.globalAlpha = 0.60;
-      ctx.strokeStyle = "rgba(255,255,255,.90)";
-      ctx.lineWidth = 2.5;
-      ctx.beginPath();
-      ctx.arc(this._reflectTarget.x, this._reflectTarget.y, this._reflectTarget.r, 0, Math.PI * 2);
-      ctx.stroke();
-
-      ctx.globalAlpha = 0.22;
-      ctx.fillStyle = "rgba(255,255,255,.55)";
-      ctx.beginPath();
-      ctx.arc(this._reflectTarget.x, this._reflectTarget.y, this._reflectTarget.r, 0, Math.PI * 2);
-      ctx.fill();
-
-      const wall = this._reflectWall;
-      if (wall) {
-        ctx.globalAlpha = 0.80;
-        ctx.strokeStyle = "rgba(255,220,180,.85)";
-        ctx.lineWidth = 3;
-        ctx.beginPath();
-        ctx.moveTo(wall.x + wall.w * 0.5, wall.y + 10);
-        ctx.lineTo(wall.x + wall.w * 0.5, wall.y + wall.h - 10);
-        ctx.stroke();
+      ctx.globalAlpha = 0.78;
+      ctx.strokeStyle = "rgba(255,220,180,.85)";
+      ctx.lineWidth = 3;
+      for (const { pipe } of this._reflectWalls) {
+        ctx.strokeRect(pipe.x, pipe.y, pipe.w, pipe.h);
       }
       ctx.restore();
     }

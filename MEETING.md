@@ -24,3 +24,27 @@
 - Land the API response normalization changes and icon save handling improvements with full test coverage.
 - Monitor any downstream UI flows that rely on API helpers to ensure they check `res.ok` rather than only null.
 - If additional cosmetics flows show similar issues, reuse the classifier pattern to align messaging and recovery paths.
+
+# Meeting Notes
+- Date: 2025-12-29
+- Attendees: ChatGPT (GPT-5.1-Codex-Max)
+
+## Agenda
+- Repair the dash bounce tutorial scenario so a corner spawns reliably near the player.
+- Require a two-wall ricochet within one dash instead of aiming for a distant target ring.
+- Strengthen test coverage for the new bounce flow and state resets.
+
+## Discussion
+- The moving bounce wall could miss the player entirely, so the lesson failed before it began.
+- A stationary L-shaped corner keeps the interaction predictable and removes timing risk.
+- Progress should be tied to bounce events (two unique walls in one dash) instead of a landing ring.
+- Tests need to assert the new geometry, success condition, and per-dash reset logic.
+
+## Decisions
+- Spawn two perpendicular, stationary walls to create a 90° corner in front of the player.
+- Track bounce events by contact point, clearing progress whenever a new dash starts.
+- Advance the tutorial after two distinct wall contacts within a single dash, without any target zone.
+
+## Action Items
+- Implement the corner scenario, bounce tracking, and success delay.
+- Add regression tests that cover the geometry, success criteria, and reset-on-new-dash behavior.
