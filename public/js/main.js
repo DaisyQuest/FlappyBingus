@@ -74,10 +74,16 @@ import { IconTrailPreviewer } from "./iconTrailPreviewer.js";
 
 import { buildGameUI } from "./uiLayout.js";
 import { TrailPreview } from "./trailPreview.js";
-import { normalizeTrailSelection, rebuildTrailOptions } from "./trailSelectUtils.js";
+import { normalizeTrailSelection } from "./trailSelectUtils.js";
 import { buildTrailHint } from "./trailHint.js";
 import { DEFAULT_TRAILS, getUnlockedTrails, normalizeTrails, sortTrailsForDisplay } from "./trailProgression.js";
 import { renderHighscores } from "./highscores.js";
+import {
+  DEFAULT_TRAIL_HINT,
+  describeTrailLock,
+  renderTrailOptions as renderTrailMenuOptions,
+  toggleTrailMenu
+} from "./trailMenu.js";
 
 // ---- DOM ----
 const ui = buildGameUI();
@@ -96,10 +102,12 @@ const {
   usernameInput,
   saveUserBtn,
   userHint,
-  trailSelect,
   trailHint,
   trailPreviewCanvas,
-  trailSelectPreview: trailSelectPreviewCanvas,
+  trailOptions,
+  trailOverlay,
+  trailOverlayClose,
+  trailLauncher,
   iconOptions,
   iconHint,
   iconOverlay,
@@ -215,7 +223,7 @@ let skillSettings = readSettingsCookie() || normalizeSkillSettings(DEFAULT_SKILL
 // config + assets
 let CFG = null;
 let trailPreview = null;
-let trailSelectBorderPreview = null;
+let lastTrailHint = { className: "hint", text: DEFAULT_TRAIL_HINT };
 let currentTrailId = "classic";
 let playerIcons = normalizePlayerIcons(DEFAULT_PLAYER_ICONS);
 let currentIconId = normalizeIconSelection({
@@ -230,21 +238,6 @@ boot.imgReady = true; boot.imgOk = true;
 refreshBootUI();
 
 trailPreview = trailPreviewCanvas ? new TrailPreview({ canvas: trailPreviewCanvas, playerImg }) : null;
-trailSelectBorderPreview = trailSelectPreviewCanvas
-  ? new TrailPreview({
-    canvas: trailSelectPreviewCanvas,
-    playerImg,
-    mode: "static",
-    anchor: { x: 0.5, y: 0.5 },
-    drawBackground: false,
-    renderPlayer: false,
-    staticDrift: { speed: 210, swing: 0.62, wobble: 0.44, rate: 1.1, heading: Math.PI * 1.2 }
-  })
-  : null;
-if (trailSelectBorderPreview) {
-  trailSelectBorderPreview.setTrail(currentTrailId);
-  trailSelectBorderPreview.step?.(1 / 30, performance?.now?.() ?? Date.now());
-}
 const iconTrailPreviewer = new IconTrailPreviewer();
 syncLauncherSwatch(currentIconId, playerIcons, playerImg);
 
@@ -358,7 +351,7 @@ let game = new Game({
   input,
   getTrailId: () => {
     if (net.user?.selectedTrail) return net.user.selectedTrail;
-    return currentTrailId || trailSelect.value || "classic";
+    return currentTrailId || "classic";
   },
   getBinds: () => binds,
   onGameOver: (score) => onGameOver(score)
@@ -388,13 +381,11 @@ tutorial = new Tutorial({
 window.addEventListener("resize", () => {
   game.resizeToWindow();
   trailPreview?.resize();
-  trailSelectBorderPreview?.resize();
 });
 // On some browsers, zoom changes fire visualViewport resize without window resize.
 window.visualViewport?.addEventListener("resize", () => {
   game.resizeToWindow();
   trailPreview?.resize();
-  trailSelectBorderPreview?.resize();
 });
 
 // ---- Boot UI ----
@@ -458,9 +449,21 @@ function computeUnlockedIconSet(icons = playerIcons) {
   );
 }
 
-function syncLauncherSwatch(iconId = currentIconId, icons = playerIcons, image = playerImg) {
+function computeUnlockedTrailSet(trails = net.trails) {
+  const achievements = net.user?.achievements || net.achievements?.state;
+  const isRecordHolder = Boolean(net.user?.isRecordHolder);
+  return new Set(getUnlockedTrails(trails, achievements, { isRecordHolder }));
+}
+
+function syncLauncherSwatch(iconId = currentIconId, icons = playerIcons, image = playerImg, trailId = currentTrailId) {
   if (!iconTrailPreviewer) return;
-  iconTrailPreviewer.sync([], { group: "launcher" });
+  const icon = icons.find((i) => i.id === iconId) || icons[0];
+  const entries = [];
+  const iconSwatch = iconLauncher?.querySelector(".icon-swatch");
+  if (iconSwatch) entries.push({ element: iconSwatch, icon, playerImg: image });
+  const trailSwatch = trailLauncher?.querySelector(".trail-swatch");
+  if (trailSwatch) entries.push({ element: trailSwatch, icon, playerImg: image });
+  iconTrailPreviewer.sync(entries, { trailId, group: "launcher" });
 }
 
 function renderIconOptions(
@@ -512,9 +515,9 @@ function applyIconSelection(id = currentIconId, icons = playerIcons, unlocked = 
   playerImg = createPlayerIconSprite(icons.find((i) => i.id === nextId) || icons[0]);
   game.setPlayerImage(playerImg);
   trailPreview?.setPlayerImage(playerImg);
-  trailSelectBorderPreview?.setPlayerImage(playerImg);
   syncLauncherSwatch(nextId, icons, playerImg);
   renderIconOptions(nextId, unlocked, icons, playerImg);
+  refreshTrailMenu(currentTrailId);
   writeIconCookie(nextId);
   return nextId;
 }
@@ -529,41 +532,73 @@ function applyTrailSelection(id, trails = net.trails) {
   if (trailText) {
     trailText.textContent = getTrailDisplayName(safeId, trails);
   }
-  if (trailSelect && trailSelect.value !== safeId) {
-    trailSelect.value = safeId;
+  if (trailLauncher) {
+    const nameEl = trailLauncher.querySelector(".trail-launcher-name");
+    if (nameEl) nameEl.textContent = getTrailDisplayName(safeId, trails);
   }
   trailPreview?.setTrail(safeId);
-  trailSelectBorderPreview?.setTrail(safeId);
   iconTrailPreviewer?.setTrail(safeId);
+  syncLauncherSwatch(currentIconId, playerIcons, playerImg, safeId);
 }
 
-function resumeTrailPreview(selectedId = trailSelect?.value || "classic") {
+function setTrailHint(hint, { persist = true } = {}) {
+  if (trailHint) {
+    trailHint.className = hint.className || "hint";
+    trailHint.textContent = hint.text || DEFAULT_TRAIL_HINT;
+  }
+  if (persist) {
+    lastTrailHint = hint;
+  }
+}
+
+function resumeTrailPreview(selectedId = currentTrailId || "classic") {
   applyTrailSelection(selectedId || currentTrailId || "classic");
   trailPreview?.start();
-  trailSelectBorderPreview?.start();
 }
 
 function pauseTrailPreview() {
   trailPreview?.stop();
-  trailSelectBorderPreview?.stop();
 }
 
-function fillTrailSelect() {
+function refreshTrailMenu(selectedId = currentTrailId) {
   const best = (net.user ? (net.user.bestScore | 0) : readLocalBest());
   const isRecordHolder = Boolean(net.user?.isRecordHolder);
   const achievements = net.user?.achievements || net.achievements?.state;
   const orderedTrails = sortTrailsForDisplay(net.trails, { isRecordHolder });
-  const unlocked = new Set(getUnlockedTrails(orderedTrails, achievements, { isRecordHolder }));
+  const unlocked = computeUnlockedTrailSet(orderedTrails);
   const selected = normalizeTrailSelection({
-    currentId: currentTrailId,
+    currentId: selectedId,
     userSelectedId: net.user?.selectedTrail,
-    selectValue: trailSelect?.value,
+    selectValue: selectedId,
     unlockedIds: unlocked,
     fallbackId: "classic"
   });
 
-  const applied = rebuildTrailOptions(trailSelect, orderedTrails, unlocked, selected);
-  applyTrailSelection(applied, orderedTrails);
+  applyTrailSelection(selected, orderedTrails);
+
+  const swatches = [];
+  const { rendered } = renderTrailMenuOptions({
+    container: trailOptions,
+    trails: orderedTrails,
+    selectedId: selected,
+    unlockedIds: unlocked,
+    lockTextFor: (trail, { unlocked: unlockedTrail }) => describeTrailLock(trail, {
+      unlocked: unlockedTrail ?? unlocked.has(trail.id),
+      bestScore: best,
+      isRecordHolder
+    }),
+    onRenderSwatch: (data) => swatches.push(data)
+  });
+  const activeIcon = playerIcons.find((i) => i.id === currentIconId) || playerIcons[0];
+  iconTrailPreviewer?.sync(
+    swatches.map((entry) => ({
+      element: entry.swatch,
+      icon: activeIcon,
+      playerImg
+    })),
+    { trailId: selected, group: "trail-options" }
+  );
+
   pbText.textContent = String(best);
   if (bustercoinText) bustercoinText.textContent = String(net.user?.bustercoins ?? 0);
 
@@ -575,9 +610,9 @@ function fillTrailSelect() {
     achievements
   });
   if (trailHint) {
-    trailHint.className = hint.className;
-    trailHint.textContent = hint.text;
+    setTrailHint(rendered ? hint : { className: "hint bad", text: "No trails available." });
   }
+  return { selected, unlocked, orderedTrails, best };
 }
 
 function renderAchievements(payload = null) {
@@ -708,7 +743,7 @@ async function refreshProfileAndHighscores() {
   }
 
   setUserHint();
-  fillTrailSelect();
+  refreshTrailMenu();
   applyIconSelection(net.user?.selectedIcon || currentIconId, playerIcons);
   renderHighscores({
     container: hsWrap,
@@ -863,15 +898,47 @@ async function playReplay({ captureMode = "none" } = {}) {
 }
 
 // ---- Cosmetics selection ----
-trailSelect.addEventListener("change", async () => {
-  const id = trailSelect.value;
-  applyTrailSelection(id);
-  trailPreview?.start();
+trailLauncher?.addEventListener("click", () => {
+  refreshTrailMenu(currentTrailId);
+  toggleTrailMenu(trailOverlay, true);
+});
+
+trailOverlayClose?.addEventListener("click", () => {
+  toggleTrailMenu(trailOverlay, false);
+  if (lastTrailHint) setTrailHint(lastTrailHint, { persist: false });
+});
+
+trailOverlay?.addEventListener("click", (e) => {
+  if (e.target === trailOverlay) {
+    toggleTrailMenu(trailOverlay, false);
+    if (lastTrailHint) setTrailHint(lastTrailHint, { persist: false });
+  }
+});
+
+trailOptions?.addEventListener("click", async (e) => {
+  const btn = e.target.closest("button[data-trail-id]");
+  if (!btn) return;
+  const id = btn.dataset.trailId;
+  const ordered = sortTrailsForDisplay(net.trails, { isRecordHolder: Boolean(net.user?.isRecordHolder) });
+  const unlocked = computeUnlockedTrailSet(ordered);
+  const best = net.user ? (net.user.bestScore | 0) : readLocalBest();
+  const targetTrail = ordered.find((t) => t.id === id) || { id, name: id };
+
+  if (!unlocked.has(id)) {
+    setTrailHint({ className: "hint bad", text: btn.dataset.statusText || describeTrailLock(targetTrail, { unlocked: false, bestScore: best, isRecordHolder: Boolean(net.user?.isRecordHolder) }) }, { persist: false });
+    refreshTrailMenu(currentTrailId);
+    return;
+  }
+
   if (net.user) {
     net.user = { ...net.user, selectedTrail: id };
-  } else {
-    currentTrailId = id;
   }
+  applyTrailSelection(id, ordered);
+  refreshTrailMenu(id);
+  setTrailHint({
+    className: net.user ? "hint" : "hint good",
+    text: net.user ? "Saving trail choice…" : "Equipped (guest mode)."
+  }, { persist: Boolean(net.user) });
 
   if (!net.user) return;
 
@@ -883,12 +950,11 @@ trailSelect.addEventListener("change", async () => {
       online: net.online,
       user: net.user,
       bestScore: net.user ? (net.user.bestScore | 0) : readLocalBest(),
+      trails: ordered,
+      achievements: net.user?.achievements || net.achievements?.state,
       selectedTrail: currentTrailId
     });
-    if (trailHint) {
-      trailHint.className = hint.className;
-      trailHint.textContent = hint.text;
-    }
+    setTrailHint(hint);
     return;
   }
 
@@ -896,8 +962,23 @@ trailSelect.addEventListener("change", async () => {
   net.user = res.user;
   net.trails = normalizeTrails(res.trails || net.trails);
   syncIconCatalog(res.icons || net.icons);
-  fillTrailSelect();
+  refreshTrailMenu(res.user?.selectedTrail || id);
   applyIconSelection(net.user?.selectedIcon || currentIconId, playerIcons);
+});
+
+trailOptions?.addEventListener("mouseover", (e) => {
+  const btn = e.target.closest("button[data-trail-id]");
+  if (!btn) return;
+  const locked = btn.dataset.locked === "true";
+  const name = btn.dataset.trailName || btn.dataset.trailId;
+  const text = locked ? (btn.dataset.statusText || DEFAULT_TRAIL_HINT) : `Click to equip ${name}.`;
+  setTrailHint({ className: locked ? "hint" : "hint good", text }, { persist: false });
+});
+
+trailOptions?.addEventListener("mouseout", (e) => {
+  if (!e.relatedTarget || !trailOptions.contains(e.relatedTarget)) {
+    setTrailHint(lastTrailHint || { className: "hint", text: DEFAULT_TRAIL_HINT }, { persist: false });
+  }
 });
 
 iconOptions?.addEventListener("click", async (e) => {
@@ -1167,7 +1248,7 @@ function toMenu() {
   over.classList.add("hidden");
   menu.classList.remove("hidden");
 
-  resumeTrailPreview(trailSelect?.value || net.user?.selectedTrail || "classic");
+  resumeTrailPreview(net.user?.selectedTrail || currentTrailId || "classic");
   game.setStateMenu();
   refreshProfileAndHighscores();
 }
@@ -1293,7 +1374,7 @@ async function onGameOver(finalScore) {
       net.highscores = res.highscores || net.highscores;
       applyAchievementsPayload(res.achievements || { definitions: ACHIEVEMENTS, state: res.user?.achievements });
 
-      fillTrailSelect();
+      refreshTrailMenu();
       applyIconSelection(res.user?.selectedIcon || currentIconId, playerIcons);
       renderHighscores();
       renderAchievements();
@@ -1586,7 +1667,7 @@ function frame(ts) {
   await refreshProfileAndHighscores();
   refreshBootUI();
 
-  resumeTrailPreview(trailSelect?.value || net.user?.selectedTrail || "classic");
+  resumeTrailPreview(net.user?.selectedTrail || currentTrailId || "classic");
   requestAnimationFrame((t) => {
     lastTs = t;
     requestAnimationFrame(frame);
