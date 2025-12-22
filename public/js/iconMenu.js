@@ -37,11 +37,13 @@ export function renderIconOptions({
   container,
   icons = [],
   selectedId,
-  unlockedIds = new Set()
+  unlockedIds = new Set(),
+  onRenderSwatch = null
 } = {}) {
   if (!container) return { rendered: 0 };
   const doc = container.ownerDocument || document;
   const unlockedSet = unlockedIds instanceof Set ? unlockedIds : new Set(unlockedIds || []);
+  const renderedSwatches = [];
 
   container.innerHTML = "";
   if (!icons.length) {
@@ -63,6 +65,10 @@ export function renderIconOptions({
 
     const swatch = doc.createElement("span");
     swatch.className = "icon-swatch";
+    const canvas = doc.createElement("canvas");
+    canvas.className = "icon-swatch-canvas";
+    canvas.setAttribute("aria-hidden", "true");
+    swatch.append(canvas);
     applyIconSwatchStyles(swatch, icon);
     btn.append(swatch);
 
@@ -70,6 +76,9 @@ export function renderIconOptions({
     label.className = "icon-option-name";
     label.textContent = icon.name;
     btn.append(label);
+
+    renderedSwatches.push({ swatch, canvas, icon, unlocked });
+    onRenderSwatch?.({ swatch, canvas, icon, unlocked });
 
     if (!unlocked) {
       const lock = doc.createElement("span");
@@ -82,7 +91,7 @@ export function renderIconOptions({
     container.append(btn);
   });
 
-  return { rendered: icons.length };
+  return { rendered: icons.length, swatches: renderedSwatches };
 }
 
 export function toggleIconMenu(overlay, open) {

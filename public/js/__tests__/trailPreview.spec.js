@@ -84,6 +84,24 @@ describe("TrailPreview", () => {
     expect(preview.parts.length).toBeGreaterThan(0);
   });
 
+  it("advances a single frame when stepped without RAF scheduling", () => {
+    const { canvas } = makeCanvas();
+    const preview = new TrailPreview({
+      canvas,
+      playerImg: {},
+      requestFrame: null,
+      cancelFrame: null,
+      now: () => 0
+    });
+    preview.trailAcc = 2;
+    preview._rand = () => 0.5;
+
+    preview.step(1 / 30, 1000);
+
+    expect(preview.player.phase).toBeGreaterThan(0);
+    expect(preview.parts.length).toBeGreaterThan(0);
+  });
+
   it("stops animation and cancels scheduled frames", () => {
     const { canvas } = makeCanvas();
     const cancel = vi.fn();
@@ -208,6 +226,53 @@ describe("TrailPreview", () => {
     preview._draw();
     expect(gradientLessCtx.fillStyle).toBe("rgba(220,230,255,.9)");
     expect(gradientLessCtx.arc).toHaveBeenCalled();
+  });
+
+  it("pins the player in static mode while still emitting a trail", () => {
+    const { canvas } = makeCanvas();
+    const preview = new TrailPreview({
+      canvas,
+      playerImg: { complete: true, naturalWidth: 12, naturalHeight: 12 },
+      requestFrame: null,
+      cancelFrame: null,
+      now: () => 0,
+      mode: "static",
+      anchor: { x: 0.25, y: 0.75 },
+      staticDrift: { speed: 120, swing: 0, wobble: 0, rate: 0, heading: -Math.PI / 2 }
+    });
+    preview._rand = () => 0.5;
+
+    preview.step(0.05, 16);
+
+    expect(preview.player.x).toBeCloseTo(preview.W * 0.25);
+    expect(preview.player.y).toBeCloseTo(preview.H * 0.75);
+    expect(Math.hypot(preview.player.vx, preview.player.vy)).toBeGreaterThan(0);
+    expect(preview.parts.length).toBeGreaterThan(0);
+  });
+
+  it("skips preview backgrounds when configured to draw only the icon", () => {
+    const ctx = makeCtx();
+    const canvas = {
+      style: {},
+      width: 0,
+      height: 0,
+      clientWidth: 240,
+      clientHeight: 160,
+      getContext: () => ctx
+    };
+    const preview = new TrailPreview({
+      canvas,
+      playerImg: { complete: true, naturalWidth: 8, naturalHeight: 8 },
+      requestFrame: null,
+      cancelFrame: null,
+      now: () => 0,
+      drawBackground: false
+    });
+
+    preview._draw();
+
+    expect(ctx.createLinearGradient).not.toHaveBeenCalled();
+    expect(ctx.createRadialGradient).not.toHaveBeenCalled();
   });
 
   it("resets transient state when switching trails to avoid stale artifacts", () => {

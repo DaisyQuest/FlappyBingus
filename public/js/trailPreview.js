@@ -10,6 +10,7 @@ const TRAIL_LIFE_SCALE = 1.45;
 const TRAIL_DISTANCE_SCALE = 1.18;
 const TRAIL_JITTER_SCALE = 0.55;
 const TRAIL_AURA_RATE = 0.42;
+const MAX_FRAME_DT = 1 / 12;
 
 export class TrailPreview {
   constructor({
@@ -17,11 +18,19 @@ export class TrailPreview {
     playerImg,
     requestFrame = (typeof requestAnimationFrame === "function" ? requestAnimationFrame : null),
     cancelFrame = (typeof cancelAnimationFrame === "function" ? cancelAnimationFrame : null),
-    now = () => (typeof performance !== "undefined" ? performance.now() : Date.now())
+    now = () => (typeof performance !== "undefined" ? performance.now() : Date.now()),
+    mode = "orbit",
+    anchor = { x: 0.5, y: 0.5 },
+    drawBackground = true,
+    staticDrift = null
   } = {}) {
     this.canvas = canvas || null;
     this.ctx = this.canvas?.getContext?.("2d") || null;
     this.playerImg = playerImg;
+    this.mode = mode;
+    this.anchor = anchor || { x: 0.5, y: 0.5 };
+    this.drawBackground = drawBackground !== false;
+    this.staticDrift = staticDrift;
 
     this.parts = [];
     this.trailId = "classic";
@@ -105,6 +114,27 @@ export class TrailPreview {
     return a + (b - a) * (this._rand ? this._rand() : Math.random());
   }
 
+  step(dt = null, now = null) {
+    if (!this.ctx) return;
+    const ts = (typeof now === "number" ? now : this._now());
+    const prev = this.lastTs || ts;
+    const frameDt = clamp(
+      typeof dt === "number" ? dt : (this.lastTs ? (ts - prev) * 0.001 : 1 / 60),
+      0,
+      MAX_FRAME_DT
+    );
+    this.lastTs = ts;
+    this._frameStep(frameDt);
+  }
+
+  _frameStep(dt) {
+    this.resize();
+    this._updatePlayer(dt);
+    this._emitTrail(dt);
+    this._updateParts(dt);
+    this._draw();
+  }
+
   _tick(ts) {
     if (!this.running) return;
     if (!this.ctx) {
@@ -115,19 +145,19 @@ export class TrailPreview {
     const now = (typeof ts === "number" ? ts : this._now());
     const prev = this.lastTs || now;
     const rawDt = (now - prev) * 0.001;
-    const dt = clamp(this.lastTs ? rawDt : 1 / 60, 0, 1 / 12);
+    const dt = clamp(this.lastTs ? rawDt : 1 / 60, 0, MAX_FRAME_DT);
     this.lastTs = now;
 
-    this.resize();
-    this._updatePlayer(dt);
-    this._emitTrail(dt);
-    this._updateParts(dt);
-    this._draw();
+    this._frameStep(dt);
 
     this._frame = this._raf?.(this._tick) ?? null;
   }
 
   _updatePlayer(dt) {
+    if (this.mode === "static") {
+      this._updateStaticPlayer(dt);
+      return;
+    }
     this._computePlayerSize();
     const phase = this.player.phase;
     const orbitPhase = phase * 0.86;
@@ -175,6 +205,36 @@ export class TrailPreview {
     const invDt = dt > 1e-4 ? 1 / dt : 0;
     this.player.vx = (this.player.x - this.player.prevX) * invDt;
     this.player.vy = (this.player.y - this.player.prevY) * invDt;
+  }
+
+  _updateStaticPlayer(dt) {
+    this._computePlayerSize();
+    const anchorX = clamp(this.anchor?.x ?? 0.5, 0.12, 0.88);
+    const anchorY = clamp(this.anchor?.y ?? 0.5, 0.14, 0.86);
+    const px = this.W * anchorX;
+    const py = this.H * anchorY;
+
+    this.player.prevX = this.player.x || px;
+    this.player.prevY = this.player.y || py;
+    this.player.x = px;
+    this.player.y = py;
+
+    const drift = this.staticDrift || {};
+    const swing = drift.swing ?? 0.38;
+    const wobble = drift.wobble ?? 0.28;
+    const rate = drift.rate ?? 0.82;
+    const heading = drift.heading ?? -Math.PI * 0.42;
+    const speedBase = drift.speed ?? DEFAULT_CONFIG.player.maxSpeed * 0.42;
+
+    const sway = Math.sin(this.player.phase * 0.9) * swing;
+    const wobbleOffset = Math.sin(this.player.phase * 1.6) * wobble;
+    const dir = heading + sway;
+    this.player.vx = Math.cos(dir + wobbleOffset) * speedBase;
+    this.player.vy = Math.sin(dir + wobbleOffset) * speedBase;
+    this.player.phase += dt * rate;
+
+    const radiusScale = DEFAULT_CONFIG.player.radiusScale;
+    this.player.r = Math.max(6, Math.min(this.player.w, this.player.h) * radiusScale);
   }
 
   _computePlayerSize() {
@@ -337,20 +397,22 @@ export class TrailPreview {
     ctx.save?.();
     ctx.clearRect?.(0, 0, this.W, this.H);
 
-    const bg = ctx.createLinearGradient?.(0, 0, this.W, this.H) || null;
-    if (bg) {
-      bg.addColorStop(0, "rgba(14,18,42,.92)");
-      bg.addColorStop(1, "rgba(10,10,26,.86)");
-      ctx.fillStyle = bg;
-      ctx.fillRect(0, 0, this.W, this.H);
-    }
+    if (this.drawBackground) {
+      const bg = ctx.createLinearGradient?.(0, 0, this.W, this.H) || null;
+      if (bg) {
+        bg.addColorStop(0, "rgba(14,18,42,.92)");
+        bg.addColorStop(1, "rgba(10,10,26,.86)");
+        ctx.fillStyle = bg;
+        ctx.fillRect(0, 0, this.W, this.H);
+      }
 
-    const glow = ctx.createRadialGradient?.(this.W * 0.2, this.H * 0.4, 10, this.W * 0.25, this.H * 0.5, this.W * 0.8) || null;
-    if (glow) {
-      glow.addColorStop(0, "rgba(160,220,255,.22)");
-      glow.addColorStop(1, "rgba(120,90,255,.06)");
-      ctx.fillStyle = glow;
-      ctx.fillRect(0, 0, this.W, this.H);
+      const glow = ctx.createRadialGradient?.(this.W * 0.2, this.H * 0.4, 10, this.W * 0.25, this.H * 0.5, this.W * 0.8) || null;
+      if (glow) {
+        glow.addColorStop(0, "rgba(160,220,255,.22)");
+        glow.addColorStop(1, "rgba(120,90,255,.06)");
+        ctx.fillStyle = glow;
+        ctx.fillRect(0, 0, this.W, this.H);
+      }
     }
 
     for (const part of this.parts) {
@@ -359,12 +421,14 @@ export class TrailPreview {
 
     this._drawPlayer(ctx);
 
-    const sheen = ctx.createLinearGradient?.(0, 0, 0, this.H) || null;
-    if (sheen) {
-      sheen.addColorStop(0, "rgba(255,255,255,.06)");
-      sheen.addColorStop(1, "rgba(255,255,255,.01)");
-      ctx.fillStyle = sheen;
-      ctx.fillRect(0, 0, this.W, this.H);
+    if (this.drawBackground) {
+      const sheen = ctx.createLinearGradient?.(0, 0, 0, this.H) || null;
+      if (sheen) {
+        sheen.addColorStop(0, "rgba(255,255,255,.06)");
+        sheen.addColorStop(1, "rgba(255,255,255,.01)");
+        ctx.fillStyle = sheen;
+        ctx.fillRect(0, 0, this.W, this.H);
+      }
     }
 
     ctx.restore?.();
