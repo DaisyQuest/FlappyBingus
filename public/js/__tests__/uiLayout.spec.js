@@ -216,14 +216,28 @@ describe("uiLayout", () => {
     const screen = mount.querySelector("#menu.screen");
     const overlay = screen?.querySelector(":scope > .trail-preview-overlay");
     const panel = screen?.querySelector(":scope > .panel");
+    const parallax = panel?.querySelector(".menu-parallax");
+    const parallaxLayers = parallax?.querySelectorAll(".menu-parallax-layer");
     const aurora = panel?.querySelector(".light-aurora");
     const content = panel?.querySelector(".content-layer");
 
     expect(screen?.firstElementChild).toBe(overlay);
     expect(overlay?.contains(panel)).toBe(false);
     expect(panel?.contains(overlay)).toBe(false);
+    expect(panel?.firstElementChild).toBe(parallax);
+    expect(parallaxLayers?.length).toBe(3);
+    expect(Array.from(parallaxLayers || []).map((l) => l.dataset.parallaxDepth)).toEqual(["8", "14", "22"]);
     expect(panel?.contains(aurora)).toBe(true);
     expect(panel?.contains(content)).toBe(true);
+  });
+
+  it("exposes menu parallax layers for runtime motion control", () => {
+    const ui = buildGameUI({ document, mount });
+    expect(ui.menuParallaxLayers?.length).toBe(3);
+    ui.menuParallaxLayers?.forEach((layer) => {
+      expect(layer.dataset.parallaxDepth).toBeTruthy();
+      expect(layer.dataset.parallaxTilt).toBeTruthy();
+    });
   });
 
   it("preserves a single #wrap when mounted on body without a custom mount", () => {
