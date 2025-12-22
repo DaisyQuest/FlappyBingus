@@ -35,7 +35,7 @@ export function buildTrailHint({ online, user, bestScore, trails } = {}) {
   if (recordLocked && !isRecordHolder) {
     return {
       className: "hint",
-      text: "Hold the #1 score to claim the World Record Cherry Blossom trail."
+      text: "Exclusive trails unlock automatically once you qualify."
     };
   }
 

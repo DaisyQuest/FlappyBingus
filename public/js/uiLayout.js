@@ -54,17 +54,13 @@ function createHowToCard(doc, refs) {
   const header = doc.createElement("div");
   header.className = "howto-header";
 
-  const title = doc.createElement("div");
-  title.className = "section-title";
-  title.textContent = "Tutorial";
-
   const tutorialBtn = createElement(doc, refs, "button", {
     id: "tutorial",
-    className: "cta-btn small",
+    className: "cta-btn wide",
     text: "Tutorial",
     props: { disabled: true }
   });
-  header.append(title, tutorialBtn);
+  header.append(tutorialBtn);
 
   const wrapper = doc.createElement("div");
   wrapper.className = "howto";
@@ -90,10 +86,6 @@ function createTrailCard(doc, refs) {
   const card = doc.createElement("div");
   card.className = "info-card";
 
-  const title = doc.createElement("div");
-  title.className = "section-title";
-  title.textContent = "Ready to fly";
-
   const actions = doc.createElement("div");
   actions.className = "row top-actions";
   const startBtn = createElement(doc, refs, "button", {
@@ -110,10 +102,6 @@ function createTrailCard(doc, refs) {
   const iconField = doc.createElement("div");
   iconField.className = "field icon-field";
 
-  const iconLabel = doc.createElement("div");
-  iconLabel.className = "section-title small";
-  iconLabel.textContent = "Player Icon";
-
   const options = createElement(doc, refs, "div", {
     id: "iconOptions",
     className: "icon-grid",
@@ -122,18 +110,13 @@ function createTrailCard(doc, refs) {
 
   const iconHint = createElement(doc, refs, "div", {
     id: "iconHint",
-    className: "hint",
-    text: "Pick a high-contrast icon. More unlocks coming soon."
+    className: "hint"
   });
 
-  iconField.append(iconLabel, options, iconHint);
+  iconField.append(options, iconHint);
 
   const trailField = doc.createElement("div");
   trailField.className = "field";
-
-  const trailTitle = doc.createElement("div");
-  trailTitle.className = "section-title small";
-  trailTitle.textContent = "Cosmetic Trail";
 
   const trailRow = doc.createElement("div");
   trailRow.className = "minirow trail-row";
@@ -160,8 +143,8 @@ function createTrailCard(doc, refs) {
     text: "Unlock trails by improving your personal best."
   });
 
-  trailField.append(trailTitle, trailRow, trailHint);
-  card.append(title, actions, divider, iconField, trailField);
+  trailField.append(trailRow, trailHint);
+  card.append(actions, divider, iconField, trailField);
   return card;
 }
 

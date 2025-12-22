@@ -36,7 +36,8 @@ describe("buildTrailHint", () => {
       trails: [{ id: "classic", minScore: 0 }, { id: "world_record", minScore: 0, requiresRecordHolder: true }]
     });
 
-    expect(hint.text).toContain("World Record Cherry Blossom");
+    expect(hint.text).toContain("Exclusive trails");
+    expect(hint.text.toLowerCase()).not.toContain("world record");
   });
 
   it("celebrates when all trails are unlocked", () => {

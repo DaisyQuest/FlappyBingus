@@ -34,6 +34,10 @@ describe("uiLayout", () => {
     expect(selectPanel?.querySelectorAll("select")?.length).toBe(1);
     expect(selectPanel?.textContent.trim()).toBe("");
     expect(ui.iconOptions?.className).toContain("icon-grid");
+    const mainTitles = Array.from(mount.querySelectorAll(".panel-main .section-title")).map(el => el.textContent);
+    expect(mainTitles).not.toContain("Ready to fly");
+    expect(mainTitles).not.toContain("Player Icon");
+    expect(mainTitles).not.toContain("Cosmetic Trail");
   });
 
   it("exposes interactive controls with expected defaults", () => {
@@ -50,6 +54,9 @@ describe("uiLayout", () => {
     expect(ui.sfxVolume?.value).toBe("80");
     const howtoCard = mount.querySelector(".howto-card");
     expect(howtoCard?.contains(ui.tutorial)).toBe(true);
+    expect(ui.tutorial?.className).toContain("wide");
+    expect(ui.tutorial?.className).not.toContain("small");
+    expect(ui.iconHint?.textContent).toBe("");
   });
 
   it("renders all expected controls needed by main.js wiring", () => {
