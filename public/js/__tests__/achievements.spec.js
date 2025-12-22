@@ -1,6 +1,14 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { JSDOM } from "jsdom";
-import { ACHIEVEMENTS, normalizeAchievementState, renderAchievementsList, appendAchievementToast } from "../achievements.js";
+import {
+  ACHIEVEMENTS,
+  normalizeAchievementState,
+  renderAchievementsList,
+  appendAchievementToast,
+  __testables
+} from "../achievements.js";
+
+const { classifyAchievement, normalizeFilters } = __testables;
 
 describe("achievements helpers", () => {
   let document;
@@ -73,6 +81,8 @@ describe("achievements helpers", () => {
     expect(unlockedRow.querySelector(".achievement-meter-fill")?.classList.contains("filled")).toBe(true);
     const totalRow = Array.from(rows).find((r) => r.textContent.includes("Treasure Hunter"));
     expect(totalRow?.querySelector(".achievement-status")?.textContent).toContain("Progress: 1500/2000");
+    expect(totalRow?.querySelector(".achievement-tag")?.textContent).toBe("Orb Collection");
+    expect(totalRow?.querySelector(".achievement-requirement")?.textContent).toContain("Collect 2000 orbs total");
   });
 
   it("prefers in-game achievement popups over DOM fallbacks", () => {
@@ -114,5 +124,41 @@ describe("achievements helpers", () => {
     expect(container.querySelectorAll(".achievement-row").length).toBe(0);
     expect(container.querySelector(".achievement-empty")?.textContent)
       .toContain("Everything here is unlocked");
+  });
+
+  it("filters by selected categories and reports empty when none selected", () => {
+    const state = normalizeAchievementState();
+    renderAchievementsList(container, {
+      definitions: ACHIEVEMENTS,
+      state,
+      filters: { categories: ["score"] }
+    });
+
+    expect(Array.from(container.querySelectorAll(".achievement-row"))
+      .every((row) => row.dataset.category === "score")).toBe(true);
+
+    container.innerHTML = "";
+    renderAchievementsList(container, {
+      definitions: ACHIEVEMENTS,
+      state,
+      filters: { categories: [] }
+    });
+
+    expect(container.querySelector(".achievement-empty")?.textContent)
+      .toContain("Select at least one filter");
+  });
+
+  it("classifies and normalizes filters safely", () => {
+    expect(classifyAchievement({ requirement: { minScore: 10 } })).toBe("score");
+    expect(classifyAchievement({ requirement: { minPerfects: 2 } })).toBe("perfects");
+    expect(classifyAchievement({ requirement: { minOrbs: 1 } })).toBe("orbs");
+    expect(classifyAchievement({ requirement: {} })).toBe("other");
+
+    const filters = normalizeFilters({ hideCompleted: "yes", categories: { score: true, perfects: false, bogus: true } });
+    expect(filters.hideCompleted).toBe(true);
+    expect(filters.categories.has("score")).toBe(true);
+    expect(filters.categories.has("perfects")).toBe(false);
+    expect(filters.categories.has("bogus")).toBe(false);
+    expect(filters.requestedEmpty).toBe(false);
   });
 });

@@ -26,6 +26,28 @@
 - If additional cosmetics flows show similar issues, reuse the classifier pattern to align messaging and recovery paths.
 
 # Meeting Notes
+- Date: 2025-12-22
+- Attendees: ChatGPT (GPT-5.1-Codex-Max)
+
+## Agenda
+- Improve readability of the achievements menu and add filtering options for score, perfect gaps, and orb collection.
+- Ensure UI changes are fully covered by automated tests.
+
+## Discussion
+- Existing achievements list only supported a hide-completed toggle and presented dense rows, making it hard to scan categories.
+- Filtering needed to differentiate between score, perfect-gap, and orb-driven achievements without losing access to special unlocks.
+- Test coverage needed to validate new filters, metadata rendering, and classification helpers.
+
+## Decisions
+- Introduce category-aware filters (Score, Perfect Gaps, Orb Collection) alongside hide-completed.
+- Add clearer headers, requirement summaries, and category tags to each achievement row for scannability.
+- Keep special achievements always discoverable while honoring user-selected filters.
+
+## Action Items
+- Ship UI and rendering updates with comprehensive unit tests for classification and filtering behavior.
+- Monitor for any regressions in achievement rendering or filtering across future changes.
+
+# Meeting Notes
 - Date: 2025-12-29
 - Attendees: ChatGPT (GPT-5.1-Codex-Max)
 
