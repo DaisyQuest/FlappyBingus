@@ -48,3 +48,31 @@
 ## Action Items
 - Implement the corner scenario, bounce tracking, and success delay.
 - Add regression tests that cover the geometry, success criteria, and reset-on-new-dash behavior.
+
+# Meeting Notes
+- Date: 2025-01-06
+- Attendees: ChatGPT (GPT-5.1-Codex-Max)
+
+## Agenda
+- Revamp the player icon selection UX to use a focused launcher plus modal overlay.
+- Remove the rectangle frames around icons while preserving theme styling.
+- Ensure locked icons communicate unlock requirements with hover hints.
+- Expand automated coverage for the new icon menu helpers and layout changes.
+
+## Discussion
+- The main menu should highlight only the currently equipped icon to reduce clutter; a dedicated launcher opens a full-screen selector when needed.
+- The overlay needs to respect existing gradients, glows, and typography while dropping the rectangular button chrome in favor of the circular swatch focus.
+- Locked icons require a visible lock badge and contextual hover copy sourced from existing unlock descriptors.
+- Tests must exercise the new renderer, hint reset behavior, overlay toggling, and layout references so regressions are caught early.
+
+## Decisions
+- Replace the inline grid with a single launcher button that mirrors the selected icon and name.
+- Add a modal-style overlay containing the icon grid, lock badge, hover hint area, and close controls.
+- Keep swatch styling centralized via helper utilities so both the launcher and overlay share the same defaults.
+- Update layout refs and CSS to remove the old card borders and align with the existing accent/glow theme.
+
+## Action Items
+- Implement the icon menu helper module (swatch styling, render, hover text, overlay toggling).
+- Wire the main menu launcher to open/close the overlay and refresh selections, including lock handling.
+- Refresh CSS to remove rectangular frames, add lock badges, and style the overlay/launcher per theme.
+- Add unit tests for the new helpers and adjust layout tests to assert the new refs and hidden overlay state.

@@ -100,12 +100,56 @@ function createTrailCard(doc, refs) {
   divider.className = "soft-divider";
 
   const iconField = doc.createElement("div");
-  iconField.className = "field icon-field";
+  iconField.className = "field icon-field icon-field-launcher";
+
+  const iconLauncher = createElement(doc, refs, "button", {
+    id: "iconLauncher",
+    className: "icon-launcher",
+    attrs: { type: "button" }
+  });
+
+  const iconBadge = doc.createElement("div");
+  iconBadge.className = "icon-launcher-badge";
+  const iconSwatch = doc.createElement("span");
+  iconSwatch.className = "icon-swatch";
+  const iconLabel = doc.createElement("div");
+  iconLabel.className = "icon-launcher-label";
+  const iconName = doc.createElement("div");
+  iconName.className = "icon-launcher-name";
+  iconName.textContent = "High-Vis Orange";
+  const iconAction = doc.createElement("div");
+  iconAction.className = "icon-launcher-action";
+  iconAction.textContent = "Change icon";
+  iconLabel.append(iconName, iconAction);
+  iconBadge.append(iconSwatch, iconLabel);
+  iconLauncher.append(iconBadge);
+
+  const iconOverlay = createElement(doc, refs, "div", {
+    id: "iconOverlay",
+    className: "icon-overlay hidden",
+    attrs: { role: "dialog", "aria-modal": "true", "aria-labelledby": "iconOverlayTitle", "aria-hidden": "true" }
+  });
+
+  const overlayPanel = doc.createElement("div");
+  overlayPanel.className = "icon-overlay-panel";
+  const overlayHeader = doc.createElement("div");
+  overlayHeader.className = "icon-overlay-header";
+  const overlayTitle = doc.createElement("div");
+  overlayTitle.id = "iconOverlayTitle";
+  overlayTitle.className = "section-title";
+  overlayTitle.textContent = "Choose your Bingus";
+  const overlayClose = createElement(doc, refs, "button", {
+    id: "iconOverlayClose",
+    className: "icon-overlay-close",
+    attrs: { type: "button" },
+    text: "Close"
+  });
+  overlayHeader.append(overlayTitle, overlayClose);
 
   const options = createElement(doc, refs, "div", {
     id: "iconOptions",
-    className: "icon-grid",
-    attrs: { role: "group" }
+    className: "icon-grid icon-overlay-grid",
+    attrs: { role: "listbox" }
   });
 
   const iconHint = createElement(doc, refs, "div", {
@@ -113,7 +157,10 @@ function createTrailCard(doc, refs) {
     className: "hint"
   });
 
-  iconField.append(options, iconHint);
+  overlayPanel.append(overlayHeader, options, iconHint);
+  iconOverlay.append(overlayPanel);
+
+  iconField.append(iconLauncher, iconOverlay);
 
   const trailField = doc.createElement("div");
   trailField.className = "field";

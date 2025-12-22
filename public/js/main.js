@@ -62,6 +62,14 @@ import {
 } from "./playerIcons.js";
 import { createPlayerIconSprite } from "./playerIconSprites.js";
 import { classifyIconSaveResponse } from "./iconSave.js";
+import {
+  DEFAULT_ICON_HINT,
+  applyIconSwatchStyles,
+  iconHoverText,
+  renderIconOptions as renderIconMenuOptions,
+  resetIconHint,
+  toggleIconMenu
+} from "./iconMenu.js";
 
 import { buildGameUI } from "./uiLayout.js";
 import { TrailPreview } from "./trailPreview.js";
@@ -92,6 +100,9 @@ const {
   trailPreviewCanvas,
   iconOptions,
   iconHint,
+  iconOverlay,
+  iconOverlayClose,
+  iconLauncher,
   bindWrap,
   bindHint,
   dashBehaviorSelect,
@@ -423,45 +434,18 @@ function computeUnlockedIconSet(icons = playerIcons) {
 }
 
 function renderIconOptions(selectedId = currentIconId, unlocked = computeUnlockedIconSet(playerIcons), icons = playerIcons) {
-  if (!iconOptions) return;
-  const doc = iconOptions.ownerDocument || document;
-  iconOptions.innerHTML = "";
-  const unlockedSet = unlocked instanceof Set ? unlocked : new Set(unlocked || []);
-
-  if (!icons.length) {
-    if (iconHint) {
-      iconHint.className = "hint bad";
-      iconHint.textContent = "No icons available.";
-    }
-    return;
-  }
-
-  icons.forEach((icon) => {
-    const unlockedIcon = unlockedSet.has(icon.id);
-    const statusText = describeIconLock(icon, { unlocked: unlockedIcon });
-    const btn = doc.createElement("button");
-    btn.type = "button";
-    btn.dataset.iconId = icon.id;
-    btn.className = "icon-option" + (icon.id === selectedId ? " selected" : "") + (unlockedIcon ? "" : " locked");
-    btn.disabled = !unlockedIcon;
-    btn.setAttribute("aria-pressed", icon.id === selectedId ? "true" : "false");
-    const label = unlockedIcon ? `${icon.name} (icon)` : `${icon.name} (${statusText})`;
-    btn.setAttribute("aria-label", label);
-
-    const swatch = doc.createElement("span");
-    swatch.className = "icon-swatch";
-    swatch.style.setProperty("--icon-fill", icon.style?.fill || "#ff8c1a");
-    swatch.style.setProperty("--icon-core", icon.style?.core || icon.style?.fill || "#ffc285");
-    swatch.style.setProperty("--icon-rim", icon.style?.rim || "#0f172a");
-    swatch.style.setProperty("--icon-glow", icon.style?.glow || "rgba(255,200,120,.5)");
-    btn.append(swatch);
-    iconOptions.append(btn);
+  const { rendered } = renderIconMenuOptions({
+    container: iconOptions,
+    icons,
+    selectedId,
+    unlockedIds: unlocked
   });
-
   if (iconHint) {
-    iconHint.className = "hint";
-    iconHint.textContent = "";
+    const text = rendered ? DEFAULT_ICON_HINT : "No icons available.";
+    iconHint.className = rendered ? "hint" : "hint bad";
+    iconHint.textContent = text;
   }
+  return rendered;
 }
 
 function applyIconSelection(id = currentIconId, icons = playerIcons, unlocked = computeUnlockedIconSet(icons)) {
@@ -473,6 +457,12 @@ function applyIconSelection(id = currentIconId, icons = playerIcons, unlocked = 
   });
   currentIconId = nextId;
   if (iconText) iconText.textContent = getIconDisplayName(nextId, icons);
+  if (iconLauncher) {
+    const swatch = iconLauncher.querySelector(".icon-swatch");
+    applyIconSwatchStyles(swatch, icons.find((i) => i.id === nextId));
+    const nameEl = iconLauncher.querySelector(".icon-launcher-name");
+    if (nameEl) nameEl.textContent = getIconDisplayName(nextId, icons);
+  }
   renderIconOptions(nextId, unlocked, icons);
 
   playerImg = createPlayerIconSprite(icons.find((i) => i.id === nextId) || icons[0]);
@@ -854,7 +844,7 @@ iconOptions?.addEventListener("click", async (e) => {
   if (!unlocked.has(id)) {
     if (iconHint) {
       iconHint.className = "hint bad";
-      iconHint.textContent = "That icon is locked.";
+      iconHint.textContent = describeIconLock(playerIcons.find((i) => i.id === id) || { unlock: {} }, { unlocked: false });
     }
     renderIconOptions(currentIconId, unlocked, playerIcons);
     return;
@@ -893,6 +883,41 @@ iconOptions?.addEventListener("click", async (e) => {
   if (iconHint) {
     iconHint.className = outcome.outcome === "saved" ? "hint good" : "hint bad";
     iconHint.textContent = outcome.message;
+  }
+});
+
+iconOptions?.addEventListener("mouseover", (e) => {
+  const btn = e.target.closest("button[data-icon-id]");
+  if (!btn) return;
+  const id = btn.dataset.iconId;
+  const icon = playerIcons.find((i) => i.id === id);
+  const unlocked = computeUnlockedIconSet(playerIcons).has(id);
+  if (iconHint) {
+    iconHint.className = unlocked ? "hint good" : "hint";
+    iconHint.textContent = iconHoverText(icon, { unlocked, lockText: btn.dataset.statusText });
+  }
+});
+
+iconOptions?.addEventListener("mouseout", (e) => {
+  if (!e.relatedTarget || !iconOptions.contains(e.relatedTarget)) {
+    resetIconHint(iconHint);
+  }
+});
+
+iconLauncher?.addEventListener("click", () => {
+  renderIconOptions(currentIconId, computeUnlockedIconSet(playerIcons), playerIcons);
+  toggleIconMenu(iconOverlay, true);
+});
+
+iconOverlayClose?.addEventListener("click", () => {
+  toggleIconMenu(iconOverlay, false);
+  resetIconHint(iconHint);
+});
+
+iconOverlay?.addEventListener("click", (e) => {
+  if (e.target === iconOverlay) {
+    toggleIconMenu(iconOverlay, false);
+    resetIconHint(iconHint);
   }
 });
 
