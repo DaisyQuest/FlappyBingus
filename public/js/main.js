@@ -438,12 +438,15 @@ function renderIconOptions(selectedId = currentIconId, unlocked = computeUnlocke
 
   icons.forEach((icon) => {
     const unlockedIcon = unlockedSet.has(icon.id);
+    const statusText = describeIconLock(icon, { unlocked: unlockedIcon });
     const btn = doc.createElement("button");
     btn.type = "button";
     btn.dataset.iconId = icon.id;
     btn.className = "icon-option" + (icon.id === selectedId ? " selected" : "") + (unlockedIcon ? "" : " locked");
     btn.disabled = !unlockedIcon;
     btn.setAttribute("aria-pressed", icon.id === selectedId ? "true" : "false");
+    const label = unlockedIcon ? `${icon.name} (icon)` : `${icon.name} (${statusText})`;
+    btn.setAttribute("aria-label", label);
 
     const swatch = doc.createElement("span");
     swatch.className = "icon-swatch";
@@ -451,20 +454,7 @@ function renderIconOptions(selectedId = currentIconId, unlocked = computeUnlocke
     swatch.style.setProperty("--icon-core", icon.style?.core || icon.style?.fill || "#ffc285");
     swatch.style.setProperty("--icon-rim", icon.style?.rim || "#0f172a");
     swatch.style.setProperty("--icon-glow", icon.style?.glow || "rgba(255,200,120,.5)");
-
-    const meta = doc.createElement("span");
-    meta.className = "icon-meta";
-    const name = doc.createElement("span");
-    name.className = "icon-name";
-    name.textContent = icon.name;
-    const status = doc.createElement("span");
-    status.className = "icon-status";
-    status.textContent = icon.id === selectedId && unlockedIcon
-      ? "Equipped"
-      : describeIconLock(icon, { unlocked: unlockedIcon });
-    meta.append(name, status);
-
-    btn.append(swatch, meta);
+    btn.append(swatch);
     iconOptions.append(btn);
   });
 

@@ -47,16 +47,31 @@ function createElement(doc, refs, tag, options = {}, children = []) {
   return el;
 }
 
-function createHowToCard(doc) {
+function createHowToCard(doc, refs) {
   const card = doc.createElement("div");
   card.className = "info-card howto-card";
 
+  const header = doc.createElement("div");
+  header.className = "howto-header";
+
   const title = doc.createElement("div");
   title.className = "section-title";
-  title.textContent = "How to play";
+  title.textContent = "Tutorial";
+
+  const tutorialBtn = createElement(doc, refs, "button", {
+    id: "tutorial",
+    className: "cta-btn small",
+    text: "Tutorial",
+    props: { disabled: true }
+  });
+  header.append(title, tutorialBtn);
 
   const wrapper = doc.createElement("div");
   wrapper.className = "howto";
+
+  const howToTitle = doc.createElement("div");
+  howToTitle.className = "howto-heading";
+  howToTitle.textContent = "How to play";
 
   const list = doc.createElement("ul");
   list.className = "howto-list";
@@ -66,8 +81,8 @@ function createHowToCard(doc) {
     list.append(li);
   });
 
-  wrapper.append(list);
-  card.append(title, wrapper);
+  wrapper.append(howToTitle, list);
+  card.append(header, wrapper);
   return card;
 }
 
@@ -87,16 +102,31 @@ function createTrailCard(doc, refs) {
     text: "Start",
     props: { disabled: true }
   });
-  const tutorialBtn = createElement(doc, refs, "button", {
-    id: "tutorial",
-    className: "cta-btn wide",
-    text: "Tutorial",
-    props: { disabled: true }
-  });
-  actions.append(startBtn, tutorialBtn);
+  actions.append(startBtn);
 
   const divider = doc.createElement("div");
   divider.className = "soft-divider";
+
+  const iconField = doc.createElement("div");
+  iconField.className = "field icon-field";
+
+  const iconLabel = doc.createElement("div");
+  iconLabel.className = "section-title small";
+  iconLabel.textContent = "Player Icon";
+
+  const options = createElement(doc, refs, "div", {
+    id: "iconOptions",
+    className: "icon-grid",
+    attrs: { role: "group" }
+  });
+
+  const iconHint = createElement(doc, refs, "div", {
+    id: "iconHint",
+    className: "hint",
+    text: "Pick a high-contrast icon. More unlocks coming soon."
+  });
+
+  iconField.append(iconLabel, options, iconHint);
 
   const trailField = doc.createElement("div");
   trailField.className = "field";
@@ -131,39 +161,7 @@ function createTrailCard(doc, refs) {
   });
 
   trailField.append(trailTitle, trailRow, trailHint);
-  card.append(title, actions, divider, trailField);
-  return card;
-}
-
-function createIconCard(doc, refs) {
-  const card = doc.createElement("div");
-  card.className = "info-card";
-
-  const title = doc.createElement("div");
-  title.className = "section-title";
-  title.textContent = "Player Icon";
-
-  const field = doc.createElement("div");
-  field.className = "field";
-
-  const label = doc.createElement("div");
-  label.className = "section-title small";
-  label.textContent = "Avatar";
-
-  const options = createElement(doc, refs, "div", {
-    id: "iconOptions",
-    className: "icon-grid",
-    attrs: { role: "group" }
-  });
-
-  const hint = createElement(doc, refs, "div", {
-    id: "iconHint",
-    className: "hint",
-    text: "Pick a high-contrast icon. More unlocks coming soon."
-  });
-
-  field.append(label, options, hint);
-  card.append(title, field);
+  card.append(title, actions, divider, iconField, trailField);
   return card;
 }
 
@@ -537,7 +535,7 @@ function createMenuScreen(doc, refs) {
   mainPanel.className = "panel-main tab-panel";
   const mainGrid = doc.createElement("div");
   mainGrid.className = "info-grid";
-  mainGrid.append(createTrailCard(doc, refs), createIconCard(doc, refs), createHowToCard(doc));
+  mainGrid.append(createTrailCard(doc, refs), createHowToCard(doc, refs));
   const toSettings = doc.createElement("div");
   toSettings.className = "tab-toggle";
   const settingsLabel = doc.createElement("label");

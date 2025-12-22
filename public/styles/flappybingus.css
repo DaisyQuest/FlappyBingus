@@ -104,6 +104,7 @@ button:focus-visible,input:focus-visible,select:focus-visible{
 }
 .cta-btn{padding:14px 26px;min-width:160px;font-size:17px;letter-spacing:.3px}
 .cta-btn.wide{min-width:190px}
+.cta-btn.small{padding:10px 16px;min-width:0;font-size:14px;letter-spacing:.2px}
 .cta-btn.sparkle{position:relative;overflow:hidden;isolation:isolate;box-shadow:0 14px 32px rgba(0,0,0,.38),0 0 0 1px rgba(255,255,255,.12)}
 .cta-btn.sparkle::after{
   content:"";position:absolute;inset:-40% -30%;pointer-events:none;
@@ -257,7 +258,7 @@ input[type="text"]::placeholder{color:rgba(255,255,255,.45)}
 .info-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px}
 .info-card{border-radius:14px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.08);padding:12px 12px 10px;box-shadow:0 12px 26px rgba(0,0,0,.24)}
 .info-card .lbl{font-size:12.5px}
-.howto{font-size:13.5px;line-height:1.55;color:var(--muted);display:flex;justify-content:center}
+.howto{font-size:13.5px;line-height:1.55;color:var(--muted);display:flex;flex-direction:column;align-items:center;gap:10px}
 .badge{display:inline-flex;align-items:center;gap:6px;padding:6px 10px;border-radius:999px;background:rgba(255,255,255,.1);color:var(--text);font-weight:800;font-size:12px;border:1px solid rgba(255,255,255,.16)}
 .pills-row{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
 .pills-row.tight{margin-top:6px}
@@ -282,6 +283,8 @@ input[type="range"]::-moz-range-thumb{
 
 .howto-card{display:grid;grid-template-columns:1fr;gap:10px;align-items:center;text-align:center;padding:16px;background:linear-gradient(180deg,rgba(255,255,255,.08),rgba(180,180,255,.08));border:1px solid rgba(255,255,255,.12)}
 .howto-card .section-title{font-size:16px;letter-spacing:.8px}
+.howto-header{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.howto-heading{font-weight:900;letter-spacing:.8px;color:var(--text);text-transform:uppercase;font-size:13px}
 .howto-list{list-style:disc;margin:0;padding:0 0 0 18px;display:inline-flex;flex-direction:column;gap:6px;text-align:left}
 .howto-list li{color:var(--text);font-weight:800;text-shadow:0 6px 12px rgba(0,0,0,.24)}
 .howto-list li::marker{color:var(--bubble)}
@@ -408,13 +411,9 @@ input[type="range"]::-moz-range-thumb{
 .achievement-toast-name{font-weight:900;margin:2px 0}
 .achievement-toast-desc{color:var(--muted);font-size:12px}
 
-.icon-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px}
-.icon-option{display:flex;align-items:center;gap:12px;padding:10px 12px;background:rgba(15,23,42,.72);border:1px solid rgba(255,255,255,.08);border-radius:12px;cursor:pointer;transition:transform .12s ease,box-shadow .12s ease,border-color .12s ease;min-height:74px;text-align:left;color:#e5e7eb}
+.icon-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(80px,1fr));gap:10px}
+.icon-option{display:flex;align-items:center;justify-content:center;padding:10px;background:rgba(15,23,42,.72);border:1px solid rgba(255,255,255,.08);border-radius:12px;cursor:pointer;transition:transform .12s ease,box-shadow .12s ease,border-color .12s ease;min-height:78px;color:#e5e7eb}
 .icon-option:hover{border-color:rgba(125,211,252,.65);box-shadow:0 14px 32px rgba(0,0,0,.28)}
 .icon-option.selected{border-color:#7dd3fc;box-shadow:0 14px 32px rgba(0,0,0,.38),0 0 0 1px rgba(125,211,252,.55);transform:translateY(-1px)}
 .icon-option.locked{opacity:.65;cursor:not-allowed}
-.icon-option .icon-swatch{width:52px;height:52px;border-radius:50%;background:radial-gradient(circle at 32% 32%,var(--icon-core,#ffc285),var(--icon-fill,#ff8c1a));box-shadow:0 0 0 2px var(--icon-rim,#0f172a),0 10px 24px rgba(0,0,0,.35),0 0 22px var(--icon-glow,rgba(255,200,120,.5))}
-.icon-option .icon-meta{display:flex;flex-direction:column;align-items:flex-start;gap:4px}
-.icon-option .icon-name{font-weight:800;letter-spacing:.01em}
-.icon-option .icon-status{font-size:13px;color:#cbd5f5}
-.icon-option.locked .icon-status{color:#fca5a5}
+.icon-option .icon-swatch{width:58px;height:58px;border-radius:50%;background:radial-gradient(circle at 32% 32%,var(--icon-core,#ffc285),var(--icon-fill,#ff8c1a));box-shadow:0 0 0 2px var(--icon-rim,#0f172a),0 10px 24px rgba(0,0,0,.35),0 0 22px var(--icon-glow,rgba(255,200,120,.5))}
