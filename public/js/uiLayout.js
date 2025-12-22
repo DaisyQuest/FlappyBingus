@@ -1,6 +1,8 @@
 // =====================
 // FILE: public/js/uiLayout.js
 // =====================
+import { DEFAULT_CONFIG } from "./config.js";
+
 const HOW_TO_STEPS = [
   'Move with <span class="kbd">W</span><span class="kbd">A</span><span class="kbd">S</span><span class="kbd">D</span>',
   "Use abilities to stay alive",
@@ -9,6 +11,39 @@ const HOW_TO_STEPS = [
   "Perfect gaps award bonus points",
   "Practice in Tutorial"
 ];
+
+const SKILL_COOLDOWN_REFS = [
+  { ref: "dashCooldownValue", key: "dash", label: "Reflect cooldown" },
+  { ref: "dashDestroyCooldownValue", key: "dashDestroy", label: "Break cooldown" },
+  { ref: "slowFieldCooldownValue", key: "slowField", label: "Slow Field cooldown" },
+  { ref: "slowExplosionCooldownValue", key: "slowExplosion", label: "Explode cooldown" }
+];
+
+function readCooldown(cfg, key) {
+  const fallback = Number(DEFAULT_CONFIG?.skills?.[key]?.cooldown);
+  const raw = Number(cfg?.skills?.[key]?.cooldown);
+  if (Number.isFinite(raw) && raw >= 0) return raw;
+  if (Number.isFinite(fallback) && fallback >= 0) return fallback;
+  return null;
+}
+
+export function formatCooldownSeconds(value) {
+  if (!Number.isFinite(value) || value < 0) return "—";
+  const precision = value >= 10 ? 1 : 2;
+  const numeric = Number(value.toFixed(precision));
+  return `${numeric}s`;
+}
+
+function applySkillCooldowns(refs, cfg = DEFAULT_CONFIG) {
+  SKILL_COOLDOWN_REFS.forEach(({ ref, key, label }) => {
+    const el = refs[ref];
+    if (!el) return;
+    const val = readCooldown(cfg, key);
+    const text = formatCooldownSeconds(val);
+    el.textContent = text;
+    el.setAttribute("aria-label", `${label}: ${text}`);
+  });
+}
 
 function createElement(doc, refs, tag, options = {}, children = []) {
   const {
@@ -303,7 +338,7 @@ function createSeedCard(doc, refs) {
 
 function createVolumeCard(doc, refs) {
   const card = doc.createElement("div");
-  card.className = "info-card settings-secondary";
+  card.className = "info-card settings-secondary volume-card";
 
   const title = doc.createElement("div");
   title.className = "section-title";
@@ -357,11 +392,7 @@ function createVolumeCard(doc, refs) {
   muteLabel.textContent = "Mute everything";
   muteRow.append(muteCheckbox, muteLabel);
 
-  const note = doc.createElement("div");
-  note.className = "muted-note";
-  note.textContent = "Adjust music and sound effects independently, or mute everything.";
-
-  card.append(title, grid, muteRow, note);
+  card.append(title, grid, muteRow);
   return card;
 }
 
@@ -432,42 +463,55 @@ function createSkillGlyph(doc, type) {
   return wrap;
 }
 
-function createSkillOptionGroup(doc, refs, { id, label, options }) {
-  const row = doc.createElement("div");
-  row.className = "field skill-option-group";
-  const groupLabel = doc.createElement("div");
-  groupLabel.className = "lbl";
-  groupLabel.textContent = label;
+function createSkillOptionButton(doc, refs, { value, title, description, cooldownKey, cooldownRef }) {
+  const btn = doc.createElement("button");
+  btn.type = "button";
+  btn.className = `skill-option behavior-${value}`;
+  btn.dataset.value = value;
+  btn.setAttribute("aria-pressed", "false");
 
-  const grid = createElement(doc, refs, "div", {
+  const icon = createSkillGlyph(doc, value);
+  const textWrap = doc.createElement("div");
+  textWrap.className = "skill-option-text";
+  const name = doc.createElement("div");
+  name.className = "skill-option-title";
+  name.textContent = title;
+  const desc = doc.createElement("div");
+  desc.className = "skill-option-sub";
+  desc.textContent = description;
+  textWrap.append(name, desc);
+
+  const meta = doc.createElement("div");
+  meta.className = "skill-option-meta";
+  const cooldownLabel = doc.createElement("div");
+  cooldownLabel.className = "skill-option-meta-label";
+  cooldownLabel.textContent = "Cooldown";
+  const cooldownValue = createElement(doc, refs, "div", {
+    ref: cooldownRef,
+    className: "skill-option-meta-value",
+    dataset: { cooldownFor: cooldownKey }
+  });
+  meta.append(cooldownLabel, cooldownValue);
+
+  btn.append(icon, textWrap, meta);
+  return btn;
+}
+
+function createSkillBehaviorRow(doc, refs, { id, label, options }) {
+  const row = createElement(doc, refs, "div", {
     id,
-    className: "skill-option-grid",
+    className: "skill-behavior-row",
     attrs: { role: "group", "aria-label": label }
   });
+  const groupLabel = doc.createElement("div");
+  groupLabel.className = "skill-row-label";
+  groupLabel.textContent = label;
 
-  options.forEach(({ value, title, description }) => {
-    const btn = doc.createElement("button");
-    btn.type = "button";
-    btn.className = `skill-option behavior-${value}`;
-    btn.dataset.value = value;
-    btn.setAttribute("aria-pressed", "false");
-
-    const icon = createSkillGlyph(doc, value);
-    const textWrap = doc.createElement("div");
-    textWrap.className = "skill-option-text";
-    const name = doc.createElement("div");
-    name.className = "skill-option-title";
-    name.textContent = title;
-    const desc = doc.createElement("div");
-    desc.className = "skill-option-sub";
-    desc.textContent = description;
-    textWrap.append(name, desc);
-
-    btn.append(icon, textWrap);
-    grid.append(btn);
+  row.append(groupLabel);
+  options.forEach((option) => {
+    const btn = createSkillOptionButton(doc, refs, option);
+    row.append(btn);
   });
-
-  row.append(groupLabel, grid);
   return row;
 }
 
@@ -479,29 +523,68 @@ function createSkillSettingsCard(doc, refs) {
   title.className = "section-title";
   title.textContent = "Skill Behaviors";
 
-  const dashRow = createSkillOptionGroup(doc, refs, {
+  const matrix = doc.createElement("div");
+  matrix.className = "skill-behavior-matrix";
+
+  const headerRow = doc.createElement("div");
+  headerRow.className = "skill-behavior-row skill-behavior-header";
+  const spacer = doc.createElement("div");
+  spacer.className = "skill-row-label spacer";
+  spacer.setAttribute("aria-hidden", "true");
+  const lowLabel = doc.createElement("div");
+  lowLabel.className = "skill-column-label";
+  lowLabel.textContent = "Lower Cooldown";
+  const utilityLabel = doc.createElement("div");
+  utilityLabel.className = "skill-column-label";
+  utilityLabel.textContent = "Better Utility";
+  headerRow.append(spacer, lowLabel, utilityLabel);
+
+  const dashRow = createSkillBehaviorRow(doc, refs, {
     id: "dashBehaviorOptions",
     label: "Dash behavior",
     options: [
-      { value: "ricochet", title: "Reflect", description: "Bounce off walls to keep the dash alive." },
-      { value: "destroy", title: "Break", description: "Shatter pipes on impact for a quick escape." }
+      {
+        value: "ricochet",
+        title: "Reflect",
+        description: "Bounce off walls to keep the dash alive.",
+        cooldownKey: "dash",
+        cooldownRef: "dashCooldownValue"
+      },
+      {
+        value: "destroy",
+        title: "Break",
+        description: "Shatter pipes on impact for a quick escape.",
+        cooldownKey: "dashDestroy",
+        cooldownRef: "dashDestroyCooldownValue"
+      }
     ]
   });
 
-  const slowRow = createSkillOptionGroup(doc, refs, {
+  const slowRow = createSkillBehaviorRow(doc, refs, {
     id: "slowFieldBehaviorOptions",
     label: "Slow Field behavior",
     options: [
-      { value: "slow", title: "Slow Field", description: "Drop a slowing air pocket that drags enemies." },
-      { value: "explosion", title: "Explode", description: "Launch a bomb that clears nearby pipes." }
+      {
+        value: "slow",
+        title: "Slow Field",
+        description: "Drop a slowing air pocket that drags enemies.",
+        cooldownKey: "slowField",
+        cooldownRef: "slowFieldCooldownValue"
+      },
+      {
+        value: "explosion",
+        title: "Explode",
+        description: "Launch a bomb that clears nearby pipes.",
+        cooldownKey: "slowExplosion",
+        cooldownRef: "slowExplosionCooldownValue"
+      }
     ]
   });
 
-  const hint = doc.createElement("div");
-  hint.className = "hint";
-  hint.textContent = "Pick how dash and slow field behave. Choices are saved per user.";
-
-  card.append(title, dashRow, slowRow, hint);
+  matrix.append(headerRow, dashRow, slowRow);
+  card.append(title, matrix);
+  refs.updateSkillCooldowns = (cfg) => applySkillCooldowns(refs, cfg);
+  refs.updateSkillCooldowns(DEFAULT_CONFIG);
   return card;
 }
 
@@ -748,8 +831,8 @@ function createMenuScreen(doc, refs) {
     createSkillSettingsCard(doc, refs),
     createBindCard(doc, refs),
     createVolumeCard(doc, refs),
-    createStatusCard(doc, refs),
-    createSeedCard(doc, refs)
+    createSeedCard(doc, refs),
+    createStatusCard(doc, refs)
   );
   settingsPanel.append(settingsGrid);
 
@@ -885,5 +968,7 @@ export function buildGameUI({ document = window.document, mount } = {}) {
 
 export const __testables = {
   createMenuScreen,
-  createOverScreen
+  createOverScreen,
+  applySkillCooldowns,
+  formatCooldownSeconds
 };
