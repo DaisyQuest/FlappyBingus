@@ -460,7 +460,7 @@ function renderIconOptions(selectedId = currentIconId, unlocked = computeUnlocke
 
   if (iconHint) {
     iconHint.className = "hint";
-    iconHint.textContent = "Pick a high-contrast icon. More unlocks coming soon.";
+    iconHint.textContent = "";
   }
 }
 
