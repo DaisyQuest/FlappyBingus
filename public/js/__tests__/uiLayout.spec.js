@@ -23,6 +23,10 @@ describe("uiLayout", () => {
     expect(ui.menu?.id).toBe("menu");
     expect(ui.over?.id).toBe("over");
     expect(ui.start?.textContent).toContain("Start");
+    const readyCard = mount.querySelector(".panel-main .info-card");
+    const readyFields = readyCard?.querySelectorAll(".field");
+    expect(readyFields?.[0]?.querySelector("#iconOptions")).toBeInstanceOf(window.HTMLElement);
+    expect(readyFields?.[1]?.querySelector("#trailSelect")).toBeInstanceOf(window.HTMLElement);
     const overlay = mount.querySelector("#menu .trail-preview-overlay");
     expect(overlay?.querySelectorAll(".trail-preview-canvas")?.length).toBe(1);
     expect(overlay?.querySelectorAll(".trail-preview-glow")?.length).toBe(1);
@@ -44,6 +48,8 @@ describe("uiLayout", () => {
     expect(ui.seedInput?.maxLength).toBe(48);
     expect(ui.musicVolume?.value).toBe("70");
     expect(ui.sfxVolume?.value).toBe("80");
+    const howtoCard = mount.querySelector(".howto-card");
+    expect(howtoCard?.contains(ui.tutorial)).toBe(true);
   });
 
   it("renders all expected controls needed by main.js wiring", () => {
