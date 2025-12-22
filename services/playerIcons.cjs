@@ -26,6 +26,18 @@ const PLAYER_ICONS = Object.freeze([
     }
   },
   {
+    id: "perfect_ten_liner",
+    name: "Perfect Line Beacon",
+    unlock: { type: "achievement", id: "perfects_run_10", label: "Perfect Ten" },
+    style: {
+      fill: "#0b1120",
+      core: "#f8fafc",
+      rim: "#facc15",
+      glow: "#22d3ee",
+      pattern: { type: "centerline", stroke: "#f8fafc", accent: "#facc15", glow: "#22d3ee" }
+    }
+  },
+  {
     id: "orb_free_zigzag",
     name: "Azure Zigzag",
     unlock: { type: "achievement", id: "no_orbs_100", label: "Orb-Free Century" },

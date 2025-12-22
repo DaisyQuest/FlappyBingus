@@ -37,6 +37,14 @@ describe("player icon helpers", () => {
     expect(unlocked).toEqual(expect.arrayContaining(["free", "score", "ach", "paid", "record"]));
   });
 
+  it("includes the Perfect Ten reward icon once that achievement is unlocked", () => {
+    const unlocked = getUnlockedPlayerIcons(DEFAULT_PLAYER_ICONS, {
+      achievements: { unlocked: { perfects_run_10: Date.now() } }
+    });
+    expect(unlocked).toContain("perfect_ten_liner");
+    expect(unlocked).not.toContain("orb_free_zigzag");
+  });
+
   it("normalizes icon selection to the first unlocked choice", () => {
     const unlocked = new Set(["hi_vis_orange"]);
     const selection = normalizeIconSelection({

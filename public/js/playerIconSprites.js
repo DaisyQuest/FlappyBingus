@@ -37,6 +37,40 @@ function drawZigZag(ctx, radius, {
   ctx.restore?.();
 }
 
+function drawCenterlineGuides(ctx, radius, {
+  stroke = "#fff",
+  accent = "#000",
+  width = 4,
+  accentWidth = 2,
+  glow = null
+} = {}) {
+  if (!ctx) return;
+  const line = Math.max(1, width);
+  const accentLine = Math.max(1, accentWidth);
+  ctx.save?.();
+  ctx.lineCap = "round";
+  ctx.lineWidth = line;
+  ctx.strokeStyle = stroke;
+  if (glow) {
+    ctx.shadowColor = glow;
+    ctx.shadowBlur = Math.max(6, line * 2);
+  }
+  ctx.beginPath();
+  ctx.moveTo?.(0, -radius * 0.85);
+  ctx.lineTo?.(0, radius * 0.85);
+  ctx.stroke?.();
+
+  ctx.shadowBlur = 0;
+  ctx.lineWidth = accentLine;
+  ctx.strokeStyle = accent;
+  ctx.beginPath();
+  ctx.moveTo?.(-radius * 0.5, 0);
+  ctx.lineTo?.(radius * 0.5, 0);
+  ctx.stroke?.();
+  fillCircle(ctx, Math.max(2, radius * 0.08), accent, { color: glow || accent, blur: Math.max(2, accentLine * 3) });
+  ctx.restore?.();
+}
+
 function makeCanvas(size) {
   const safeSize = Math.max(16, Math.floor(size) || 96);
   const isJsdom = typeof navigator !== "undefined" && /jsdom/i.test(navigator.userAgent || "");
@@ -115,6 +149,15 @@ export function createPlayerIconSprite(icon = {}, { size = 96 } = {}) {
         glow: pattern.background || glow
       });
       canvas.__pattern = { type: "zigzag" };
+    } else if (pattern?.type === "centerline") {
+      drawCenterlineGuides(ctx, outer * 0.82, {
+        stroke: pattern.stroke || "#f8fafc",
+        accent: pattern.accent || rim,
+        width: Math.max(2, canvas.width * 0.065),
+        accentWidth: Math.max(2, canvas.width * 0.04),
+        glow: pattern.glow || glow
+      });
+      canvas.__pattern = { type: "centerline" };
     }
 
     ctx.restore?.();
@@ -125,5 +168,6 @@ export function createPlayerIconSprite(icon = {}, { size = 96 } = {}) {
 
 export const __testables = {
   fillCircle,
-  drawZigZag
+  drawZigZag,
+  drawCenterlineGuides
 };
