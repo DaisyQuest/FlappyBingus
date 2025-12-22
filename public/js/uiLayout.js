@@ -549,9 +549,11 @@ function createMenuScreen(doc, refs) {
   header.className = "menu-header";
   const cloud = doc.createElement("div");
   cloud.className = "title-cloud";
-  const title = doc.createElement("div");
-  title.className = "title";
-  title.textContent = "Flappy Bingus";
+  const title = createElement(doc, refs, "div", {
+    id: "menuTitle",
+    className: "title",
+    text: "Flappy Bingus"
+  });
   cloud.append(title);
 
   const subtitle = doc.createElement("p");
@@ -578,6 +580,7 @@ function createMenuScreen(doc, refs) {
 
   const shell = doc.createElement("div");
   shell.className = "menu-shell";
+  shell.dataset.view = "main";
 
   const mainCard = doc.createElement("div");
   mainCard.className = "card card-soft";
@@ -645,6 +648,18 @@ function createMenuScreen(doc, refs) {
   sideStack.append(createProfileCard(doc, refs), createHighscoreCard(doc, refs));
 
   shell.append(mainCard, sideStack);
+
+  const updateMenuView = () => {
+    const view = viewSettings.checked ? "settings" : viewAchievements.checked ? "achievements" : "main";
+    shell.dataset.view = view;
+    sideStack.hidden = view !== "main";
+    title.textContent = view === "settings" ? "Settings" : view === "achievements" ? "Achievements" : "Flappy Bingus";
+  };
+
+  [viewMain, viewSettings, viewAchievements].forEach(radio => {
+    radio.addEventListener("change", updateMenuView);
+  });
+  updateMenuView();
   content.append(header, viewMain, viewSettings, viewAchievements, shell);
   panel.append(aurora, content);
   screen.append(trailOverlay, panel);
