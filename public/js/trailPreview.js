@@ -11,6 +11,11 @@ const TRAIL_DISTANCE_SCALE = 1.18;
 const TRAIL_JITTER_SCALE = 0.55;
 const TRAIL_AURA_RATE = 0.42;
 const MAX_FRAME_DT = 1 / 12;
+const DEFAULT_MARGIN_X = 0.16;
+const DEFAULT_MARGIN_Y = 0.18;
+const MIN_MARGIN_X = 0.04;
+const MIN_MARGIN_Y = 0.05;
+const DEFAULT_OBSTRUCTION_PADDING = { x: 0.04, y: 0.06 };
 
 export class TrailPreview {
   constructor({
@@ -23,7 +28,9 @@ export class TrailPreview {
     anchor = { x: 0.5, y: 0.5 },
     drawBackground = true,
     staticDrift = null,
-    renderPlayer = true
+    renderPlayer = true,
+    obstructionElement = null,
+    obstructionPadding = DEFAULT_OBSTRUCTION_PADDING
   } = {}) {
     this.canvas = canvas || null;
     this.ctx = this.canvas?.getContext?.("2d") || null;
@@ -33,6 +40,9 @@ export class TrailPreview {
     this.drawBackground = drawBackground !== false;
     this.staticDrift = staticDrift;
     this.renderPlayer = renderPlayer !== false;
+    this.obstructionElement = obstructionElement;
+    this.obstructionPadding = obstructionPadding || DEFAULT_OBSTRUCTION_PADDING;
+    this._obstruction = null;
 
     this.parts = [];
     this.trailId = "classic";
@@ -94,6 +104,7 @@ export class TrailPreview {
     this.ctx.lineJoin = "round";
     this.ctx.lineCap = "round";
     this._computePlayerSize();
+    this._measureObstruction();
   }
 
   start() {
@@ -114,6 +125,130 @@ export class TrailPreview {
 
   _randRange(a, b) {
     return a + (b - a) * (this._rand ? this._rand() : Math.random());
+  }
+
+  _measureObstruction() {
+    const target = this.obstructionElement;
+    if (!target?.getBoundingClientRect || !this.canvas?.getBoundingClientRect) {
+      this._obstruction = null;
+      return;
+    }
+
+    const canvasRect = this.canvas.getBoundingClientRect();
+    const obstacleRect = target.getBoundingClientRect();
+    const width = canvasRect.width || 0;
+    const height = canvasRect.height || 0;
+    if (width <= 0 || height <= 0) {
+      this._obstruction = null;
+      return;
+    }
+
+    const left = clamp((obstacleRect.left - canvasRect.left) / width, 0, 1);
+    const right = clamp((obstacleRect.right - canvasRect.left) / width, 0, 1);
+    const top = clamp((obstacleRect.top - canvasRect.top) / height, 0, 1);
+    const bottom = clamp((obstacleRect.bottom - canvasRect.top) / height, 0, 1);
+
+    if (right <= left || bottom <= top) {
+      this._obstruction = null;
+      return;
+    }
+
+    this._obstruction = {
+      left,
+      right,
+      top,
+      bottom,
+      width: right - left,
+      height: bottom - top
+    };
+  }
+
+  _computeMargins() {
+    if (!this._obstruction) return { x: DEFAULT_MARGIN_X, y: DEFAULT_MARGIN_Y };
+
+    const padX = this.obstructionPadding?.x ?? DEFAULT_OBSTRUCTION_PADDING.x;
+    const padY = this.obstructionPadding?.y ?? DEFAULT_OBSTRUCTION_PADDING.y;
+    const left = clamp(this._obstruction.left - padX, 0, 1);
+    const right = clamp(this._obstruction.right + padX, 0, 1);
+    const top = clamp(this._obstruction.top - padY, 0, 1);
+    const bottom = clamp(this._obstruction.bottom + padY, 0, 1);
+
+    const usableX = Math.min(left, 1 - right);
+    const usableY = Math.min(top, 1 - bottom);
+    const minMarginX = usableX > 0 ? Math.min(usableX, MIN_MARGIN_X * 0.5) : MIN_MARGIN_X * 0.5;
+    const minMarginY = usableY > 0 ? Math.min(usableY, MIN_MARGIN_Y * 0.5) : MIN_MARGIN_Y * 0.5;
+
+    const marginX = usableX > 0
+      ? clamp(Math.min(DEFAULT_MARGIN_X, usableX * 0.9), minMarginX, usableX)
+      : MIN_MARGIN_X;
+    const marginY = usableY > 0
+      ? clamp(Math.min(DEFAULT_MARGIN_Y, usableY * 0.9), minMarginY, usableY)
+      : MIN_MARGIN_Y;
+
+    return { x: marginX, y: marginY };
+  }
+
+  _minOrbitRadius() {
+    if (!this._obstruction) return 0.18;
+    const padX = this.obstructionPadding?.x ?? DEFAULT_OBSTRUCTION_PADDING.x;
+    const padY = this.obstructionPadding?.y ?? DEFAULT_OBSTRUCTION_PADDING.y;
+    const radiusX = this._obstruction.width * 0.5 + padX;
+    const radiusY = this._obstruction.height * 0.5 + padY;
+    return clamp(Math.max(radiusX, radiusY, 0.18), 0.18, 0.48);
+  }
+
+  _avoidObstruction(targetX, targetY, marginX, marginY) {
+    const obstacle = this._obstruction;
+    if (!obstacle) return { x: targetX, y: targetY };
+
+    const padX = this.obstructionPadding?.x ?? DEFAULT_OBSTRUCTION_PADDING.x;
+    const padY = this.obstructionPadding?.y ?? DEFAULT_OBSTRUCTION_PADDING.y;
+    const left = clamp(obstacle.left - padX, 0, 1);
+    const right = clamp(obstacle.right + padX, 0, 1);
+    const top = clamp(obstacle.top - padY, 0, 1);
+    const bottom = clamp(obstacle.bottom + padY, 0, 1);
+
+    const cx = (left + right) * 0.5;
+    const cy = (top + bottom) * 0.5;
+    const insideX = targetX > left && targetX < right;
+    const insideY = targetY > top && targetY < bottom;
+    const near = targetX > left - padX * 0.5 && targetX < right + padX * 0.5 && targetY > top - padY * 0.5 && targetY < bottom + padY * 0.5;
+    let nextX = targetX;
+    let nextY = targetY;
+
+    if (insideX && insideY) {
+      const moveHoriz = Math.abs(targetX - cx) >= Math.abs(targetY - cy) * 0.85;
+      if (moveHoriz) {
+        nextX = targetX < cx ? left : right;
+        nextY = clamp(targetY + (targetY - cy) * 0.12, marginY, 1 - marginY);
+      } else {
+        nextY = targetY < cy ? top : bottom;
+        nextX = clamp(targetX + (targetX - cx) * 0.08, marginX, 1 - marginX);
+      }
+    } else if (insideX) {
+      nextX = targetX < cx ? left : right;
+    } else if (insideY) {
+      nextY = targetY < cy ? top : bottom;
+    } else if (near) {
+      const drift = 0.08;
+      nextX = targetX + (targetX - cx) * drift;
+      nextY = targetY + (targetY - cy) * drift;
+    }
+
+    nextX = clamp(nextX, marginX, 1 - marginX);
+    nextY = clamp(nextY, marginY, 1 - marginY);
+
+    if (nextX > left && nextX < right && nextY > top && nextY < bottom) {
+      if (Math.abs(nextX - cx) > Math.abs(nextY - cy)) {
+        nextX = nextX < cx ? left : right;
+      } else {
+        nextY = nextY < cy ? top : bottom;
+      }
+      nextX = clamp(nextX, marginX, 1 - marginX);
+      nextY = clamp(nextY, marginY, 1 - marginY);
+    }
+
+    return { x: nextX, y: nextY };
   }
 
   step(dt = null, now = null) {
@@ -161,6 +296,7 @@ export class TrailPreview {
       return;
     }
     this._computePlayerSize();
+    const { x: marginX, y: marginY } = this._computeMargins();
     const phase = this.player.phase;
     const orbitPhase = phase * 0.86;
     const weave = Math.sin(phase * 0.38) * 0.1;
@@ -175,9 +311,6 @@ export class TrailPreview {
 
     let targetX = 0.5 + xWave + xSkew;
     let targetY = baseY + yWave + yLift;
-
-    const marginX = 0.16;
-    const marginY = 0.18;
     targetX = clamp(targetX, marginX, 1 - marginX);
     targetY = clamp(targetY, marginY, 1 - marginY);
 
@@ -187,12 +320,16 @@ export class TrailPreview {
     const safeDx = dist > 1e-5 ? dx : 0.01;
     const safeDy = dist > 1e-5 ? dy : 0.008;
     const safeDist = Math.max(dist, Math.hypot(safeDx, safeDy));
-    const minGap = 0.18;
+    const minGap = this._minOrbitRadius();
     if (safeDist < minGap) {
       const push = minGap / safeDist;
       targetX = clamp(0.5 + safeDx * push, marginX, 1 - marginX);
       targetY = clamp(0.5 + safeDy * push, marginY, 1 - marginY);
     }
+
+    const deflected = this._avoidObstruction(targetX, targetY, marginX, marginY);
+    targetX = clamp(deflected.x, marginX, 1 - marginX);
+    targetY = clamp(deflected.y, marginY, 1 - marginY);
 
     this.player.prevX = this.player.x || this.W * targetX;
     this.player.prevY = this.player.y || this.H * targetY;

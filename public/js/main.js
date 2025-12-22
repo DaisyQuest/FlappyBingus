@@ -119,6 +119,7 @@ const {
   hsWrap,
   pbText,
   trailText,
+  menuPanel,
   iconText,
   bustercoinText,
   final: finalEl,
@@ -236,7 +237,11 @@ let playerImg = getCachedIconSprite(playerIcons.find((i) => i.id === currentIcon
 boot.imgReady = true; boot.imgOk = true;
 refreshBootUI();
 
-trailPreview = trailPreviewCanvas ? new TrailPreview({ canvas: trailPreviewCanvas, playerImg }) : null;
+trailPreview = trailPreviewCanvas ? new TrailPreview({
+  canvas: trailPreviewCanvas,
+  playerImg,
+  obstructionElement: menuPanel
+}) : null;
 syncLauncherSwatch(currentIconId, playerIcons, playerImg);
 
 // ---- Input + Game ----
