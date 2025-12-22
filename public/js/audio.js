@@ -11,6 +11,12 @@ let bounceBuffer = null;
 let shatterBuffer = null;
 let slowFieldBuffer = null;
 let slowExplosionBuffer = null;
+let dashStartBuffer = null;
+let dashBreakBuffer = null;
+let teleportBuffer = null;
+let phaseBuffer = null;
+let explosionBuffer = null;
+let gameOverBuffer = null;
 let musicLoaded = false;
 let boopLoaded = false;
 let niceLoaded = false;
@@ -18,6 +24,12 @@ let bounceLoaded = false;
 let shatterLoaded = false;
 let slowFieldLoaded = false;
 let slowExplosionLoaded = false;
+let dashStartLoaded = false;
+let dashBreakLoaded = false;
+let teleportLoaded = false;
+let phaseLoaded = false;
+let explosionLoaded = false;
+let gameOverLoaded = false;
 
 let musicGain = null;
 let sfxGain = null;
@@ -80,7 +92,13 @@ export async function audioInit({
   bounceUrl,
   shatterUrl,
   slowFieldUrl,
-  slowExplosionUrl
+  slowExplosionUrl,
+  dashStartUrl,
+  dashBreakUrl,
+  teleportUrl,
+  phaseUrl,
+  explosionUrl,
+  gameOverUrl
 } = {}) {
   // Must be called from a user gesture (Start / Restart click)
   await getCtx();
@@ -113,6 +131,30 @@ export async function audioInit({
   if (slowExplosionUrl && !slowExplosionLoaded) {
     slowExplosionBuffer = await loadBuffer(slowExplosionUrl);
     slowExplosionLoaded = true;
+  }
+  if (dashStartUrl && !dashStartLoaded) {
+    dashStartBuffer = await loadBuffer(dashStartUrl);
+    dashStartLoaded = true;
+  }
+  if (dashBreakUrl && !dashBreakLoaded) {
+    dashBreakBuffer = await loadBuffer(dashBreakUrl);
+    dashBreakLoaded = true;
+  }
+  if (teleportUrl && !teleportLoaded) {
+    teleportBuffer = await loadBuffer(teleportUrl);
+    teleportLoaded = true;
+  }
+  if (phaseUrl && !phaseLoaded) {
+    phaseBuffer = await loadBuffer(phaseUrl);
+    phaseLoaded = true;
+  }
+  if (explosionUrl && !explosionLoaded) {
+    explosionBuffer = await loadBuffer(explosionUrl);
+    explosionLoaded = true;
+  }
+  if (gameOverUrl && !gameOverLoaded) {
+    gameOverBuffer = await loadBuffer(gameOverUrl);
+    gameOverLoaded = true;
   }
 }
 
@@ -207,6 +249,24 @@ export function sfxPerfectNice() {
   src.start(0);
 }
 
+export function sfxDashStart() {
+  if (!ctx || !sfxGain) return;
+
+  const buffer = dashStartBuffer || boopBuffer;
+  if (!buffer) return;
+
+  const src = ctx.createBufferSource();
+  src.buffer = buffer;
+  src.playbackRate.value = 1.0;
+
+  const g = ctx.createGain();
+  g.gain.value = 0.9;
+
+  src.connect(g);
+  g.connect(sfxGain);
+  src.start(0);
+}
+
 export function sfxDashBounce(speed = 1) {
   if (!ctx || !bounceBuffer || !sfxGain) return;
 
@@ -238,6 +298,22 @@ export function sfxDashDestroy() {
   src.start(0);
 }
 
+export function sfxDashBreak() {
+  if (!ctx || !sfxGain) return;
+  const buffer = dashBreakBuffer || shatterBuffer || bounceBuffer;
+  if (!buffer) return;
+
+  const src = ctx.createBufferSource();
+  src.buffer = buffer;
+
+  const g = ctx.createGain();
+  g.gain.value = 0.95;
+
+  src.connect(g);
+  g.connect(sfxGain);
+  src.start(0);
+}
+
 export function sfxSlowField() {
   if (!ctx || !slowFieldBuffer || !sfxGain) return;
   const src = ctx.createBufferSource();
@@ -255,6 +331,50 @@ export function sfxSlowExplosion() {
   src.buffer = slowExplosionBuffer;
   const g = ctx.createGain();
   g.gain.value = 0.9;
+  src.connect(g);
+  g.connect(sfxGain);
+  src.start(0);
+}
+
+export function sfxExplosion({ allowFallback = true } = {}) {
+  if (!ctx || !sfxGain) return;
+  const buffer = explosionBuffer || (allowFallback ? slowExplosionBuffer : null);
+  if (!buffer) return;
+
+  const src = ctx.createBufferSource();
+  src.buffer = buffer;
+
+  const g = ctx.createGain();
+  g.gain.value = 0.95;
+
+  src.connect(g);
+  g.connect(sfxGain);
+  src.start(0);
+}
+
+export function sfxTeleport() {
+  if (!ctx || !sfxGain) return;
+  const buffer = teleportBuffer || dashStartBuffer || boopBuffer;
+  if (!buffer) return;
+
+  const src = ctx.createBufferSource();
+  src.buffer = buffer;
+  src.playbackRate.value = 1.05;
+
+  const g = ctx.createGain();
+  g.gain.value = 0.9;
+  src.connect(g);
+  g.connect(sfxGain);
+  src.start(0);
+}
+
+export function sfxPhase() {
+  if (!ctx || !phaseBuffer || !sfxGain) return;
+  const src = ctx.createBufferSource();
+  src.buffer = phaseBuffer;
+
+  const g = ctx.createGain();
+  g.gain.value = 0.85;
   src.connect(g);
   g.connect(sfxGain);
   src.start(0);
@@ -279,4 +399,20 @@ export function sfxAchievementUnlock() {
 
   osc.start(now);
   osc.stop(now + 0.72);
+}
+
+export function sfxGameOver() {
+  if (!ctx || !sfxGain) return;
+  const buffer = gameOverBuffer || phaseBuffer;
+  if (!buffer) return;
+
+  const src = ctx.createBufferSource();
+  src.buffer = buffer;
+
+  const g = ctx.createGain();
+  g.gain.value = 0.9;
+
+  src.connect(g);
+  g.connect(sfxGain);
+  src.start(0);
 }

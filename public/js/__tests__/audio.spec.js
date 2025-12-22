@@ -131,7 +131,13 @@ describe("audio volume controls", () => {
       bounceUrl: "d",
       shatterUrl: "s",
       slowFieldUrl: "sf",
-      slowExplosionUrl: "se"
+      slowExplosionUrl: "se",
+      dashStartUrl: "ds",
+      dashBreakUrl: "db",
+      teleportUrl: "tp",
+      phaseUrl: "ph",
+      explosionUrl: "ex",
+      gameOverUrl: "go"
     });
     await audioInit({
       musicUrl: "m",
@@ -140,10 +146,16 @@ describe("audio volume controls", () => {
       bounceUrl: "d",
       shatterUrl: "s",
       slowFieldUrl: "sf",
-      slowExplosionUrl: "se"
+      slowExplosionUrl: "se",
+      dashStartUrl: "ds",
+      dashBreakUrl: "db",
+      teleportUrl: "tp",
+      phaseUrl: "ph",
+      explosionUrl: "ex",
+      gameOverUrl: "go"
     }); // cached
 
-    expect(globalThis.fetch).toHaveBeenCalledTimes(7); // only first init loads
+    expect(globalThis.fetch).toHaveBeenCalledTimes(13); // only first init loads
     const ctx = globalThis.__audioContexts.at(-1);
     expect(ctx?.resume).toHaveBeenCalled();
   });
@@ -168,8 +180,14 @@ describe("audio volume controls", () => {
       audioInit,
       sfxOrbBoop,
       sfxPerfectNice,
+      sfxDashStart,
       sfxDashBounce,
       sfxDashDestroy,
+      sfxDashBreak,
+      sfxTeleport,
+      sfxPhase,
+      sfxExplosion,
+      sfxGameOver,
       sfxSlowField,
       sfxSlowExplosion,
       sfxAchievementUnlock
@@ -180,26 +198,57 @@ describe("audio volume controls", () => {
       bounceUrl: "bounce",
       shatterUrl: "shatter",
       slowFieldUrl: "slowField",
-      slowExplosionUrl: "slowExplosion"
+      slowExplosionUrl: "slowExplosion",
+      dashStartUrl: "dashStart",
+      dashBreakUrl: "dashBreak",
+      teleportUrl: "teleport",
+      phaseUrl: "phase",
+      explosionUrl: "explosion",
+      gameOverUrl: "gameOver"
     });
 
+    sfxDashStart();
     sfxOrbBoop(10);
     sfxPerfectNice();
     const speed = 8;
     sfxDashBounce(speed); // should run clamp helper with provided speed
     sfxDashDestroy();
+    sfxDashBreak();
+    sfxTeleport();
+    sfxPhase();
+    sfxExplosion();
+    sfxGameOver();
     sfxSlowField();
     sfxSlowExplosion();
     sfxAchievementUnlock();
 
     const ctx = globalThis.__audioContexts.at(-1);
-    const [boop, nice, bounce, destroy, slowField, slowExplosion] = ctx.createdSources.slice(-6);
+    const [
+      dashStart,
+      boop,
+      nice,
+      bounce,
+      destroy,
+      dashBreak,
+      teleport,
+      phase,
+      explosion,
+      gameOver,
+      slowField,
+      slowExplosion
+    ] = ctx.createdSources.slice(-12);
+    expect(dashStart.playbackRate.value).toBe(1);
     expect(boop.playbackRate.value).toBeGreaterThan(1);
     expect(nice.playbackRate.value).toBe(1); // untouched
     // Follows clamp invocation order in audio.js (min,value,max)
     const expectedBounce = Math.max(speed * 0.25 + 1, Math.min(1.35, 0.85));
     expect(bounce.playbackRate.value).toBeCloseTo(expectedBounce);
     expect(destroy.playbackRate.value).toBe(1);
+    expect(dashBreak.playbackRate.value).toBe(1);
+    expect(teleport.playbackRate.value).toBeGreaterThan(1);
+    expect(phase.playbackRate.value).toBe(1);
+    expect(explosion.playbackRate.value).toBe(1);
+    expect(gameOver.playbackRate.value).toBe(1);
     expect(slowField.playbackRate.value).toBe(1);
     expect(slowExplosion.playbackRate.value).toBe(1);
     expect(ctx.createdOscillators.at(-1)?.start).toHaveBeenCalled();

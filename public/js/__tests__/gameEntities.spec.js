@@ -23,8 +23,14 @@ const stubWindow = () => {
 vi.mock("../audio.js", () => ({
   sfxOrbBoop: vi.fn(),
   sfxPerfectNice: vi.fn(),
+  sfxDashStart: vi.fn(),
   sfxDashBounce: vi.fn(),
   sfxDashDestroy: vi.fn(),
+  sfxDashBreak: vi.fn(),
+  sfxTeleport: vi.fn(),
+  sfxPhase: vi.fn(),
+  sfxExplosion: vi.fn(),
+  sfxGameOver: vi.fn(),
   sfxSlowField: vi.fn(),
   sfxSlowExplosion: vi.fn()
 }));
