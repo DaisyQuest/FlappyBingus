@@ -405,12 +405,22 @@ input[type="range"]::-moz-range-thumb{
   transform:translateY(-1px);
 }
 .achievements-card .achievement-controls .checkbox span{color:var(--text);font-weight:900;letter-spacing:.2px}
+.achievements-card .achievements-header{display:flex;align-items:center;gap:10px;margin-bottom:6px}
+.achievements-card .achievements-header .section-title{margin:0}
+.achievements-card .achievements-back{
+  min-width:0;
+  width:46px;
+  flex-shrink:0;
+  padding:10px 12px;
+  text-align:center;
+  line-height:1;
+}
 .achievements-card .achievement-list{
   display:flex;
   flex-direction:column;
   gap:10px;
   margin-top:10px;
-  max-height:360px;
+  max-height:520px;
   overflow:auto;
   padding-right:6px;
   border-radius:12px;
