@@ -250,13 +250,10 @@ export function sfxPerfectNice() {
 }
 
 export function sfxDashStart() {
-  if (!ctx || !sfxGain) return;
-
-  const buffer = dashStartBuffer || dashBreakBuffer || bounceBuffer;
-  if (!buffer) return;
+  if (!ctx || !sfxGain || !dashStartBuffer) return;
 
   const src = ctx.createBufferSource();
-  src.buffer = buffer;
+  src.buffer = dashStartBuffer;
   src.playbackRate.value = 1.0;
 
   const g = ctx.createGain();
