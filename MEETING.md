@@ -98,3 +98,27 @@
 - Wire the main menu launcher to open/close the overlay and refresh selections, including lock handling.
 - Refresh CSS to remove rectangular frames, add lock badges, and style the overlay/launcher per theme.
 - Add unit tests for the new helpers and adjust layout tests to assert the new refs and hidden overlay state.
+
+# Meeting Notes
+- Date: 2025-12-22
+- Attendees: ChatGPT (GPT-5.1-Codex-Max)
+
+## Agenda
+- Refocus the settings menu so Skill Behaviors and Skill Keybinds are the primary content.
+- Downshift Volume to a secondary position and compact the Status/Level Seed utilities.
+- Align the seed input and Random button on a single line while tightening test coverage around the layout.
+
+## Discussion
+- Skill controls were mixed in with low-priority cards, so players had to scan for core customization options.
+- Volume shared equal prominence with skills, and the seed/status cards visually competed despite being rarely used.
+- The seed input and Random button could wrap or misalign, wasting vertical space and visual focus.
+- Tests needed to enforce the new ordering, emphasis, and seed row structure to prevent regressions.
+
+## Decisions
+- Place Skill Behaviors and Skill Keybinds at the top of the settings grid as feature-spanning cards.
+- Position Volume beneath the skills as a secondary card and style Status/Level Seed as compact utilities.
+- Convert the seed row to a single-line grid so the Random button and seed input share height and alignment.
+
+## Action Items
+- Ship the layout, styling, and test updates that lock in the new settings hierarchy.
+- Watch for any UI regressions tied to the settings grid or seed row alignment in future changes.
