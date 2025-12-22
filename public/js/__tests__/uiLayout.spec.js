@@ -63,6 +63,29 @@ describe("uiLayout", () => {
     expect(ui.iconHint?.textContent).toBe("");
   });
 
+  it("moves Settings and Achievements navigation into the primary cards", () => {
+    buildGameUI({ document, mount });
+
+    const trailCard = document.querySelector(".panel-main .info-card:not(.howto-card)");
+    const howtoCard = document.querySelector(".panel-main .howto-card");
+    const achievementsNav = trailCard?.querySelector(".card-actions .card-nav[for='viewAchievements']");
+    const settingsNav = howtoCard?.querySelector(".card-actions .card-nav[for='viewSettings']");
+    const achievementsRadio = document.getElementById("viewAchievements");
+    const settingsRadio = document.getElementById("viewSettings");
+
+    expect(achievementsNav).toBeInstanceOf(window.HTMLLabelElement);
+    expect(settingsNav).toBeInstanceOf(window.HTMLLabelElement);
+    expect(trailCard?.querySelectorAll(".card-actions").length).toBeGreaterThanOrEqual(1);
+    expect(howtoCard?.querySelectorAll(".card-actions").length).toBeGreaterThanOrEqual(1);
+    expect(document.querySelector(".panel-main .tab-toggle")).toBeFalsy();
+
+    achievementsNav?.dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+    expect(achievementsRadio?.checked).toBe(true);
+
+    settingsNav?.dispatchEvent(new window.KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
+    expect(settingsRadio?.checked).toBe(true);
+  });
+
   it("renders all expected controls needed by main.js wiring", () => {
     const ui = buildGameUI({ document, mount });
     const requiredRefs = [
