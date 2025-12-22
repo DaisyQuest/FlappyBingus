@@ -73,6 +73,7 @@ import {
 import { clearIconSpriteCache, getCachedIconSprite, paintIconCanvas } from "./swatchPainter.js";
 
 import { buildGameUI } from "./uiLayout.js";
+import { createMenuParallaxController } from "./menuParallax.js";
 import { TrailPreview } from "./trailPreview.js";
 import { normalizeTrailSelection } from "./trailSelectUtils.js";
 import { buildTrailHint } from "./trailHint.js";
@@ -222,9 +223,15 @@ function writeIconCookie(id) {
   setCookie(ICON_COOKIE, String(id), 3650);
 }
 
+let menuParallaxControl = null;
 function setUIMode(isUI) {
   // When UI is shown, let clicks go to HTML controls
   canvas.style.pointerEvents = isUI ? "none" : "auto";
+  if (menuParallaxControl) {
+    const active = isUI && !menu.classList.contains("hidden");
+    menuParallaxControl.setEnabled(active);
+    if (active) menuParallaxControl.applyFromPoint();
+  }
 }
 
 function updateSkillCooldownUI(cfg) {
@@ -271,6 +278,10 @@ trailPreview = trailPreviewCanvas ? new TrailPreview({
   playerImg
 }) : null;
 syncLauncherSwatch(currentIconId, playerIcons, playerImg);
+menuParallaxControl = createMenuParallaxController({
+  panel: menuPanel || menu,
+  layers: ui.menuParallaxLayers || []
+});
 
 // ---- Input + Game ----
 const ctx = canvas.getContext("2d", { alpha: false });

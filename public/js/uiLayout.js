@@ -789,12 +789,33 @@ function createHighscoreCard(doc, refs) {
   return card;
 }
 
+function createMenuParallax(doc, refs) {
+  const wrap = doc.createElement("div");
+  wrap.className = "menu-parallax";
+  const layers = [
+    { className: "menu-parallax-layer menu-parallax-stars", depth: 8, tilt: 0.8 },
+    { className: "menu-parallax-layer menu-parallax-dust", depth: 14, tilt: 1.1 },
+    { className: "menu-parallax-layer menu-parallax-glow", depth: 22, tilt: 1.5 }
+  ].map(({ className, depth, tilt }) => {
+    const layer = doc.createElement("div");
+    layer.className = className;
+    layer.dataset.parallaxDepth = String(depth);
+    layer.dataset.parallaxTilt = String(tilt);
+    return layer;
+  });
+  wrap.append(...layers);
+  refs.menuParallaxLayers = layers;
+  refs.menuParallax = wrap;
+  return wrap;
+}
+
 function createMenuScreen(doc, refs) {
   const screen = createElement(doc, refs, "div", { id: "menu", className: "screen" });
   const trailOverlay = createTrailPreviewOverlay(doc, refs);
   const panel = doc.createElement("div");
   panel.className = "panel menu-panel";
   refs.menuPanel = panel;
+  const parallax = createMenuParallax(doc, refs);
   const aurora = doc.createElement("div");
   aurora.className = "light-aurora";
   const content = doc.createElement("div");
@@ -943,7 +964,7 @@ function createMenuScreen(doc, refs) {
   });
   updateMenuView();
   content.append(header, viewMain, viewSettings, viewAchievements, shell);
-  panel.append(aurora, content);
+  panel.append(parallax, aurora, content);
   screen.append(trailOverlay, panel);
   return screen;
 }
