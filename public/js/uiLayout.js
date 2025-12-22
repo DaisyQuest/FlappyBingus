@@ -940,6 +940,10 @@ function createMenuScreen(doc, refs) {
   viewArea.append(mainPanel, settingsPanel, achievementsPanel);
   mainCard.append(viewArea);
 
+  const menuBody = doc.createElement("div");
+  menuBody.className = "menu-body";
+  menuBody.append(viewMain, viewSettings, viewAchievements, shell);
+
   const sideStack = doc.createElement("div");
   sideStack.className = "side-stack";
   sideStack.append(createProfileCard(doc, refs), createHighscoreCard(doc, refs));
@@ -963,7 +967,7 @@ function createMenuScreen(doc, refs) {
     radio.addEventListener("change", updateMenuView);
   });
   updateMenuView();
-  content.append(header, viewMain, viewSettings, viewAchievements, shell);
+  content.append(header, menuBody);
   panel.append(parallax, aurora, content);
   screen.append(trailOverlay, panel);
   return screen;
