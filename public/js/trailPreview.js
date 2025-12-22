@@ -67,6 +67,8 @@ export class TrailPreview {
     this.running = false;
     this.lastTs = 0;
     this._rand = createSeededRand("trail-preview-classic");
+    this._wanderTarget = { x: 0.5, y: 0.56 };
+    this._wanderTimer = 0;
 
     this.resize();
   }
@@ -125,6 +127,26 @@ export class TrailPreview {
 
   _randRange(a, b) {
     return a + (b - a) * (this._rand ? this._rand() : Math.random());
+  }
+
+  _pickWanderTarget(marginX, marginY, currentX = 0.5, currentY = 0.5) {
+    const rangeX = { min: marginX, max: 1 - marginX };
+    const rangeY = { min: marginY, max: 1 - marginY };
+    const radius = this._randRange(0.18, 0.48);
+    const theta = this._randRange(0, Math.PI * 2);
+    const offsetX = Math.cos(theta) * radius;
+    const offsetY = Math.sin(theta) * radius;
+    const centeredX = clamp(currentX + offsetX, rangeX.min, rangeX.max);
+    const centeredY = clamp(currentY + offsetY, rangeY.min, rangeY.max);
+
+    const wanderX = this._randRange(rangeX.min, rangeX.max);
+    const wanderY = this._randRange(rangeY.min, rangeY.max);
+
+    // Blend toward a random wander point to avoid stagnating around the same orbit.
+    const mix = 0.35 + this._randRange(0, 0.35);
+    const nextX = clamp(centeredX * (1 - mix) + wanderX * mix, rangeX.min, rangeX.max);
+    const nextY = clamp(centeredY * (1 - mix) + wanderY * mix, rangeY.min, rangeY.max);
+    return { x: nextX, y: nextY };
   }
 
   _measureObstruction() {
@@ -188,69 +210,6 @@ export class TrailPreview {
     return { x: marginX, y: marginY };
   }
 
-  _minOrbitRadius() {
-    if (!this._obstruction) return 0.18;
-    const padX = this.obstructionPadding?.x ?? DEFAULT_OBSTRUCTION_PADDING.x;
-    const padY = this.obstructionPadding?.y ?? DEFAULT_OBSTRUCTION_PADDING.y;
-    const radiusX = this._obstruction.width * 0.5 + padX;
-    const radiusY = this._obstruction.height * 0.5 + padY;
-    return clamp(Math.max(radiusX, radiusY, 0.18), 0.18, 0.48);
-  }
-
-  _avoidObstruction(targetX, targetY, marginX, marginY) {
-    const obstacle = this._obstruction;
-    if (!obstacle) return { x: targetX, y: targetY };
-
-    const padX = this.obstructionPadding?.x ?? DEFAULT_OBSTRUCTION_PADDING.x;
-    const padY = this.obstructionPadding?.y ?? DEFAULT_OBSTRUCTION_PADDING.y;
-    const left = clamp(obstacle.left - padX, 0, 1);
-    const right = clamp(obstacle.right + padX, 0, 1);
-    const top = clamp(obstacle.top - padY, 0, 1);
-    const bottom = clamp(obstacle.bottom + padY, 0, 1);
-
-    const cx = (left + right) * 0.5;
-    const cy = (top + bottom) * 0.5;
-    const insideX = targetX > left && targetX < right;
-    const insideY = targetY > top && targetY < bottom;
-    const near = targetX > left - padX * 0.5 && targetX < right + padX * 0.5 && targetY > top - padY * 0.5 && targetY < bottom + padY * 0.5;
-    let nextX = targetX;
-    let nextY = targetY;
-
-    if (insideX && insideY) {
-      const moveHoriz = Math.abs(targetX - cx) >= Math.abs(targetY - cy) * 0.85;
-      if (moveHoriz) {
-        nextX = targetX < cx ? left : right;
-        nextY = clamp(targetY + (targetY - cy) * 0.12, marginY, 1 - marginY);
-      } else {
-        nextY = targetY < cy ? top : bottom;
-        nextX = clamp(targetX + (targetX - cx) * 0.08, marginX, 1 - marginX);
-      }
-    } else if (insideX) {
-      nextX = targetX < cx ? left : right;
-    } else if (insideY) {
-      nextY = targetY < cy ? top : bottom;
-    } else if (near) {
-      const drift = 0.08;
-      nextX = targetX + (targetX - cx) * drift;
-      nextY = targetY + (targetY - cy) * drift;
-    }
-
-    nextX = clamp(nextX, marginX, 1 - marginX);
-    nextY = clamp(nextY, marginY, 1 - marginY);
-
-    if (nextX > left && nextX < right && nextY > top && nextY < bottom) {
-      if (Math.abs(nextX - cx) > Math.abs(nextY - cy)) {
-        nextX = nextX < cx ? left : right;
-      } else {
-        nextY = nextY < cy ? top : bottom;
-      }
-      nextX = clamp(nextX, marginX, 1 - marginX);
-      nextY = clamp(nextY, marginY, 1 - marginY);
-    }
-
-    return { x: nextX, y: nextY };
-  }
-
   step(dt = null, now = null) {
     if (!this.ctx) return;
     const ts = (typeof now === "number" ? now : this._now());
@@ -298,43 +257,31 @@ export class TrailPreview {
     this._computePlayerSize();
     const { x: marginX, y: marginY } = this._computeMargins();
     const phase = this.player.phase;
-    const orbitPhase = phase * 0.86;
-    const weave = Math.sin(phase * 0.38) * 0.1;
-    const sway = Math.sin(phase * 0.24) * 0.08;
-    const arc = Math.cos(phase * 0.52) * 0.06;
+    const wobbleX = Math.sin(phase * 0.82) * 0.08;
+    const wobbleY = Math.cos(phase * 0.7) * 0.07;
+    const lift = Math.sin(phase * 0.2) * 0.05;
 
-    const xWave = Math.sin(orbitPhase) * (0.28 + 0.04 * arc);
-    const xSkew = Math.sin(orbitPhase * 0.6 + arc) * 0.07;
-    const yWave = Math.sin(orbitPhase * 0.9 + weave) * (0.24 + 0.04 * sway);
-    const yLift = Math.cos(orbitPhase * 0.58 - weave) * 0.07;
-    const baseY = 0.56 + Math.sin(phase * 0.18) * 0.04;
+    const normalizedX = clamp((this.player.x || this.W * 0.5) / this.W, marginX, 1 - marginX);
+    const normalizedY = clamp((this.player.y || this.H * 0.5) / this.H, marginY, 1 - marginY);
 
-    let targetX = 0.5 + xWave + xSkew;
-    let targetY = baseY + yWave + yLift;
-    targetX = clamp(targetX, marginX, 1 - marginX);
-    targetY = clamp(targetY, marginY, 1 - marginY);
-
-    const dx = targetX - 0.5;
-    const dy = targetY - 0.5;
-    const dist = Math.hypot(dx, dy);
-    const safeDx = dist > 1e-5 ? dx : 0.01;
-    const safeDy = dist > 1e-5 ? dy : 0.008;
-    const safeDist = Math.max(dist, Math.hypot(safeDx, safeDy));
-    const minGap = this._minOrbitRadius();
-    if (safeDist < minGap) {
-      const push = minGap / safeDist;
-      targetX = clamp(0.5 + safeDx * push, marginX, 1 - marginX);
-      targetY = clamp(0.5 + safeDy * push, marginY, 1 - marginY);
+    this._wanderTimer -= dt;
+    const wanderTarget = this._wanderTarget || { x: 0.5, y: 0.56 };
+    const distToTarget = Math.hypot(wanderTarget.x - normalizedX, wanderTarget.y - normalizedY);
+    if (this._wanderTimer <= 0 || distToTarget < 0.08) {
+      this._wanderTarget = this._pickWanderTarget(marginX, marginY, normalizedX, normalizedY);
+      this._wanderTimer = 0.8 + this._randRange(0.2, 1.2);
     }
 
-    const deflected = this._avoidObstruction(targetX, targetY, marginX, marginY);
-    targetX = clamp(deflected.x, marginX, 1 - marginX);
-    targetY = clamp(deflected.y, marginY, 1 - marginY);
+    const pull = 0.16;
+    let targetX = normalizedX + (this._wanderTarget.x - normalizedX) * pull + wobbleX;
+    let targetY = normalizedY + (this._wanderTarget.y - normalizedY) * pull + wobbleY + lift;
+    targetX = clamp(targetX, marginX, 1 - marginX);
+    targetY = clamp(targetY, marginY, 1 - marginY);
 
     this.player.prevX = this.player.x || this.W * targetX;
     this.player.prevY = this.player.y || this.H * targetY;
 
-    this.player.phase += dt * 0.92;
+    this.player.phase += dt * 1.04;
     this.player.x = this.W * targetX;
     this.player.y = this.H * targetY;
     const radiusScale = DEFAULT_CONFIG.player.radiusScale;

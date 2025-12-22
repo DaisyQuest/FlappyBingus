@@ -462,95 +462,54 @@ describe("TrailPreview", () => {
     expect(preview.parts.length).toBeLessThanOrEqual(480);
   });
 
-  it("steers the orbit around the measured menu panel footprint", () => {
+  it("picks new wander targets that stay within the visible play area", () => {
+    const { canvas } = makeCanvas();
+    const preview = new TrailPreview({
+      canvas,
+      playerImg: {},
+      requestFrame: null,
+      cancelFrame: null,
+      now: () => 0
+    });
+    preview._rand = () => 0.5;
+
+    const target = preview._pickWanderTarget(0.3, 0.28, 0.52, 0.52);
+
+    expect(target.x).toBeGreaterThanOrEqual(0.3);
+    expect(target.x).toBeLessThanOrEqual(0.7);
+    expect(target.y).toBeGreaterThanOrEqual(0.28);
+    expect(target.y).toBeLessThanOrEqual(0.72);
+    expect(Math.hypot(target.x - 0.52, target.y - 0.52)).toBeGreaterThan(0.05);
+  });
+
+  it("wanders smoothly around the menu space without teleporting", () => {
     const { canvas } = makeCanvas({ left: 0, top: 0, width: 1280, height: 720 });
     canvas.clientWidth = 1280;
     canvas.clientHeight = 720;
-    const panelRect = { left: 220, top: 110, width: 860, height: 520 };
-    const panel = {
-      getBoundingClientRect: () => ({
-        ...panelRect,
-        right: panelRect.left + panelRect.width,
-        bottom: panelRect.top + panelRect.height
-      })
-    };
     const preview = new TrailPreview({
       canvas,
       playerImg: {},
       requestFrame: null,
       cancelFrame: null,
-      now: () => 0,
-      obstructionElement: panel
+      now: () => 0
     });
+    const seq = [0.2, 0.84, 0.6, 0.1, 0.48];
+    let i = 0;
+    preview._rand = () => seq[(i++) % seq.length];
     preview.resize();
 
     const positions = [];
-    for (let i = 0; i < 360; i++) {
+    for (let step = 0; step < 260; step++) {
       preview._updatePlayer(1 / 60);
       positions.push({ x: preview.player.x / preview.W, y: preview.player.y / preview.H });
     }
 
-    const { left, right, top, bottom } = preview._obstruction;
-    const padX = preview.obstructionPadding?.x ?? 0;
-    const padY = preview.obstructionPadding?.y ?? 0;
-    const avoidLeft = clamp(left - padX, 0, 1);
-    const avoidRight = clamp(right + padX, 0, 1);
-    const avoidTop = clamp(top - padY, 0, 1);
-    const avoidBottom = clamp(bottom + padY, 0, 1);
-
-    const blockedHits = positions.filter(
-      (p) => p.x > avoidLeft && p.x < avoidRight && p.y > avoidTop && p.y < avoidBottom
-    );
-
+    const gaps = positions.slice(1).map((p, idx) => Math.hypot(p.x - positions[idx].x, p.y - positions[idx].y));
     const xs = positions.map((p) => p.x);
     const ys = positions.map((p) => p.y);
 
-    expect(blockedHits.length).toBe(0);
-    expect(Math.max(...xs) - Math.min(...xs)).toBeGreaterThan(0.35);
+    expect(Math.max(...xs) - Math.min(...xs)).toBeGreaterThan(0.32);
     expect(Math.max(...ys) - Math.min(...ys)).toBeGreaterThan(0.26);
-  });
-
-  it("keeps the orbit away from edges even when the panel dominates the center", () => {
-    const { canvas } = makeCanvas({ left: 0, top: 0, width: 1024, height: 640 });
-    canvas.clientWidth = 1024;
-    canvas.clientHeight = 640;
-    const panelRect = { left: 70, top: 40, width: 884, height: 550 };
-    const panel = {
-      getBoundingClientRect: () => ({
-        ...panelRect,
-        right: panelRect.left + panelRect.width,
-        bottom: panelRect.top + panelRect.height
-      })
-    };
-    const preview = new TrailPreview({
-      canvas,
-      playerImg: {},
-      requestFrame: null,
-      cancelFrame: null,
-      now: () => 0,
-      obstructionElement: panel
-    });
-    preview.resize();
-
-    const positions = [];
-    for (let i = 0; i < 420; i++) {
-      preview._updatePlayer(1 / 60);
-      positions.push({ x: preview.player.x / preview.W, y: preview.player.y / preview.H });
-    }
-
-    const margins = preview._computeMargins?.() || { x: 0, y: 0 };
-    const minEdgeGap = Math.min(...positions.map((p) => Math.min(p.x, 1 - p.x, p.y, 1 - p.y)));
-    const avoidLeft = clamp(preview._obstruction.left - (preview.obstructionPadding?.x ?? 0), 0, 1);
-    const avoidRight = clamp(preview._obstruction.right + (preview.obstructionPadding?.x ?? 0), 0, 1);
-    const avoidTop = clamp(preview._obstruction.top - (preview.obstructionPadding?.y ?? 0), 0, 1);
-    const avoidBottom = clamp(preview._obstruction.bottom + (preview.obstructionPadding?.y ?? 0), 0, 1);
-    const centerDistance = positions.map((p) => Math.hypot(p.x - 0.5, p.y - 0.5));
-    const hits = positions.filter(
-      (p) => p.x > avoidLeft && p.x < avoidRight && p.y > avoidTop && p.y < avoidBottom
-    );
-
-    expect(minEdgeGap).toBeGreaterThanOrEqual(margins.y || 0);
-    expect(Math.max(...centerDistance)).toBeGreaterThan(0.4);
-    expect(hits.length).toBe(0);
+    expect(Math.max(...gaps)).toBeLessThan(0.5);
   });
 });
