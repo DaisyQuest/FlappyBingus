@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { buildReplayEnvelope, maybeUploadBestRun, serializeReplayEnvelope } from "../bestRunRecorder.js";
+import { buildReplayEnvelope, hydrateBestRunPayload, maybeUploadBestRun, serializeReplayEnvelope } from "../bestRunRecorder.js";
 
 const baseRun = () => ({
   ended: true,
@@ -115,5 +115,21 @@ describe("serializeReplayEnvelope", () => {
     const serialized = serializeReplayEnvelope(envelope);
     expect(serialized.json).toContain('"ticks"');
     expect(serialized.bytes).toBeGreaterThanOrEqual(serialized.json.length);
+  });
+});
+
+describe("hydrateBestRunPayload", () => {
+  it("parses stored replay JSON into an active run shape", () => {
+    const envelope = buildReplayEnvelope(baseRun(), { finalScore: 10 });
+    const hydrated = hydrateBestRunPayload({ ...envelope, replayJson: JSON.stringify(envelope) });
+    expect(hydrated?.ticksLength).toBe(envelope.ticks.length);
+    expect(hydrated?.rngTapeLength).toBe(envelope.rngTape.length);
+    expect(hydrated?.ended).toBe(true);
+  });
+
+  it("returns null when the payload is invalid", () => {
+    expect(hydrateBestRunPayload(null)).toBeNull();
+    expect(hydrateBestRunPayload({ replayJson: "{}" })).toBeNull();
+    expect(hydrateBestRunPayload({ replayJson: "{" })).toBeNull();
   });
 });

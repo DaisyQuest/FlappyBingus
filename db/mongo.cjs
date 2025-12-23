@@ -123,6 +123,7 @@ class MongoDataStore {
       await db.command({ ping: 1 });
       await db.collection("users").createIndex({ key: 1 }, { unique: true });
       await db.collection("users").createIndex({ updatedAt: -1 });
+      await db.collection("best_runs").createIndex({ username: 1 });
       await db.collection("best_runs").createIndex({ key: 1 }, { unique: true });
       await db.collection("best_runs").createIndex({ bestScore: -1, updatedAt: -1 });
       this.client = client;
@@ -312,6 +313,12 @@ class MongoDataStore {
 
     await collection.updateOne({ key: user.key }, { $set: doc }, { upsert: true });
     return doc;
+  }
+
+  async getBestRunByUsername(username) {
+    await this.ensureConnected();
+    const doc = await this.bestRunsCollection().findOne({ username });
+    return doc || null;
   }
 
   async setTrail(key, trailId) {

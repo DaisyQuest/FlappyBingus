@@ -85,6 +85,22 @@ describe("MongoDataStore.recordBestRun", () => {
     expect(collection.doc.replayHash).toBe("hash2");
   });
 
+  it("retrieves a stored best run by username", async () => {
+    const existing = {
+      key: "user-key",
+      username: "User",
+      bestScore: 80,
+      replayJson: "{}"
+    };
+    const store = new MongoDataStore({ uri: "mongodb://test", dbName: "db" });
+    store.ensureConnected = vi.fn();
+    const collection = new FakeBestRunsCollection(existing);
+    store.bestRunsCollection = () => collection;
+
+    const found = await store.getBestRunByUsername("User");
+    expect(found).toMatchObject(existing);
+  });
+
   it("throws when provided with an invalid score", async () => {
     const store = new MongoDataStore({ uri: "mongodb://test", dbName: "db" });
     store.ensureConnected = vi.fn();

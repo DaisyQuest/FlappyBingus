@@ -66,6 +66,7 @@ async function importServer(overrides = {}) {
       bustercoins: (user?.bustercoins || 0) + (bustercoinsEarned || 0)
     })),
     recordBestRun: vi.fn(async (_user, payload) => ({ ...payload, bestScore: payload.score })),
+    getBestRunByUsername: vi.fn(async () => null),
     setTrail: vi.fn(async (_key, trailId) => ({ ...baseUser(), selectedTrail: trailId })),
     setIcon: vi.fn(async (_key, iconId) => ({ ...baseUser(), selectedIcon: iconId })),
     setKeybinds: vi.fn(async (_key, binds) => ({ ...baseUser(), keybinds: binds })),
@@ -248,6 +249,35 @@ describe("server routes and helpers", () => {
 
     expect(res.status).toBe(413);
     expect(readJson(res).error).toBe("payload_too_large");
+  });
+
+  it("returns stored best runs for a given username", async () => {
+    const { server, mockDataStore } = await importServer({
+      getBestRunByUsername: vi.fn(async () => ({
+        username: "PlayerOne",
+        replayJson: JSON.stringify({ ticks: [{ move: { dx: 0, dy: 0 }, cursor: { x: 0, y: 0, has: false } }], rngTape: [], seed: "abc" }),
+        runStats: { orbsCollected: 1 }
+      }))
+    });
+    const res = createRes();
+
+    await server.route(createReq({ method: "GET", url: "/api/run/best?username=PlayerOne" }), res);
+
+    expect(res.status).toBe(200);
+    const payload = readJson(res);
+    expect(payload.run.seed).toBe("abc");
+    expect(payload.run.replayJson).toContain('"ticks"');
+    expect(mockDataStore.getBestRunByUsername).toHaveBeenCalledWith("PlayerOne");
+  });
+
+  it("returns 404 when no stored best run exists", async () => {
+    const { server } = await importServer();
+    const res = createRes();
+
+    await server.route(createReq({ method: "GET", url: "/api/run/best?username=missing" }), res);
+
+    expect(res.status).toBe(404);
+    expect(readJson(res).error).toBe("best_run_not_found");
   });
 
   it("returns saved settings from /api/me", async () => {

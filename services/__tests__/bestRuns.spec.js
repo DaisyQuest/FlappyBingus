@@ -1,7 +1,7 @@
 "use strict";
 
 import { describe, expect, it } from "vitest";
-import { MAX_MEDIA_BYTES, MAX_REPLAY_BYTES, normalizeBestRunRequest } from "../bestRuns.cjs";
+import { MAX_MEDIA_BYTES, MAX_REPLAY_BYTES, normalizeBestRunRequest, hydrateReplayFromJson } from "../bestRuns.cjs";
 
 const baseBody = {
   score: 120,
@@ -66,5 +66,20 @@ describe("normalizeBestRunRequest", () => {
     );
     expect(res.ok).toBe(false);
     expect(res.error).toBe("media_too_large");
+  });
+
+  it("hydrates stored replay JSON into a playback-ready shape", () => {
+    const payload = normalizeBestRunRequest(baseBody, { bestScore: 0, validateRunStats: okRunStats }).payload;
+    const hydrated = hydrateReplayFromJson(payload);
+    expect(hydrated.seed).toBe("seed-123");
+    expect(hydrated.ticksLength).toBe(1);
+    expect(hydrated.rngTapeLength).toBe(2);
+    expect(hydrated.durationMs).toBeGreaterThan(0);
+  });
+
+  it("returns null for malformed replay blobs", () => {
+    expect(hydrateReplayFromJson(null)).toBeNull();
+    expect(hydrateReplayFromJson({ replayJson: "{" })).toBeNull();
+    expect(hydrateReplayFromJson({ replayJson: JSON.stringify({ ticks: [] }) })).toBeNull();
   });
 });

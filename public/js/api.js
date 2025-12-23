@@ -79,6 +79,12 @@ export async function apiUploadBestRun(payload) {
   return requestJson("/api/run/best", { method: "POST", body: JSON.stringify(payload) });
 }
 
+export async function apiGetBestRun(username) {
+  if (hitClientRateLimit("/api/run/best")) return null;
+  const target = encodeURIComponent(String(username || ""));
+  return requestJson(`/api/run/best?username=${target}`, { method: "GET" });
+}
+
 export async function apiSetTrail(trailId) {
   if (hitClientRateLimit("/api/cosmetics/trail")) return null;
   return requestJson("/api/cosmetics/trail", { method: "POST", body: JSON.stringify({ trailId }) });

@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from "vitest";
+import { describe, it, expect, beforeEach, vi } from "vitest";
 import { JSDOM } from "jsdom";
 import { renderHighscores, __testables } from "../highscores.js";
 
@@ -100,5 +100,17 @@ describe("renderHighscores", () => {
     expect(__testables.measureHeight({}, 12)).toBe(12);
     expect(__testables.measureHeight({ getBoundingClientRect: () => ({ height: 0 }) }, 4)).toBe(4);
     expect(__testables.measureHeight({ getBoundingClientRect: () => ({ height: 5 }) }, 9)).toBe(5);
+  });
+
+  it("adds play controls when a replay handler is provided", () => {
+    const highscores = [{ username: "alice", bestScore: 42 }];
+    const onPlayRun = vi.fn();
+
+    renderHighscores({ container, online: true, highscores, onPlayRun });
+
+    const button = container.querySelector("button");
+    expect(button?.textContent).toBe("Play");
+    button?.click();
+    expect(onPlayRun).toHaveBeenCalledWith("alice");
   });
 });

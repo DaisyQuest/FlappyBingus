@@ -115,8 +115,33 @@ function normalizeBestRunRequest(
   };
 }
 
+function hydrateReplayFromJson(run) {
+  if (!run || typeof run.replayJson !== "string" || !run.replayJson) return null;
+  let parsed = null;
+  try {
+    parsed = JSON.parse(run.replayJson);
+  } catch {
+    return null;
+  }
+
+  const ticks = Array.isArray(parsed?.ticks) ? parsed.ticks : [];
+  if (!ticks.length) return null;
+  const rngTape = Array.isArray(parsed?.rngTape) ? parsed.rngTape : [];
+
+  return {
+    seed: String(parsed.seed || run.seed || ""),
+    ticks,
+    rngTape,
+    recordedAt: Number(run.recordedAt || parsed.recordedAt || Date.now()),
+    durationMs: Number(run.durationMs || parsed.durationMs || ticks.length * DEFAULT_TICK_MS) || 0,
+    rngTapeLength: rngTape.length,
+    ticksLength: ticks.length
+  };
+}
+
 module.exports = {
   MAX_MEDIA_BYTES,
   MAX_REPLAY_BYTES,
-  normalizeBestRunRequest
+  normalizeBestRunRequest,
+  hydrateReplayFromJson
 };

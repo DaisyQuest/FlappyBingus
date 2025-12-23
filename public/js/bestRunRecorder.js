@@ -53,6 +53,31 @@ export function serializeReplayEnvelope(envelope) {
   return { json, bytes };
 }
 
+export function hydrateBestRunPayload(run) {
+  if (!run || typeof run.replayJson !== "string" || !run.replayJson) return null;
+  let parsed = null;
+  try {
+    parsed = JSON.parse(run.replayJson);
+  } catch {
+    return null;
+  }
+  const ticks = Array.isArray(parsed.ticks) ? parsed.ticks : [];
+  if (!ticks.length) return null;
+
+  return {
+    seed: parsed.seed || run.seed || "",
+    ticks,
+    rngTape: Array.isArray(parsed.rngTape) ? parsed.rngTape : [],
+    rngTapeLength: Array.isArray(parsed.rngTape) ? parsed.rngTape.length : 0,
+    ticksLength: ticks.length,
+    ended: true,
+    pendingActions: [],
+    durationMs: run.durationMs || parsed.durationMs || 0,
+    recordedAt: run.recordedAt || parsed.recordedAt || Date.now(),
+    runStats: run.runStats || parsed.runStats || null
+  };
+}
+
 export async function maybeUploadBestRun({
   activeRun,
   finalScore,

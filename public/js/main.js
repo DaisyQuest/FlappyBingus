@@ -10,6 +10,7 @@ import {
   apiSetTrail,
   apiSetIcon,
   apiSubmitScore,
+  apiGetBestRun,
   apiUploadBestRun,
   apiSetKeybinds,
   apiSetSettings
@@ -79,7 +80,7 @@ import { TrailPreview } from "./trailPreview.js";
 import { normalizeTrailSelection } from "./trailSelectUtils.js";
 import { buildTrailHint } from "./trailHint.js";
 import { DEFAULT_TRAILS, getUnlockedTrails, normalizeTrails, sortTrailsForDisplay } from "./trailProgression.js";
-import { maybeUploadBestRun } from "./bestRunRecorder.js";
+import { hydrateBestRunPayload, maybeUploadBestRun } from "./bestRunRecorder.js";
 import { renderHighscores } from "./highscores.js";
 import {
   DEFAULT_TRAIL_HINT,
@@ -472,6 +473,54 @@ function setUserHint() {
   userHint.textContent = `Signed in as ${net.user.username}. Runs: ${net.user.runs} • Total: ${net.user.totalScore} • Bustercoins: ${coins}`;
 }
 
+async function handlePlayHighscore(username) {
+  if (!username) return;
+  if (replayStatus) {
+    replayStatus.className = "hint";
+    replayStatus.textContent = `Loading ${username}'s best run…`;
+  }
+  try {
+    const res = await apiGetBestRun(username);
+    if (!res?.ok || !res.run) {
+      if (replayStatus) {
+        replayStatus.className = "hint bad";
+        replayStatus.textContent = "Replay not available for this player.";
+      }
+      return;
+    }
+    const playbackRun = hydrateBestRunPayload(res.run);
+    if (!playbackRun) {
+      if (replayStatus) {
+        replayStatus.className = "hint bad";
+        replayStatus.textContent = "Replay data is invalid.";
+      }
+      return;
+    }
+
+    await playReplay({ captureMode: "none", run: playbackRun });
+    if (replayStatus) {
+      replayStatus.className = "hint good";
+      replayStatus.textContent = `Playing ${username}'s best run… done.`;
+    }
+  } catch (err) {
+    console.error(err);
+    if (replayStatus) {
+      replayStatus.className = "hint bad";
+      replayStatus.textContent = "Unable to play the selected replay.";
+    }
+  }
+}
+
+function renderHighscoresUI() {
+  renderHighscores({
+    container: hsWrap,
+    online: net.online,
+    highscores: net.highscores,
+    currentUser: net.user,
+    onPlayRun: handlePlayHighscore
+  });
+}
+
 function getIconDisplayName(id, icons = playerIcons) {
   return icons.find((i) => i.id === id)?.name || id || DEFAULT_PLAYER_ICON_ID;
 }
@@ -779,12 +828,7 @@ async function refreshProfileAndHighscores() {
   setUserHint();
   refreshTrailMenu();
   applyIconSelection(net.user?.selectedIcon || currentIconId, playerIcons);
-  renderHighscores({
-    container: hsWrap,
-    online: net.online,
-    highscores: net.highscores,
-    currentUser: net.user
-  });
+  renderHighscoresUI();
   renderAchievements();
   renderBindUI();
   refreshBootUI();
@@ -838,15 +882,6 @@ function downloadBlob(blob, filename) {
   setTimeout(() => URL.revokeObjectURL(url), 2500);
 }
 
-function blobToDataUrl(blob) {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onloadend = () => resolve(reader.result);
-    reader.onerror = (err) => reject(err);
-    reader.readAsDataURL(blob);
-  });
-}
-
 async function playReplay({ captureMode = "none", run: replayRun = activeRun } = {}) {
   // NEW: ensure gameplay music is OFF during replay playback/capture
   musicStop();
@@ -858,7 +893,7 @@ async function playReplay({ captureMode = "none", run: replayRun = activeRun } =
     }
     return null;
   }
-  setRandSource(createTapeRandPlayer(replayRun.rngTape));
+  setRandSource(createTapeRandPlayer(replayRun.rngTape || []));
 
   replayDriving = true;
   try {
@@ -940,10 +975,6 @@ async function playReplay({ captureMode = "none", run: replayRun = activeRun } =
   }
 }
 
-function canRecordReplayMedia() {
-  return typeof MediaRecorder !== "undefined" && typeof canvas?.captureStream === "function";
-}
-
 function cloneActiveRun(run) {
   if (!run) return null;
   return {
@@ -962,28 +993,11 @@ async function uploadBestRunArtifacts(finalScore, runStats) {
   const runForUpload = cloneActiveRun(activeRun);
   if (!runForUpload?.ticks?.length) return;
 
-  const recordVideo = canRecordReplayMedia()
-    ? async () => {
-        if (replayStatus) {
-          replayStatus.className = "hint";
-          replayStatus.textContent = "Recording best run for upload…";
-        }
-        const blob = await playReplay({ captureMode: "webm", run: runForUpload });
-        if (!blob) return null;
-        return {
-          dataUrl: await blobToDataUrl(blob),
-          mimeType: blob.type || "video/webm",
-          bytes: blob.size || null
-        };
-      }
-    : null;
-
   const uploaded = await maybeUploadBestRun({
     activeRun: runForUpload,
     finalScore,
     runStats,
     bestScore,
-    recordVideo,
     upload: apiUploadBestRun,
     logger: (msg) => {
       if (!replayStatus) return;
@@ -1483,7 +1497,7 @@ async function onGameOver(finalScore) {
 
       refreshTrailMenu();
       applyIconSelection(res.user?.selectedIcon || currentIconId, playerIcons);
-      renderHighscores();
+      renderHighscoresUI();
       renderAchievements();
 
       updatePersonalBestUI(finalScore, net.user.bestScore);

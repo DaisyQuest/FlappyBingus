@@ -21,7 +21,7 @@ const {
   evaluateRunForAchievements,
   buildAchievementsPayload
 } = require("./services/achievements.cjs");
-const { MAX_MEDIA_BYTES, MAX_REPLAY_BYTES, normalizeBestRunRequest } = require("./services/bestRuns.cjs");
+const { MAX_MEDIA_BYTES, MAX_REPLAY_BYTES, normalizeBestRunRequest, hydrateReplayFromJson } = require("./services/bestRuns.cjs");
 const { DEFAULT_SKILL_TOTALS, normalizeSkillTotals } = require("./services/skillConsts.cjs");
 const {
   DEFAULT_PLAYER_ICON_ID,
@@ -53,6 +53,7 @@ function _setDataStoreForTests(mock) {
     recordBestRun: async () => {
       throw new Error("recordBestRun_not_mocked");
     },
+    getBestRunByUsername: async () => null,
     ...mock
   };
   dataStore = safeStore;
@@ -916,6 +917,31 @@ async function route(req, res) {
       if (status === 400) return badRequest(res, error || "invalid_score");
       sendJson(res, status, { ok: false, error: error || "score_persist_failed" });
     }
+    return;
+  }
+
+  // Retrieve a stored best run by username
+  if (pathname === "/api/run/best" && req.method === "GET") {
+    if (rateLimit(req, res, "/api/run/best")) return;
+    if (!(await ensureDatabase(res))) return;
+    const username = normalizeUsername(url.searchParams.get("username"));
+    if (!username) return badRequest(res, "invalid_username");
+
+    const stored = await dataStore.getBestRunByUsername(username);
+    const hydrated = hydrateReplayFromJson(stored);
+    if (!hydrated) {
+      sendJson(res, 404, { ok: false, error: "best_run_not_found" });
+      return;
+    }
+
+    sendJson(res, 200, {
+      ok: true,
+      run: {
+        ...hydrated,
+        replayJson: stored.replayJson,
+        runStats: stored.runStats || null
+      }
+    });
     return;
   }
 
