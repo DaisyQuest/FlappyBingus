@@ -433,6 +433,55 @@ describe("MongoDataStore mutations and reads", () => {
     await store.recentUsers(0);
     expect(chain.limit).toHaveBeenCalledWith(5);
   });
+
+  it("persists score submissions with normalized counters and achievements", async () => {
+    const { MongoDataStore } = await loadModule();
+    const coll = makeCollection({
+      findOneAndUpdate: vi.fn(async () => ({ value: { key: "k", bestScore: 50, bustercoins: 7, runs: 2 } }))
+    });
+    const store = new MongoDataStore({ uri: "mongodb://ok", dbName: "db" });
+    store.ensureConnected = vi.fn();
+    store.usersCollection = () => coll;
+
+    const user = {
+      key: "k",
+      username: "User",
+      runs: 1,
+      totalScore: 10,
+      bestScore: 40,
+      bustercoins: 4,
+      achievements: { unlocked: {}, progress: {} },
+      skillTotals: { dash: 1, phase: 2, teleport: 3, slowField: 4 }
+    };
+
+    const updated = await store.recordScore(user, 50.9, {
+      bustercoinsEarned: 3.2,
+      achievements: { unlocked: { a: 1 }, progress: { bestScore: 50 } },
+      skillUsage: { dash: 1, phase: 1, teleport: 1, slowField: 1 }
+    });
+
+    expect(store.ensureConnected).toHaveBeenCalled();
+    expect(coll.findOneAndUpdate).toHaveBeenCalledWith(
+      { key: "k" },
+      expect.any(Array),
+      { returnDocument: "after", upsert: true }
+    );
+    const [, pipeline] = coll.findOneAndUpdate.mock.calls[0];
+    const setStage = pipeline[0].$set;
+    expect(setStage.bestScore).toBeDefined();
+    expect(setStage.skillTotals).toBeDefined();
+    expect(updated).toEqual({ key: "k", bestScore: 50, bustercoins: 7, runs: 2 });
+  });
+
+  it("throws when recordScore is called without a user key or when the update yields no document", async () => {
+    const { MongoDataStore } = await loadModule();
+    const store = new MongoDataStore({ uri: "mongodb://ok", dbName: "db" });
+    await expect(store.recordScore({}, 10)).rejects.toThrow("user_key_required");
+
+    store.ensureConnected = vi.fn();
+    store.usersCollection = () => makeCollection({ findOneAndUpdate: vi.fn(async () => ({ value: null })) });
+    await expect(store.recordScore({ key: "k" }, 10)).rejects.toThrow("record_score_failed");
+  });
 });
 
 describe("cleanup and status", () => {

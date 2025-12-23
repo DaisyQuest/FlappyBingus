@@ -57,6 +57,23 @@ const setupGame = () => {
   return game;
 };
 
+const makeCtx = () => {
+  const ctx = {
+    save: vi.fn(),
+    restore: vi.fn(),
+    beginPath: vi.fn(),
+    arc: vi.fn(),
+    stroke: vi.fn(),
+    fill: vi.fn(),
+    setLineDash: vi.fn(),
+    moveTo: vi.fn(),
+    lineTo: vi.fn(),
+    strokeRect: vi.fn(),
+    fillText: vi.fn()
+  };
+  return ctx;
+};
+
 describe("Tutorial skill variants", () => {
   it("teaches destroy dash and advances after a shatter", () => {
     const game = setupGame();
@@ -227,6 +244,137 @@ describe("Tutorial skill variants", () => {
     expect(tutorial._reflectHitsThisDash).toBe(1);
     expect(tutorial._reflectWallsHit.size).toBe(1);
     expect(tutorial._reflectSuccessDelay).toBe(0);
+    tutorial.stop();
+  });
+});
+
+describe("Tutorial copy, guides, and slow-field flows", () => {
+  it("emits contextual copy for every step", () => {
+    const game = setupGame();
+    const tutorial = new Tutorial({
+      game,
+      input: game.input,
+      getBinds: () => ({
+        dash: { type: "key", code: "KeyV" },
+        phase: { type: "key", code: "KeyQ" },
+        teleport: { type: "mouse", button: 2 },
+        slowField: { type: "key", code: "KeyE" }
+      }),
+      onExit: () => {}
+    });
+    tutorial.start();
+
+    const copyFor = (id) => {
+      tutorial._enterStep(tutorial._steps().findIndex((s) => s.id === id));
+      return tutorial._uiCopy();
+    };
+
+    expect(copyFor("move").title).toContain("Movement");
+    expect(copyFor("orbs").objective).toContain("Collect 5 orbs");
+    expect(copyFor("perfect").body).toContain("dashed line");
+    expect(copyFor("skill_phase").hotkey.label).toBeTruthy();
+    expect(copyFor("skill_dash").objective).toContain("Dash");
+    expect(copyFor("dash_destroy").body).toContain("Destroy variant");
+    expect(copyFor("skill_teleport").hotkey.label).toBeTruthy();
+    expect(copyFor("skill_slow").title).toContain("Slow Field");
+    expect(copyFor("slow_explosion").objective).toContain("explosive");
+    expect(copyFor("practice").hotkey.label).toContain("Enter");
+    tutorial.stop();
+  });
+
+  it("walks through the slow-field survival and completion flow", () => {
+    const game = setupGame();
+    const tutorial = new Tutorial({ game, input: game.input, getBinds: () => ({}), onExit: () => {} });
+    tutorial.start();
+    tutorial._enterStep(tutorial._steps().findIndex((s) => s.id === "skill_slow"));
+
+    const flash = vi.spyOn(tutorial, "_flash");
+    const spawnBurst = vi.spyOn(tutorial, "_spawnSlowBurst").mockImplementation(() => {});
+    const advance = vi.spyOn(tutorial, "_nextStep");
+
+    tutorial.game.slowField = {};
+    tutorial._stepSkillSlow(0.1);
+    expect(tutorial._slowUsed).toBe(true);
+    expect(spawnBurst).toHaveBeenCalled();
+    expect(flash).toHaveBeenCalled();
+
+    tutorial._stepSkillSlow(3.0);
+    expect(advance).toHaveBeenCalled();
+    tutorial.stop();
+  });
+
+  it("waits for explosion clears before advancing the explosive slow-field step", () => {
+    const game = setupGame();
+    const tutorial = new Tutorial({ game, input: game.input, getBinds: () => ({}), onExit: () => {} });
+    tutorial.start();
+    tutorial._enterStep(tutorial._steps().findIndex((s) => s.id === "slow_explosion"));
+
+    const advance = vi.spyOn(tutorial, "_nextStep");
+    tutorial.game.lastSlowBlast = { happened: true };
+    tutorial._stepSlowExplosion(0.1);
+    expect(tutorial._slowUsed).toBe(true);
+
+    tutorial.game.pipes = [];
+    tutorial._stepSlowExplosion(0.1);
+    expect(tutorial._slowExplosionCleared).toBe(true);
+
+    tutorial._stepSlowExplosion(1.0);
+    expect(advance).toHaveBeenCalled();
+    tutorial.stop();
+  });
+
+  it("renders visual guides for multiple tutorial steps", () => {
+    const game = setupGame();
+    const tutorial = new Tutorial({ game, input: game.input, getBinds: () => ({}), onExit: () => {} });
+    tutorial.start();
+
+    const runGuides = (id) => {
+      tutorial._enterStep(tutorial._steps().findIndex((s) => s.id === id));
+      if (id === "skill_dash") {
+        tutorial._spawnDashScenario();
+      } else if (id === "skill_teleport") {
+        tutorial._spawnTeleportScenario();
+      }
+      const ctx = makeCtx();
+      tutorial._renderGuides(ctx, { panel: { y: 20, h: 40 } });
+      return ctx;
+    };
+
+    expect(runGuides("move").arc).toHaveBeenCalled();
+    const perfectCtx = runGuides("perfect");
+    expect(perfectCtx.setLineDash).toHaveBeenCalledWith([10, 10]);
+
+    const dashCtx = runGuides("skill_dash");
+    expect(dashCtx.fillText).toHaveBeenCalled();
+
+    const reflectCtx = runGuides("dash_reflect");
+    expect(reflectCtx.strokeRect).toHaveBeenCalledTimes(2);
+
+    expect(runGuides("skill_teleport").fill).toHaveBeenCalled();
+    tutorial.stop();
+  });
+
+  it("hard-clears the world and cooldowns between steps", () => {
+    const game = setupGame();
+    const tutorial = new Tutorial({ game, input: game.input, getBinds: () => ({}), onExit: () => {} });
+    tutorial.start();
+
+    game.pipes.push({}); game.gates.push({}); game.orbs.push({}); game.parts.push({}); game.floats.push({});
+    game.slowField = { active: true };
+    game.cds = { dash: 5, phase: 4, teleport: 3, slowField: 2 };
+    game.player = { invT: 3, dashT: 2 };
+
+    tutorial._hardClearWorld();
+
+    expect(game.pipes).toHaveLength(0);
+    expect(game.gates).toHaveLength(0);
+    expect(game.orbs).toHaveLength(0);
+    expect(game.parts).toHaveLength(0);
+    expect(game.floats).toHaveLength(0);
+    expect(game.slowField).toBeNull();
+    expect(game.cds).toEqual({ dash: 0, phase: 0, teleport: 0, slowField: 0 });
+    expect(game.player.invT).toBe(0);
+    expect(game.player.dashT).toBe(0);
     tutorial.stop();
   });
 });
