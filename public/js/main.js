@@ -88,6 +88,7 @@ import {
   renderTrailOptions as renderTrailMenuOptions,
   toggleTrailMenu
 } from "./trailMenu.js";
+import { playbackTicks } from "./replayUtils.js";
 import { bindSkillOptionGroup, markSkillOptionSelection } from "./skillOptions.js";
 import { renderSkillUsageStats } from "./skillUsageStats.js";
 
@@ -882,14 +883,6 @@ function downloadBlob(blob, filename) {
   setTimeout(() => URL.revokeObjectURL(url), 2500);
 }
 
-const REPLAY_TARGET_FPS = 60;
-const REPLAY_TPS = 120;
-
-function ticksPerFrameForPlayback(captureMode = "none") {
-  if (captureMode !== "none") return 1;
-  return Math.max(1, Math.round(REPLAY_TPS / REPLAY_TARGET_FPS));
-}
-
 async function playReplay({ captureMode = "none", run: replayRun = activeRun } = {}) {
   // NEW: ensure gameplay music is OFF during replay playback/capture
   musicStop();
@@ -938,39 +931,14 @@ async function playReplay({ captureMode = "none", run: replayRun = activeRun } =
       recorder.start();
     }
 
-    const ticksPerFrame = ticksPerFrameForPlayback(captureMode);
-    for (let i = 0; i < replayRun.ticks.length; ) {
-      for (let step = 0; step < ticksPerFrame && i < replayRun.ticks.length; step += 1, i += 1) {
-        const tk = replayRun.ticks[i];
-
-        // Apply inputs for this tick
-        replayInput._move = tk.move || { dx: 0, dy: 0 };
-        replayInput.cursor.x = tk.cursor?.x ?? 0;
-        replayInput.cursor.y = tk.cursor?.y ?? 0;
-        replayInput.cursor.has = !!tk.cursor?.has;
-
-        // Apply actions scheduled for this tick (exactly like live tick processing)
-        if (Array.isArray(tk.actions)) {
-          for (const a of tk.actions) {
-            if (a && a.cursor) {
-              replayInput.cursor.x = a.cursor.x;
-              replayInput.cursor.y = a.cursor.y;
-              replayInput.cursor.has = !!a.cursor.has;
-            }
-            game.handleAction(a.id);
-          }
-        }
-
-        // Step exactly one tick
-        game.update(SIM_DT);
-        game.render();
-
-        if (game.state === 2 /* OVER */) break;
-      }
-
-      await new Promise(requestAnimationFrame);
-      if (game.state === 2 /* OVER */) break;
-    }
+    await playbackTicks({
+      ticks: replayRun.ticks,
+      game,
+      replayInput,
+      captureMode,
+      simDt: SIM_DT,
+      requestFrame: requestAnimationFrame
+    });
 
     let webmBlob = null;
     if (recorder) {
