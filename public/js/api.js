@@ -4,6 +4,7 @@ const CLIENT_RATE_LIMITS = Object.freeze({
   "/api/me": { limit: 8, windowMs: 5_000 },
   "/api/register": { limit: 3, windowMs: 10_000 },
   "/api/score": { limit: 5, windowMs: 10_000 },
+  "/api/run/best": { limit: 3, windowMs: 20_000 },
   "/api/cosmetics/trail": { limit: 6, windowMs: 10_000 },
   "/api/cosmetics/icon": { limit: 6, windowMs: 10_000 },
   "/api/binds": { limit: 8, windowMs: 10_000 },
@@ -71,6 +72,11 @@ export async function apiSubmitScore(scoreOrPayload, bustercoinsEarned) {
     payload = { score: scoreOrPayload, bustercoinsEarned: bustercoinsEarned ?? 0 };
   }
   return requestJson("/api/score", { method: "POST", body: JSON.stringify(payload) });
+}
+
+export async function apiUploadBestRun(payload) {
+  if (hitClientRateLimit("/api/run/best")) return null;
+  return requestJson("/api/run/best", { method: "POST", body: JSON.stringify(payload) });
 }
 
 export async function apiSetTrail(trailId) {

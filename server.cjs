@@ -21,6 +21,7 @@ const {
   evaluateRunForAchievements,
   buildAchievementsPayload
 } = require("./services/achievements.cjs");
+const { MAX_MEDIA_BYTES, MAX_REPLAY_BYTES, normalizeBestRunRequest } = require("./services/bestRuns.cjs");
 const { DEFAULT_SKILL_TOTALS, normalizeSkillTotals } = require("./services/skillConsts.cjs");
 const {
   DEFAULT_PLAYER_ICON_ID,
@@ -48,6 +49,9 @@ function _setDataStoreForTests(mock) {
   const safeStore = {
     recordScore: async () => {
       throw new Error("recordScore_not_mocked");
+    },
+    recordBestRun: async () => {
+      throw new Error("recordBestRun_not_mocked");
     },
     ...mock
   };
@@ -126,7 +130,8 @@ const RATE_LIMIT_CONFIG = Object.freeze({
   "/api/cosmetics/icon": { limit: 30, windowMs: 60_000 },
   "/api/binds": { limit: 30, windowMs: 60_000 },
   "/api/settings": { limit: 30, windowMs: 60_000 },
-  "/api/highscores": { limit: 90, windowMs: 60_000 }
+  "/api/highscores": { limit: 90, windowMs: 60_000 },
+  "/api/run/best": { limit: 10, windowMs: 60_000 }
 });
 
 const _rateLimitState = new Map();
@@ -910,6 +915,46 @@ async function route(req, res) {
       if (status === 401) return unauthorized(res);
       if (status === 400) return badRequest(res, error || "invalid_score");
       sendJson(res, status, { ok: false, error: error || "score_persist_failed" });
+    }
+    return;
+  }
+
+  // Upload best-run artifacts (replay + optional canvas capture)
+  if (pathname === "/api/run/best" && req.method === "POST") {
+    if (rateLimit(req, res, "/api/run/best")) return;
+    if (!(await ensureDatabase(res))) return;
+    const u = await getUserFromReq(req, { withRecordHolder: true });
+    if (!u) return unauthorized(res);
+
+    let body;
+    try {
+      body = await readJsonBody(req, MAX_REPLAY_BYTES + MAX_MEDIA_BYTES + 512 * 1024);
+    } catch (err) {
+      if (err?.message === "body_too_large") {
+        return sendJson(res, 413, { ok: false, error: "payload_too_large" });
+      }
+      return badRequest(res, "invalid_json");
+    }
+
+    const normalized = normalizeBestRunRequest(body, { bestScore: u.bestScore, validateRunStats });
+    if (!normalized.ok) {
+      if (normalized.error === "not_best") {
+        return sendJson(res, 200, { ok: false, skipped: "not_best" });
+      }
+      return badRequest(res, normalized.error);
+    }
+
+    try {
+      const saved = await dataStore.recordBestRun(u, normalized.payload);
+      sendJson(res, 200, {
+        ok: true,
+        bestScore: saved?.bestScore ?? u.bestScore,
+        replayBytes: saved?.replayBytes ?? normalized.payload.replayBytes,
+        mediaBytes: saved?.media?.bytes ?? null
+      });
+    } catch (err) {
+      console.error("[bingus] best run persist failed:", err);
+      sendJson(res, 503, { ok: false, error: "best_run_persist_failed" });
     }
     return;
   }

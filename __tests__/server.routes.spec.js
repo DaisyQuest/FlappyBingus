@@ -65,6 +65,7 @@ async function importServer(overrides = {}) {
       bestScore: score,
       bustercoins: (user?.bustercoins || 0) + (bustercoinsEarned || 0)
     })),
+    recordBestRun: vi.fn(async (_user, payload) => ({ ...payload, bestScore: payload.score })),
     setTrail: vi.fn(async (_key, trailId) => ({ ...baseUser(), selectedTrail: trailId })),
     setIcon: vi.fn(async (_key, iconId) => ({ ...baseUser(), selectedIcon: iconId })),
     setKeybinds: vi.fn(async (_key, binds) => ({ ...baseUser(), keybinds: binds })),
@@ -174,6 +175,79 @@ describe("server routes and helpers", () => {
     );
     expect(negative.status).toBe(400);
     expect(readJson(negative).error).toBe("invalid_bustercoins");
+  });
+
+  it("persists best-run uploads outside of the score service", async () => {
+    const { server, mockDataStore } = await importServer();
+    const res = createRes();
+
+    await server.route(
+      createReq({
+        method: "POST",
+        url: "/api/run/best",
+        body: JSON.stringify({
+          score: 5000,
+          seed: "seed-best",
+          replay: { ticks: [{ move: { dx: 0, dy: 0 }, cursor: { x: 0, y: 0, has: false } }], rngTape: [1] },
+          runStats: { abilitiesUsed: 1 },
+          media: { dataUrl: "data:video/webm;base64,AAA", mimeType: "video/webm" }
+        }),
+        headers: { cookie: "sugar=PlayerOne" }
+      }),
+      res
+    );
+
+    expect(res.status).toBe(200);
+    const parsed = readJson(res);
+    expect(parsed.ok).toBe(true);
+    expect(mockDataStore.recordBestRun).toHaveBeenCalledWith(
+      expect.objectContaining({ key: "player-one" }),
+      expect.objectContaining({ replayBytes: expect.any(Number), media: expect.objectContaining({ mimeType: "video/webm" }) })
+    );
+  });
+
+  it("skips best-run uploads that are below the saved personal best", async () => {
+    const { server, mockDataStore } = await importServer({
+      getUserByKey: vi.fn(async () => ({ ...baseUser(), bestScore: 9999 }))
+    });
+    const res = createRes();
+
+    await server.route(
+      createReq({
+        method: "POST",
+        url: "/api/run/best",
+        body: JSON.stringify({
+          score: 10,
+          replay: { ticks: [{ move: { dx: 0, dy: 0 }, cursor: { x: 0, y: 0, has: false } }], rngTape: [] },
+          runStats: {}
+        }),
+        headers: { cookie: "sugar=PlayerOne" }
+      }),
+      res
+    );
+
+    expect(res.status).toBe(200);
+    expect(readJson(res).skipped).toBe("not_best");
+    expect(mockDataStore.recordBestRun).not.toHaveBeenCalled();
+  });
+
+  it("rejects best-run uploads that exceed the request cap", async () => {
+    const { server } = await importServer();
+    const res = createRes();
+    const largeReplay = "x".repeat(13_000_000);
+
+    await server.route(
+      createReq({
+        method: "POST",
+        url: "/api/run/best",
+        body: `{"score":5,"replayJson":"${largeReplay}","ticksLength":1,"rngTapeLength":0}`,
+        headers: { cookie: "sugar=PlayerOne" }
+      }),
+      res
+    );
+
+    expect(res.status).toBe(413);
+    expect(readJson(res).error).toBe("payload_too_large");
   });
 
   it("returns saved settings from /api/me", async () => {

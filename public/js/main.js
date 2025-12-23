@@ -10,6 +10,7 @@ import {
   apiSetTrail,
   apiSetIcon,
   apiSubmitScore,
+  apiUploadBestRun,
   apiSetKeybinds,
   apiSetSettings
 } from "./api.js";
@@ -78,6 +79,7 @@ import { TrailPreview } from "./trailPreview.js";
 import { normalizeTrailSelection } from "./trailSelectUtils.js";
 import { buildTrailHint } from "./trailHint.js";
 import { DEFAULT_TRAILS, getUnlockedTrails, normalizeTrails, sortTrailsForDisplay } from "./trailProgression.js";
+import { maybeUploadBestRun } from "./bestRunRecorder.js";
 import { renderHighscores } from "./highscores.js";
 import {
   DEFAULT_TRAIL_HINT,
@@ -297,6 +299,8 @@ let lastTs = 0;
 // Replay / run capture
 // activeRun = { seed, ticks: [ { move, cursor, actions[] } ], pendingActions:[], ended:boolean, rngTape:[] }
 let activeRun = null;
+let lastUploadedBestSeed = null;
+let lastUploadedBestScore = -Infinity;
 
 // Tutorial manager (initialized after Game is created, but referenced by the Input callback).
 let tutorial = null;
@@ -834,23 +838,32 @@ function downloadBlob(blob, filename) {
   setTimeout(() => URL.revokeObjectURL(url), 2500);
 }
 
-async function playReplay({ captureMode = "none" } = {}) {
+function blobToDataUrl(blob) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onloadend = () => resolve(reader.result);
+    reader.onerror = (err) => reject(err);
+    reader.readAsDataURL(blob);
+  });
+}
+
+async function playReplay({ captureMode = "none", run: replayRun = activeRun } = {}) {
   // NEW: ensure gameplay music is OFF during replay playback/capture
   musicStop();
 
-  setRandSource(createTapeRandPlayer(activeRun.rngTape));
-  if (!activeRun || !activeRun.ended || !activeRun.ticks || !activeRun.ticks.length) {
+  if (!replayRun || !replayRun.ended || !replayRun.ticks || !replayRun.ticks.length) {
     if (replayStatus) {
       replayStatus.className = "hint bad";
       replayStatus.textContent = "No replay available yet (finish a run first).";
     }
     return null;
   }
+  setRandSource(createTapeRandPlayer(replayRun.rngTape));
 
   replayDriving = true;
   try {
     // Same seed => same RNG stream (gameplay only; visuals must not consume it)
-    setRandSource(createSeededRand(activeRun.seed));
+    setRandSource(createSeededRand(replayRun.seed));
 
     // Fake input for deterministic playback
     const replayInput = {
@@ -882,8 +895,8 @@ async function playReplay({ captureMode = "none" } = {}) {
       recorder.start();
     }
 
-    for (let i = 0; i < activeRun.ticks.length; i++) {
-      const tk = activeRun.ticks[i];
+    for (let i = 0; i < replayRun.ticks.length; i++) {
+      const tk = replayRun.ticks[i];
 
       // Apply inputs for this tick
       replayInput._move = tk.move || { dx: 0, dy: 0 };
@@ -924,6 +937,68 @@ async function playReplay({ captureMode = "none" } = {}) {
     return webmBlob;
   } finally {
     replayDriving = false;
+  }
+}
+
+function canRecordReplayMedia() {
+  return typeof MediaRecorder !== "undefined" && typeof canvas?.captureStream === "function";
+}
+
+function cloneActiveRun(run) {
+  if (!run) return null;
+  return {
+    ...run,
+    ticks: Array.isArray(run.ticks) ? run.ticks.slice() : [],
+    rngTape: Array.isArray(run.rngTape) ? run.rngTape.slice() : []
+  };
+}
+
+async function uploadBestRunArtifacts(finalScore, runStats) {
+  if (!net.user || !activeRun?.ended) return;
+  const bestScore = net.user?.bestScore ?? 0;
+  if (finalScore < bestScore) return;
+  if (lastUploadedBestSeed === activeRun.seed && lastUploadedBestScore >= bestScore) return;
+
+  const runForUpload = cloneActiveRun(activeRun);
+  if (!runForUpload?.ticks?.length) return;
+
+  const recordVideo = canRecordReplayMedia()
+    ? async () => {
+        if (replayStatus) {
+          replayStatus.className = "hint";
+          replayStatus.textContent = "Recording best run for upload…";
+        }
+        const blob = await playReplay({ captureMode: "webm", run: runForUpload });
+        if (!blob) return null;
+        return {
+          dataUrl: await blobToDataUrl(blob),
+          mimeType: blob.type || "video/webm",
+          bytes: blob.size || null
+        };
+      }
+    : null;
+
+  const uploaded = await maybeUploadBestRun({
+    activeRun: runForUpload,
+    finalScore,
+    runStats,
+    bestScore,
+    recordVideo,
+    upload: apiUploadBestRun,
+    logger: (msg) => {
+      if (!replayStatus) return;
+      replayStatus.className = "hint";
+      replayStatus.textContent = msg;
+    }
+  });
+
+  if (uploaded) {
+    lastUploadedBestSeed = activeRun.seed;
+    lastUploadedBestScore = bestScore;
+    if (replayStatus) {
+      replayStatus.className = "hint good";
+      replayStatus.textContent = "Best run saved to server.";
+    }
   }
 }
 
@@ -1448,6 +1523,13 @@ async function onGameOver(finalScore) {
     }
     if (exportGifBtn) exportGifBtn.disabled = false;
     if (exportMp4Btn) exportMp4Btn.disabled = false;
+  }
+
+  // Async: record canvas + replay JSON for personal-best runs
+  if (net.user) {
+    uploadBestRunArtifacts(finalScore, runStats).catch((err) => {
+      console.warn("Failed to upload best run", err);
+    });
   }
 }
 

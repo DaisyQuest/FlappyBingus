@@ -123,6 +123,8 @@ class MongoDataStore {
       await db.command({ ping: 1 });
       await db.collection("users").createIndex({ key: 1 }, { unique: true });
       await db.collection("users").createIndex({ updatedAt: -1 });
+      await db.collection("best_runs").createIndex({ key: 1 }, { unique: true });
+      await db.collection("best_runs").createIndex({ bestScore: -1, updatedAt: -1 });
       this.client = client;
       this.db = db;
       this.status.connected = true;
@@ -157,6 +159,11 @@ class MongoDataStore {
   usersCollection() {
     if (!this.db) throw new Error("db_not_connected");
     return this.db.collection("users");
+  }
+
+  bestRunsCollection() {
+    if (!this.db) throw new Error("db_not_connected");
+    return this.db.collection("best_runs");
   }
 
   async getUserByKey(key) {
@@ -264,6 +271,47 @@ class MongoDataStore {
 
     if (!res.value) throw new Error("record_score_failed");
     return res.value;
+  }
+
+  async recordBestRun(user, bestRun = {}) {
+    await this.ensureConnected();
+    if (!user || !user.key) throw new Error("user_key_required");
+
+    const now = Date.now();
+    const safeScore = clampScore(bestRun.score);
+    if (!Number.isFinite(safeScore) || safeScore <= 0) throw new Error("invalid_best_score");
+    const safeTicks = normalizeCount(bestRun.ticksLength);
+    const safeTape = normalizeCount(bestRun.rngTapeLength);
+    const safeDuration = normalizeTotal(bestRun.durationMs);
+    const safeReplayBytes = normalizeCount(bestRun.replayBytes);
+
+    const collection = this.bestRunsCollection();
+    const existing = await collection.findOne({ key: user.key });
+    const currentBest = clampScore(existing?.bestScore);
+
+    if (currentBest > safeScore) {
+      return existing;
+    }
+
+    const doc = {
+      key: user.key,
+      username: user.username || user.key,
+      bestScore: Math.max(currentBest, safeScore),
+      seed: typeof bestRun.seed === "string" ? bestRun.seed : "",
+      recordedAt: Number(bestRun.recordedAt || now),
+      ticksLength: safeTicks,
+      rngTapeLength: safeTape,
+      durationMs: safeDuration,
+      replayBytes: safeReplayBytes,
+      replayHash: typeof bestRun.replayHash === "string" ? bestRun.replayHash : null,
+      replayJson: typeof bestRun.replayJson === "string" ? bestRun.replayJson : null,
+      runStats: bestRun.runStats || null,
+      media: bestRun.media || null,
+      updatedAt: now
+    };
+
+    await collection.updateOne({ key: user.key }, { $set: doc }, { upsert: true });
+    return doc;
   }
 
   async setTrail(key, trailId) {
