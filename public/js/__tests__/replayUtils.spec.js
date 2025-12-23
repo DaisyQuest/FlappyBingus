@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { playbackTicks, ticksPerFrameForPlayback, __testables } from "../replayUtils.js";
+import { playbackTicks, __testables } from "../replayUtils.js";
 
 function makeGame() {
   return {
@@ -36,21 +36,10 @@ function makeRaf(timestamps) {
   };
 }
 
-describe("ticksPerFrameForPlayback", () => {
-  it("returns 1 when capturing", () => {
-    expect(ticksPerFrameForPlayback("webm")).toBe(1);
-  });
-
-  it("derives ticks-per-frame from tps/fps when not capturing", () => {
-    expect(ticksPerFrameForPlayback("none", 60, 120)).toBe(2);
-    expect(ticksPerFrameForPlayback("none", 30, 120)).toBe(4);
-  });
-});
-
 describe("playbackTicks", () => {
   const SIM_DT = 1 / 120;
 
-  it("plays at least the minimum ticks per frame and renders each frame", async () => {
+  it("plays ticks in real time and renders each frame", async () => {
     const game = makeGame();
     const replayInput = makeReplayInput();
     const ticks = [
@@ -60,14 +49,14 @@ describe("playbackTicks", () => {
       { move: { dx: 13, dy: 14 }, cursor: { x: 15, y: 16 }, actions: [{ id: "a4" }] }
     ];
 
-    // Two animation frames at 60fps, expect 4 ticks (min 2 per frame)
-    const ts = [0, 16, 32];
+    // Three animation frames at 60fps, expect all ticks to complete
+    const ts = [0, 16, 32, 48, 64];
     const raf = makeRaf(ts);
 
     await playbackTicks({ ticks, game, replayInput, captureMode: "none", simDt: SIM_DT, requestFrame: raf });
 
     expect(game.update).toHaveBeenCalledTimes(4);
-    expect(game.render).toHaveBeenCalledTimes(2);
+    expect(game.render).toHaveBeenCalledTimes(3);
     expect(game.actions).toEqual(["a1", "a2", "a3", "a4"]);
     expect(replayInput.cursor).toEqual({ x: 15, y: 16, has: false });
     expect(replayInput._move).toEqual({ dx: 13, dy: 14 });
@@ -93,7 +82,7 @@ describe("playbackTicks", () => {
     const replayInput = makeReplayInput();
     const ticks = [{}, {}, {}];
 
-    const ts = [0, 40, 80, 120];
+    const ts = [0, 40, 80, 120, 160];
     const raf = makeRaf(ts);
 
     await playbackTicks({ ticks, game, replayInput, captureMode: "webm", simDt: SIM_DT, requestFrame: raf });
@@ -112,13 +101,13 @@ describe("playbackTicks", () => {
       if (this.updates >= 2) this.state = 2;
     });
 
-    const ts = [0, 16, 32, 48];
+    const ts = [0, 16, 32, 48, 64];
     const raf = makeRaf(ts);
 
     await playbackTicks({ ticks, game, replayInput, captureMode: "none", simDt: SIM_DT, requestFrame: raf });
 
     expect(game.update).toHaveBeenCalledTimes(2);
-    expect(game.render).toHaveBeenCalledTimes(1);
+    expect(game.render).toHaveBeenCalledTimes(2);
   });
 
   it("guards against invalid inputs", async () => {
@@ -136,6 +125,6 @@ describe("constants", () => {
   it("exposes defaults", () => {
     expect(__testables.REPLAY_TARGET_FPS).toBe(60);
     expect(__testables.REPLAY_TPS).toBe(120);
-    expect(__testables.MAX_FRAME_DT).toBeCloseTo(1 / 15);
+    expect(__testables.MAX_FRAME_DT).toBeCloseTo(1 / 10);
   });
 });

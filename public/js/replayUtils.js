@@ -1,16 +1,6 @@
 const REPLAY_TARGET_FPS = 60;
 const REPLAY_TPS = 120;
-const MAX_FRAME_DT = 1 / 15; // avoid runaway catch-up on long frames
-
-function clampDt(dt) {
-  if (!Number.isFinite(dt)) return 0;
-  return Math.max(0, Math.min(MAX_FRAME_DT, dt));
-}
-
-export function ticksPerFrameForPlayback(captureMode = "none", targetFps = REPLAY_TARGET_FPS, tps = REPLAY_TPS) {
-  if (captureMode !== "none") return 1;
-  return Math.max(1, Math.round(tps / targetFps));
-}
+const MAX_FRAME_DT = 1 / 10; // cap catch-up to avoid runaway loops
 
 export async function playbackTicks({
   ticks,
@@ -25,7 +15,7 @@ export async function playbackTicks({
   const raf = requestFrame || (typeof requestAnimationFrame === "function" ? requestAnimationFrame : null);
   if (!raf) return;
 
-  const minTicksPerFrame = ticksPerFrameForPlayback(captureMode);
+  const tickStep = Math.max(simDt, 1 / (REPLAY_TPS * 2)); // guard against degenerate simDt
   let acc = 0;
   let lastTs = null;
 
@@ -35,15 +25,16 @@ export async function playbackTicks({
       lastTs = ts;
       continue;
     }
-    acc += clampDt((ts - lastTs) / 1000);
+    const frameDt = Math.min(MAX_FRAME_DT, Math.max(0, (ts - lastTs) / 1000));
     lastTs = ts;
 
-    const targetTicks = (captureMode !== "none")
-      ? minTicksPerFrame
-      : Math.max(minTicksPerFrame, Math.round(acc / simDt));
+    if (captureMode !== "none") {
+      acc = tickStep; // exactly one tick per frame when capturing
+    } else {
+      acc += frameDt;
+    }
 
-    let ran = 0;
-    while (i < ticks.length && ran < targetTicks) {
+    while (i < ticks.length && acc >= tickStep) {
       const tk = ticks[i++] || {};
 
       replayInput._move = tk.move || { dx: 0, dy: 0 };
@@ -63,12 +54,10 @@ export async function playbackTicks({
       }
 
       game.update(simDt);
-      ran += 1;
+      acc -= tickStep;
 
       if (game.state === 2 /* OVER */) break;
     }
-
-    acc = Math.max(0, acc - ran * simDt);
 
     game.render();
     if (game.state === 2 /* OVER */) break;

@@ -931,12 +931,16 @@ async function playReplay({ captureMode = "none", run: replayRun = activeRun } =
       recorder.start();
     }
 
+    const replaySimDt = (replayRun?.durationMs && replayRun?.ticks?.length)
+      ? Math.max(SIM_DT * 0.5, Math.min(SIM_DT * 2, (replayRun.durationMs / replayRun.ticks.length) / 1000))
+      : SIM_DT;
+
     await playbackTicks({
       ticks: replayRun.ticks,
       game,
       replayInput,
       captureMode,
-      simDt: SIM_DT,
+      simDt: replaySimDt,
       requestFrame: requestAnimationFrame
     });
 
