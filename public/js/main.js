@@ -88,7 +88,7 @@ import {
   renderTrailOptions as renderTrailMenuOptions,
   toggleTrailMenu
 } from "./trailMenu.js";
-import { playbackTicks } from "./replayUtils.js";
+import { playbackTicks, chooseReplayRandSource, getReplaySimDt } from "./replayUtils.js";
 import { bindSkillOptionGroup, markSkillOptionSelection } from "./skillOptions.js";
 import { renderSkillUsageStats } from "./skillUsageStats.js";
 
@@ -894,13 +894,16 @@ async function playReplay({ captureMode = "none", run: replayRun = activeRun } =
     }
     return null;
   }
-  setRandSource(createTapeRandPlayer(replayRun.rngTape || []));
+  const replayRandSource = chooseReplayRandSource(replayRun, {
+    tapePlayer: createTapeRandPlayer,
+    seededRand: createSeededRand
+  });
+  if (replayRandSource) {
+    setRandSource(replayRandSource);
+  }
 
   replayDriving = true;
   try {
-    // Same seed => same RNG stream (gameplay only; visuals must not consume it)
-    setRandSource(createSeededRand(replayRun.seed));
-
     // Fake input for deterministic playback
     const replayInput = {
       cursor: { x: 0, y: 0, has: false },
@@ -931,9 +934,7 @@ async function playReplay({ captureMode = "none", run: replayRun = activeRun } =
       recorder.start();
     }
 
-    const replaySimDt = (replayRun?.durationMs && replayRun?.ticks?.length)
-      ? Math.max(SIM_DT * 0.5, Math.min(SIM_DT * 2, (replayRun.durationMs / replayRun.ticks.length) / 1000))
-      : SIM_DT;
+    const replaySimDt = getReplaySimDt(replayRun, SIM_DT);
 
     await playbackTicks({
       ticks: replayRun.ticks,
@@ -1522,6 +1523,10 @@ async function onGameOver(finalScore) {
     }
     if (exportGifBtn) exportGifBtn.disabled = false;
     if (exportMp4Btn) exportMp4Btn.disabled = false;
+    if (watchReplayBtn) {
+      watchReplayBtn.disabled = false;
+      watchReplayBtn.classList.remove("hidden");
+    }
   }
 
   // Async: record canvas + replay JSON for personal-best runs

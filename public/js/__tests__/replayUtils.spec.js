@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { playbackTicks, __testables } from "../replayUtils.js";
+import { playbackTicks, chooseReplayRandSource, getReplaySimDt, __testables } from "../replayUtils.js";
 
 function makeGame() {
   return {
@@ -118,6 +118,54 @@ describe("playbackTicks", () => {
     await expect(playbackTicks({ ticks: [], game: null, replayInput, simDt: SIM_DT, requestFrame: raf })).resolves.toBeUndefined();
     await expect(playbackTicks({ ticks: [], game, replayInput: null, simDt: SIM_DT, requestFrame: raf })).resolves.toBeUndefined();
     await expect(playbackTicks({ ticks: [], game, replayInput, simDt: null, requestFrame: raf })).resolves.toBeUndefined();
+  });
+});
+
+describe("chooseReplayRandSource", () => {
+  it("returns null when dependencies are missing", () => {
+    expect(chooseReplayRandSource(null)).toBeNull();
+    expect(chooseReplayRandSource({ rngTape: [] }, { tapePlayer: () => {} })).toBeNull();
+  });
+
+  it("prefers tape playback when rng tape is present", () => {
+    const tapeFn = vi.fn(() => "tape");
+    const seedFn = vi.fn(() => "seeded");
+    const source = chooseReplayRandSource({ rngTape: [1, 2], seed: "abc" }, { tapePlayer: tapeFn, seededRand: seedFn });
+
+    expect(source).toBe("tape");
+    expect(tapeFn).toHaveBeenCalledWith([1, 2]);
+    expect(seedFn).not.toHaveBeenCalled();
+  });
+
+  it("falls back to seeded RNG when no tape is available", () => {
+    const tapeFn = vi.fn(() => "tape");
+    const seedFn = vi.fn(() => "seeded");
+    const source = chooseReplayRandSource({ rngTape: [], seed: "seed" }, { tapePlayer: tapeFn, seededRand: seedFn });
+
+    expect(source).toBe("seeded");
+    expect(seedFn).toHaveBeenCalledWith("seed");
+    expect(tapeFn).not.toHaveBeenCalled();
+  });
+});
+
+describe("getReplaySimDt", () => {
+  const SIM_DT = 1 / 120;
+
+  it("falls back when run data is missing", () => {
+    expect(getReplaySimDt(null, SIM_DT)).toBe(SIM_DT);
+    expect(getReplaySimDt({ ticks: [] }, SIM_DT)).toBe(SIM_DT);
+    expect(getReplaySimDt({ ticks: [1], durationMs: 0 }, SIM_DT)).toBe(SIM_DT);
+  });
+
+  it("derives a bounded sim dt from duration and tick count", () => {
+    const run = { ticks: new Array(120).fill({}), durationMs: 1000 };
+    expect(getReplaySimDt(run, SIM_DT)).toBeCloseTo(SIM_DT);
+
+    const slower = { ticks: new Array(120).fill({}), durationMs: 4000 };
+    expect(getReplaySimDt(slower, SIM_DT)).toBeCloseTo(SIM_DT * 2);
+
+    const faster = { ticks: new Array(120).fill({}), durationMs: 250 };
+    expect(getReplaySimDt(faster, SIM_DT)).toBeCloseTo(SIM_DT * 0.5);
   });
 });
 
