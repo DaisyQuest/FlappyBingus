@@ -70,14 +70,6 @@ export function chooseReplayRandSource(replayRun, { tapePlayer, seededRand } = {
   return hasReplayTape ? tapePlayer(replayRun.rngTape) : seededRand(replayRun.seed);
 }
 
-export function getReplaySimDt(replayRun, fallbackSimDt) {
-  if (!replayRun || !Array.isArray(replayRun.ticks) || replayRun.ticks.length === 0) return fallbackSimDt;
-  if (!Number.isFinite(replayRun.durationMs) || replayRun.durationMs <= 0) return fallbackSimDt;
-  const tickMs = replayRun.durationMs / replayRun.ticks.length;
-  const simDt = tickMs / 1000;
-  return Math.max(fallbackSimDt * 0.5, Math.min(fallbackSimDt * 2, simDt));
-}
-
 export const __testables = {
   REPLAY_TARGET_FPS,
   REPLAY_TPS,

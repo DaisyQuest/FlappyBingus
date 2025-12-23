@@ -88,7 +88,7 @@ import {
   renderTrailOptions as renderTrailMenuOptions,
   toggleTrailMenu
 } from "./trailMenu.js";
-import { playbackTicks, chooseReplayRandSource, getReplaySimDt } from "./replayUtils.js";
+import { playbackTicks, chooseReplayRandSource } from "./replayUtils.js";
 import { bindSkillOptionGroup, markSkillOptionSelection } from "./skillOptions.js";
 import { renderSkillUsageStats } from "./skillUsageStats.js";
 
@@ -933,7 +933,7 @@ async function playReplay({ captureMode = "none", run: replayRun = activeRun } =
       recorder.start();
     }
 
-    const replaySimDt = getReplaySimDt(replayRun, SIM_DT);
+    const replaySimDt = SIM_DT;
 
     await playbackTicks({
       ticks: replayRun.ticks,

@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { playbackTicks, chooseReplayRandSource, getReplaySimDt, __testables } from "../replayUtils.js";
+import { playbackTicks, chooseReplayRandSource, __testables } from "../replayUtils.js";
 
 function makeGame() {
   return {
@@ -145,27 +145,6 @@ describe("chooseReplayRandSource", () => {
     expect(source).toBe("seeded");
     expect(seedFn).toHaveBeenCalledWith("seed");
     expect(tapeFn).not.toHaveBeenCalled();
-  });
-});
-
-describe("getReplaySimDt", () => {
-  const SIM_DT = 1 / 120;
-
-  it("falls back when run data is missing", () => {
-    expect(getReplaySimDt(null, SIM_DT)).toBe(SIM_DT);
-    expect(getReplaySimDt({ ticks: [] }, SIM_DT)).toBe(SIM_DT);
-    expect(getReplaySimDt({ ticks: [1], durationMs: 0 }, SIM_DT)).toBe(SIM_DT);
-  });
-
-  it("derives a bounded sim dt from duration and tick count", () => {
-    const run = { ticks: new Array(120).fill({}), durationMs: 1000 };
-    expect(getReplaySimDt(run, SIM_DT)).toBeCloseTo(SIM_DT);
-
-    const slower = { ticks: new Array(120).fill({}), durationMs: 4000 };
-    expect(getReplaySimDt(slower, SIM_DT)).toBeCloseTo(SIM_DT * 2);
-
-    const faster = { ticks: new Array(120).fill({}), durationMs: 250 };
-    expect(getReplaySimDt(faster, SIM_DT)).toBeCloseTo(SIM_DT * 0.5);
   });
 });
 
