@@ -39,6 +39,27 @@ describe("scoreService", () => {
     deps = buildDeps();
   });
 
+  it("throws when required dependencies are missing", () => {
+    expect(() => createScoreService({})).toThrow("recordScore_required");
+    expect(() => createScoreService({ dataStore: { recordScore: vi.fn() } })).toThrow("ensureUserSchema_required");
+    expect(() =>
+      createScoreService({
+        dataStore: { recordScore: vi.fn() },
+        ensureUserSchema: () => {},
+        publicUser: null,
+        listHighscores: () => []
+      })
+    ).toThrow("publicUser_required");
+    expect(() =>
+      createScoreService({
+        dataStore: { recordScore: vi.fn() },
+        ensureUserSchema: () => {},
+        publicUser: () => {},
+        listHighscores: null
+      })
+    ).toThrow("listHighscores_required");
+  });
+
   it("rejects missing user", async () => {
     const svc = createScoreService(deps);
     const res = await svc.submitScore(null, 10);
@@ -48,7 +69,7 @@ describe("scoreService", () => {
 
   it("rejects invalid score payloads", async () => {
     const svc = createScoreService(deps);
-    const badInputs = [NaN, "abc", null, undefined, {}, []];
+    const badInputs = [NaN, "abc", null, undefined, {}, [], { score: 10 }];
     for (const val of badInputs) {
       const res = await svc.submitScore({ key: "u" }, val);
       expect(res).toEqual({ ok: false, status: 400, error: "invalid_score" });

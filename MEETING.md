@@ -1,4 +1,31 @@
 # Meeting Notes
+- Date: 2025-12-22
+- Attendees: ChatGPT (GPT-5.1-Codex-Max)
+
+## Agenda
+- Address coverage gaps from prior test additions by extending rate limit, tutorial cleanup, and datastore assertions.
+- Confirm startup logging remains covered without opening sockets.
+- Outline remaining hotspots for future coverage passes.
+
+## Discussion
+- Rate limit logic still lacked a regression guard that exercised the 429 path; a dedicated test now hammers `/api/me` until the retry window trips.
+- Tutorial cleanup helpers (`_hardClearWorld`) were untested, leaving cooldown resets and object clearing uncovered.
+- The previous meeting’s coverage work improved totals but left key branches (tutorial/trail styles) as the biggest remaining debt.
+
+## Decisions
+- Add a rate-limit regression test that reuses the server routing stack to cover the limited branch and Retry-After header logic.
+- Extend tutorial tests to verify world teardown between steps to prevent stale state from leaking across lessons.
+- Keep the existing startup mock approach but ensure it remains isolated and reversible inside the test.
+
+## Action Items
+- Land the added tests and rerun the full suite to capture updated coverage numbers.
+- Prioritize additional tutorial step and trail style branches in the next coverage sweep.
+- Continue treating meeting notes as the authoritative audit trail for coverage work.
+
+# Meeting Notes
+- Date: 2025-12-22
+- Attendees: ChatGPT (GPT-5.1-Codex-Max)
+# Meeting Notes
 - Date: 2025-02-05
 - Attendees: ChatGPT (GPT-5.1-Codex-Max)
 

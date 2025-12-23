@@ -3,6 +3,7 @@ import {
   DEFAULT_PLAYER_ICON_ID,
   PLAYER_ICONS,
   normalizePlayerIcons,
+  normalizeUnlock,
   unlockedIcons
 } from "../playerIcons.cjs";
 
@@ -75,5 +76,22 @@ describe("server player icon catalog", () => {
 
     const infernoOnly = unlockedIcons({ achievements: { unlocked: { score_inferno_cape_2000: Date.now() } } }, { icons: PLAYER_ICONS });
     expect(infernoOnly).toContain("inferno_cape");
+  });
+
+  it("normalizes unlock metadata across all unlock types", () => {
+    expect(normalizeUnlock({ type: "score", minScore: -5 }).minScore).toBe(0);
+    expect(normalizeUnlock({ type: "achievement", id: "achv", label: "" })).toEqual({
+      type: "achievement",
+      id: "achv",
+      label: "Achievement"
+    });
+    expect(normalizeUnlock({ type: "purchase", cost: 1.9, label: null })).toEqual({
+      type: "purchase",
+      cost: 1,
+      label: "Cost: 1"
+    });
+    expect(normalizeUnlock({ type: "record" })).toEqual({ type: "record", label: "Record holder" });
+    expect(normalizeUnlock({ type: "unknown", label: "Mystery" })).toEqual({ type: "free", label: "Mystery" });
+    expect(normalizeUnlock(null)).toEqual({ type: "free", label: "Free" });
   });
 });

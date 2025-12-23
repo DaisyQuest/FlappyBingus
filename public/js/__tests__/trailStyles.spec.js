@@ -50,4 +50,22 @@ describe("trailStyles", () => {
     expect(glintColor).not.toContain("255,255,255");
     expect(sparkleColor).not.toContain("255,255,255");
   });
+
+  it("emits palette-driven and band-driven colors for varied trails", () => {
+    const glacier = trailStyleFor("glacier");
+    const glacierColor = glacier.color({ rand: (min, max) => (min + max) / 2, hue: 210, i: 1 });
+    expect(glacierColor).toContain("hsla");
+    expect(glacier.sparkle.color({ rand: () => 0.5, hue: 0, i: 0 })).toContain("rgba");
+
+    const ocean = trailStyleFor("ocean");
+    const oceanColor = ocean.color({ rand: () => 0, hue: 0, i: 0 });
+    expect(oceanColor).toContain("rgba(0,182,204");
+    expect(ocean.glint.color({ rand: () => 0, hue: 0, i: 0 })).toContain("rgba");
+
+    const worldRecord = trailStyleFor("world_record");
+    const blossom = worldRecord.color({ rand: () => 0.1, i: 2 });
+    expect(blossom).toContain("hsla");
+    const plasma = trailStyleFor("plasma");
+    expect(plasma.color({ rand: () => 0.75, hue: 0, i: 3 })).toContain("rgba");
+  });
 });
