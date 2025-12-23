@@ -66,6 +66,16 @@ describe("MongoDataStore.recordBestRun", () => {
     expect(collection.updateOne).not.toHaveBeenCalled();
   });
 
+  it("throws when user key is missing", async () => {
+    const store = new MongoDataStore({ uri: "mongodb://test", dbName: "db" });
+    store.ensureConnected = vi.fn();
+    store.bestRunsCollection = () => new FakeBestRunsCollection();
+
+    await expect(store.recordBestRun(null, { score: 5, replayJson: "{}", ticksLength: 1 }))
+      .rejects
+      .toThrow("user_key_required");
+  });
+
   it("replaces the stored replay when the score ties or improves", async () => {
     const store = new MongoDataStore({ uri: "mongodb://test", dbName: "db" });
     store.ensureConnected = vi.fn();
@@ -85,6 +95,35 @@ describe("MongoDataStore.recordBestRun", () => {
     expect(collection.doc.replayHash).toBe("hash2");
   });
 
+  it("normalizes optional best run fields on save", async () => {
+    const store = new MongoDataStore({ uri: "mongodb://test", dbName: "db" });
+    store.ensureConnected = vi.fn();
+    const collection = new FakeBestRunsCollection();
+    store.bestRunsCollection = () => collection;
+
+    const result = await store.recordBestRun(
+      { key: "user-key" },
+      {
+        score: 10,
+        seed: 123,
+        replayJson: 999,
+        replayHash: 777,
+        ticksLength: -5,
+        rngTapeLength: -3,
+        durationMs: -10,
+        replayBytes: -1
+      }
+    );
+
+    expect(result.seed).toBe("");
+    expect(result.replayJson).toBeNull();
+    expect(result.replayHash).toBeNull();
+    expect(result.ticksLength).toBe(0);
+    expect(result.rngTapeLength).toBe(0);
+    expect(result.durationMs).toBe(0);
+    expect(result.replayBytes).toBe(0);
+  });
+
   it("retrieves a stored best run by username", async () => {
     const existing = {
       key: "user-key",
@@ -99,6 +138,16 @@ describe("MongoDataStore.recordBestRun", () => {
 
     const found = await store.getBestRunByUsername("User");
     expect(found).toMatchObject(existing);
+  });
+
+  it("returns null when no stored best run exists", async () => {
+    const store = new MongoDataStore({ uri: "mongodb://test", dbName: "db" });
+    store.ensureConnected = vi.fn();
+    const collection = new FakeBestRunsCollection();
+    store.bestRunsCollection = () => collection;
+
+    const found = await store.getBestRunByUsername("User");
+    expect(found).toBeNull();
   });
 
   it("throws when provided with an invalid score", async () => {

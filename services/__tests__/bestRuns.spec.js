@@ -20,6 +20,15 @@ const baseBody = {
 const okRunStats = () => ({ ok: true, stats: { orbsCollected: 1 } });
 
 describe("normalizeBestRunRequest", () => {
+  it("rejects non-object payloads and invalid scores", () => {
+    expect(normalizeBestRunRequest(null).ok).toBe(false);
+    expect(normalizeBestRunRequest("bad").error).toBe("invalid_payload");
+
+    const invalid = normalizeBestRunRequest({ score: 0, replayJson: "{}", ticksLength: 1 });
+    expect(invalid.ok).toBe(false);
+    expect(invalid.error).toBe("invalid_score");
+  });
+
   it("normalizes replay payloads and computes derived metadata", () => {
     const res = normalizeBestRunRequest(baseBody, { bestScore: 50, validateRunStats: okRunStats });
 
@@ -50,6 +59,120 @@ describe("normalizeBestRunRequest", () => {
     expect(res.error).toBe("replay_too_large");
   });
 
+  it("accepts replayJson strings and uses provided counts", () => {
+    const replayJson = JSON.stringify({
+      version: 1,
+      ticks: [{ move: { dx: 0, dy: 0 }, cursor: { x: 0, y: 0, has: false } }],
+      rngTape: [0.25],
+      durationMs: 500
+    });
+    const res = normalizeBestRunRequest(
+      {
+        score: 50,
+        seed: "seed",
+        replayJson,
+        ticksLength: 99,
+        rngTapeLength: 88,
+        durationMs: 1234,
+        media: { dataUrl: "data:video/webm;base64,AAA", mimeType: "video/webm" }
+      },
+      { bestScore: 0, validateRunStats: okRunStats }
+    );
+
+    expect(res.ok).toBe(true);
+    expect(res.payload.ticksLength).toBe(99);
+    expect(res.payload.rngTapeLength).toBe(88);
+    expect(res.payload.durationMs).toBe(1234);
+    expect(res.payload.media.mimeType).toBe("video/webm");
+  });
+
+  it("uses media.type when mimeType is absent and sanitizes non-string mime values", () => {
+    const replayJson = JSON.stringify({
+      ticks: [{ move: { dx: 0, dy: 0 }, cursor: { x: 0, y: 0, has: false } }]
+    });
+
+    const fromType = normalizeBestRunRequest(
+      {
+        score: 5,
+        replayJson,
+        media: { dataUrl: "data:video/webm;base64,AAA", type: "video/webm" }
+      },
+      { bestScore: 0 }
+    );
+    expect(fromType.ok).toBe(true);
+    expect(fromType.payload.media.mimeType).toBe("video/webm");
+
+    const invalidMime = normalizeBestRunRequest(
+      {
+        score: 5,
+        replayJson,
+        media: { dataUrl: "data:video/webm;base64,AAA", mimeType: 123 }
+      },
+      { bestScore: 0 }
+    );
+    expect(invalidMime.ok).toBe(true);
+    expect(invalidMime.payload.media.mimeType).toBe("application/octet-stream");
+  });
+
+  it("rejects missing or malformed replay payloads", () => {
+    const missing = normalizeBestRunRequest({ score: 10 }, { bestScore: 0 });
+    expect(missing.ok).toBe(false);
+    expect(missing.error).toBe("missing_replay");
+
+    const badJson = normalizeBestRunRequest(
+      { score: 10, replayJson: "{", ticksLength: 1 },
+      { bestScore: 0 }
+    );
+    expect(badJson.ok).toBe(false);
+    expect(badJson.error).toBe("invalid_replay");
+
+    const emptyTicks = normalizeBestRunRequest(
+      { score: 10, replayJson: JSON.stringify({ ticks: [] }) },
+      { bestScore: 0 }
+    );
+    expect(emptyTicks.ok).toBe(false);
+    expect(emptyTicks.error).toBe("empty_replay");
+  });
+
+  it("rejects replay payloads that cannot be stringified", () => {
+    const replay = { ticks: [] };
+    replay.self = replay;
+    const res = normalizeBestRunRequest(
+      { score: 10, replay },
+      { bestScore: 0 }
+    );
+
+    expect(res.ok).toBe(false);
+    expect(res.error).toBe("invalid_replay");
+  });
+
+  it("treats explicit zero ticksLength overrides as empty replays", () => {
+    const replayJson = JSON.stringify({
+      ticks: [{ move: { dx: 0, dy: 0 }, cursor: { x: 0, y: 0, has: false } }]
+    });
+    const res = normalizeBestRunRequest(
+      { score: 10, replayJson, ticksLength: 0 },
+      { bestScore: 0 }
+    );
+
+    expect(res.ok).toBe(false);
+    expect(res.error).toBe("empty_replay");
+  });
+
+  it("trims long seeds and defaults duration from ticks", () => {
+    const replayJson = JSON.stringify({ ticks: [{ move: { dx: 0, dy: 0 }, cursor: { x: 0, y: 0, has: false } }] });
+    const seed = "x".repeat(999);
+    const res = normalizeBestRunRequest(
+      { score: 10, seed, replayJson, recordedAt: "nope" },
+      { bestScore: 0 }
+    );
+
+    expect(res.ok).toBe(true);
+    expect(res.payload.seed.length).toBe(160);
+    expect(res.payload.durationMs).toBeGreaterThan(0);
+    expect(res.payload.recordedAt).toBeGreaterThan(0);
+  });
+
   it("rejects invalid runStats payloads", () => {
     const res = normalizeBestRunRequest(baseBody, {
       bestScore: 50,
@@ -68,6 +191,15 @@ describe("normalizeBestRunRequest", () => {
     expect(res.error).toBe("media_too_large");
   });
 
+  it("accepts empty media values as null", () => {
+    const res = normalizeBestRunRequest(
+      { ...baseBody, media: { dataUrl: "" } },
+      { bestScore: 0, validateRunStats: okRunStats }
+    );
+    expect(res.ok).toBe(true);
+    expect(res.payload.media).toBeNull();
+  });
+
   it("hydrates stored replay JSON into a playback-ready shape", () => {
     const payload = normalizeBestRunRequest(baseBody, { bestScore: 0, validateRunStats: okRunStats }).payload;
     const hydrated = hydrateReplayFromJson(payload);
@@ -81,5 +213,21 @@ describe("normalizeBestRunRequest", () => {
     expect(hydrateReplayFromJson(null)).toBeNull();
     expect(hydrateReplayFromJson({ replayJson: "{" })).toBeNull();
     expect(hydrateReplayFromJson({ replayJson: JSON.stringify({ ticks: [] }) })).toBeNull();
+  });
+
+  it("hydrates replay payloads with seed and duration fallbacks", () => {
+    const run = {
+      seed: "fallback-seed",
+      recordedAt: 123,
+      durationMs: 456,
+      replayJson: JSON.stringify({
+        ticks: [{ move: { dx: 0, dy: 0 }, cursor: { x: 0, y: 0, has: false } }],
+        rngTape: "not-array"
+      })
+    };
+    const hydrated = hydrateReplayFromJson(run);
+    expect(hydrated.seed).toBe("fallback-seed");
+    expect(hydrated.durationMs).toBe(456);
+    expect(hydrated.rngTapeLength).toBe(0);
   });
 });
