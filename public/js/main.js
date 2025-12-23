@@ -894,16 +894,15 @@ async function playReplay({ captureMode = "none", run: replayRun = activeRun } =
     }
     return null;
   }
-  const replayRandSource = chooseReplayRandSource(replayRun, {
-    tapePlayer: createTapeRandPlayer,
-    seededRand: createSeededRand
-  });
-  if (replayRandSource) {
-    setRandSource(replayRandSource);
-  }
-
   replayDriving = true;
   try {
+    const replayRandSource = chooseReplayRandSource(replayRun, {
+      tapePlayer: createTapeRandPlayer,
+      seededRand: createSeededRand
+    });
+    if (replayRandSource) {
+      setRandSource(replayRandSource);
+    }
     // Fake input for deterministic playback
     const replayInput = {
       cursor: { x: 0, y: 0, has: false },
