@@ -68,6 +68,8 @@ describe("api helpers", () => {
       apiGetMe,
       apiRegister,
       apiSubmitScore,
+      apiGetBestRun,
+      apiUploadBestRun,
       apiSetTrail,
       apiSetIcon,
       apiSetKeybinds,
@@ -78,6 +80,8 @@ describe("api helpers", () => {
       [apiGetMe, ["/api/me", { method: "GET" }]],
       [apiRegister, ["/api/register", { method: "POST", body: JSON.stringify({ username: "bingus" }) }]],
       [apiSubmitScore, ["/api/score", { method: "POST", body: JSON.stringify({ score: 9001, bustercoinsEarned: 0 }) }]],
+      [apiGetBestRun, ["/api/run/best?username=bingus", { method: "GET" }]],
+      [apiUploadBestRun, ["/api/run/best", { method: "POST", body: JSON.stringify({ score: 9001 }) }]],
       [apiSetTrail, ["/api/cosmetics/trail", { method: "POST", body: JSON.stringify({ trailId: "classic" }) }]],
       [apiSetIcon, ["/api/cosmetics/icon", { method: "POST", body: JSON.stringify({ iconId: "hi_vis_orange" }) }]],
       [apiSetKeybinds, ["/api/binds", { method: "POST", body: JSON.stringify({ keybinds: { jump: "Space" } }) }]],
@@ -87,6 +91,8 @@ describe("api helpers", () => {
     await apiGetMe();
     await apiRegister("bingus");
     await apiSubmitScore(9001);
+    await apiGetBestRun("bingus");
+    await apiUploadBestRun({ score: 9001 });
     await apiSetTrail("classic");
     await apiSetIcon("hi_vis_orange");
     await apiSetKeybinds({ jump: "Space" });

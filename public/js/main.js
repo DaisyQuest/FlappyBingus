@@ -10,6 +10,8 @@ import {
   apiSetTrail,
   apiSetIcon,
   apiSubmitScore,
+  apiGetBestRun,
+  apiUploadBestRun,
   apiSetKeybinds,
   apiSetSettings
 } from "./api.js";
@@ -78,6 +80,7 @@ import { TrailPreview } from "./trailPreview.js";
 import { normalizeTrailSelection } from "./trailSelectUtils.js";
 import { buildTrailHint } from "./trailHint.js";
 import { DEFAULT_TRAILS, getUnlockedTrails, normalizeTrails, sortTrailsForDisplay } from "./trailProgression.js";
+import { hydrateBestRunPayload, maybeUploadBestRun } from "./bestRunRecorder.js";
 import { renderHighscores } from "./highscores.js";
 import {
   DEFAULT_TRAIL_HINT,
@@ -85,6 +88,7 @@ import {
   renderTrailOptions as renderTrailMenuOptions,
   toggleTrailMenu
 } from "./trailMenu.js";
+import { playbackTicks, chooseReplayRandSource } from "./replayUtils.js";
 import { bindSkillOptionGroup, markSkillOptionSelection } from "./skillOptions.js";
 import { renderSkillUsageStats } from "./skillUsageStats.js";
 
@@ -297,6 +301,8 @@ let lastTs = 0;
 // Replay / run capture
 // activeRun = { seed, ticks: [ { move, cursor, actions[] } ], pendingActions:[], ended:boolean, rngTape:[] }
 let activeRun = null;
+let lastUploadedBestSeed = null;
+let lastUploadedBestScore = -Infinity;
 
 // Tutorial manager (initialized after Game is created, but referenced by the Input callback).
 let tutorial = null;
@@ -466,6 +472,54 @@ function setUserHint() {
   userHint.className = "hint good";
   const coins = net.user?.bustercoins ?? 0;
   userHint.textContent = `Signed in as ${net.user.username}. Runs: ${net.user.runs} • Total: ${net.user.totalScore} • Bustercoins: ${coins}`;
+}
+
+async function handlePlayHighscore(username) {
+  if (!username) return;
+  if (replayStatus) {
+    replayStatus.className = "hint";
+    replayStatus.textContent = `Loading ${username}'s best run…`;
+  }
+  try {
+    const res = await apiGetBestRun(username);
+    if (!res?.ok || !res.run) {
+      if (replayStatus) {
+        replayStatus.className = "hint bad";
+        replayStatus.textContent = "Replay not available for this player.";
+      }
+      return;
+    }
+    const playbackRun = hydrateBestRunPayload(res.run);
+    if (!playbackRun) {
+      if (replayStatus) {
+        replayStatus.className = "hint bad";
+        replayStatus.textContent = "Replay data is invalid.";
+      }
+      return;
+    }
+
+    await playReplay({ captureMode: "none", run: playbackRun });
+    if (replayStatus) {
+      replayStatus.className = "hint good";
+      replayStatus.textContent = `Playing ${username}'s best run… done.`;
+    }
+  } catch (err) {
+    console.error(err);
+    if (replayStatus) {
+      replayStatus.className = "hint bad";
+      replayStatus.textContent = "Unable to play the selected replay.";
+    }
+  }
+}
+
+function renderHighscoresUI() {
+  renderHighscores({
+    container: hsWrap,
+    online: net.online,
+    highscores: net.highscores,
+    currentUser: net.user,
+    onPlayRun: handlePlayHighscore
+  });
 }
 
 function getIconDisplayName(id, icons = playerIcons) {
@@ -775,12 +829,7 @@ async function refreshProfileAndHighscores() {
   setUserHint();
   refreshTrailMenu();
   applyIconSelection(net.user?.selectedIcon || currentIconId, playerIcons);
-  renderHighscores({
-    container: hsWrap,
-    online: net.online,
-    highscores: net.highscores,
-    currentUser: net.user
-  });
+  renderHighscoresUI();
   renderAchievements();
   renderBindUI();
   refreshBootUI();
@@ -834,24 +883,26 @@ function downloadBlob(blob, filename) {
   setTimeout(() => URL.revokeObjectURL(url), 2500);
 }
 
-async function playReplay({ captureMode = "none" } = {}) {
+async function playReplay({ captureMode = "none", run: replayRun = activeRun } = {}) {
   // NEW: ensure gameplay music is OFF during replay playback/capture
   musicStop();
 
-  setRandSource(createTapeRandPlayer(activeRun.rngTape));
-  if (!activeRun || !activeRun.ended || !activeRun.ticks || !activeRun.ticks.length) {
+  if (!replayRun || !replayRun.ended || !replayRun.ticks || !replayRun.ticks.length) {
     if (replayStatus) {
       replayStatus.className = "hint bad";
       replayStatus.textContent = "No replay available yet (finish a run first).";
     }
     return null;
   }
-
   replayDriving = true;
   try {
-    // Same seed => same RNG stream (gameplay only; visuals must not consume it)
-    setRandSource(createSeededRand(activeRun.seed));
-
+    const replayRandSource = chooseReplayRandSource(replayRun, {
+      tapePlayer: createTapeRandPlayer,
+      seededRand: createSeededRand
+    });
+    if (replayRandSource) {
+      setRandSource(replayRandSource);
+    }
     // Fake input for deterministic playback
     const replayInput = {
       cursor: { x: 0, y: 0, has: false },
@@ -882,34 +933,16 @@ async function playReplay({ captureMode = "none" } = {}) {
       recorder.start();
     }
 
-    for (let i = 0; i < activeRun.ticks.length; i++) {
-      const tk = activeRun.ticks[i];
+    const replaySimDt = SIM_DT;
 
-      // Apply inputs for this tick
-      replayInput._move = tk.move || { dx: 0, dy: 0 };
-      replayInput.cursor.x = tk.cursor?.x ?? 0;
-      replayInput.cursor.y = tk.cursor?.y ?? 0;
-      replayInput.cursor.has = !!tk.cursor?.has;
-
-      // Apply actions scheduled for this tick (exactly like live tick processing)
-      if (Array.isArray(tk.actions)) {
-        for (const a of tk.actions) {
-          if (a && a.cursor) {
-            replayInput.cursor.x = a.cursor.x;
-            replayInput.cursor.y = a.cursor.y;
-            replayInput.cursor.has = !!a.cursor.has;
-          }
-          game.handleAction(a.id);
-        }
-      }
-
-      // Step exactly one tick
-      game.update(SIM_DT);
-      game.render();
-
-      await new Promise(requestAnimationFrame);
-      if (game.state === 2 /* OVER */) break;
-    }
+    await playbackTicks({
+      ticks: replayRun.ticks,
+      game,
+      replayInput,
+      captureMode,
+      simDt: replaySimDt,
+      requestFrame: requestAnimationFrame
+    });
 
     let webmBlob = null;
     if (recorder) {
@@ -924,6 +957,47 @@ async function playReplay({ captureMode = "none" } = {}) {
     return webmBlob;
   } finally {
     replayDriving = false;
+  }
+}
+
+function cloneActiveRun(run) {
+  if (!run) return null;
+  return {
+    ...run,
+    ticks: Array.isArray(run.ticks) ? run.ticks.slice() : [],
+    rngTape: Array.isArray(run.rngTape) ? run.rngTape.slice() : []
+  };
+}
+
+async function uploadBestRunArtifacts(finalScore, runStats) {
+  if (!net.user || !activeRun?.ended) return;
+  const bestScore = net.user?.bestScore ?? 0;
+  if (finalScore < bestScore) return;
+  if (lastUploadedBestSeed === activeRun.seed && lastUploadedBestScore >= bestScore) return;
+
+  const runForUpload = cloneActiveRun(activeRun);
+  if (!runForUpload?.ticks?.length) return;
+
+  const uploaded = await maybeUploadBestRun({
+    activeRun: runForUpload,
+    finalScore,
+    runStats,
+    bestScore,
+    upload: apiUploadBestRun,
+    logger: (msg) => {
+      if (!replayStatus) return;
+      replayStatus.className = "hint";
+      replayStatus.textContent = msg;
+    }
+  });
+
+  if (uploaded) {
+    lastUploadedBestSeed = activeRun.seed;
+    lastUploadedBestScore = bestScore;
+    if (replayStatus) {
+      replayStatus.className = "hint good";
+      replayStatus.textContent = "Best run saved to server.";
+    }
   }
 }
 
@@ -1408,7 +1482,7 @@ async function onGameOver(finalScore) {
 
       refreshTrailMenu();
       applyIconSelection(res.user?.selectedIcon || currentIconId, playerIcons);
-      renderHighscores();
+      renderHighscoresUI();
       renderAchievements();
 
       updatePersonalBestUI(finalScore, net.user.bestScore);
@@ -1448,6 +1522,17 @@ async function onGameOver(finalScore) {
     }
     if (exportGifBtn) exportGifBtn.disabled = false;
     if (exportMp4Btn) exportMp4Btn.disabled = false;
+    if (watchReplayBtn) {
+      watchReplayBtn.disabled = false;
+      watchReplayBtn.classList.remove("hidden");
+    }
+  }
+
+  // Async: record canvas + replay JSON for personal-best runs
+  if (net.user) {
+    uploadBestRunArtifacts(finalScore, runStats).catch((err) => {
+      console.warn("Failed to upload best run", err);
+    });
   }
 }
 
