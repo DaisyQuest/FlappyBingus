@@ -38,10 +38,16 @@ describe("uiLayout", () => {
     const readyCard = mount.querySelector(".panel-main .info-card");
     const readyFields = readyCard?.querySelectorAll(".field");
     expect(readyFields?.[0]?.querySelector("#iconOptions")).toBeInstanceOf(window.HTMLElement);
-    expect(readyFields?.[1]?.querySelector("#trailLauncher")).toBeInstanceOf(window.HTMLElement);
+    expect(readyFields?.[1]?.querySelector("#pipeTextureLauncher")).toBeInstanceOf(window.HTMLElement);
+    expect(readyFields?.[2]?.querySelector("#trailLauncher")).toBeInstanceOf(window.HTMLElement);
     expect(ui.iconLauncher).toBeInstanceOf(window.HTMLElement);
     expect(ui.iconLauncher?.querySelector(".icon-swatch-canvas")).toBeInstanceOf(window.HTMLCanvasElement);
     expect(ui.iconOverlay?.classList.contains("hidden")).toBe(true);
+    const pipeCanvas = ui.pipeTextureLauncher?.querySelector(".pipe-texture-swatch-canvas");
+    expect(pipeCanvas).toBeInstanceOf(window.HTMLCanvasElement);
+    expect(pipeCanvas?.width).toBe(84);
+    expect(pipeCanvas?.height).toBe(56);
+    expect(ui.pipeTextureOverlay?.classList.contains("hidden")).toBe(true);
     const overlay = mount.querySelector("#menu .trail-preview-overlay");
     expect(overlay?.querySelectorAll(".trail-preview-canvas")?.length).toBe(1);
     expect(overlay?.querySelectorAll(".trail-preview-glow")?.length).toBe(1);
@@ -63,6 +69,7 @@ describe("uiLayout", () => {
     expect(ui.exportMp4?.disabled).toBe(true);
     expect(ui.trailText?.textContent).toBe("classic");
     expect(ui.iconText?.textContent).toBe("High-Vis Orange");
+    expect(ui.pipeTextureText?.textContent).toBe("Basic");
     expect(ui.seedInput?.maxLength).toBe(48);
     expect(ui.musicVolume?.value).toBe("70");
     expect(ui.sfxVolume?.value).toBe("80");
@@ -71,6 +78,7 @@ describe("uiLayout", () => {
     expect(ui.tutorial?.className).toContain("wide");
     expect(ui.tutorial?.className).not.toContain("small");
     expect(ui.iconHint?.textContent).toBe("");
+    expect(ui.pipeTextureHint?.textContent).toContain("Unlock pipe textures");
   });
 
   it("moves Settings and Achievements navigation into the primary cards", () => {
@@ -111,11 +119,18 @@ describe("uiLayout", () => {
       "pbText",
       "trailText",
       "iconText",
+      "pipeTextureText",
       "iconOptions",
       "iconHint",
       "iconOverlay",
       "iconOverlayClose",
       "iconLauncher",
+      "pipeTextureOptions",
+      "pipeTextureHint",
+      "pipeTextureOverlay",
+      "pipeTextureOverlayClose",
+      "pipeTextureLauncher",
+      "pipeTextureModeOptions",
       "trailLauncher",
       "trailOptions",
       "trailOverlay",

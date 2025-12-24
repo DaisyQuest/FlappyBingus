@@ -9,6 +9,7 @@ import {
   apiGetHighscores,
   apiSetTrail,
   apiSetIcon,
+  apiSetPipeTexture,
   apiSubmitScore,
   apiGetBestRun,
   apiUploadBestRun,
@@ -56,6 +57,7 @@ import { applyBustercoinEarnings } from "./bustercoins.js";
 import { ACHIEVEMENTS, normalizeAchievementState, renderAchievementsList, appendAchievementToast } from "./achievements.js";
 import { renderScoreBreakdown } from "./scoreBreakdown.js";
 import { computePersonalBestStatus, updatePersonalBestElements } from "./personalBest.js";
+import { buildUnlockablesCatalog, getUnlockedIdsByType, UNLOCKABLE_TYPES } from "./unlockables.js";
 import {
   DEFAULT_PLAYER_ICON_ID,
   DEFAULT_PLAYER_ICONS,
@@ -74,6 +76,20 @@ import {
   toggleIconMenu
 } from "./iconMenu.js";
 import { clearIconSpriteCache, getCachedIconSprite, paintIconCanvas } from "./swatchPainter.js";
+import {
+  DEFAULT_PIPE_TEXTURE_ID,
+  DEFAULT_PIPE_TEXTURE_MODE,
+  normalizePipeTextureMode,
+  normalizePipeTextures,
+  paintPipeTextureSwatch
+} from "./pipeTextures.js";
+import {
+  DEFAULT_PIPE_TEXTURE_HINT,
+  describePipeTextureLock,
+  pipeTextureHoverText,
+  renderPipeTextureOptions,
+  togglePipeTextureMenu
+} from "./pipeTextureMenu.js";
 
 import { buildGameUI } from "./uiLayout.js";
 import { createMenuParallaxController } from "./menuParallax.js";
@@ -81,6 +97,7 @@ import { TrailPreview } from "./trailPreview.js";
 import { normalizeTrailSelection } from "./trailSelectUtils.js";
 import { buildTrailHint } from "./trailHint.js";
 import { DEFAULT_TRAILS, getUnlockedTrails, normalizeTrails, sortTrailsForDisplay } from "./trailProgression.js";
+import { computePipeColor } from "./pipeColors.js";
 import { hydrateBestRunPayload, maybeUploadBestRun } from "./bestRunRecorder.js";
 import { renderHighscores } from "./highscores.js";
 import {
@@ -93,7 +110,12 @@ import { playbackTicks, chooseReplayRandSource } from "./replayUtils.js";
 import { bindSkillOptionGroup, markSkillOptionSelection } from "./skillOptions.js";
 import { renderSkillUsageStats } from "./skillUsageStats.js";
 import { initThemeEditor } from "./themes.js";
-import { getIconDisplayName, getTrailDisplayName, syncMenuProfileBindings } from "./menuProfileBindings.js";
+import {
+  getIconDisplayName,
+  getPipeTextureDisplayName as getPipeTextureLabel,
+  getTrailDisplayName,
+  syncMenuProfileBindings
+} from "./menuProfileBindings.js";
 
 // ---- DOM ----
 const ui = buildGameUI();
@@ -118,6 +140,12 @@ const {
   trailOverlay,
   trailOverlayClose,
   trailLauncher,
+  pipeTextureOptions,
+  pipeTextureOverlay,
+  pipeTextureOverlayClose,
+  pipeTextureLauncher,
+  pipeTextureHint,
+  pipeTextureModeOptions,
   iconOptions,
   iconHint,
   iconOverlay,
@@ -134,6 +162,7 @@ const {
   trailText,
   menuPanel,
   iconText,
+  pipeTextureText,
   bustercoinText,
   final: finalEl,
   overPB,
@@ -270,8 +299,14 @@ const net = {
   user: null,
   trails: DEFAULT_TRAILS.map((t) => ({ ...t })),
   icons: DEFAULT_PLAYER_ICONS.map((i) => ({ ...i })),
+  pipeTextures: normalizePipeTextures(null),
   highscores: [],
-  achievements: { definitions: ACHIEVEMENTS, state: normalizeAchievementState() }
+  achievements: { definitions: ACHIEVEMENTS, state: normalizeAchievementState() },
+  unlockables: buildUnlockablesCatalog({
+    trails: DEFAULT_TRAILS,
+    icons: DEFAULT_PLAYER_ICONS,
+    pipeTextures: normalizePipeTextures(null)
+  })
 };
 
 // keybinds: start from guest cookie; override from server user when available
@@ -289,6 +324,8 @@ let currentIconId = normalizeIconSelection({
   unlockedIds: playerIcons.map((i) => i.id),
   fallbackId: DEFAULT_PLAYER_ICON_ID
 });
+let currentPipeTextureId = DEFAULT_PIPE_TEXTURE_ID;
+let currentPipeTextureMode = DEFAULT_PIPE_TEXTURE_MODE;
 
 // assets
 let playerImg = getCachedIconSprite(playerIcons.find((i) => i.id === currentIconId));
@@ -300,6 +337,8 @@ trailPreview = trailPreviewCanvas ? new TrailPreview({
   playerImg
 }) : null;
 syncLauncherSwatch(currentIconId, playerIcons, playerImg);
+syncPipeTextureCatalog(net.pipeTextures);
+syncPipeTextureSwatch(currentPipeTextureId, net.pipeTextures);
 menuParallaxControl = createMenuParallaxController({
   panel: menuPanel || menu,
   layers: ui.menuParallaxLayers || []
@@ -422,6 +461,10 @@ let game = new Game({
     if (net.user?.selectedTrail) return net.user.selectedTrail;
     return currentTrailId || "classic";
   },
+  getPipeTexture: () => ({
+    id: net.user?.selectedPipeTexture || currentPipeTextureId || DEFAULT_PIPE_TEXTURE_ID,
+    mode: net.user?.pipeTextureMode || currentPipeTextureMode || DEFAULT_PIPE_TEXTURE_MODE
+  }),
   getBinds: () => binds,
   onGameOver: (score) => onGameOver(score)
 });
@@ -541,6 +584,14 @@ function renderHighscoresUI() {
   });
 }
 
+function syncUnlockablesCatalog({
+  trails = net.trails,
+  icons = playerIcons,
+  pipeTextures = net.pipeTextures
+} = {}) {
+  net.unlockables = buildUnlockablesCatalog({ trails, icons, pipeTextures });
+}
+
 function syncIconCatalog(nextIcons = null) {
   const normalized = normalizePlayerIcons(nextIcons || playerIcons);
   playerIcons = normalized;
@@ -550,6 +601,13 @@ function syncIconCatalog(nextIcons = null) {
   game?.setPlayerImage(playerImg);
   trailPreview?.setPlayerImage(playerImg);
   syncLauncherSwatch(currentIconId, playerIcons, playerImg);
+  syncUnlockablesCatalog({ icons: playerIcons });
+}
+
+function syncPipeTextureCatalog(nextTextures = null) {
+  const normalized = normalizePipeTextures(nextTextures || net.pipeTextures);
+  net.pipeTextures = normalized.map((t) => ({ ...t }));
+  syncUnlockablesCatalog({ pipeTextures: net.pipeTextures });
 }
 
 function computeUnlockedIconSet(icons = playerIcons) {
@@ -573,10 +631,35 @@ function computeUnlockedTrailSet(trails = net.trails) {
   return new Set(getUnlockedTrails(trails, achievements, { isRecordHolder }));
 }
 
+function computeUnlockedPipeTextureSet(textures = net.pipeTextures) {
+  const best = net.user ? (net.user.bestScore | 0) : readLocalBest();
+  const achievements = net.user?.achievements || net.achievements?.state;
+  const owned = net.user?.ownedIcons || [];
+  const isRecordHolder = Boolean(net.user?.isRecordHolder);
+  const unlockedIds = getUnlockedIdsByType({
+    unlockables: net.unlockables?.unlockables || [],
+    type: UNLOCKABLE_TYPES.pipeTexture,
+    context: {
+      bestScore: best,
+      achievements,
+      ownedIds: owned,
+      recordHolder: isRecordHolder
+    }
+  });
+  return new Set(unlockedIds);
+}
+
 function syncLauncherSwatch(iconId = currentIconId, icons = playerIcons, image = playerImg) {
   const icon = icons.find((i) => i.id === iconId) || icons[0];
   const iconCanvas = iconLauncher?.querySelector("canvas.icon-swatch-canvas");
   paintIconCanvas(iconCanvas, icon, { sprite: image });
+}
+
+function syncPipeTextureSwatch(textureId = currentPipeTextureId, textures = net.pipeTextures) {
+  const target = textures.find((t) => t.id === textureId) || textures[0];
+  const canvas = pipeTextureLauncher?.querySelector("canvas.pipe-texture-swatch-canvas");
+  const base = computePipeColor(0.5, CFG?.pipes?.colors);
+  paintPipeTextureSwatch(canvas, target?.id || DEFAULT_PIPE_TEXTURE_ID, { mode: currentPipeTextureMode, base });
 }
 
 function renderIconOptions(
@@ -601,6 +684,31 @@ function renderIconOptions(
     const text = rendered ? DEFAULT_ICON_HINT : "No icons available.";
     iconHint.className = rendered ? "hint" : "hint bad";
     iconHint.textContent = text;
+  }
+  return rendered;
+}
+
+function renderPipeTextureMenuOptions(
+  selectedId = currentPipeTextureId,
+  unlocked = computeUnlockedPipeTextureSet(net.pipeTextures),
+  textures = net.pipeTextures
+) {
+  const swatches = [];
+  const { rendered } = renderPipeTextureOptions({
+    container: pipeTextureOptions,
+    textures,
+    selectedId,
+    unlockedIds: unlocked,
+    onRenderSwatch: (data) => swatches.push(data)
+  });
+  const base = computePipeColor(0.5, CFG?.pipes?.colors);
+  swatches.forEach(({ canvas, texture }) => {
+    paintPipeTextureSwatch(canvas, texture.id, { mode: currentPipeTextureMode, base });
+  });
+  if (pipeTextureHint) {
+    const text = rendered ? DEFAULT_PIPE_TEXTURE_HINT : "No pipe textures available.";
+    pipeTextureHint.className = rendered ? "hint" : "hint bad";
+    pipeTextureHint.textContent = text;
   }
   return rendered;
 }
@@ -631,6 +739,21 @@ function applyIconSelection(id = currentIconId, icons = playerIcons, unlocked = 
   return nextId;
 }
 
+function applyPipeTextureSelection(
+  id = currentPipeTextureId,
+  textures = net.pipeTextures,
+  unlocked = computeUnlockedPipeTextureSet(textures)
+) {
+  const safeId = unlocked.has(id) ? id : (Array.from(unlocked)[0] || DEFAULT_PIPE_TEXTURE_ID);
+  currentPipeTextureId = safeId || DEFAULT_PIPE_TEXTURE_ID;
+  if (pipeTextureText) pipeTextureText.textContent = getPipeTextureLabel(currentPipeTextureId, textures);
+  if (pipeTextureLauncher) {
+    const nameEl = pipeTextureLauncher.querySelector(".pipe-texture-launcher-name");
+    if (nameEl) nameEl.textContent = getPipeTextureLabel(currentPipeTextureId, textures);
+  }
+  syncPipeTextureSwatch(currentPipeTextureId, textures);
+}
+
 function applyTrailSelection(id, trails = net.trails) {
   const safeId = id || "classic";
   currentTrailId = safeId;
@@ -648,15 +771,18 @@ function applyTrailSelection(id, trails = net.trails) {
 function syncMenuProfileBindingsFromState({
   fallbackTrailId = currentTrailId,
   fallbackIconId = currentIconId,
+  fallbackPipeTextureId = currentPipeTextureId,
   bestScoreFallback = 0
 } = {}) {
   return syncMenuProfileBindings({
-    refs: { usernameInput, pbText, trailText, iconText, bustercoinText },
+    refs: { usernameInput, pbText, trailText, iconText, pipeTextureText, bustercoinText },
     user: net.user,
     trails: net.trails,
     icons: playerIcons,
+    pipeTextures: net.pipeTextures,
     fallbackTrailId,
     fallbackIconId,
+    fallbackPipeTextureId,
     bestScoreFallback
   });
 }
@@ -722,6 +848,27 @@ function refreshTrailMenu(selectedId = currentTrailId) {
     setTrailHint(rendered ? hint : { className: "hint bad", text: "No trails available." });
   }
   return { selected, unlocked, orderedTrails, best };
+}
+
+function renderPipeTextureModeButtons(mode = currentPipeTextureMode) {
+  if (!pipeTextureModeOptions) return;
+  const normalized = normalizePipeTextureMode(mode);
+  const buttons = pipeTextureModeOptions.querySelectorAll("button[data-pipe-texture-mode]");
+  buttons.forEach((btn) => {
+    const btnMode = normalizePipeTextureMode(btn.dataset.pipeTextureMode);
+    const active = btnMode === normalized;
+    btn.classList.toggle("selected", active);
+    btn.setAttribute("aria-pressed", active ? "true" : "false");
+  });
+}
+
+function refreshPipeTextureMenu(selectedId = currentPipeTextureId) {
+  const unlocked = computeUnlockedPipeTextureSet(net.pipeTextures);
+  const safeId = unlocked.has(selectedId) ? selectedId : (Array.from(unlocked)[0] || DEFAULT_PIPE_TEXTURE_ID);
+  applyPipeTextureSelection(safeId, net.pipeTextures, unlocked);
+  renderPipeTextureModeButtons(currentPipeTextureMode);
+  const rendered = renderPipeTextureMenuOptions(safeId, unlocked, net.pipeTextures);
+  return { selected: safeId, unlocked, rendered };
 }
 
 function renderAchievements(payload = null) {
@@ -838,7 +985,9 @@ async function refreshProfileAndHighscores() {
     net.online = true;
     net.user = me.user || null;
     net.trails = normalizeTrails(me.trails || net.trails);
+    syncUnlockablesCatalog({ trails: net.trails });
     syncIconCatalog(me.icons || net.icons);
+    syncPipeTextureCatalog(me.pipeTextures || net.pipeTextures);
     applyAchievementsPayload(me.achievements || { definitions: ACHIEVEMENTS, state: me.user?.achievements });
     if (net.user?.keybinds) binds = mergeBinds(DEFAULT_KEYBINDS, net.user.keybinds);
     if (net.user?.settings) await updateSkillSettings(net.user.settings, { persist: false });
@@ -856,9 +1005,14 @@ async function refreshProfileAndHighscores() {
   setUserHint();
   const { selected, best } = refreshTrailMenu();
   const iconId = applyIconSelection(net.user?.selectedIcon || currentIconId, playerIcons);
+  currentPipeTextureMode = normalizePipeTextureMode(net.user?.pipeTextureMode || currentPipeTextureMode);
+  const pipeTextureId = net.user?.selectedPipeTexture || currentPipeTextureId;
+  const { selected: pipeSelected } = refreshPipeTextureMenu(pipeTextureId);
+  applyPipeTextureSelection(pipeSelected || pipeTextureId, net.pipeTextures);
   syncMenuProfileBindingsFromState({
     fallbackTrailId: selected,
     fallbackIconId: iconId,
+    fallbackPipeTextureId: pipeSelected || pipeTextureId,
     bestScoreFallback: best
   });
   renderHighscoresUI();
@@ -891,7 +1045,10 @@ saveUserBtn.addEventListener("click", async () => {
     net.online = true;
     net.user = res.user;
     net.trails = normalizeTrails(res.trails || net.trails);
+    syncUnlockablesCatalog({ trails: net.trails });
+    syncUnlockablesCatalog({ trails: net.trails });
     syncIconCatalog(res.icons || net.icons);
+    syncPipeTextureCatalog(res.pipeTextures || net.pipeTextures);
     applyAchievementsPayload(res.achievements || { definitions: ACHIEVEMENTS, state: res.user?.achievements });
 
     binds = mergeBinds(DEFAULT_KEYBINDS, net.user.keybinds);
@@ -1097,7 +1254,9 @@ trailOptions?.addEventListener("click", async (e) => {
   net.online = true;
   net.user = res.user;
   net.trails = normalizeTrails(res.trails || net.trails);
+  syncUnlockablesCatalog({ trails: net.trails });
   syncIconCatalog(res.icons || net.icons);
+  syncPipeTextureCatalog(res.pipeTextures || net.pipeTextures);
   refreshTrailMenu(res.user?.selectedTrail || id);
   applyIconSelection(net.user?.selectedIcon || currentIconId, playerIcons);
 });
@@ -1114,6 +1273,136 @@ trailOptions?.addEventListener("mouseover", (e) => {
 trailOptions?.addEventListener("mouseout", (e) => {
   if (!e.relatedTarget || !trailOptions.contains(e.relatedTarget)) {
     setTrailHint(lastTrailHint || { className: "hint", text: DEFAULT_TRAIL_HINT }, { persist: false });
+  }
+});
+
+pipeTextureLauncher?.addEventListener("click", () => {
+  refreshPipeTextureMenu(currentPipeTextureId);
+  togglePipeTextureMenu(pipeTextureOverlay, true);
+});
+
+pipeTextureOverlayClose?.addEventListener("click", () => {
+  togglePipeTextureMenu(pipeTextureOverlay, false);
+  if (pipeTextureHint) {
+    pipeTextureHint.className = "hint";
+    pipeTextureHint.textContent = DEFAULT_PIPE_TEXTURE_HINT;
+  }
+});
+
+pipeTextureOverlay?.addEventListener("click", (e) => {
+  if (e.target === pipeTextureOverlay) {
+    togglePipeTextureMenu(pipeTextureOverlay, false);
+    if (pipeTextureHint) {
+      pipeTextureHint.className = "hint";
+      pipeTextureHint.textContent = DEFAULT_PIPE_TEXTURE_HINT;
+    }
+  }
+});
+
+pipeTextureModeOptions?.addEventListener("click", async (e) => {
+  const btn = e.target.closest("button[data-pipe-texture-mode]");
+  if (!btn) return;
+  const nextMode = normalizePipeTextureMode(btn.dataset.pipeTextureMode);
+  if (nextMode === currentPipeTextureMode) return;
+  const previous = currentPipeTextureMode;
+  currentPipeTextureMode = nextMode;
+  renderPipeTextureModeButtons(currentPipeTextureMode);
+  syncPipeTextureSwatch(currentPipeTextureId, net.pipeTextures);
+  renderPipeTextureMenuOptions(currentPipeTextureId, computeUnlockedPipeTextureSet(net.pipeTextures), net.pipeTextures);
+
+  if (!net.user) return;
+
+  const res = await apiSetPipeTexture(currentPipeTextureId, currentPipeTextureMode);
+  if (!res || !res.ok) {
+    currentPipeTextureMode = previous;
+    renderPipeTextureModeButtons(currentPipeTextureMode);
+    syncPipeTextureSwatch(currentPipeTextureId, net.pipeTextures);
+    if (pipeTextureHint) {
+      pipeTextureHint.className = "hint bad";
+      pipeTextureHint.textContent = res?.error === "pipe_texture_locked"
+        ? "That mode is locked with this texture."
+        : "Could not save pipe texture mode.";
+    }
+    return;
+  }
+
+  net.user = res.user;
+  syncPipeTextureCatalog(res.pipeTextures || net.pipeTextures);
+  currentPipeTextureMode = normalizePipeTextureMode(res.user?.pipeTextureMode || currentPipeTextureMode);
+  renderPipeTextureModeButtons(currentPipeTextureMode);
+  syncPipeTextureSwatch(currentPipeTextureId, net.pipeTextures);
+  if (pipeTextureHint) {
+    pipeTextureHint.className = "hint good";
+    pipeTextureHint.textContent = "Pipe texture mode saved.";
+  }
+});
+
+pipeTextureOptions?.addEventListener("click", async (e) => {
+  const btn = e.target.closest("button[data-pipe-texture-id]");
+  if (!btn) return;
+  const id = btn.dataset.pipeTextureId;
+  const unlocked = computeUnlockedPipeTextureSet(net.pipeTextures);
+  if (!unlocked.has(id)) {
+    if (pipeTextureHint) {
+      pipeTextureHint.className = "hint bad";
+      pipeTextureHint.textContent = describePipeTextureLock(
+        net.pipeTextures.find((t) => t.id === id) || { unlock: {} },
+        { unlocked: false }
+      );
+    }
+    renderPipeTextureMenuOptions(currentPipeTextureId, unlocked, net.pipeTextures);
+    return;
+  }
+
+  const previous = currentPipeTextureId;
+  applyPipeTextureSelection(id, net.pipeTextures, unlocked);
+  if (pipeTextureHint) {
+    pipeTextureHint.className = net.user ? "hint" : "hint good";
+    pipeTextureHint.textContent = net.user ? "Saving pipe texture…" : "Equipped (guest mode).";
+  }
+
+  if (!net.user) return;
+
+  const res = await apiSetPipeTexture(id, currentPipeTextureMode);
+  if (!res || !res.ok) {
+    applyPipeTextureSelection(previous, net.pipeTextures, unlocked);
+    if (pipeTextureHint) {
+      pipeTextureHint.className = "hint bad";
+      pipeTextureHint.textContent = res?.error === "pipe_texture_locked"
+        ? "That pipe texture is locked."
+        : "Could not save pipe texture.";
+    }
+    return;
+  }
+
+  net.user = res.user;
+  syncPipeTextureCatalog(res.pipeTextures || net.pipeTextures);
+  currentPipeTextureMode = normalizePipeTextureMode(res.user?.pipeTextureMode || currentPipeTextureMode);
+  applyPipeTextureSelection(res.user?.selectedPipeTexture || id, net.pipeTextures, computeUnlockedPipeTextureSet(net.pipeTextures));
+  if (pipeTextureHint) {
+    pipeTextureHint.className = "hint good";
+    pipeTextureHint.textContent = "Pipe texture saved.";
+  }
+});
+
+pipeTextureOptions?.addEventListener("mouseover", (e) => {
+  const btn = e.target.closest("button[data-pipe-texture-id]");
+  if (!btn) return;
+  const id = btn.dataset.pipeTextureId;
+  const texture = net.pipeTextures.find((t) => t.id === id);
+  const unlocked = computeUnlockedPipeTextureSet(net.pipeTextures).has(id);
+  if (pipeTextureHint) {
+    pipeTextureHint.className = unlocked ? "hint good" : "hint";
+    pipeTextureHint.textContent = pipeTextureHoverText(texture, { unlocked });
+  }
+});
+
+pipeTextureOptions?.addEventListener("mouseout", (e) => {
+  if (!e.relatedTarget || !pipeTextureOptions.contains(e.relatedTarget)) {
+    if (pipeTextureHint) {
+      pipeTextureHint.className = "hint";
+      pipeTextureHint.textContent = DEFAULT_PIPE_TEXTURE_HINT;
+    }
   }
 });
 
@@ -1151,7 +1440,9 @@ iconOptions?.addEventListener("click", async (e) => {
   if (outcome.outcome === "saved" && res) {
     net.user = res.user;
     net.trails = normalizeTrails(res.trails || net.trails);
+    syncUnlockablesCatalog({ trails: net.trails });
     syncIconCatalog(res.icons || net.icons);
+    syncPipeTextureCatalog(res.pipeTextures || net.pipeTextures);
     applyIconSelection(res.user?.selectedIcon || id, playerIcons);
   } else if (outcome.revert) {
     applyIconSelection(previous, playerIcons);
@@ -1520,11 +1811,15 @@ async function onGameOver(finalScore) {
       net.online = true;
       net.user = res.user;
       net.trails = normalizeTrails(res.trails || net.trails);
+      syncUnlockablesCatalog({ trails: net.trails });
       syncIconCatalog(res.icons || net.icons);
+      syncPipeTextureCatalog(res.pipeTextures || net.pipeTextures);
       net.highscores = res.highscores || net.highscores;
       applyAchievementsPayload(res.achievements || { definitions: ACHIEVEMENTS, state: res.user?.achievements });
 
       refreshTrailMenu();
+      currentPipeTextureMode = normalizePipeTextureMode(res.user?.pipeTextureMode || currentPipeTextureMode);
+      applyPipeTextureSelection(res.user?.selectedPipeTexture || currentPipeTextureId, net.pipeTextures);
       applyIconSelection(res.user?.selectedIcon || currentIconId, playerIcons);
       renderHighscoresUI();
       renderAchievements();

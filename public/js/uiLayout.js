@@ -221,6 +221,90 @@ function createTrailCard(doc, refs) {
 
   iconField.append(iconLauncher, iconOverlay);
 
+  const pipeTextureField = doc.createElement("div");
+  pipeTextureField.className = "field pipe-texture-field pipe-texture-field-launcher";
+
+  const pipeTextureLauncher = createElement(doc, refs, "button", {
+    id: "pipeTextureLauncher",
+    className: "pipe-texture-launcher",
+    attrs: { type: "button" }
+  });
+
+  const pipeTextureBadge = doc.createElement("div");
+  pipeTextureBadge.className = "pipe-texture-launcher-badge";
+  const pipeTextureSwatch = doc.createElement("span");
+  pipeTextureSwatch.className = "pipe-texture-swatch";
+  const pipeTextureCanvas = doc.createElement("canvas");
+  pipeTextureCanvas.className = "pipe-texture-swatch-canvas";
+  pipeTextureCanvas.width = 84;
+  pipeTextureCanvas.height = 56;
+  pipeTextureCanvas.setAttribute("aria-hidden", "true");
+  pipeTextureSwatch.append(pipeTextureCanvas);
+  const pipeTextureLabel = doc.createElement("div");
+  pipeTextureLabel.className = "pipe-texture-launcher-label";
+  const pipeTextureName = doc.createElement("div");
+  pipeTextureName.className = "pipe-texture-launcher-name";
+  pipeTextureName.textContent = "Basic";
+  const pipeTextureAction = doc.createElement("div");
+  pipeTextureAction.className = "pipe-texture-launcher-action";
+  pipeTextureAction.textContent = "Change pipes";
+  pipeTextureLabel.append(pipeTextureName, pipeTextureAction);
+  pipeTextureBadge.append(pipeTextureSwatch, pipeTextureLabel);
+  pipeTextureLauncher.append(pipeTextureBadge);
+
+  const pipeTextureOverlay = createElement(doc, refs, "div", {
+    id: "pipeTextureOverlay",
+    className: "pipe-texture-overlay hidden",
+    attrs: { role: "dialog", "aria-modal": "true", "aria-labelledby": "pipeTextureOverlayTitle", "aria-hidden": "true" }
+  });
+  const pipeTextureOverlayPanel = doc.createElement("div");
+  pipeTextureOverlayPanel.className = "pipe-texture-overlay-panel icon-overlay-panel";
+  const pipeTextureOverlayHeader = doc.createElement("div");
+  pipeTextureOverlayHeader.className = "pipe-texture-overlay-header icon-overlay-header";
+  const pipeTextureOverlayTitle = doc.createElement("div");
+  pipeTextureOverlayTitle.id = "pipeTextureOverlayTitle";
+  pipeTextureOverlayTitle.className = "section-title";
+  pipeTextureOverlayTitle.textContent = "Pipe Textures";
+  const pipeTextureOverlayClose = createElement(doc, refs, "button", {
+    id: "pipeTextureOverlayClose",
+    className: "pipe-texture-overlay-close icon-overlay-close",
+    attrs: { type: "button" },
+    text: "Close"
+  });
+  pipeTextureOverlayHeader.append(pipeTextureOverlayTitle, pipeTextureOverlayClose);
+
+  const pipeTextureModeOptions = createElement(doc, refs, "div", {
+    id: "pipeTextureModeOptions",
+    className: "pipe-texture-mode-options"
+  });
+  const modes = ["MONOCHROME", "MINIMAL", "NORMAL", "HIGH", "ULTRA"];
+  modes.forEach((mode) => {
+    const btn = doc.createElement("button");
+    btn.type = "button";
+    btn.className = "pipe-texture-mode-btn";
+    btn.dataset.pipeTextureMode = mode;
+    btn.setAttribute("aria-pressed", mode === "NORMAL" ? "true" : "false");
+    btn.textContent = mode;
+    pipeTextureModeOptions.append(btn);
+  });
+
+  const pipeTextureOptions = createElement(doc, refs, "div", {
+    id: "pipeTextureOptions",
+    className: "pipe-texture-grid",
+    attrs: { role: "listbox" }
+  });
+
+  const pipeTextureHint = createElement(doc, refs, "div", {
+    id: "pipeTextureHint",
+    className: "hint",
+    text: "Unlock pipe textures by improving your personal best."
+  });
+
+  pipeTextureOverlayPanel.append(pipeTextureOverlayHeader, pipeTextureModeOptions, pipeTextureOptions, pipeTextureHint);
+  pipeTextureOverlay.append(pipeTextureOverlayPanel);
+
+  pipeTextureField.append(pipeTextureLauncher, pipeTextureOverlay);
+
   const trailField = doc.createElement("div");
   trailField.className = "field trail-field trail-field-launcher";
 
@@ -289,7 +373,7 @@ function createTrailCard(doc, refs) {
   trailOverlay.append(trailOverlayPanel);
 
   trailField.append(trailLauncher, trailOverlay, trailHint);
-  card.append(actions, divider, iconField, trailField, actionsRow);
+  card.append(actions, divider, iconField, pipeTextureField, trailField, actionsRow);
   return card;
 }
 
@@ -859,13 +943,19 @@ function createProfileCard(doc, refs) {
   const iconText = createElement(doc, refs, "span", { id: "iconText", className: "kbd", text: "High-Vis Orange" });
   iconBadge.append(iconText);
 
+  const pipeTextureBadge = doc.createElement("div");
+  pipeTextureBadge.className = "badge";
+  pipeTextureBadge.textContent = "Pipes ";
+  const pipeTextureText = createElement(doc, refs, "span", { id: "pipeTextureText", className: "kbd", text: "Basic" });
+  pipeTextureBadge.append(pipeTextureText);
+
   const busterBadge = doc.createElement("div");
   busterBadge.className = "badge";
   busterBadge.textContent = "Bustercoins ";
   const bustercoinText = createElement(doc, refs, "span", { id: "bustercoinText", className: "kbd", text: "0" });
   busterBadge.append(bustercoinText);
 
-  pills.append(pbBadge, trailBadge, iconBadge, busterBadge);
+  pills.append(pbBadge, trailBadge, iconBadge, pipeTextureBadge, busterBadge);
 
   field.append(label, row, userHint, pills);
   card.append(title, field);

@@ -72,6 +72,7 @@ describe("api helpers", () => {
       apiUploadBestRun,
       apiSetTrail,
       apiSetIcon,
+      apiSetPipeTexture,
       apiSetKeybinds,
       apiGetHighscores
     } = await import("../api.js");
@@ -84,6 +85,7 @@ describe("api helpers", () => {
       [apiUploadBestRun, ["/api/run/best", { method: "POST", body: JSON.stringify({ score: 9001 }) }]],
       [apiSetTrail, ["/api/cosmetics/trail", { method: "POST", body: JSON.stringify({ trailId: "classic" }) }]],
       [apiSetIcon, ["/api/cosmetics/icon", { method: "POST", body: JSON.stringify({ iconId: "hi_vis_orange" }) }]],
+      [apiSetPipeTexture, ["/api/cosmetics/pipe_texture", { method: "POST", body: JSON.stringify({ textureId: "basic", mode: "NORMAL" }) }]],
       [apiSetKeybinds, ["/api/binds", { method: "POST", body: JSON.stringify({ keybinds: { jump: "Space" } }) }]],
       [apiGetHighscores, ["/api/highscores?limit=25", { method: "GET" }]]
     ];
@@ -95,6 +97,7 @@ describe("api helpers", () => {
     await apiUploadBestRun({ score: 9001 });
     await apiSetTrail("classic");
     await apiSetIcon("hi_vis_orange");
+    await apiSetPipeTexture("basic", "NORMAL");
     await apiSetKeybinds({ jump: "Space" });
     await apiGetHighscores(25);
 

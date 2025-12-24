@@ -11,6 +11,10 @@ function buildDeps(overrides = {}) {
   const listHighscores = overrides.listHighscores || vi.fn(async () => [{ username: "a", bestScore: 1 }]);
   const trails = overrides.trails || [{ id: "classic" }];
   const icons = overrides.icons || [{ id: "hi_vis_orange" }];
+  const pipeTextures = overrides.pipeTextures || [{ id: "basic" }];
+  const unlockables = overrides.unlockables || [];
+  const syncUnlockablesState = overrides.syncUnlockablesState
+    || vi.fn((state) => ({ state: state || { unlocked: {} }, unlocked: [] }));
   const normalizeAchievements = overrides.normalizeAchievements || ((state) => state || { unlocked: {}, progress: {} });
   const validateRunStats =
     overrides.validateRunStats || (() => ({ ok: true, stats: { orbsCollected: null, abilitiesUsed: null, perfects: null } }));
@@ -25,6 +29,9 @@ function buildDeps(overrides = {}) {
     listHighscores,
     trails,
     icons,
+    pipeTextures,
+    unlockables,
+    syncUnlockablesState,
     normalizeAchievements,
     validateRunStats,
     evaluateAchievements,
@@ -88,7 +95,7 @@ describe("scoreService", () => {
     expect(deps.dataStore.recordScore).toHaveBeenCalledWith(
       user,
       123,
-      expect.objectContaining({ bustercoinsEarned: 0 })
+      expect.objectContaining({ bustercoinsEarned: 0, unlockables: expect.anything() })
     );
     expect(deps.ensureUserSchema).toHaveBeenCalledWith(updated, { recordHolder: false });
     expect(deps.listHighscores).toHaveBeenCalled();
@@ -99,9 +106,30 @@ describe("scoreService", () => {
       user: { name: "User", bestScore: 123, recordHolder: false },
       trails: deps.trails,
       icons: deps.icons,
+      pipeTextures: deps.pipeTextures,
       highscores: [{ username: "a", bestScore: 1 }]
     });
     expect(res.body.achievements).toBeTruthy();
+  });
+
+  it("syncs unlockables based on the updated score", async () => {
+    const user = { key: "u", username: "Sync", bestScore: 5, ownedIcons: [] };
+    const updated = { ...user, bestScore: 10, achievements: { unlocked: {}, progress: {} } };
+    const syncUnlockablesState = vi.fn(() => ({ state: { unlocked: { "pipe_texture:basic": 123 } }, unlocked: [] }));
+    const localDeps = buildDeps({
+      syncUnlockablesState,
+      unlockables: [{ id: "basic", type: "pipe_texture", unlock: { type: "free" } }]
+    });
+    localDeps.dataStore.recordScore.mockResolvedValue(updated);
+    const svc = createScoreService(localDeps);
+
+    const res = await svc.submitScore(user, 10);
+    expect(res.ok).toBe(true);
+    expect(syncUnlockablesState).toHaveBeenCalledWith(
+      user.unlockables,
+      expect.any(Array),
+      expect.objectContaining({ bestScore: 10, ownedIds: [] })
+    );
   });
 
   it("marks the submitting user as the record holder when appropriate", async () => {

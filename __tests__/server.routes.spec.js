@@ -8,6 +8,8 @@ const baseUser = () => ({
   bestScore: 2000,
   selectedTrail: "classic",
   selectedIcon: "hi_vis_orange",
+  selectedPipeTexture: "basic",
+  pipeTextureMode: "NORMAL",
   ownedIcons: [],
   keybinds: {},
   settings: {
@@ -58,10 +60,11 @@ async function importServer(overrides = {}) {
     ensureConnected: vi.fn(async () => true),
     topHighscores: vi.fn(async () => []),
     upsertUser: vi.fn(async (_username, _key, defaults) => ({ ...baseUser(), ...defaults })),
-    recordScore: vi.fn(async (user, score, { bustercoinsEarned = 0, achievements } = {}) => ({
+    recordScore: vi.fn(async (user, score, { bustercoinsEarned = 0, achievements, unlockables } = {}) => ({
       ...baseUser(),
       ...user,
       achievements: achievements || { unlocked: {}, progress: {} },
+      unlockables: unlockables || { unlocked: {} },
       bestScore: score,
       bustercoins: (user?.bustercoins || 0) + (bustercoinsEarned || 0)
     })),
@@ -69,6 +72,7 @@ async function importServer(overrides = {}) {
     getBestRunByUsername: vi.fn(async () => null),
     setTrail: vi.fn(async (_key, trailId) => ({ ...baseUser(), selectedTrail: trailId })),
     setIcon: vi.fn(async (_key, iconId) => ({ ...baseUser(), selectedIcon: iconId })),
+    setPipeTexture: vi.fn(async (_key, textureId, mode) => ({ ...baseUser(), selectedPipeTexture: textureId, pipeTextureMode: mode })),
     setKeybinds: vi.fn(async (_key, binds) => ({ ...baseUser(), keybinds: binds })),
     setSettings: vi.fn(async (_key, settings) => ({ ...baseUser(), settings })),
     getUserByKey: vi.fn(async () => baseUser()),
@@ -304,6 +308,7 @@ describe("server routes and helpers", () => {
       invulnBehavior: "long"
     });
     expect(readJson(res).icons?.length).toBeGreaterThan(0);
+    expect(readJson(res).pipeTextures?.length).toBeGreaterThan(0);
   });
 
   it("includes achievement payload on /api/me responses", async () => {
@@ -432,6 +437,62 @@ describe("server routes and helpers", () => {
     expect(payload.icons?.length).toBeGreaterThan(0);
   });
 
+  it("validates and persists pipe texture selections", async () => {
+    const { server, mockDataStore } = await importServer({
+      getUserByKey: vi.fn(async () => ({ ...baseUser(), bestScore: 0 })),
+      setPipeTexture: vi.fn(async (_key, textureId, mode) => ({ ...baseUser(), selectedPipeTexture: textureId, pipeTextureMode: mode }))
+    });
+
+    const invalid = createRes();
+    await server.route(
+      createReq({
+        method: "POST",
+        url: "/api/cosmetics/pipe_texture",
+        body: JSON.stringify({ textureId: "missing" }),
+        headers: { cookie: "sugar=PlayerOne" }
+      }),
+      invalid
+    );
+    expect(invalid.status).toBe(400);
+    expect(readJson(invalid).error).toBe("invalid_pipe_texture");
+
+    const locked = createRes();
+    await server.route(
+      createReq({
+        method: "POST",
+        url: "/api/cosmetics/pipe_texture",
+        body: JSON.stringify({ textureId: "digital", mode: "HIGH" }),
+        headers: { cookie: "sugar=PlayerOne" }
+      }),
+      locked
+    );
+    expect(locked.status).toBe(400);
+    expect(readJson(locked).error).toBe("pipe_texture_locked");
+
+    const unlockedUser = { ...baseUser(), bestScore: 2000 };
+    mockDataStore.getUserByKey.mockResolvedValueOnce(unlockedUser);
+    mockDataStore.setPipeTexture.mockResolvedValueOnce({
+      ...unlockedUser,
+      selectedPipeTexture: "digital",
+      pipeTextureMode: "HIGH"
+    });
+    const success = createRes();
+    await server.route(
+      createReq({
+        method: "POST",
+        url: "/api/cosmetics/pipe_texture",
+        body: JSON.stringify({ textureId: "digital", mode: "HIGH" }),
+        headers: { cookie: "sugar=PlayerOne" }
+      }),
+      success
+    );
+    const payload = readJson(success);
+    expect(success.status).toBe(200);
+    expect(payload.user.selectedPipeTexture).toBe("digital");
+    expect(payload.user.pipeTextureMode).toBe("HIGH");
+    expect(payload.pipeTextures?.length).toBeGreaterThan(0);
+  });
+
   it("validates and persists keybind payloads", async () => {
     const { server, mockDataStore } = await importServer();
     const duplicate = createRes();
@@ -535,6 +596,23 @@ describe("server routes and helpers", () => {
 
     const htmlRes = createRes();
     await server.route(createReq({ url: "/trail_previews?format=html" }), htmlRes);
+    expect(htmlRes.status).toBe(200);
+    expect(htmlRes.headers["Content-Type"]).toContain("text/html");
+    expect(htmlRes.body).toContain("<!doctype html>");
+  });
+
+  it("serves unlockables as JSON by default and HTML when requested", async () => {
+    const { server } = await importServer();
+
+    const jsonRes = createRes();
+    await server.route(createReq({ url: "/unlockables", headers: { accept: "application/json" } }), jsonRes);
+    expect(jsonRes.status).toBe(200);
+    const payload = readJson(jsonRes);
+    expect(payload.ok).toBe(true);
+    expect(payload.unlockables.length).toBeGreaterThan(0);
+
+    const htmlRes = createRes();
+    await server.route(createReq({ url: "/unlockables?format=html" }), htmlRes);
     expect(htmlRes.status).toBe(200);
     expect(htmlRes.headers["Content-Type"]).toContain("text/html");
     expect(htmlRes.body).toContain("<!doctype html>");

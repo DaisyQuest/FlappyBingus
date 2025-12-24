@@ -6,6 +6,7 @@ const { DEFAULT_SKILL_TOTALS, SKILL_IDS, normalizeSkillTotals } = require("../se
 const MAX_SCORE = 1_000_000_000;
 const DEFAULT_TRAIL = "classic";
 const DEFAULT_ICON = "hi_vis_orange";
+const { DEFAULT_PIPE_TEXTURE_ID, DEFAULT_PIPE_TEXTURE_MODE } = require("../services/pipeTextures.cjs");
 const DEFAULT_ACHIEVEMENTS_STATE = Object.freeze({
   unlocked: Object.freeze({}),
   progress: Object.freeze({
@@ -208,7 +209,7 @@ class MongoDataStore {
     }
   }
 
-  async recordScore(user, score, { bustercoinsEarned = 0, achievements, skillUsage } = {}) {
+  async recordScore(user, score, { bustercoinsEarned = 0, achievements, unlockables, skillUsage } = {}) {
     await this.ensureConnected();
     if (!user || !user.key) throw new Error("user_key_required");
 
@@ -217,6 +218,8 @@ class MongoDataStore {
     const earnedCoins = Math.max(0, normalizeCount(bustercoinsEarned));
     const nextAchievements =
       achievements && typeof achievements === "object" ? achievements : null;
+    const nextUnlockables =
+      unlockables && typeof unlockables === "object" ? unlockables : null;
     const baseSkillTotals = normalizeSkillTotals(user.skillTotals || DEFAULT_SKILL_TOTALS);
     const runSkillTotals = normalizeSkillTotals(skillUsage);
 
@@ -237,6 +240,8 @@ class MongoDataStore {
             username: { $ifNull: ["$username", user.username || user.key] },
             selectedTrail: { $ifNull: ["$selectedTrail", user.selectedTrail || DEFAULT_TRAIL] },
             selectedIcon: { $ifNull: ["$selectedIcon", user.selectedIcon || DEFAULT_ICON] },
+            selectedPipeTexture: { $ifNull: ["$selectedPipeTexture", user.selectedPipeTexture || DEFAULT_PIPE_TEXTURE_ID] },
+            pipeTextureMode: { $ifNull: ["$pipeTextureMode", user.pipeTextureMode || DEFAULT_PIPE_TEXTURE_MODE] },
             ownedIcons: { $ifNull: ["$ownedIcons", user.ownedIcons || []] },
             keybinds: { $ifNull: ["$keybinds", user.keybinds || null] },
             createdAt: { $ifNull: ["$createdAt", user.createdAt || now] },
@@ -246,6 +251,7 @@ class MongoDataStore {
             bestScore: { $max: [{ $ifNull: ["$bestScore", safeBestScore] }, safeScore] },
             bustercoins: { $add: [{ $ifNull: ["$bustercoins", safeCoins] }, earnedCoins] },
             achievements: nextAchievements ?? { $ifNull: ["$achievements", user.achievements || DEFAULT_ACHIEVEMENTS_STATE] },
+            unlockables: nextUnlockables ?? { $ifNull: ["$unlockables", user.unlockables || { unlocked: {} }] },
             skillTotals: {
               $let: {
                 vars: {
@@ -338,6 +344,17 @@ class MongoDataStore {
     const res = await this.usersCollection().findOneAndUpdate(
       { key },
       { $set: { selectedIcon: iconId, updatedAt: now } },
+      { returnDocument: "after" }
+    );
+    return res.value;
+  }
+
+  async setPipeTexture(key, textureId, mode) {
+    await this.ensureConnected();
+    const now = Date.now();
+    const res = await this.usersCollection().findOneAndUpdate(
+      { key },
+      { $set: { selectedPipeTexture: textureId, pipeTextureMode: mode, updatedAt: now } },
       { returnDocument: "after" }
     );
     return res.value;

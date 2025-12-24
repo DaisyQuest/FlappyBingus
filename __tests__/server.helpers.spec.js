@@ -12,6 +12,8 @@ const baseUser = () => ({
   bestScore: 5000,
   selectedTrail: "world_record",
   selectedIcon: "hi_vis_red",
+  selectedPipeTexture: "basic",
+  pipeTextureMode: "NORMAL",
   ownedIcons: [],
   keybinds: {},
   runs: 10,
@@ -64,6 +66,15 @@ describe("server helpers (trails)", () => {
     const pub = server.publicUser(u, { recordHolder: false });
     expect(pub.selectedIcon).toBe("hi_vis_orange");
     expect(pub.unlockedIcons).toContain("hi_vis_orange");
+  });
+
+  it("normalizes pipe texture selection to an unlocked default", () => {
+    const u = { ...baseUser(), selectedPipeTexture: "digital", bestScore: 0 };
+    server.ensureUserSchema(u, { recordHolder: false });
+    expect(u.selectedPipeTexture).toBe("basic");
+    const pub = server.publicUser(u, { recordHolder: false });
+    expect(pub.selectedPipeTexture).toBe("basic");
+    expect(pub.unlockedPipeTextures).toContain("basic");
   });
 
   it("seeds achievement progress defaults when absent", () => {
