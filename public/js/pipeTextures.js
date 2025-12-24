@@ -16,11 +16,11 @@ export const DEFAULT_PIPE_TEXTURE_ID = "basic";
 export const DEFAULT_PIPE_TEXTURE_MODE = "NORMAL";
 
 const PIPE_TEXTURE_MODE_SETTINGS = Object.freeze({
-  MONOCHROME: { detail: 0, stripeAlpha: 0.08, noiseAlpha: 0.0, glow: 0.1 },
-  MINIMAL: { detail: 1, stripeAlpha: 0.12, noiseAlpha: 0.06, glow: 0.16 },
-  NORMAL: { detail: 2, stripeAlpha: 0.18, noiseAlpha: 0.12, glow: 0.22 },
-  HIGH: { detail: 3, stripeAlpha: 0.24, noiseAlpha: 0.18, glow: 0.3 },
-  ULTRA: { detail: 4, stripeAlpha: 0.3, noiseAlpha: 0.26, glow: 0.38 }
+  MONOCHROME: { detail: 0, stripeAlpha: 0.06, noiseAlpha: 0.0, glow: 0.08, activity: 0.35, shadowBlur: 6 },
+  MINIMAL: { detail: 1, stripeAlpha: 0.1, noiseAlpha: 0.04, glow: 0.14, activity: 0.55, shadowBlur: 7 },
+  NORMAL: { detail: 1, stripeAlpha: 0.14, noiseAlpha: 0.08, glow: 0.2, activity: 0.75, shadowBlur: 8 },
+  HIGH: { detail: 2, stripeAlpha: 0.2, noiseAlpha: 0.14, glow: 0.28, activity: 0.95, shadowBlur: 9 },
+  ULTRA: { detail: 4, stripeAlpha: 0.3, noiseAlpha: 0.26, glow: 0.38, activity: 1.25, shadowBlur: 10 }
 });
 
 export const PIPE_TEXTURES = Object.freeze([
@@ -229,7 +229,13 @@ function drawTiger(ctx, p, base, { stripeColor = "#fff", detail = 2 } = {}) {
   ctx.restore();
 }
 
-function drawRainbow(ctx, p, { time = 0, invert = false, monoBase = null } = {}) {
+function drawRainbow(ctx, p, {
+  time = 0,
+  invert = false,
+  monoBase = null,
+  detail = 2,
+  activity = 1
+} = {}) {
   const g = (p.w >= p.h)
     ? ctx.createLinearGradient(p.x, p.y, p.x + p.w, p.y)
     : ctx.createLinearGradient(p.x, p.y, p.x, p.y + p.h);
@@ -239,8 +245,9 @@ function drawRainbow(ctx, p, { time = 0, invert = false, monoBase = null } = {})
     g.addColorStop(0.5, rgb(shade(monoBase, 1.1), 0.95));
     g.addColorStop(1, rgb(shade(monoBase, 0.75), 0.95));
   } else {
-    const baseHue = (time * 60 + (invert ? 180 : 0)) % 360;
-    const stops = 6;
+    const hueRate = 40 + 80 * activity;
+    const baseHue = (time * hueRate + (invert ? 180 : 0)) % 360;
+    const stops = Math.max(4, 4 + detail);
     for (let i = 0; i <= stops; i++) {
       const hue = (baseHue + i * (360 / stops)) % 360;
       const light = invert ? 34 : 52;
@@ -251,13 +258,15 @@ function drawRainbow(ctx, p, { time = 0, invert = false, monoBase = null } = {})
   ctx.fillStyle = g;
   ctx.fillRect(p.x, p.y, p.w, p.h);
 
-  const sparkleCount = Math.max(4, Math.floor((Math.min(p.w, p.h) / 18)));
+  const sparkleBase = Math.min(p.w, p.h) / 22;
+  const sparkleBoost = 0.55 + activity * 0.55;
+  const sparkleCount = Math.max(2, Math.floor(sparkleBase * (detail + 1) * sparkleBoost));
   for (let i = 0; i < sparkleCount; i++) {
-    const sparklePhase = time * 1.4 + i * 1.6;
+    const sparklePhase = time * (1.1 + activity * 0.8) + i * 1.6;
     const sparkleAlpha = 0.15 + 0.25 * (0.5 + 0.5 * Math.sin(sparklePhase));
     ctx.fillStyle = `rgba(255,255,255,${sparkleAlpha})`;
-    const sx = p.x + ((i * 31 + time * 22) % (p.w + 8)) - 4;
-    const sy = p.y + ((i * 19 + time * 16) % (p.h + 8)) - 4;
+    const sx = p.x + ((i * 31 + time * (18 + activity * 14)) % (p.w + 8)) - 4;
+    const sy = p.y + ((i * 19 + time * (14 + activity * 10)) % (p.h + 8)) - 4;
     ctx.fillRect(sx, sy, Math.max(2, p.w * 0.02), Math.max(2, p.h * 0.02));
   }
 }
@@ -519,6 +528,7 @@ export function drawPipeTexture(ctx, p, base, {
   const resolvedMode = normalizePipeTextureMode(mode);
   const settings = PIPE_TEXTURE_MODE_SETTINGS[resolvedMode] || PIPE_TEXTURE_MODE_SETTINGS.NORMAL;
   const detail = settings.detail;
+  const activity = settings.activity ?? 1;
   const toneBase = resolvedMode === "MONOCHROME"
     ? (() => {
       const avg = Math.round((base.r + base.g + base.b) / 3);
@@ -528,8 +538,11 @@ export function drawPipeTexture(ctx, p, base, {
 
   ctx.save();
   ctx.shadowColor = "rgba(0,0,0,.45)";
-  ctx.shadowBlur = 10;
+  ctx.shadowBlur = settings.shadowBlur ?? 10;
   ctx.shadowOffsetY = 3;
+  ctx.beginPath();
+  ctx.rect(p.x, p.y, p.w, p.h);
+  ctx.clip();
 
   switch (textureId) {
     case "basic":
@@ -551,10 +564,22 @@ export function drawPipeTexture(ctx, p, base, {
       drawTiger(ctx, p, toneBase, { stripeColor: "#111827", detail });
       break;
     case "rainbow":
-      drawRainbow(ctx, p, { time, invert: false, monoBase: resolvedMode === "MONOCHROME" ? toneBase : null });
+      drawRainbow(ctx, p, {
+        time,
+        invert: false,
+        monoBase: resolvedMode === "MONOCHROME" ? toneBase : null,
+        detail,
+        activity
+      });
       break;
     case "negarainbow":
-      drawRainbow(ctx, p, { time, invert: true, monoBase: resolvedMode === "MONOCHROME" ? toneBase : null });
+      drawRainbow(ctx, p, {
+        time,
+        invert: true,
+        monoBase: resolvedMode === "MONOCHROME" ? toneBase : null,
+        detail,
+        activity
+      });
       break;
     case "tv_static":
       drawStatic(ctx, p, toneBase, { time, alpha: settings.noiseAlpha, detail });

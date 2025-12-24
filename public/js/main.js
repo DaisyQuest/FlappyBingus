@@ -274,6 +274,25 @@ function writeIconCookie(id) {
   setCookie(ICON_COOKIE, String(id), 3650);
 }
 
+const PIPE_TEXTURE_COOKIE = "bingus_pipe_texture";
+const PIPE_TEXTURE_MODE_COOKIE = "bingus_pipe_texture_mode";
+function readPipeTextureCookie() {
+  const raw = getCookie(PIPE_TEXTURE_COOKIE);
+  return raw && typeof raw === "string" ? raw : null;
+}
+function writePipeTextureCookie(id) {
+  if (!id) return;
+  setCookie(PIPE_TEXTURE_COOKIE, String(id), 3650);
+}
+function readPipeTextureModeCookie() {
+  const raw = getCookie(PIPE_TEXTURE_MODE_COOKIE);
+  return raw && typeof raw === "string" ? raw : null;
+}
+function writePipeTextureModeCookie(mode) {
+  const normalized = normalizePipeTextureMode(mode);
+  setCookie(PIPE_TEXTURE_MODE_COOKIE, normalized, 3650);
+}
+
 let menuParallaxControl = null;
 function setUIMode(isUI) {
   // When UI is shown, let clicks go to HTML controls
@@ -324,8 +343,8 @@ let currentIconId = normalizeIconSelection({
   unlockedIds: playerIcons.map((i) => i.id),
   fallbackId: DEFAULT_PLAYER_ICON_ID
 });
-let currentPipeTextureId = DEFAULT_PIPE_TEXTURE_ID;
-let currentPipeTextureMode = DEFAULT_PIPE_TEXTURE_MODE;
+let currentPipeTextureId = readPipeTextureCookie() || DEFAULT_PIPE_TEXTURE_ID;
+let currentPipeTextureMode = normalizePipeTextureMode(readPipeTextureModeCookie() || DEFAULT_PIPE_TEXTURE_MODE);
 
 // assets
 let playerImg = getCachedIconSprite(playerIcons.find((i) => i.id === currentIconId));
@@ -746,6 +765,8 @@ function applyPipeTextureSelection(
 ) {
   const safeId = unlocked.has(id) ? id : (Array.from(unlocked)[0] || DEFAULT_PIPE_TEXTURE_ID);
   currentPipeTextureId = safeId || DEFAULT_PIPE_TEXTURE_ID;
+  writePipeTextureCookie(currentPipeTextureId);
+  writePipeTextureModeCookie(currentPipeTextureMode);
   if (pipeTextureText) pipeTextureText.textContent = getPipeTextureLabel(currentPipeTextureId, textures);
   if (pipeTextureLauncher) {
     const nameEl = pipeTextureLauncher.querySelector(".pipe-texture-launcher-name");
@@ -1006,6 +1027,7 @@ async function refreshProfileAndHighscores() {
   const { selected, best } = refreshTrailMenu();
   const iconId = applyIconSelection(net.user?.selectedIcon || currentIconId, playerIcons);
   currentPipeTextureMode = normalizePipeTextureMode(net.user?.pipeTextureMode || currentPipeTextureMode);
+  writePipeTextureModeCookie(currentPipeTextureMode);
   const pipeTextureId = net.user?.selectedPipeTexture || currentPipeTextureId;
   const { selected: pipeSelected } = refreshPipeTextureMenu(pipeTextureId);
   applyPipeTextureSelection(pipeSelected || pipeTextureId, net.pipeTextures);
@@ -1302,6 +1324,7 @@ pipeTextureModeOptions?.addEventListener("click", async (e) => {
   if (nextMode === currentPipeTextureMode) return;
   const previous = currentPipeTextureMode;
   currentPipeTextureMode = nextMode;
+  writePipeTextureModeCookie(currentPipeTextureMode);
   renderPipeTextureModeButtons(currentPipeTextureMode);
   syncPipeTextureSwatch(currentPipeTextureId, net.pipeTextures);
   renderPipeTextureMenuOptions(currentPipeTextureId, computeUnlockedPipeTextureSet(net.pipeTextures), net.pipeTextures);
@@ -1311,6 +1334,7 @@ pipeTextureModeOptions?.addEventListener("click", async (e) => {
   const res = await apiSetPipeTexture(currentPipeTextureId, currentPipeTextureMode);
   if (!res || !res.ok) {
     currentPipeTextureMode = previous;
+    writePipeTextureModeCookie(currentPipeTextureMode);
     renderPipeTextureModeButtons(currentPipeTextureMode);
     syncPipeTextureSwatch(currentPipeTextureId, net.pipeTextures);
     if (pipeTextureHint) {
@@ -1325,6 +1349,7 @@ pipeTextureModeOptions?.addEventListener("click", async (e) => {
   net.user = res.user;
   syncPipeTextureCatalog(res.pipeTextures || net.pipeTextures);
   currentPipeTextureMode = normalizePipeTextureMode(res.user?.pipeTextureMode || currentPipeTextureMode);
+  writePipeTextureModeCookie(currentPipeTextureMode);
   renderPipeTextureModeButtons(currentPipeTextureMode);
   syncPipeTextureSwatch(currentPipeTextureId, net.pipeTextures);
   if (pipeTextureHint) {
