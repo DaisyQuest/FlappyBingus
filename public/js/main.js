@@ -88,6 +88,7 @@ import {
   describePipeTextureLock,
   pipeTextureHoverText,
   renderPipeTextureOptions,
+  shouldClosePipeTextureMenu,
   togglePipeTextureMenu
 } from "./pipeTextureMenu.js";
 
@@ -142,7 +143,6 @@ const {
   trailLauncher,
   pipeTextureOptions,
   pipeTextureOverlay,
-  pipeTextureOverlayClose,
   pipeTextureLauncher,
   pipeTextureHint,
   pipeTextureModeOptions,
@@ -1281,21 +1281,17 @@ pipeTextureLauncher?.addEventListener("click", () => {
   togglePipeTextureMenu(pipeTextureOverlay, true);
 });
 
-pipeTextureOverlayClose?.addEventListener("click", () => {
+const closePipeTextureOverlay = () => {
   togglePipeTextureMenu(pipeTextureOverlay, false);
   if (pipeTextureHint) {
     pipeTextureHint.className = "hint";
     pipeTextureHint.textContent = DEFAULT_PIPE_TEXTURE_HINT;
   }
-});
+};
 
 pipeTextureOverlay?.addEventListener("click", (e) => {
-  if (e.target === pipeTextureOverlay) {
-    togglePipeTextureMenu(pipeTextureOverlay, false);
-    if (pipeTextureHint) {
-      pipeTextureHint.className = "hint";
-      pipeTextureHint.textContent = DEFAULT_PIPE_TEXTURE_HINT;
-    }
+  if (shouldClosePipeTextureMenu(e, { overlay: pipeTextureOverlay })) {
+    closePipeTextureOverlay();
   }
 });
 

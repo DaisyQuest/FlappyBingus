@@ -87,6 +87,14 @@ export function renderPipeTextureOptions({
   return { rendered: textures.length, swatches };
 }
 
+export function shouldClosePipeTextureMenu(event, { overlay, closeSelector = "#pipeTextureOverlayClose" } = {}) {
+  if (!event || !overlay) return false;
+  const target = event.target;
+  if (target === overlay) return true;
+  if (!target || typeof target.closest !== "function") return false;
+  return Boolean(closeSelector && target.closest(closeSelector));
+}
+
 export function togglePipeTextureMenu(overlay, open) {
   if (!overlay) return;
   overlay.classList.toggle("hidden", !open);
