@@ -94,6 +94,10 @@ class FakeCollection {
         const values = expr.$add.map((v) => this.evaluateExpression(v, vars));
         return values.reduce((sum, v) => sum + v, 0);
       }
+      if (Object.prototype.hasOwnProperty.call(expr, "$mergeObjects")) {
+        const parts = expr.$mergeObjects.map((v) => this.evaluateExpression(v, vars));
+        return parts.reduce((acc, part) => ({ ...acc, ...(part || {}) }), {});
+      }
       if (Object.prototype.hasOwnProperty.call(expr, "$max")) {
         const values = expr.$max.map((v) => this.evaluateExpression(v, vars));
         return Math.max(...values);
@@ -159,9 +163,11 @@ describe("MongoDataStore.recordScore", () => {
       selectedPipeTexture: DEFAULT_PIPE_TEXTURE_ID,
       pipeTextureMode: DEFAULT_PIPE_TEXTURE_MODE,
       ownedIcons: [],
+      ownedUnlockables: [],
       updatedAt: now,
       keybinds: null,
       bustercoins: 0,
+      currencies: { bustercoin: 0 },
       achievements: { unlocked: {}, progress: DEFAULT_PROGRESS },
       unlockables: { unlocked: {} },
       skillTotals: DEFAULT_SKILL_TOTALS
@@ -188,8 +194,10 @@ describe("MongoDataStore.recordScore", () => {
       selectedPipeTexture: DEFAULT_PIPE_TEXTURE_ID,
       pipeTextureMode: DEFAULT_PIPE_TEXTURE_MODE,
       ownedIcons: [],
+      ownedUnlockables: [],
       keybinds: null,
       bustercoins: 0,
+      currencies: { bustercoin: 0 },
       runs: 1,
       totalScore: 25,
       bestScore: 25,
@@ -221,11 +229,13 @@ describe("MongoDataStore.recordScore", () => {
       selectedPipeTexture: DEFAULT_PIPE_TEXTURE_ID,
       pipeTextureMode: DEFAULT_PIPE_TEXTURE_MODE,
       ownedIcons: [],
+      ownedUnlockables: [],
       keybinds: null,
       runs: 6,
       totalScore: 17,
       bestScore: 8,
       bustercoins: 0,
+      currencies: { bustercoin: 0 },
       createdAt: 10,
       updatedAt: now,
       achievements: { unlocked: {}, progress: DEFAULT_PROGRESS },
@@ -267,8 +277,10 @@ describe("MongoDataStore.recordScore", () => {
       selectedPipeTexture: DEFAULT_PIPE_TEXTURE_ID,
       pipeTextureMode: DEFAULT_PIPE_TEXTURE_MODE,
       ownedIcons: [],
+      ownedUnlockables: [],
       keybinds: null,
       bustercoins: 0,
+      currencies: { bustercoin: 0 },
       updatedAt: now,
       achievements: { unlocked: {}, progress: DEFAULT_PROGRESS },
       unlockables: { unlocked: {} },
@@ -302,6 +314,7 @@ describe("MongoDataStore.recordScore", () => {
 
     expect(result.achievements).toEqual(nextAchievements);
     expect(result.bustercoins).toBe(1);
+    expect(result.currencies).toEqual({ bustercoin: 1 });
     expect(result.totalScore).toBe(130);
     expect(result.runs).toBe(2);
   });

@@ -1,5 +1,7 @@
 "use strict";
 
+const { DEFAULT_CURRENCY_ID, normalizeCurrencyId, getCurrencyDefinition } = require("./currency.cjs");
+
 const DEFAULT_PLAYER_ICON_ID = "hi_vis_orange";
 
 const PLAYER_ICONS = Object.freeze([
@@ -123,7 +125,10 @@ function normalizeUnlock(unlock) {
   }
   if (type === "purchase") {
     const cost = Number.isFinite(unlock.cost) ? Math.max(0, Math.floor(unlock.cost)) : 0;
-    return { type, cost, label: unlock.label || `Cost: ${cost}` };
+    const currencyId = normalizeCurrencyId(unlock.currencyId || DEFAULT_CURRENCY_ID);
+    const meta = getCurrencyDefinition(currencyId);
+    const label = unlock.label || `Cost: ${cost} ${meta.shortLabel || meta.name}`.trim();
+    return { type, cost, currencyId, label };
   }
   if (type === "record") {
     return { type: "record", label: unlock.label || "Record holder" };

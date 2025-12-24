@@ -21,6 +21,8 @@ describe("trailMenu helpers", () => {
     expect(describeTrailLock({ id: "sunset", name: "Sunset", minScore: 250 }, { unlocked: false, bestScore: 240 }))
       .toContain("10 to go");
     expect(describeTrailLock({ id: "aurora", name: "Aurora" }, { unlocked: true })).toBe("Unlocked");
+    expect(describeTrailLock({ id: "shop", name: "Shop", unlock: { type: "purchase", cost: 5 } }, { unlocked: false }))
+      .toContain("Costs 5");
   });
 
   it("renders trail options with lock badges, aria state, and labels only", () => {
@@ -46,6 +48,26 @@ describe("trailMenu helpers", () => {
     expect(buttons[1].dataset.statusText).toContain("Score 250");
     expect(buttons[0].querySelector(".trail-swatch")).toBeNull();
     expect(buttons[0].querySelector(".trail-swatch-canvas")).toBeNull();
+  });
+
+  it("marks purchasable trails as interactive with cost labels", () => {
+    const trails = [
+      { id: "classic", name: "Classic", minScore: 0 },
+      { id: "shop", name: "Shop Trail", unlock: { type: "purchase", cost: 10 } }
+    ];
+    renderTrailOptions({
+      container,
+      trails,
+      selectedId: "classic",
+      unlockedIds: new Set(["classic"])
+    });
+
+    const button = container.querySelector("button[data-trail-id='shop']");
+    expect(button?.dataset.unlockType).toBe("purchase");
+    expect(button?.dataset.unlockCost).toBe("10");
+    expect(button?.getAttribute("aria-disabled")).toBe("false");
+    expect(button?.tabIndex).toBe(0);
+    expect(button?.querySelector(".unlock-cost")?.textContent).toContain("Cost");
   });
 
   it("toggles the trail overlay dialog visibility", () => {

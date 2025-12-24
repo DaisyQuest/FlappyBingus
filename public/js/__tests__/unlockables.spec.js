@@ -13,6 +13,11 @@ describe("unlockables client helpers", () => {
     expect(normalizeUnlock({ type: "score", minScore: -5 }).minScore).toBe(0);
     expect(describeUnlock({ type: "score", minScore: 10 }, { unlocked: false })).toContain("Score 10");
     expect(describeUnlock({ type: "record" }, { unlocked: false })).toContain("Record");
+    expect(normalizeUnlock({ type: "purchase", cost: 3, currencyId: "stellar" })).toMatchObject({
+      type: "purchase",
+      cost: 3,
+      currencyId: "stellar"
+    });
   });
 
   it("evaluates unlock satisfaction for achievements and scores", () => {

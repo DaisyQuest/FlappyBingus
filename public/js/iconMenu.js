@@ -2,6 +2,7 @@
 // FILE: public/js/iconMenu.js
 // Shared helpers for rendering the player icon picker UI and hover hints.
 // =====================
+import { DEFAULT_CURRENCY_ID, formatCurrencyAmount } from "./currencySystem.js";
 import { describeIconLock } from "./playerIcons.js";
 
 export const DEFAULT_ICON_HINT = "Mouse over an icon to see how to unlock it.";
@@ -52,16 +53,25 @@ export function renderIconOptions({
 
   icons.forEach((icon) => {
     const unlocked = unlockedSet.has(icon.id);
+    const unlock = icon.unlock || {};
+    const isPurchase = unlock.type === "purchase";
     const statusText = describeIconLock(icon, { unlocked });
     const btn = doc.createElement("button");
     btn.type = "button";
     btn.dataset.iconId = icon.id;
     btn.dataset.statusText = statusText;
     btn.className = "icon-option" + (icon.id === selectedId ? " selected" : "") + (unlocked ? "" : " locked");
+    if (isPurchase) {
+      btn.dataset.unlockType = "purchase";
+      btn.dataset.unlockCost = String(unlock.cost || 0);
+      btn.dataset.unlockCurrency = unlock.currencyId || DEFAULT_CURRENCY_ID;
+      btn.classList.add("purchasable");
+    }
     btn.setAttribute("aria-pressed", icon.id === selectedId ? "true" : "false");
     btn.setAttribute("aria-label", unlocked ? `${icon.name} (icon)` : `${icon.name} (${statusText})`);
-    btn.setAttribute("aria-disabled", unlocked ? "false" : "true");
-    btn.tabIndex = unlocked ? 0 : -1;
+    const interactive = unlocked || isPurchase;
+    btn.setAttribute("aria-disabled", interactive ? "false" : "true");
+    btn.tabIndex = interactive ? 0 : -1;
 
     const swatch = doc.createElement("span");
     swatch.className = "icon-swatch";
@@ -86,6 +96,14 @@ export function renderIconOptions({
       lock.setAttribute("aria-hidden", "true");
       lock.textContent = "🔒";
       btn.append(lock);
+    }
+
+    if (!unlocked && isPurchase) {
+      const cost = doc.createElement("span");
+      cost.className = "unlock-cost";
+      const currencyId = unlock.currencyId || DEFAULT_CURRENCY_ID;
+      cost.textContent = `Cost: ${formatCurrencyAmount(unlock.cost || 0, currencyId)}`;
+      btn.append(cost);
     }
 
     container.append(btn);

@@ -73,6 +73,7 @@ describe("api helpers", () => {
       apiSetTrail,
       apiSetIcon,
       apiSetPipeTexture,
+      apiPurchaseUnlockable,
       apiSetKeybinds,
       apiGetHighscores
     } = await import("../api.js");
@@ -86,6 +87,7 @@ describe("api helpers", () => {
       [apiSetTrail, ["/api/cosmetics/trail", { method: "POST", body: JSON.stringify({ trailId: "classic" }) }]],
       [apiSetIcon, ["/api/cosmetics/icon", { method: "POST", body: JSON.stringify({ iconId: "hi_vis_orange" }) }]],
       [apiSetPipeTexture, ["/api/cosmetics/pipe_texture", { method: "POST", body: JSON.stringify({ textureId: "basic", mode: "NORMAL" }) }]],
+      [apiPurchaseUnlockable, ["/api/shop/purchase", { method: "POST", body: JSON.stringify({ id: "spark", type: "player_texture" }) }]],
       [apiSetKeybinds, ["/api/binds", { method: "POST", body: JSON.stringify({ keybinds: { jump: "Space" } }) }]],
       [apiGetHighscores, ["/api/highscores?limit=25", { method: "GET" }]]
     ];
@@ -98,6 +100,7 @@ describe("api helpers", () => {
     await apiSetTrail("classic");
     await apiSetIcon("hi_vis_orange");
     await apiSetPipeTexture("basic", "NORMAL");
+    await apiPurchaseUnlockable({ id: "spark", type: "player_texture" });
     await apiSetKeybinds({ jump: "Space" });
     await apiGetHighscores(25);
 

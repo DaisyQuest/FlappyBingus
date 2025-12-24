@@ -106,7 +106,7 @@ export const PIPE_TEXTURES = Object.freeze([
     id: "ultradisco",
     name: "UltraDisco!",
     description: "Like disco, but wilder.",
-    unlock: { type: "score", minScore: 2400, label: "Score 2400+" }
+    unlock: { type: "purchase", cost: 45, label: "Cost: 45 BC" }
   },
   {
     id: "fire",
@@ -118,13 +118,13 @@ export const PIPE_TEXTURES = Object.freeze([
     id: "bluefire",
     name: "BlueFire!",
     description: "Blue flames throughout.",
-    unlock: { type: "score", minScore: 2800, label: "Score 2800+" }
+    unlock: { type: "purchase", cost: 60, label: "Cost: 60 BC" }
   },
   {
     id: "rocket_emojis",
     name: "RocketShipEmojis",
     description: "Rocket ship emojis flying throughout.",
-    unlock: { type: "score", minScore: 3000, label: "Score 3000+" }
+    unlock: { type: "purchase", cost: 75, label: "Cost: 75 BC" }
   }
 ]);
 

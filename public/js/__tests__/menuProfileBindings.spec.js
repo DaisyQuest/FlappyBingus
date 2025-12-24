@@ -44,7 +44,8 @@ describe("menuProfileBindings", () => {
     const user = {
       username: "Ada",
       bestScore: 42,
-      bustercoins: 7,
+      bustercoins: 1,
+      currencies: { bustercoin: 7 },
       selectedTrail: "neon",
       selectedIcon: "spark",
       selectedPipeTexture: "glass"
@@ -117,7 +118,7 @@ describe("menuProfileBindings", () => {
 
   it("tolerates missing refs and non-finite values", () => {
     const snapshot = syncMenuProfileBindings({
-      user: { username: "Zed", bestScore: Number.NaN, bustercoins: Number.NaN },
+      user: { username: "Zed", bestScore: Number.NaN, bustercoins: Number.NaN, currencies: { bustercoin: 12 } },
       fallbackTrailId: "classic",
       fallbackIconId: DEFAULT_PLAYER_ICON_ID,
       fallbackPipeTextureId: DEFAULT_PIPE_TEXTURE_ID,
@@ -127,7 +128,7 @@ describe("menuProfileBindings", () => {
     expect(snapshot).toEqual({
       username: "Zed",
       bestScore: 3,
-      bustercoins: 0,
+      bustercoins: 12,
       trailId: "classic",
       iconId: DEFAULT_PLAYER_ICON_ID,
       pipeTextureId: DEFAULT_PIPE_TEXTURE_ID

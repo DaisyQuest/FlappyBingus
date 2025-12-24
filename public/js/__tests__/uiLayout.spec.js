@@ -60,6 +60,9 @@ describe("uiLayout", () => {
     const trailOverlay = mount.querySelector("#trailOverlay");
     expect(trailOverlay?.querySelector("#trailOptions")).toBeInstanceOf(window.HTMLElement);
     expect(ui.iconOptions?.className).toContain("icon-grid");
+    expect(ui.shopOverlay?.classList.contains("hidden")).toBe(true);
+    expect(ui.shopTabs?.querySelectorAll("button[data-shop-type]")?.length).toBe(3);
+    expect(ui.purchaseModal?.classList.contains("hidden")).toBe(true);
     const mainTitles = Array.from(mount.querySelectorAll(".panel-main .section-title")).map(el => el.textContent);
     expect(mainTitles).not.toContain("Ready to fly");
     expect(mainTitles).not.toContain("Player Icon");
@@ -169,6 +172,19 @@ describe("uiLayout", () => {
       "invulnLongCooldownValue",
       "slowFieldCooldownValue",
       "slowExplosionCooldownValue",
+      "shopLauncher",
+      "shopOverlay",
+      "shopOverlayClose",
+      "shopTabs",
+      "shopItems",
+      "shopHint",
+      "purchaseModal",
+      "purchaseModalClose",
+      "purchaseModalBalance",
+      "purchaseModalPrompt",
+      "purchaseModalStatus",
+      "purchaseModalCancel",
+      "purchaseModalConfirm",
       "updateSkillCooldowns"
     ];
 

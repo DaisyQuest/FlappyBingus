@@ -41,8 +41,15 @@ const {
   UNLOCKABLE_TYPES,
   buildUnlockablesCatalog,
   getUnlockedIdsByType,
-  syncUnlockablesState
+  syncUnlockablesState,
+  isUnlockSatisfied
 } = require("./services/unlockables.cjs");
+const {
+  DEFAULT_CURRENCY_ID,
+  normalizeCurrencyWallet,
+  getCurrencyBalance,
+  debitCurrency
+} = require("./services/currency.cjs");
 
 // --------- Config (env overrides) ----------
 const PORT = Number(process.env.PORT || 3000);
@@ -149,6 +156,7 @@ const RATE_LIMIT_CONFIG = Object.freeze({
   "/api/cosmetics/trail": { limit: 30, windowMs: 60_000 },
   "/api/cosmetics/icon": { limit: 30, windowMs: 60_000 },
   "/api/cosmetics/pipe_texture": { limit: 30, windowMs: 60_000 },
+  "/api/shop/purchase": { limit: 30, windowMs: 60_000 },
   "/api/binds": { limit: 30, windowMs: 60_000 },
   "/api/settings": { limit: 30, windowMs: 60_000 },
   "/api/highscores": { limit: 90, windowMs: 60_000 },
@@ -349,12 +357,19 @@ function ensureUserSchema(u, { recordHolder = false } = {}) {
   u.runs = normalizeCount(u.runs);
   u.totalScore = normalizeTotal(u.totalScore);
   u.bustercoins = normalizeCount(u.bustercoins);
+  u.currencies = normalizeCurrencyWallet(u.currencies, { [DEFAULT_CURRENCY_ID]: u.bustercoins });
+  u.bustercoins = getCurrencyBalance(u.currencies, DEFAULT_CURRENCY_ID);
   u.achievements = syncTrailAchievementsState(u.achievements, { bestScore: u.bestScore, recordHolder });
   u.skillTotals = normalizeSkillTotals(u.skillTotals || DEFAULT_SKILL_TOTALS);
   if (typeof u.selectedTrail !== "string") u.selectedTrail = "classic";
   if (typeof u.selectedIcon !== "string") u.selectedIcon = DEFAULT_PLAYER_ICON_ID;
-  if (!Array.isArray(u.ownedIcons)) u.ownedIcons = [];
-  u.ownedIcons = Array.from(new Set(u.ownedIcons.filter((id) => typeof id === "string" && id.length)));
+  const legacyOwnedIcons = Array.isArray(u.ownedIcons) ? u.ownedIcons : [];
+  const ownedUnlockables = Array.isArray(u.ownedUnlockables) ? u.ownedUnlockables : [];
+  const mergedOwned = Array.from(new Set(
+    [...legacyOwnedIcons, ...ownedUnlockables].filter((id) => typeof id === "string" && id.length)
+  ));
+  u.ownedUnlockables = mergedOwned;
+  u.ownedIcons = mergedOwned;
   if (!u.keybinds || typeof u.keybinds !== "object")
     u.keybinds = structuredClone(DEFAULT_KEYBINDS);
   if (!u.settings || typeof u.settings !== "object")
@@ -371,7 +386,7 @@ function ensureUserSchema(u, { recordHolder = false } = {}) {
     {
       achievements: u.achievements,
       bestScore: u.bestScore,
-      ownedIds: u.ownedIcons,
+      ownedIds: u.ownedUnlockables,
       recordHolder
     }
   ).state;
@@ -389,7 +404,7 @@ function ensureUserSchema(u, { recordHolder = false } = {}) {
     unlockables: UNLOCKABLES.unlockables,
     type: UNLOCKABLE_TYPES.pipeTexture,
     state: u.unlockables,
-    context: { achievements: u.achievements, bestScore: u.bestScore, ownedIds: u.ownedIcons, recordHolder }
+    context: { achievements: u.achievements, bestScore: u.bestScore, ownedIds: u.ownedUnlockables, recordHolder }
   });
   if (!availablePipeTextures.includes(u.selectedPipeTexture)) {
     u.selectedPipeTexture = availablePipeTextures[0] || DEFAULT_PIPE_TEXTURE_ID;
@@ -501,11 +516,13 @@ function publicUser(u, { recordHolder = false } = {}) {
     selectedPipeTexture: u.selectedPipeTexture || DEFAULT_PIPE_TEXTURE_ID,
     pipeTextureMode: normalizePipeTextureMode(u.pipeTextureMode || DEFAULT_PIPE_TEXTURE_MODE),
     ownedIcons: Array.isArray(u.ownedIcons) ? u.ownedIcons : [],
+    ownedUnlockables: Array.isArray(u.ownedUnlockables) ? u.ownedUnlockables : [],
     keybinds: u.keybinds || structuredClone(DEFAULT_KEYBINDS),
     settings: u.settings || structuredClone(DEFAULT_SETTINGS),
     runs: u.runs | 0,
     totalScore: u.totalScore | 0,
-    bustercoins: u.bustercoins | 0,
+    bustercoins: getCurrencyBalance(u.currencies, DEFAULT_CURRENCY_ID),
+    currencies: normalizeCurrencyWallet(u.currencies, { [DEFAULT_CURRENCY_ID]: u.bustercoins }),
     skillTotals: normalizeSkillTotals(u.skillTotals || DEFAULT_SKILL_TOTALS),
     achievements: normalizeAchievementState(u.achievements),
     unlockedTrails: unlockedTrails({ achievements: u.achievements, bestScore: u.bestScore }, { recordHolder }),
@@ -514,7 +531,7 @@ function publicUser(u, { recordHolder = false } = {}) {
       unlockables: UNLOCKABLES.unlockables,
       type: UNLOCKABLE_TYPES.pipeTexture,
       state: u.unlockables,
-      context: { achievements: u.achievements, bestScore: u.bestScore, ownedIds: u.ownedIcons, recordHolder }
+      context: { achievements: u.achievements, bestScore: u.bestScore, ownedIds: u.ownedUnlockables, recordHolder }
     }),
     isRecordHolder: Boolean(recordHolder)
   };
@@ -550,11 +567,13 @@ function buildUserDefaults(username, key) {
     selectedPipeTexture: DEFAULT_PIPE_TEXTURE_ID,
     pipeTextureMode: DEFAULT_PIPE_TEXTURE_MODE,
     ownedIcons: [],
+    ownedUnlockables: [],
     keybinds: structuredClone(DEFAULT_KEYBINDS),
     settings: structuredClone(DEFAULT_SETTINGS),
     runs: 0,
     totalScore: 0,
     bustercoins: 0,
+    currencies: { [DEFAULT_CURRENCY_ID]: 0 },
     skillTotals: structuredClone(DEFAULT_SKILL_TOTALS),
     achievements: normalizeAchievementState(),
     unlockables: { unlocked: {} },
@@ -1137,11 +1156,69 @@ async function route(req, res) {
       unlockables: UNLOCKABLES.unlockables,
       type: UNLOCKABLE_TYPES.pipeTexture,
       state: u.unlockables,
-      context: { achievements: u.achievements, bestScore: u.bestScore, ownedIds: u.ownedIcons, recordHolder }
+      context: { achievements: u.achievements, bestScore: u.bestScore, ownedIds: u.ownedUnlockables, recordHolder }
     });
     if (!unlocked.includes(textureId)) return badRequest(res, "pipe_texture_locked");
 
     const updated = await dataStore.setPipeTexture(u.key, textureId, mode);
+    ensureUserSchema(updated, { recordHolder });
+
+    sendJson(res, 200, {
+      ok: true,
+      user: publicUser(updated, { recordHolder }),
+      trails: TRAILS,
+      icons: ICONS,
+      pipeTextures: PIPE_TEXTURES
+    });
+    return;
+  }
+
+  // Purchase unlockable cosmetic
+  if (pathname === "/api/shop/purchase" && req.method === "POST") {
+    if (rateLimit(req, res, "/api/shop/purchase")) return;
+    if (!(await ensureDatabase(res))) return;
+    const u = await getUserFromReq(req, { withRecordHolder: true });
+    if (!u) return unauthorized(res);
+
+    let body;
+    try {
+      body = await readJsonBody(req);
+    } catch {
+      return badRequest(res, "invalid_json");
+    }
+
+    const unlockId = String(body.id || "").trim();
+    const unlockType = String(body.type || "").trim();
+    if (!unlockId || !unlockType) return badRequest(res, "invalid_unlockable");
+
+    const def = UNLOCKABLES.unlockables.find((item) => item.id === unlockId && item.type === unlockType);
+    if (!def) return badRequest(res, "invalid_unlockable");
+    if (def.unlock?.type !== "purchase") return badRequest(res, "unlock_not_purchasable");
+
+    const recordHolder = Boolean(u?.isRecordHolder);
+    const ownedIds = Array.isArray(u.ownedUnlockables) ? u.ownedUnlockables : [];
+    const context = { achievements: u.achievements, bestScore: u.bestScore, ownedIds, recordHolder };
+    if (isUnlockSatisfied(def, context)) return badRequest(res, "already_owned");
+
+    const currencyId = def.unlock.currencyId || DEFAULT_CURRENCY_ID;
+    const cost = Number.isFinite(def.unlock.cost) ? Math.max(0, Math.floor(def.unlock.cost)) : 0;
+    const debit = debitCurrency(u.currencies, { currencyId, cost });
+    if (!debit.ok) return badRequest(res, "insufficient_funds");
+
+    const ownedNext = Array.from(new Set([...ownedIds, def.unlock.id || def.id]));
+    const nextUnlockables = syncUnlockablesState(
+      u.unlockables,
+      UNLOCKABLES.unlockables,
+      { achievements: u.achievements, bestScore: u.bestScore, ownedIds: ownedNext, recordHolder }
+    ).state;
+
+    const updated = await dataStore.purchaseUnlockable(u.key, {
+      ownedUnlockables: ownedNext,
+      ownedIcons: ownedNext,
+      currencies: debit.wallet,
+      bustercoins: getCurrencyBalance(debit.wallet, DEFAULT_CURRENCY_ID),
+      unlockables: nextUnlockables
+    });
     ensureUserSchema(updated, { recordHolder });
 
     sendJson(res, 200, {

@@ -85,6 +85,36 @@ const PIPE_TEXTURES = Object.freeze([
     name: "Checkerboard2",
     description: "Checkerboard with black tiles.",
     unlock: { type: "score", minScore: 2000, label: "Score 2000+" }
+  },
+  {
+    id: "disco",
+    name: "Disco!",
+    description: "Flashing rainbow lights.",
+    unlock: { type: "score", minScore: 2200, label: "Score 2200+" }
+  },
+  {
+    id: "ultradisco",
+    name: "UltraDisco!",
+    description: "Like disco, but wilder.",
+    unlock: { type: "purchase", cost: 45, label: "Cost: 45 BC" }
+  },
+  {
+    id: "fire",
+    name: "Fire!",
+    description: "Fiery pipe glow.",
+    unlock: { type: "score", minScore: 2600, label: "Score 2600+" }
+  },
+  {
+    id: "bluefire",
+    name: "BlueFire!",
+    description: "Blue flames throughout.",
+    unlock: { type: "purchase", cost: 60, label: "Cost: 60 BC" }
+  },
+  {
+    id: "rocket_emojis",
+    name: "RocketShipEmojis",
+    description: "Rocket ship emojis flying throughout.",
+    unlock: { type: "purchase", cost: 75, label: "Cost: 75 BC" }
   }
 ]);
 

@@ -2,12 +2,19 @@
 // FILE: public/js/trailMenu.js
 // Helpers for rendering the trail selection menu to mirror the icon picker.
 // =====================
+import { DEFAULT_CURRENCY_ID, formatCurrencyAmount } from "./currencySystem.js";
 
 export const DEFAULT_TRAIL_HINT = "Click a trail to equip it.";
 
 export function describeTrailLock(trail, { unlocked = false, bestScore = 0, isRecordHolder = false } = {}) {
   if (!trail) return "";
   if (unlocked || trail.alwaysUnlocked) return "Unlocked";
+  if (trail.unlock?.type === "purchase") {
+    const currencyId = trail.unlock.currencyId || DEFAULT_CURRENCY_ID;
+    return trail.unlock.cost
+      ? `Locked: Costs ${formatCurrencyAmount(trail.unlock.cost, currencyId)}`
+      : "Locked: Purchase";
+  }
   if (trail.requiresRecordHolder && !isRecordHolder) {
     return "Exclusive to record holders.";
   }
@@ -40,6 +47,8 @@ export function renderTrailOptions({
 
   trails.forEach((trail) => {
     const unlockedTrail = unlocked.has(trail.id);
+    const unlock = trail.unlock || {};
+    const isPurchase = unlock.type === "purchase";
     const statusText = lockTextFor?.(trail, { unlocked: unlockedTrail }) ?? describeTrailLock(trail, { unlocked: unlockedTrail });
     const btn = doc.createElement("button");
     btn.type = "button";
@@ -48,10 +57,17 @@ export function renderTrailOptions({
     btn.dataset.trailName = trail.name || trail.id;
     btn.dataset.locked = unlockedTrail ? "false" : "true";
     btn.className = "icon-option trail-option" + (trail.id === selectedId ? " selected" : "") + (unlockedTrail ? "" : " locked");
+    if (isPurchase) {
+      btn.dataset.unlockType = "purchase";
+      btn.dataset.unlockCost = String(unlock.cost || 0);
+      btn.dataset.unlockCurrency = unlock.currencyId || DEFAULT_CURRENCY_ID;
+      btn.classList.add("purchasable");
+    }
     btn.setAttribute("aria-pressed", trail.id === selectedId ? "true" : "false");
     btn.setAttribute("aria-label", unlockedTrail ? `${trail.name} (trail)` : `${trail.name} (${statusText})`);
-    btn.setAttribute("aria-disabled", unlockedTrail ? "false" : "true");
-    btn.tabIndex = unlockedTrail ? 0 : -1;
+    const interactive = unlockedTrail || isPurchase;
+    btn.setAttribute("aria-disabled", interactive ? "false" : "true");
+    btn.tabIndex = interactive ? 0 : -1;
 
     const label = doc.createElement("span");
     label.className = "icon-option-name trail-option-name";
@@ -64,6 +80,14 @@ export function renderTrailOptions({
       lock.setAttribute("aria-hidden", "true");
       lock.textContent = "🔒";
       btn.append(lock);
+    }
+
+    if (!unlockedTrail && isPurchase) {
+      const cost = doc.createElement("span");
+      cost.className = "unlock-cost";
+      const currencyId = unlock.currencyId || DEFAULT_CURRENCY_ID;
+      cost.textContent = `Cost: ${formatCurrencyAmount(unlock.cost || 0, currencyId)}`;
+      btn.append(cost);
     }
 
     container.append(btn);

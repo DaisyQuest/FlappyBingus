@@ -11,6 +11,7 @@ const baseUser = () => ({
   selectedPipeTexture: "basic",
   pipeTextureMode: "NORMAL",
   ownedIcons: [],
+  ownedUnlockables: [],
   keybinds: {},
   settings: {
     dashBehavior: "ricochet",
@@ -20,7 +21,8 @@ const baseUser = () => ({
   },
   runs: 3,
   totalScore: 5000,
-  bustercoins: 10
+  bustercoins: 10,
+  currencies: { bustercoin: 10 }
 });
 
 function createRes() {
@@ -66,7 +68,10 @@ async function importServer(overrides = {}) {
       achievements: achievements || { unlocked: {}, progress: {} },
       unlockables: unlockables || { unlocked: {} },
       bestScore: score,
-      bustercoins: (user?.bustercoins || 0) + (bustercoinsEarned || 0)
+      bustercoins: (user?.bustercoins || 0) + (bustercoinsEarned || 0),
+      currencies: {
+        bustercoin: (user?.currencies?.bustercoin || user?.bustercoins || 0) + (bustercoinsEarned || 0)
+      }
     })),
     recordBestRun: vi.fn(async (_user, payload) => ({ ...payload, bestScore: payload.score })),
     getBestRunByUsername: vi.fn(async () => null),
@@ -75,6 +80,7 @@ async function importServer(overrides = {}) {
     setPipeTexture: vi.fn(async (_key, textureId, mode) => ({ ...baseUser(), selectedPipeTexture: textureId, pipeTextureMode: mode })),
     setKeybinds: vi.fn(async (_key, binds) => ({ ...baseUser(), keybinds: binds })),
     setSettings: vi.fn(async (_key, settings) => ({ ...baseUser(), settings })),
+    purchaseUnlockable: vi.fn(async (_key, payload) => ({ ...baseUser(), ...payload })),
     getUserByKey: vi.fn(async () => baseUser()),
     userCount: vi.fn(async () => 3),
     recentUsers: vi.fn(async () => [{ username: "recent", bestScore: 10, updatedAt: Date.now() }]),
@@ -146,7 +152,7 @@ describe("server routes and helpers", () => {
   it("persists score submissions with earned bustercoins and clamps negative values", async () => {
     const { server, mockDataStore } = await importServer();
     const res = createRes();
-    mockDataStore.getUserByKey.mockResolvedValueOnce({ ...baseUser(), bustercoins: 2 });
+    mockDataStore.getUserByKey.mockResolvedValueOnce({ ...baseUser(), bustercoins: 2, currencies: { bustercoin: 2 } });
 
     await server.route(
       createReq({
@@ -491,6 +497,47 @@ describe("server routes and helpers", () => {
     expect(payload.user.selectedPipeTexture).toBe("digital");
     expect(payload.user.pipeTextureMode).toBe("HIGH");
     expect(payload.pipeTextures?.length).toBeGreaterThan(0);
+  });
+
+  it("processes shop purchases with currency checks", async () => {
+    const { server, mockDataStore } = await importServer();
+
+    const insufficient = createRes();
+    await server.route(
+      createReq({
+        method: "POST",
+        url: "/api/shop/purchase",
+        body: JSON.stringify({ id: "ultradisco", type: "pipe_texture" }),
+        headers: { cookie: "sugar=PlayerOne" }
+      }),
+      insufficient
+    );
+    expect(insufficient.status).toBe(400);
+    expect(readJson(insufficient).error).toBe("insufficient_funds");
+
+    mockDataStore.getUserByKey.mockResolvedValueOnce({ ...baseUser(), bustercoins: 100, currencies: { bustercoin: 100 } });
+    mockDataStore.purchaseUnlockable.mockResolvedValueOnce({
+      ...baseUser(),
+      bustercoins: 55,
+      currencies: { bustercoin: 55 },
+      ownedUnlockables: ["ultradisco"],
+      ownedIcons: ["ultradisco"]
+    });
+
+    const success = createRes();
+    await server.route(
+      createReq({
+        method: "POST",
+        url: "/api/shop/purchase",
+        body: JSON.stringify({ id: "ultradisco", type: "pipe_texture" }),
+        headers: { cookie: "sugar=PlayerOne" }
+      }),
+      success
+    );
+
+    expect(success.status).toBe(200);
+    expect(mockDataStore.purchaseUnlockable).toHaveBeenCalled();
+    expect(readJson(success).user.ownedUnlockables).toContain("ultradisco");
   });
 
   it("validates and persists keybind payloads", async () => {

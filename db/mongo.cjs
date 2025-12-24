@@ -7,6 +7,7 @@ const MAX_SCORE = 1_000_000_000;
 const DEFAULT_TRAIL = "classic";
 const DEFAULT_ICON = "hi_vis_orange";
 const { DEFAULT_PIPE_TEXTURE_ID, DEFAULT_PIPE_TEXTURE_MODE } = require("../services/pipeTextures.cjs");
+const { DEFAULT_CURRENCY_ID } = require("../services/currency.cjs");
 const DEFAULT_ACHIEVEMENTS_STATE = Object.freeze({
   unlocked: Object.freeze({}),
   progress: Object.freeze({
@@ -228,8 +229,13 @@ class MongoDataStore {
     const safeTotalScore = normalizeTotal(user.totalScore);
     const safeBestScore = clampScore(user.bestScore);
     const safeCoins = normalizeCount(user.bustercoins);
+    const safeCurrencies =
+      user.currencies && typeof user.currencies === "object"
+        ? user.currencies
+        : { [DEFAULT_CURRENCY_ID]: safeCoins };
 
     const collection = this.usersCollection();
+    const currencyKey = DEFAULT_CURRENCY_ID;
 
     const res = await collection.findOneAndUpdate(
       { key: user.key },
@@ -243,6 +249,7 @@ class MongoDataStore {
             selectedPipeTexture: { $ifNull: ["$selectedPipeTexture", user.selectedPipeTexture || DEFAULT_PIPE_TEXTURE_ID] },
             pipeTextureMode: { $ifNull: ["$pipeTextureMode", user.pipeTextureMode || DEFAULT_PIPE_TEXTURE_MODE] },
             ownedIcons: { $ifNull: ["$ownedIcons", user.ownedIcons || []] },
+            ownedUnlockables: { $ifNull: ["$ownedUnlockables", user.ownedUnlockables || user.ownedIcons || []] },
             keybinds: { $ifNull: ["$keybinds", user.keybinds || null] },
             createdAt: { $ifNull: ["$createdAt", user.createdAt || now] },
 
@@ -250,6 +257,26 @@ class MongoDataStore {
             totalScore: { $add: [{ $ifNull: ["$totalScore", safeTotalScore] }, safeScore] },
             bestScore: { $max: [{ $ifNull: ["$bestScore", safeBestScore] }, safeScore] },
             bustercoins: { $add: [{ $ifNull: ["$bustercoins", safeCoins] }, earnedCoins] },
+            currencies: {
+              $let: {
+                vars: {
+                  current: { $ifNull: ["$currencies", safeCurrencies] }
+                },
+                in: {
+                  $mergeObjects: [
+                    "$$current",
+                    {
+                      [currencyKey]: {
+                        $add: [
+                          { $ifNull: [`$$current.${currencyKey}`, safeCoins] },
+                          earnedCoins
+                        ]
+                      }
+                    }
+                  ]
+                }
+              }
+            },
             achievements: nextAchievements ?? { $ifNull: ["$achievements", user.achievements || DEFAULT_ACHIEVEMENTS_STATE] },
             unlockables: nextUnlockables ?? { $ifNull: ["$unlockables", user.unlockables || { unlocked: {} }] },
             skillTotals: {
@@ -355,6 +382,25 @@ class MongoDataStore {
     const res = await this.usersCollection().findOneAndUpdate(
       { key },
       { $set: { selectedPipeTexture: textureId, pipeTextureMode: mode, updatedAt: now } },
+      { returnDocument: "after" }
+    );
+    return res.value;
+  }
+
+  async purchaseUnlockable(key, { ownedUnlockables, ownedIcons, currencies, bustercoins, unlockables } = {}) {
+    await this.ensureConnected();
+    const now = Date.now();
+    const payload = {
+      ownedUnlockables: Array.isArray(ownedUnlockables) ? ownedUnlockables : [],
+      ownedIcons: Array.isArray(ownedIcons) ? ownedIcons : [],
+      currencies: currencies && typeof currencies === "object" ? currencies : { [DEFAULT_CURRENCY_ID]: 0 },
+      bustercoins: normalizeCount(bustercoins),
+      unlockables: unlockables && typeof unlockables === "object" ? unlockables : { unlocked: {} },
+      updatedAt: now
+    };
+    const res = await this.usersCollection().findOneAndUpdate(
+      { key },
+      { $set: payload },
       { returnDocument: "after" }
     );
     return res.value;

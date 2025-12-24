@@ -88,7 +88,8 @@ describe("server player icon catalog", () => {
     expect(normalizeUnlock({ type: "purchase", cost: 1.9, label: null })).toEqual({
       type: "purchase",
       cost: 1,
-      label: "Cost: 1"
+      currencyId: "bustercoin",
+      label: "Cost: 1 BC"
     });
     expect(normalizeUnlock({ type: "record" })).toEqual({ type: "record", label: "Record holder" });
     expect(normalizeUnlock({ type: "unknown", label: "Mystery" })).toEqual({ type: "free", label: "Mystery" });
