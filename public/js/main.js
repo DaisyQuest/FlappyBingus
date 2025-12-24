@@ -91,6 +91,7 @@ import {
 import { playbackTicks, chooseReplayRandSource } from "./replayUtils.js";
 import { bindSkillOptionGroup, markSkillOptionSelection } from "./skillOptions.js";
 import { renderSkillUsageStats } from "./skillUsageStats.js";
+import { initThemeEditor } from "./themes.js";
 
 // ---- DOM ----
 const ui = buildGameUI();
@@ -155,6 +156,13 @@ const {
   achievementsFilterPerfects,
   achievementsFilterOrbs,
   achievementToasts,
+  themePresetSelect,
+  themeResetBtn,
+  themeRandomizeBtn,
+  themeRandomAccentBtn,
+  themePaletteRow,
+  themeEditor,
+  themeStatus,
   updateSkillCooldowns
 } = ui;
 
@@ -1776,6 +1784,18 @@ function frame(ts) {
 
   game.cfg = CFG;
   updateSkillCooldownUI(CFG);
+  initThemeEditor({
+    refs: {
+      themePresetSelect,
+      themeResetBtn,
+      themeRandomizeBtn,
+      themeRandomAccentBtn,
+      themePaletteRow,
+      themeEditor,
+      themeStatus
+    },
+    config: CFG
+  });
 
   game.resizeToWindow();
   game.setStateMenu();

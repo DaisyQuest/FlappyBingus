@@ -193,8 +193,9 @@ describe("uiLayout", () => {
 
     const featureCards = Array.from(settingsGrid?.querySelectorAll(".settings-feature") || []);
     const featureTitles = featureCards.map(card => card.querySelector(".section-title")?.textContent);
-    expect(featureCards.length).toBe(2);
+    expect(featureCards.length).toBe(3);
     expect(featureTitles).toContain("Skill Behaviors");
+    expect(featureTitles).toContain("UI Themes");
     expect(featureTitles).toContain("Skill Keybinds");
     expect(settingsGrid?.firstElementChild?.querySelector(".section-title")?.textContent).toBe("Skill Behaviors");
 
@@ -227,6 +228,19 @@ describe("uiLayout", () => {
     expect(cooldowns).toContain("3.5s");
     expect(cooldowns).toContain("4.2s");
     expect(cooldowns).toContain("17s");
+  });
+
+  it("renders the theme editor controls inside settings", () => {
+    const ui = buildGameUI({ document, mount });
+    const themeCard = mount.querySelector(".theme-card");
+    expect(themeCard?.querySelector(".section-title")?.textContent).toBe("UI Themes");
+    expect(ui.themePresetSelect).toBeInstanceOf(window.HTMLSelectElement);
+    expect(ui.themeResetBtn).toBeInstanceOf(window.HTMLButtonElement);
+    expect(ui.themeRandomizeBtn).toBeInstanceOf(window.HTMLButtonElement);
+    expect(ui.themeRandomAccentBtn).toBeInstanceOf(window.HTMLButtonElement);
+    expect(ui.themePaletteRow).toBeInstanceOf(window.HTMLDivElement);
+    expect(ui.themeEditor).toBeInstanceOf(window.HTMLDivElement);
+    expect(ui.themeStatus).toBeInstanceOf(window.HTMLDivElement);
   });
 
   it("wraps the settings view in a scrollable shell with constrained height", () => {

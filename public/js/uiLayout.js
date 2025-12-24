@@ -680,6 +680,58 @@ function createSkillSettingsCard(doc, refs) {
   return card;
 }
 
+function createThemeEditorCard(doc, refs) {
+  const card = doc.createElement("div");
+  card.className = "info-card settings-feature theme-card";
+
+  const title = doc.createElement("div");
+  title.className = "section-title";
+  title.textContent = "UI Themes";
+
+  const sub = doc.createElement("div");
+  sub.className = "hint";
+  sub.textContent = "Visual-only themes. Craft your perfect cockpit and watch the game respond instantly.";
+
+  const toolbar = doc.createElement("div");
+  toolbar.className = "theme-toolbar";
+
+  const selectWrap = doc.createElement("div");
+  selectWrap.className = "theme-select-wrap";
+  const selectLabel = doc.createElement("div");
+  selectLabel.className = "lbl";
+  selectLabel.textContent = "Preset";
+  const select = createElement(doc, refs, "select", {
+    id: "themePresetSelect",
+    className: "theme-select"
+  });
+  selectWrap.append(selectLabel, select);
+
+  const actions = doc.createElement("div");
+  actions.className = "theme-actions";
+  actions.append(
+    createElement(doc, refs, "button", { id: "themeResetBtn", text: "Reset preset" }),
+    createElement(doc, refs, "button", { id: "themeRandomizeBtn", text: "Randomize all" }),
+    createElement(doc, refs, "button", { id: "themeRandomAccentBtn", text: "Shuffle accents" })
+  );
+
+  toolbar.append(selectWrap, actions);
+
+  const paletteTitle = doc.createElement("div");
+  paletteTitle.className = "theme-subtitle";
+  paletteTitle.textContent = "Palette capsules";
+  const palettes = createElement(doc, refs, "div", { id: "themePaletteRow", className: "theme-palette-row" });
+
+  const editor = createElement(doc, refs, "div", { id: "themeEditor", className: "theme-editor" });
+  const status = createElement(doc, refs, "div", {
+    id: "themeStatus",
+    className: "hint good",
+    text: "Theme ready."
+  });
+
+  card.append(title, sub, toolbar, paletteTitle, palettes, editor, status);
+  return card;
+}
+
 function createAchievementsCard(doc, refs) {
   const card = doc.createElement("div");
   card.className = "info-card achievements-card";
@@ -932,6 +984,7 @@ function createMenuScreen(doc, refs) {
   settingsGrid.className = "info-grid settings-grid";
   settingsGrid.append(
     createSkillSettingsCard(doc, refs),
+    createThemeEditorCard(doc, refs),
     createBindCard(doc, refs),
     createVolumeCard(doc, refs),
     createSeedCard(doc, refs),
