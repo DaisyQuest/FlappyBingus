@@ -60,7 +60,10 @@ export const DEFAULT_CONFIG = {
     orbComboMax: 30,
     perfect: { enabled: true, bonus: 10, windowScale: 0.075, flashDuration: 0.55 }
   },
-  ui: { comboBar: { glowAt: 8, sparkleAt: 12, sparkleRate: 28 } }
+  ui: {
+    comboBar: { glowAt: 8, sparkleAt: 12, sparkleRate: 28 },
+    themes: { defaultThemeId: "aurora" }
+  }
 };
 
 function isPlainObject(v) { return v && typeof v === "object" && !Array.isArray(v); }

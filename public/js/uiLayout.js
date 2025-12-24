@@ -680,6 +680,94 @@ function createSkillSettingsCard(doc, refs) {
   return card;
 }
 
+function createThemeOverlay(doc, refs) {
+  const overlay = createElement(doc, refs, "div", {
+    id: "themeOverlay",
+    className: "theme-overlay hidden",
+    attrs: { role: "dialog", "aria-modal": "true", "aria-labelledby": "themeOverlayTitle", "aria-hidden": "true" }
+  });
+
+  const panel = doc.createElement("div");
+  panel.className = "theme-overlay-panel";
+
+  const header = doc.createElement("div");
+  header.className = "theme-overlay-header";
+  const title = doc.createElement("div");
+  title.id = "themeOverlayTitle";
+  title.className = "section-title";
+  title.textContent = "Theme Studio";
+  const close = createElement(doc, refs, "button", {
+    id: "themeOverlayClose",
+    className: "theme-overlay-close",
+    attrs: { type: "button" },
+    text: "Close"
+  });
+  header.append(title, close);
+
+  const sub = doc.createElement("div");
+  sub.className = "hint";
+  sub.textContent = "Visual-only themes. Craft your perfect cockpit and watch the game respond instantly.";
+
+  const toolbar = doc.createElement("div");
+  toolbar.className = "theme-toolbar";
+
+  const selectWrap = doc.createElement("div");
+  selectWrap.className = "theme-select-wrap";
+  const selectLabel = doc.createElement("div");
+  selectLabel.className = "lbl";
+  selectLabel.textContent = "Preset";
+  const select = createElement(doc, refs, "select", {
+    id: "themePresetSelect",
+    className: "theme-select"
+  });
+  selectWrap.append(selectLabel, select);
+
+  const actions = doc.createElement("div");
+  actions.className = "theme-actions";
+  actions.append(
+    createElement(doc, refs, "button", { id: "themeResetBtn", text: "Reset preset" }),
+    createElement(doc, refs, "button", { id: "themeRandomizeBtn", text: "Randomize all" }),
+    createElement(doc, refs, "button", { id: "themeRandomAccentBtn", text: "Shuffle accents" })
+  );
+
+  toolbar.append(selectWrap, actions);
+
+  const paletteTitle = doc.createElement("div");
+  paletteTitle.className = "theme-subtitle";
+  paletteTitle.textContent = "Palette capsules";
+  const palettes = createElement(doc, refs, "div", { id: "themePaletteRow", className: "theme-palette-row" });
+
+  const editor = createElement(doc, refs, "div", { id: "themeEditor", className: "theme-editor" });
+
+  const exportTitle = doc.createElement("div");
+  exportTitle.className = "theme-subtitle";
+  exportTitle.textContent = "Export / Import";
+  const exportField = createElement(doc, refs, "textarea", {
+    id: "themeExportField",
+    className: "theme-export-field",
+    attrs: {
+      rows: "3",
+      placeholder: "Paste a base64 theme string here to import, or click Export to generate one."
+    }
+  });
+  const exportActions = doc.createElement("div");
+  exportActions.className = "theme-actions";
+  exportActions.append(
+    createElement(doc, refs, "button", { id: "themeExportBtn", text: "Export theme" }),
+    createElement(doc, refs, "button", { id: "themeImportBtn", text: "Import theme" })
+  );
+
+  const status = createElement(doc, refs, "div", {
+    id: "themeStatus",
+    className: "hint good",
+    text: "Theme ready."
+  });
+
+  panel.append(header, sub, toolbar, paletteTitle, palettes, editor, exportTitle, exportField, exportActions, status);
+  overlay.append(panel);
+  return overlay;
+}
+
 function createAchievementsCard(doc, refs) {
   const card = doc.createElement("div");
   card.className = "info-card achievements-card";
@@ -924,6 +1012,12 @@ function createMenuScreen(doc, refs) {
   const mainGrid = doc.createElement("div");
   mainGrid.className = "info-grid";
   mainGrid.append(createTrailCard(doc, refs), createHowToCard(doc, refs));
+  const themeLauncher = createElement(doc, refs, "button", {
+    id: "themeLauncher",
+    className: "theme-launcher",
+    text: "🖌️",
+    attrs: { "aria-label": "Customize theme" }
+  });
   mainPanel.append(mainGrid);
 
   const settingsPanel = doc.createElement("div");
@@ -957,7 +1051,7 @@ function createMenuScreen(doc, refs) {
   sideStack.className = "side-stack";
   sideStack.append(createProfileCard(doc, refs), createHighscoreCard(doc, refs));
 
-  shell.append(mainCard, sideStack);
+  shell.append(mainCard, sideStack, themeLauncher, createThemeOverlay(doc, refs));
   const achievementsHeaderBack = refs.achievementsHeaderBack;
   const settingsHeaderBack = refs.settingsHeaderBack;
 

@@ -91,6 +91,7 @@ import {
 import { playbackTicks, chooseReplayRandSource } from "./replayUtils.js";
 import { bindSkillOptionGroup, markSkillOptionSelection } from "./skillOptions.js";
 import { renderSkillUsageStats } from "./skillUsageStats.js";
+import { initThemeEditor } from "./themes.js";
 import { getIconDisplayName, getTrailDisplayName, syncMenuProfileBindings } from "./menuProfileBindings.js";
 
 // ---- DOM ----
@@ -156,6 +157,19 @@ const {
   achievementsFilterPerfects,
   achievementsFilterOrbs,
   achievementToasts,
+  themeLauncher,
+  themeOverlay,
+  themeOverlayClose,
+  themePresetSelect,
+  themeResetBtn,
+  themeRandomizeBtn,
+  themeRandomAccentBtn,
+  themePaletteRow,
+  themeEditor,
+  themeExportField,
+  themeExportBtn,
+  themeImportBtn,
+  themeStatus,
   updateSkillCooldowns
 } = ui;
 
@@ -1184,6 +1198,18 @@ iconOverlay?.addEventListener("click", (e) => {
   }
 });
 
+const toggleThemeOverlay = (open) => {
+  if (!themeOverlay) return;
+  themeOverlay.classList.toggle("hidden", !open);
+  themeOverlay.setAttribute("aria-hidden", open ? "false" : "true");
+};
+
+themeLauncher?.addEventListener("click", () => toggleThemeOverlay(true));
+themeOverlayClose?.addEventListener("click", () => toggleThemeOverlay(false));
+themeOverlay?.addEventListener("click", (e) => {
+  if (e.target === themeOverlay) toggleThemeOverlay(false);
+});
+
 // ---- Keybind rebinding flow ----
 let rebindActive = null;
 let rebindCleanup = null;
@@ -1790,6 +1816,33 @@ function frame(ts) {
 
   game.cfg = CFG;
   updateSkillCooldownUI(CFG);
+  initThemeEditor({
+    refs: {
+      themeLauncher,
+      themeOverlay,
+      themeOverlayClose,
+      themePresetSelect,
+      themeResetBtn,
+      themeRandomizeBtn,
+      themeRandomAccentBtn,
+      themePaletteRow,
+      themeEditor,
+      themeExportField,
+      themeExportBtn,
+      themeImportBtn,
+      themeStatus
+    },
+    config: CFG,
+    onApply: (values) => {
+      if (!game.cfg?.pipes?.colors) return;
+      game.cfg.pipes.colors = {
+        green: values.pipeGreen,
+        blue: values.pipeBlue,
+        wisteria: values.pipeWisteria,
+        red: values.pipeRed
+      };
+    }
+  });
 
   game.resizeToWindow();
   game.setStateMenu();
