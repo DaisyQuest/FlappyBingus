@@ -426,6 +426,32 @@ describe("Skill usage", () => {
     expect(game.floats.some((f) => f.txt === "TELEPORT")).toBe(true);
   });
 
+  it("teleports exactly to the cursor regardless of canvas pixel size", () => {
+    const { game, canvas } = buildGame();
+    game.W = 300; game.H = 200;
+    canvas.width = 1200; canvas.height = 800;
+    game.player.r = 5;
+    game.input.cursor = { has: true, x: 150, y: 100 };
+
+    game._useSkill("teleport");
+
+    expect(game.player.x).toBeCloseTo(150);
+    expect(game.player.y).toBeCloseTo(100);
+  });
+
+  it("clamps teleport target inside the logical playfield", () => {
+    const { game, canvas } = buildGame();
+    game.W = 240; game.H = 160;
+    canvas.width = 960; canvas.height = 640;
+    game.player.r = 6;
+    game.input.cursor = { has: true, x: 1000, y: -50 };
+
+    game._useSkill("teleport");
+
+    expect(game.player.x).toBeCloseTo(game.W - (game.player.r + 2));
+    expect(game.player.y).toBeCloseTo(game.player.r + 2);
+  });
+
   it("breaks the pipe landed on with exploding teleport while leaving distant pipes intact", () => {
     const { game, canvas } = buildGame();
     game.setSkillSettings({ teleportBehavior: "explode" });
