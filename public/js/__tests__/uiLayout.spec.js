@@ -48,6 +48,12 @@ describe("uiLayout", () => {
     expect(pipeCanvas?.width).toBe(84);
     expect(pipeCanvas?.height).toBe(56);
     expect(ui.pipeTextureOverlay?.classList.contains("hidden")).toBe(true);
+    expect(ui.pipeTextureOverlay?.classList.contains("pipe-texture-overlay")).toBe(true);
+    const pipeOverlayPanel = ui.pipeTextureOverlay?.querySelector(".pipe-texture-overlay-panel");
+    expect(pipeOverlayPanel).toBeInstanceOf(window.HTMLElement);
+    const pipeOverlayHeader = pipeOverlayPanel?.querySelector(".pipe-texture-overlay-header");
+    expect(pipeOverlayHeader).toBeInstanceOf(window.HTMLElement);
+    expect(pipeOverlayHeader?.querySelector("#pipeTextureOverlayClose")).toBeInstanceOf(window.HTMLElement);
     const overlay = mount.querySelector("#menu .trail-preview-overlay");
     expect(overlay?.querySelectorAll(".trail-preview-canvas")?.length).toBe(1);
     expect(overlay?.querySelectorAll(".trail-preview-glow")?.length).toBe(1);

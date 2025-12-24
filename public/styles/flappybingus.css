@@ -1059,7 +1059,7 @@ input[type="range"]::-moz-range-thumb{
 .icon-option-name,.trail-option-name{font-weight:800;font-size:14px;text-align:center;max-width:120px}
 .icon-lock{position:absolute;right:18px;top:18px;font-size:16px;filter:drop-shadow(0 4px 10px rgba(0,0,0,.45))}
 .icon-overlay,.trail-overlay{position:fixed;inset:0;z-index:80;display:flex;align-items:center;justify-content:center;background:rgba(6,12,24,.72);backdrop-filter:blur(4px)}
-.pipe-texture-overlay{position:fixed;inset:0;z-index:80;display:flex;align-items:center;justify-content:center;background:rgba(6,12,24,.78)}
+.pipe-texture-overlay{position:fixed;inset:0;z-index:80;display:flex;align-items:flex-start;justify-content:center;padding:6vh 16px 18px;background:rgba(6,12,24,.78);box-sizing:border-box}
 .icon-overlay-panel,.trail-overlay-panel{background:linear-gradient(180deg,rgba(30,41,59,.95),rgba(15,23,42,.95));border:1px solid rgba(255,255,255,.12);border-radius:16px;padding:18px;box-shadow:0 24px 60px rgba(0,0,0,.45);width:min(900px,90vw);max-height:82vh;overflow:auto;display:flex;flex-direction:column;gap:12px}
 .pipe-texture-overlay-panel{width:min(720px,92vw);max-height:78vh}
 .icon-overlay-header,.trail-overlay-header{display:flex;align-items:center;justify-content:space-between;gap:12px}
