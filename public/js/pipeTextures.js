@@ -133,6 +133,31 @@ export function getPipeTextureDisplayName(id, textures = PIPE_TEXTURES) {
   return (textures || []).find((t) => t.id === id)?.name || id || DEFAULT_PIPE_TEXTURE_ID;
 }
 
+export function computeDigitalFlowLayout({
+  width,
+  height,
+  time = 0,
+  detail = 2,
+  textWidth = 0
+} = {}) {
+  const safeWidth = Math.max(1, Number(width) || 1);
+  const safeHeight = Math.max(1, Number(height) || 1);
+  const isHorizontal = safeWidth >= safeHeight;
+  const shortEdge = isHorizontal ? safeHeight : safeWidth;
+  const rows = Math.max(2, Math.floor(shortEdge / (detail >= 3 ? 9 : 12)));
+  const rowStep = shortEdge / rows;
+  const gap = Math.max(8, rowStep * 0.9);
+  const speed = 22 + detail * 6;
+  const travel = ((Number(time) || 0) * speed) % (Math.max(1, textWidth) + gap);
+  return {
+    isHorizontal,
+    rows,
+    rowStep,
+    gap,
+    travel
+  };
+}
+
 function baseGradient(ctx, p, base) {
   const edge = shade(base, 0.72);
   const hi = shade(base, 1.12);
@@ -156,14 +181,18 @@ function drawStripeOverlay(ctx, p, alpha, step = 10) {
 }
 
 function drawTiger(ctx, p, base, { stripeColor = "#fff", detail = 2 } = {}) {
-  ctx.fillStyle = rgb(base, 0.96);
+  ctx.fillStyle = baseGradient(ctx, p, base);
   ctx.fillRect(p.x, p.y, p.w, p.h);
   const stripeWidth = Math.max(6, Math.min(p.w, p.h) * (0.18 + detail * 0.02));
   ctx.save();
   ctx.translate(p.x + p.w * 0.5, p.y + p.h * 0.5);
   ctx.rotate(-0.6);
   ctx.translate(-p.w * 0.5, -p.h * 0.5);
-  ctx.fillStyle = stripeColor;
+  const stripeGrad = ctx.createLinearGradient(0, 0, stripeWidth, 0);
+  stripeGrad.addColorStop(0, stripeColor);
+  stripeGrad.addColorStop(1, "rgba(255,255,255,0.45)");
+  ctx.globalAlpha = 0.85;
+  ctx.fillStyle = stripeGrad;
   for (let x = -p.w; x < p.w * 2; x += stripeWidth * 1.6) {
     ctx.fillRect(x, -p.h, stripeWidth, p.h * 3);
   }
@@ -193,8 +222,11 @@ function drawRainbow(ctx, p, { time = 0, invert = false, monoBase = null } = {})
   ctx.fillRect(p.x, p.y, p.w, p.h);
 }
 
-function drawStatic(ctx, p, { time = 0, alpha = 0.18, detail = 2 } = {}) {
-  ctx.fillStyle = "rgba(0,0,0,0.85)";
+function drawStatic(ctx, p, base, { time = 0, alpha = 0.18, detail = 2 } = {}) {
+  const g = ctx.createLinearGradient(p.x, p.y, p.x + p.w, p.y + p.h);
+  g.addColorStop(0, rgb(shade(base, 0.25), 0.85));
+  g.addColorStop(1, "rgba(0,0,0,0.9)");
+  ctx.fillStyle = g;
   ctx.fillRect(p.x, p.y, p.w, p.h);
   const cells = Math.max(6, Math.floor((Math.min(p.w, p.h) / 6) * (detail + 1)));
   const stepX = p.w / cells;
@@ -222,21 +254,53 @@ function drawCheckerboard(ctx, p, { light = "#fff", dark = "#000", detail = 2 } 
 }
 
 function drawDigital(ctx, p, base, { time = 0, detail = 2 } = {}) {
-  ctx.fillStyle = "rgba(2,6,12,0.9)";
+  const bg = ctx.createLinearGradient(p.x, p.y, p.x + p.w, p.y + p.h);
+  bg.addColorStop(0, rgb(shade(base, 0.2), 0.9));
+  bg.addColorStop(1, "rgba(2,6,12,0.95)");
+  ctx.fillStyle = bg;
   ctx.fillRect(p.x, p.y, p.w, p.h);
   const hex = `#${((base.r << 16) | (base.g << 8) | base.b).toString(16).padStart(6, "0")}`.toUpperCase();
-  const lines = Math.max(3, Math.floor((Math.min(p.w, p.h) / 14) * (detail + 1)));
-  const step = p.h / lines;
   ctx.save();
-  ctx.font = `${Math.max(9, step * 0.45)}px ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace`;
+  const isHorizontal = p.w >= p.h;
+  const shortEdge = isHorizontal ? p.h : p.w;
+  const lines = Math.max(3, Math.floor((shortEdge / 14) * (detail + 1)));
+  const step = shortEdge / lines;
+  ctx.font = `${Math.max(9, step * 0.55)}px ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace`;
   ctx.fillStyle = rgb(base, 0.85);
   ctx.shadowColor = rgb(base, 0.6);
   ctx.shadowBlur = 8;
-  const flow = (time * 40) % (step * 2);
+  const label = detail >= 3 ? `${hex} ${hex}` : hex;
+  const metrics = ctx.measureText(label);
+  const layout = computeDigitalFlowLayout({
+    width: p.w,
+    height: p.h,
+    time,
+    detail,
+    textWidth: metrics.width || step * 4
+  });
   for (let i = 0; i < lines; i++) {
-    const y = p.y + i * step + flow;
-    ctx.fillText(hex, p.x + 6, y);
-    if (detail > 1) ctx.fillText(hex, p.x + p.w * 0.5, y - step * 0.4);
+    const offset = (i % 2) * (metrics.width * 0.35);
+    const drift = layout.travel + offset;
+    if (layout.isHorizontal) {
+      const y = p.y + i * step + step * 0.8;
+      for (let x = p.x - drift; x < p.x + p.w + metrics.width; x += metrics.width + layout.gap) {
+        ctx.fillText(label, x, y);
+      }
+    } else {
+      const x = p.x + i * step + step * 0.18;
+      for (let y = p.y - drift; y < p.y + p.h + metrics.width; y += metrics.width + layout.gap) {
+        ctx.fillText(label, x, y);
+      }
+    }
+  }
+  ctx.globalAlpha = 0.18;
+  ctx.fillStyle = "rgba(255,255,255,.2)";
+  for (let i = 0; i < lines; i++) {
+    if (layout.isHorizontal) {
+      ctx.fillRect(p.x, p.y + i * step + step * 0.1, p.w, Math.max(1, step * 0.1));
+    } else {
+      ctx.fillRect(p.x + i * step + step * 0.1, p.y, Math.max(1, step * 0.1), p.h);
+    }
   }
   ctx.restore();
 }
@@ -283,6 +347,27 @@ function drawGlass(ctx, p, base, { detail = 2 } = {}) {
 function drawMetalGlass(ctx, p, base, opts = {}) {
   drawMetal(ctx, p, base, opts);
   drawGlass(ctx, p, base, { detail: Math.max(1, (opts.detail || 2) - 1) });
+}
+
+function applyPipeFinish(ctx, p, base, { detail = 2, strength = 0.2 } = {}) {
+  const hi = shade(base, 1.2);
+  const low = shade(base, 0.55);
+  const g = (p.w >= p.h)
+    ? ctx.createLinearGradient(p.x, p.y, p.x, p.y + p.h)
+    : ctx.createLinearGradient(p.x, p.y, p.x + p.w, p.y);
+  g.addColorStop(0, rgb(hi, 0.32 * strength));
+  g.addColorStop(0.45, "rgba(255,255,255,0)");
+  g.addColorStop(1, rgb(low, 0.42 * strength));
+  ctx.save();
+  ctx.fillStyle = g;
+  ctx.fillRect(p.x, p.y, p.w, p.h);
+  if (detail >= 1) {
+    const inset = Math.max(1, Math.min(p.w, p.h) * 0.06);
+    ctx.strokeStyle = rgb(shade(base, 0.75), 0.3 * strength);
+    ctx.lineWidth = Math.max(1, inset * 0.35);
+    ctx.strokeRect(p.x + inset * 0.35, p.y + inset * 0.35, p.w - inset * 0.7, p.h - inset * 0.7);
+  }
+  ctx.restore();
 }
 
 export function drawPipeTexture(ctx, p, base, {
@@ -332,7 +417,7 @@ export function drawPipeTexture(ctx, p, base, {
       drawRainbow(ctx, p, { time, invert: true, monoBase: resolvedMode === "MONOCHROME" ? toneBase : null });
       break;
     case "tv_static":
-      drawStatic(ctx, p, { time, alpha: settings.noiseAlpha, detail });
+      drawStatic(ctx, p, toneBase, { time, alpha: settings.noiseAlpha, detail });
       break;
     case "metal":
       drawMetal(ctx, p, toneBase, { detail });
@@ -355,11 +440,10 @@ export function drawPipeTexture(ctx, p, base, {
       break;
   }
 
-  if (detail >= 1 && textureId !== "glass") {
-    ctx.globalAlpha = settings.glow;
-    ctx.fillStyle = rgb(shade(toneBase, 1.1), 0.7);
-    ctx.fillRect(p.x + p.w * 0.05, p.y + p.h * 0.08, p.w * 0.2, p.h * 0.84);
-  }
+  applyPipeFinish(ctx, p, toneBase, {
+    detail,
+    strength: settings.glow * (textureId === "glass" ? 0.45 : 1)
+  });
 
   ctx.restore();
 }
