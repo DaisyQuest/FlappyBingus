@@ -4,6 +4,10 @@
 import { clamp } from "./util.js";
 
 export const DEFAULT_CONFIG = {
+  display: {
+    reference: { width: 2560, height: 1440 },
+    scaleClamp: { min: 0.5, max: 1.5 }
+  },
   player: { maxSpeed: 420, accel: 2600, friction: 16, sizeScale: 0.055, sizeMin: 28, sizeMax: 54, radiusScale: 0.38 },
   pipes: {
     difficulty: {
