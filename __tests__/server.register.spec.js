@@ -4,6 +4,8 @@ const mockState = {
   highscores: [],
   selectedTrail: "world_record",
   selectedIcon: "hi_vis_orange",
+  selectedPipeTexture: "basic",
+  pipeTextureMode: "NORMAL",
   bestScore: 5000
 };
 
@@ -17,6 +19,8 @@ async function importServer() {
       ...defaults,
       selectedTrail: mockState.selectedTrail,
       selectedIcon: mockState.selectedIcon,
+      selectedPipeTexture: mockState.selectedPipeTexture,
+      pipeTextureMode: mockState.pipeTextureMode,
       bestScore: mockState.bestScore
     }))
   };
@@ -74,6 +78,7 @@ describe("register flow preserves record-holder cosmetics", () => {
     expect(payload.user.selectedTrail).toBe("world_record");
     expect(payload.user.unlockedTrails).toContain("world_record");
     expect(payload.icons.some((i) => i.id === "hi_vis_orange")).toBe(true);
+    expect(payload.pipeTextures.length).toBeGreaterThan(0);
   });
 
   it("falls back to classic when the registering user is not the record holder", async () => {

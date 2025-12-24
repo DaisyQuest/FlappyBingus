@@ -2,6 +2,7 @@
 // FILE: public/js/menuProfileBindings.js
 // ================================
 import { DEFAULT_PLAYER_ICON_ID } from "./playerIcons.js";
+import { DEFAULT_PIPE_TEXTURE_ID } from "./pipeTextures.js";
 
 export function getIconDisplayName(id, icons = []) {
   if (!id) return DEFAULT_PLAYER_ICON_ID;
@@ -13,13 +14,20 @@ export function getTrailDisplayName(id, trails = []) {
   return trails.find((t) => t.id === id)?.name || id;
 }
 
+export function getPipeTextureDisplayName(id, textures = []) {
+  if (!id) return DEFAULT_PIPE_TEXTURE_ID;
+  return textures.find((t) => t.id === id)?.name || id || DEFAULT_PIPE_TEXTURE_ID;
+}
+
 export function syncMenuProfileBindings({
   refs = {},
   user = null,
   trails = [],
   icons = [],
+  pipeTextures = [],
   fallbackTrailId = "classic",
   fallbackIconId = DEFAULT_PLAYER_ICON_ID,
+  fallbackPipeTextureId = DEFAULT_PIPE_TEXTURE_ID,
   bestScoreFallback = 0
 } = {}) {
   const username = user?.username || "";
@@ -37,11 +45,15 @@ export function syncMenuProfileBindings({
   const iconId = user?.selectedIcon || fallbackIconId;
   if (refs.iconText) refs.iconText.textContent = getIconDisplayName(iconId, icons);
 
+  const pipeTextureId = user?.selectedPipeTexture || fallbackPipeTextureId;
+  if (refs.pipeTextureText) refs.pipeTextureText.textContent = getPipeTextureDisplayName(pipeTextureId, pipeTextures);
+
   return {
     username,
     bestScore,
     bustercoins,
     trailId,
-    iconId
+    iconId,
+    pipeTextureId
   };
 }

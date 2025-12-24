@@ -14,6 +14,7 @@ const { MongoDataStore, resolveMongoConfig } = require("./db/mongo.cjs");
 const { createScoreService, clampScoreDefault } = require("./services/scoreService.cjs");
 const { buildTrailPreviewCatalog } = require("./services/trailCatalog.cjs");
 const { renderTrailPreviewPage, wantsPreviewHtml } = require("./services/trailPreviewPage.cjs");
+const { renderUnlockablesPage, wantsUnlockablesHtml } = require("./services/unlockablesPage.cjs");
 const {
   ACHIEVEMENTS,
   normalizeAchievementState,
@@ -29,6 +30,19 @@ const {
   normalizePlayerIcons,
   unlockedIcons
 } = require("./services/playerIcons.cjs");
+const {
+  DEFAULT_PIPE_TEXTURE_ID,
+  DEFAULT_PIPE_TEXTURE_MODE,
+  PIPE_TEXTURES: PIPE_TEXTURE_DEFS,
+  normalizePipeTextureMode,
+  normalizePipeTextures
+} = require("./services/pipeTextures.cjs");
+const {
+  UNLOCKABLE_TYPES,
+  buildUnlockablesCatalog,
+  getUnlockedIdsByType,
+  syncUnlockablesState
+} = require("./services/unlockables.cjs");
 
 // --------- Config (env overrides) ----------
 const PORT = Number(process.env.PORT || 3000);
@@ -64,6 +78,9 @@ function _setDataStoreForTests(mock) {
     listHighscores: () => topHighscores(20),
     trails: TRAILS,
     icons: ICONS,
+    pipeTextures: PIPE_TEXTURES,
+    unlockables: UNLOCKABLES.unlockables,
+    syncUnlockablesState,
     clampScore: clampScoreDefault,
     normalizeAchievements: normalizeAchievementState,
     validateRunStats,
@@ -115,6 +132,8 @@ const TRAILS = Object.freeze([
 ]);
 
 const ICONS = normalizePlayerIcons(PLAYER_ICONS);
+const PIPE_TEXTURES = normalizePipeTextures(PIPE_TEXTURE_DEFS);
+const UNLOCKABLES = buildUnlockablesCatalog({ trails: TRAILS, icons: ICONS, pipeTextures: PIPE_TEXTURES });
 
 // --------- Domain helpers ----------
 function nowMs() {
@@ -129,6 +148,7 @@ const RATE_LIMIT_CONFIG = Object.freeze({
   "/api/score": { limit: 30, windowMs: 60_000 },
   "/api/cosmetics/trail": { limit: 30, windowMs: 60_000 },
   "/api/cosmetics/icon": { limit: 30, windowMs: 60_000 },
+  "/api/cosmetics/pipe_texture": { limit: 30, windowMs: 60_000 },
   "/api/binds": { limit: 30, windowMs: 60_000 },
   "/api/settings": { limit: 30, windowMs: 60_000 },
   "/api/highscores": { limit: 90, windowMs: 60_000 },
@@ -339,10 +359,22 @@ function ensureUserSchema(u, { recordHolder = false } = {}) {
     u.keybinds = structuredClone(DEFAULT_KEYBINDS);
   if (!u.settings || typeof u.settings !== "object")
     u.settings = structuredClone(DEFAULT_SETTINGS);
+  if (typeof u.selectedPipeTexture !== "string") u.selectedPipeTexture = DEFAULT_PIPE_TEXTURE_ID;
+  u.pipeTextureMode = normalizePipeTextureMode(u.pipeTextureMode || DEFAULT_PIPE_TEXTURE_MODE);
 
   // Merge any missing bind keys with defaults
   u.keybinds = mergeKeybinds(DEFAULT_KEYBINDS, u.keybinds);
   u.settings = normalizeSettings(u.settings);
+  u.unlockables = syncUnlockablesState(
+    u.unlockables,
+    UNLOCKABLES.unlockables,
+    {
+      achievements: u.achievements,
+      bestScore: u.bestScore,
+      ownedIds: u.ownedIcons,
+      recordHolder
+    }
+  ).state;
 
   // Ensure selected trail is unlocked
   const unlocked = unlockedTrails({ achievements: u.achievements, bestScore: u.bestScore }, { recordHolder });
@@ -351,6 +383,16 @@ function ensureUserSchema(u, { recordHolder = false } = {}) {
   const availableIconIds = unlockedIcons(u, { icons: ICONS, recordHolder });
   if (!availableIconIds.includes(u.selectedIcon)) {
     u.selectedIcon = availableIconIds[0] || DEFAULT_PLAYER_ICON_ID;
+  }
+
+  const availablePipeTextures = getUnlockedIdsByType({
+    unlockables: UNLOCKABLES.unlockables,
+    type: UNLOCKABLE_TYPES.pipeTexture,
+    state: u.unlockables,
+    context: { achievements: u.achievements, bestScore: u.bestScore, ownedIds: u.ownedIcons, recordHolder }
+  });
+  if (!availablePipeTextures.includes(u.selectedPipeTexture)) {
+    u.selectedPipeTexture = availablePipeTextures[0] || DEFAULT_PIPE_TEXTURE_ID;
   }
 }
 
@@ -456,6 +498,8 @@ function publicUser(u, { recordHolder = false } = {}) {
     bestScore: u.bestScore | 0,
     selectedTrail: u.selectedTrail || "classic",
     selectedIcon: u.selectedIcon || DEFAULT_PLAYER_ICON_ID,
+    selectedPipeTexture: u.selectedPipeTexture || DEFAULT_PIPE_TEXTURE_ID,
+    pipeTextureMode: normalizePipeTextureMode(u.pipeTextureMode || DEFAULT_PIPE_TEXTURE_MODE),
     ownedIcons: Array.isArray(u.ownedIcons) ? u.ownedIcons : [],
     keybinds: u.keybinds || structuredClone(DEFAULT_KEYBINDS),
     settings: u.settings || structuredClone(DEFAULT_SETTINGS),
@@ -466,6 +510,12 @@ function publicUser(u, { recordHolder = false } = {}) {
     achievements: normalizeAchievementState(u.achievements),
     unlockedTrails: unlockedTrails({ achievements: u.achievements, bestScore: u.bestScore }, { recordHolder }),
     unlockedIcons: unlockedIcons(u, { icons: ICONS, recordHolder }),
+    unlockedPipeTextures: getUnlockedIdsByType({
+      unlockables: UNLOCKABLES.unlockables,
+      type: UNLOCKABLE_TYPES.pipeTexture,
+      state: u.unlockables,
+      context: { achievements: u.achievements, bestScore: u.bestScore, ownedIds: u.ownedIcons, recordHolder }
+    }),
     isRecordHolder: Boolean(recordHolder)
   };
 }
@@ -497,6 +547,8 @@ function buildUserDefaults(username, key) {
     bestScore: 0,
     selectedTrail: "classic",
     selectedIcon: DEFAULT_PLAYER_ICON_ID,
+    selectedPipeTexture: DEFAULT_PIPE_TEXTURE_ID,
+    pipeTextureMode: DEFAULT_PIPE_TEXTURE_MODE,
     ownedIcons: [],
     keybinds: structuredClone(DEFAULT_KEYBINDS),
     settings: structuredClone(DEFAULT_SETTINGS),
@@ -505,6 +557,7 @@ function buildUserDefaults(username, key) {
     bustercoins: 0,
     skillTotals: structuredClone(DEFAULT_SKILL_TOTALS),
     achievements: normalizeAchievementState(),
+    unlockables: { unlocked: {} },
     createdAt: now,
     updatedAt: now
   };
@@ -575,6 +628,9 @@ scoreService = createScoreService({
   listHighscores: () => topHighscores(20),
   trails: TRAILS,
   icons: ICONS,
+  pipeTextures: PIPE_TEXTURES,
+  unlockables: UNLOCKABLES.unlockables,
+  syncUnlockablesState,
   clampScore: clampScoreDefault,
   normalizeAchievements: normalizeAchievementState,
   validateRunStats,
@@ -850,6 +906,7 @@ async function route(req, res) {
       user: publicUser(u, { recordHolder }),
       icons: ICONS,
       trails: TRAILS,
+      pipeTextures: PIPE_TEXTURES,
       achievements: buildAchievementsPayload(u)
     });
     return;
@@ -886,6 +943,7 @@ async function route(req, res) {
       user: publicUser(u, { recordHolder }),
       icons: ICONS,
       trails: TRAILS,
+      pipeTextures: PIPE_TEXTURES,
       achievements: buildAchievementsPayload(u)
     });
     return;
@@ -1009,7 +1067,13 @@ async function route(req, res) {
     const updated = await dataStore.setTrail(u.key, trailId);
     ensureUserSchema(updated, { recordHolder });
 
-    sendJson(res, 200, { ok: true, user: publicUser(updated, { recordHolder }), trails: TRAILS, icons: ICONS });
+    sendJson(res, 200, {
+      ok: true,
+      user: publicUser(updated, { recordHolder }),
+      trails: TRAILS,
+      icons: ICONS,
+      pipeTextures: PIPE_TEXTURES
+    });
     return;
   }
 
@@ -1038,7 +1102,55 @@ async function route(req, res) {
     const updated = await dataStore.setIcon(u.key, iconId);
     ensureUserSchema(updated, { recordHolder });
 
-    sendJson(res, 200, { ok: true, user: publicUser(updated, { recordHolder }), trails: TRAILS, icons: ICONS });
+    sendJson(res, 200, {
+      ok: true,
+      user: publicUser(updated, { recordHolder }),
+      trails: TRAILS,
+      icons: ICONS,
+      pipeTextures: PIPE_TEXTURES
+    });
+    return;
+  }
+
+  // Set selected pipe texture cosmetic
+  if (pathname === "/api/cosmetics/pipe_texture" && req.method === "POST") {
+    if (rateLimit(req, res, "/api/cosmetics/pipe_texture")) return;
+    if (!(await ensureDatabase(res))) return;
+    const u = await getUserFromReq(req, { withRecordHolder: true });
+    if (!u) return unauthorized(res);
+
+    let body;
+    try {
+      body = await readJsonBody(req);
+    } catch {
+      return badRequest(res, "invalid_json");
+    }
+
+    const textureId = String(body.textureId || "").trim();
+    const exists = PIPE_TEXTURES.some((t) => t.id === textureId);
+    if (!exists) return badRequest(res, "invalid_pipe_texture");
+
+    const mode = normalizePipeTextureMode(body.mode || DEFAULT_PIPE_TEXTURE_MODE);
+
+    const recordHolder = Boolean(u?.isRecordHolder);
+    const unlocked = getUnlockedIdsByType({
+      unlockables: UNLOCKABLES.unlockables,
+      type: UNLOCKABLE_TYPES.pipeTexture,
+      state: u.unlockables,
+      context: { achievements: u.achievements, bestScore: u.bestScore, ownedIds: u.ownedIcons, recordHolder }
+    });
+    if (!unlocked.includes(textureId)) return badRequest(res, "pipe_texture_locked");
+
+    const updated = await dataStore.setPipeTexture(u.key, textureId, mode);
+    ensureUserSchema(updated, { recordHolder });
+
+    sendJson(res, 200, {
+      ok: true,
+      user: publicUser(updated, { recordHolder }),
+      trails: TRAILS,
+      icons: ICONS,
+      pipeTextures: PIPE_TEXTURES
+    });
     return;
   }
 
@@ -1062,7 +1174,13 @@ async function route(req, res) {
     const recordHolder = Boolean(u?.isRecordHolder);
     ensureUserSchema(updated, { recordHolder });
 
-    sendJson(res, 200, { ok: true, user: publicUser(updated, { recordHolder }), trails: TRAILS, icons: ICONS });
+    sendJson(res, 200, {
+      ok: true,
+      user: publicUser(updated, { recordHolder }),
+      trails: TRAILS,
+      icons: ICONS,
+      pipeTextures: PIPE_TEXTURES
+    });
     return;
   }
 
@@ -1085,7 +1203,13 @@ async function route(req, res) {
     const recordHolder = Boolean(u?.isRecordHolder);
     ensureUserSchema(updated, { recordHolder });
 
-    sendJson(res, 200, { ok: true, user: publicUser(updated, { recordHolder }), trails: TRAILS, icons: ICONS });
+    sendJson(res, 200, {
+      ok: true,
+      user: publicUser(updated, { recordHolder }),
+      trails: TRAILS,
+      icons: ICONS,
+      pipeTextures: PIPE_TEXTURES
+    });
     return;
   }
 
@@ -1106,6 +1230,27 @@ async function route(req, res) {
     });
     if (wantsHtml) {
       sendHtml(res, 200, renderTrailPreviewPage(catalog));
+    } else {
+      sendJson(res, 200, catalog);
+    }
+    return;
+  }
+
+  if (pathname === "/unlockables" && req.method === "GET") {
+    const catalog = {
+      ok: true,
+      count: UNLOCKABLES.unlockables.length,
+      generatedAt: new Date().toISOString(),
+      unlockables: UNLOCKABLES.unlockables,
+      icons: ICONS,
+      pipeTextures: PIPE_TEXTURES
+    };
+    const wantsHtml = wantsUnlockablesHtml({
+      formatParam: url.searchParams.get("format"),
+      acceptHeader: req.headers.accept
+    });
+    if (wantsHtml) {
+      sendHtml(res, 200, renderUnlockablesPage(catalog));
     } else {
       sendJson(res, 200, catalog);
     }

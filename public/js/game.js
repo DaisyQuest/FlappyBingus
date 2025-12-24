@@ -34,6 +34,12 @@ import { spawnBurst, spawnCrossfire, spawnOrb, spawnSinglePipe, spawnWall } from
 import { dashBounceMax, orbPoints, tickCooldowns } from "./mechanics.js";
 import { buildScorePopupStyle } from "./uiStyles.js";
 import { computePipeColor } from "./pipeColors.js";
+import {
+  DEFAULT_PIPE_TEXTURE_ID,
+  DEFAULT_PIPE_TEXTURE_MODE,
+  drawPipeTexture,
+  normalizePipeTextureMode
+} from "./pipeTextures.js";
 import { trailStyleFor } from "./trailStyles.js";
 
 const TRAIL_LIFE_SCALE = 1.45;
@@ -44,13 +50,14 @@ const TRAIL_AURA_RATE = 0.42;
 export { Pipe, Gate, Orb, Part, FloatText };
 
 export class Game {
-  constructor({ canvas, ctx, config, playerImg, input, getTrailId, getBinds, onGameOver }) {
+  constructor({ canvas, ctx, config, playerImg, input, getTrailId, getBinds, getPipeTexture, onGameOver }) {
     this.canvas = canvas;
     this.ctx = ctx;
     this.cfg = config;
     this.playerImg = playerImg;
     this.input = input;
     this.getTrailId = getTrailId || (() => "classic");
+    this.getPipeTexture = getPipeTexture || (() => ({ id: DEFAULT_PIPE_TEXTURE_ID, mode: DEFAULT_PIPE_TEXTURE_MODE }));
     this.getBinds = getBinds || (() => ({}));
     this.onGameOver = onGameOver || config?.onGameOver || (() => {});
 
@@ -1576,39 +1583,12 @@ export class Game {
   }
 
   _drawPipe(p, base) {
-    const ctx = this.ctx;
-    const edge = shade(base, 0.72), hi = shade(base, 1.12);
-
-    ctx.save();
-    ctx.shadowColor = "rgba(0,0,0,.45)";
-    ctx.shadowBlur = 10;
-    ctx.shadowOffsetY = 3;
-
-    const g = (p.w >= p.h)
-      ? ctx.createLinearGradient(p.x, p.y, p.x + p.w, p.y)
-      : ctx.createLinearGradient(p.x, p.y, p.x, p.y + p.h);
-    g.addColorStop(0, rgb(edge, 0.95));
-    g.addColorStop(0.45, rgb(base, 0.92));
-    g.addColorStop(1, rgb(hi, 0.95));
-
-    ctx.fillStyle = g;
-    ctx.fillRect(p.x, p.y, p.w, p.h);
-
-    ctx.shadowBlur = 0;
-    ctx.strokeStyle = "rgba(255,255,255,.10)";
-    ctx.lineWidth = 1.5;
-    ctx.strokeRect(p.x + 0.75, p.y + 0.75, p.w - 1.5, p.h - 1.5);
-
-    ctx.globalAlpha = 0.08;
-    ctx.fillStyle = "rgba(255,255,255,.9)";
-    const step = 10;
-    if (p.w >= p.h) {
-      for (let sx = p.x + 6; sx < p.x + p.w; sx += step) ctx.fillRect(sx, p.y + 2, 2, p.h - 4);
-    } else {
-      for (let sy = p.y + 6; sy < p.y + p.h; sy += step) ctx.fillRect(p.x + 2, sy, p.w - 4, 2);
-    }
-
-    ctx.restore();
+    const selection = this.getPipeTexture ? this.getPipeTexture() : null;
+    const textureId = typeof selection === "string"
+      ? selection
+      : (selection?.id || DEFAULT_PIPE_TEXTURE_ID);
+    const mode = normalizePipeTextureMode(selection?.mode || DEFAULT_PIPE_TEXTURE_MODE);
+    drawPipeTexture(this.ctx, p, base, { textureId, mode, time: this.timeAlive });
   }
 
 _drawOrb(o) {
