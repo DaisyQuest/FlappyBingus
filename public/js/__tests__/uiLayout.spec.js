@@ -230,12 +230,24 @@ describe("uiLayout", () => {
   });
 
   it("exposes the theme launcher and overlay editor on the main menu", () => {
+    applyStyles(document);
     const ui = buildGameUI({ document, mount });
     const launcher = mount.querySelector("#themeLauncher");
     const overlay = mount.querySelector("#themeOverlay");
+    const shell = mount.querySelector(".menu-shell");
     expect(launcher?.textContent).toBe("🖌️");
     expect(launcher?.getAttribute("aria-label")).toBe("Customize theme");
-    expect(launcher?.parentElement?.classList.contains("main-launcher-row")).toBe(true);
+    expect(shell?.contains(launcher)).toBe(true);
+    const launcherStyle = window.getComputedStyle(launcher);
+    expect(launcherStyle.position).toBe("fixed");
+    expect(launcherStyle.right).toBe("16px");
+    expect(launcherStyle.bottom).toBe("16px");
+    expect(launcherStyle.display).toBe("inline-flex");
+    if (shell) {
+      shell.dataset.view = "settings";
+      expect(window.getComputedStyle(launcher).display).toBe("none");
+      shell.dataset.view = "main";
+    }
     expect(ui.themePresetSelect).toBeInstanceOf(window.HTMLSelectElement);
     expect(ui.themeResetBtn).toBeInstanceOf(window.HTMLButtonElement);
     expect(ui.themeRandomizeBtn).toBeInstanceOf(window.HTMLButtonElement);
