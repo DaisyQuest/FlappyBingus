@@ -93,9 +93,14 @@ describe("pipeTextures", () => {
       save: vi.fn(),
       restore: vi.fn(),
       fillRect: vi.fn(),
+      fill: vi.fn(),
       strokeRect: vi.fn(),
       translate: vi.fn(),
       rotate: vi.fn(),
+      beginPath: vi.fn(),
+      closePath: vi.fn(),
+      moveTo: vi.fn(),
+      lineTo: vi.fn(),
       fillText: vi.fn(),
       measureText: vi.fn(() => ({ width: 42 })),
       createLinearGradient: vi.fn(() => gradient),
@@ -121,9 +126,14 @@ describe("pipeTextures", () => {
       save: vi.fn(),
       restore: vi.fn(),
       fillRect: vi.fn(),
+      fill: vi.fn(),
       strokeRect: vi.fn(),
       translate: vi.fn(),
       rotate: vi.fn(),
+      beginPath: vi.fn(),
+      closePath: vi.fn(),
+      moveTo: vi.fn(),
+      lineTo: vi.fn(),
       fillText: vi.fn(),
       measureText: vi.fn(() => ({ width: 30 })),
       createLinearGradient: vi.fn(() => gradient),
@@ -138,5 +148,39 @@ describe("pipeTextures", () => {
     });
 
     expect(ctx.fillText).toHaveBeenCalled();
+  });
+
+  it("draws new animated textures in monochrome mode without errors", () => {
+    const gradient = { addColorStop: vi.fn() };
+    const ctx = {
+      save: vi.fn(),
+      restore: vi.fn(),
+      fillRect: vi.fn(),
+      fill: vi.fn(),
+      strokeRect: vi.fn(),
+      translate: vi.fn(),
+      rotate: vi.fn(),
+      beginPath: vi.fn(),
+      closePath: vi.fn(),
+      moveTo: vi.fn(),
+      lineTo: vi.fn(),
+      fillText: vi.fn(),
+      measureText: vi.fn(() => ({ width: 36 })),
+      createLinearGradient: vi.fn(() => gradient),
+      clearRect: vi.fn()
+    };
+    const base = { r: 90, g: 140, b: 200 };
+    const textures = ["disco", "ultradisco", "fire", "bluefire", "rocket_emojis"];
+
+    textures.forEach((textureId) => {
+      drawPipeTexture(ctx, { x: 0, y: 0, w: 52, h: 180 }, base, {
+        textureId,
+        mode: "MONOCHROME",
+        time: 3.2
+      });
+    });
+
+    expect(ctx.fillRect).toHaveBeenCalled();
+    expect(ctx.beginPath).toHaveBeenCalled();
   });
 });

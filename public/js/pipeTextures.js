@@ -95,6 +95,36 @@ export const PIPE_TEXTURES = Object.freeze([
     name: "Checkerboard2",
     description: "Checkerboard with black tiles.",
     unlock: { type: "score", minScore: 2000, label: "Score 2000+" }
+  },
+  {
+    id: "disco",
+    name: "Disco!",
+    description: "Flashing rainbow lights.",
+    unlock: { type: "score", minScore: 2200, label: "Score 2200+" }
+  },
+  {
+    id: "ultradisco",
+    name: "UltraDisco!",
+    description: "Like disco, but wilder.",
+    unlock: { type: "score", minScore: 2400, label: "Score 2400+" }
+  },
+  {
+    id: "fire",
+    name: "Fire!",
+    description: "Fiery pipe glow.",
+    unlock: { type: "score", minScore: 2600, label: "Score 2600+" }
+  },
+  {
+    id: "bluefire",
+    name: "BlueFire!",
+    description: "Blue flames throughout.",
+    unlock: { type: "score", minScore: 2800, label: "Score 2800+" }
+  },
+  {
+    id: "rocket_emojis",
+    name: "RocketShipEmojis",
+    description: "Rocket ship emojis flying throughout.",
+    unlock: { type: "score", minScore: 3000, label: "Score 3000+" }
   }
 ]);
 
@@ -220,6 +250,16 @@ function drawRainbow(ctx, p, { time = 0, invert = false, monoBase = null } = {})
 
   ctx.fillStyle = g;
   ctx.fillRect(p.x, p.y, p.w, p.h);
+
+  const sparkleCount = Math.max(4, Math.floor((Math.min(p.w, p.h) / 18)));
+  for (let i = 0; i < sparkleCount; i++) {
+    const sparklePhase = time * 1.4 + i * 1.6;
+    const sparkleAlpha = 0.15 + 0.25 * (0.5 + 0.5 * Math.sin(sparklePhase));
+    ctx.fillStyle = `rgba(255,255,255,${sparkleAlpha})`;
+    const sx = p.x + ((i * 31 + time * 22) % (p.w + 8)) - 4;
+    const sy = p.y + ((i * 19 + time * 16) % (p.h + 8)) - 4;
+    ctx.fillRect(sx, sy, Math.max(2, p.w * 0.02), Math.max(2, p.h * 0.02));
+  }
 }
 
 function drawStatic(ctx, p, base, { time = 0, alpha = 0.18, detail = 2 } = {}) {
@@ -349,6 +389,106 @@ function drawMetalGlass(ctx, p, base, opts = {}) {
   drawGlass(ctx, p, base, { detail: Math.max(1, (opts.detail || 2) - 1) });
 }
 
+function drawDisco(ctx, p, { time = 0, detail = 2, intensity = 1, monoBase = null } = {}) {
+  drawRainbow(ctx, p, { time, invert: false, monoBase });
+  const grid = Math.max(3, Math.floor((Math.min(p.w, p.h) / 10) * (detail + 1)));
+  const cellW = p.w / grid;
+  const cellH = p.h / grid;
+  for (let y = 0; y < grid; y++) {
+    for (let x = 0; x < grid; x++) {
+      const phase = time * 3 + x * 0.6 + y * 0.9;
+      const pulse = 0.3 + 0.7 * (0.5 + 0.5 * Math.sin(phase));
+      const hue = (time * 60 + (x + y) * 28) % 360;
+      ctx.fillStyle = hsla(hue, 85, 58, 0.2 + 0.4 * pulse * intensity);
+      ctx.fillRect(p.x + x * cellW + cellW * 0.2, p.y + y * cellH + cellH * 0.2, cellW * 0.6, cellH * 0.6);
+    }
+  }
+  ctx.globalAlpha = 0.2 + 0.15 * intensity;
+  drawStripeOverlay(ctx, p, 0.12 + detail * 0.02, 12 - detail);
+  ctx.globalAlpha = 1;
+}
+
+function drawUltraDisco(ctx, p, { time = 0, detail = 2, monoBase = null } = {}) {
+  drawDisco(ctx, p, { time, detail: detail + 1, intensity: 1.4, monoBase });
+  ctx.globalAlpha = 0.35;
+  const bands = Math.max(2, detail + 2);
+  if (p.w >= p.h) {
+    const bandH = p.h / bands;
+    for (let i = 0; i < bands; i++) {
+      const hue = (time * 90 + i * 80) % 360;
+      ctx.fillStyle = hsla(hue, 90, 60, 0.35);
+      ctx.fillRect(p.x, p.y + i * bandH, p.w, Math.max(2, bandH * 0.25));
+    }
+  } else {
+    const bandW = p.w / bands;
+    for (let i = 0; i < bands; i++) {
+      const hue = (time * 90 + i * 80) % 360;
+      ctx.fillStyle = hsla(hue, 90, 60, 0.35);
+      ctx.fillRect(p.x + i * bandW, p.y, Math.max(2, bandW * 0.25), p.h);
+    }
+  }
+  ctx.globalAlpha = 1;
+}
+
+function drawFire(ctx, p, {
+  time = 0,
+  detail = 2,
+  colors = ["#0b0b12", "#ff6a00", "#ffd35a"]
+} = {}) {
+  const g = (p.w >= p.h)
+    ? ctx.createLinearGradient(p.x, p.y, p.x + p.w, p.y)
+    : ctx.createLinearGradient(p.x, p.y, p.x, p.y + p.h);
+  g.addColorStop(0, colors[0]);
+  g.addColorStop(0.5, colors[1]);
+  g.addColorStop(1, colors[2]);
+  ctx.fillStyle = g;
+  ctx.fillRect(p.x, p.y, p.w, p.h);
+
+  const flames = Math.max(5, Math.floor((p.w >= p.h ? p.w : p.h) / 18) + detail);
+  for (let i = 0; i < flames; i++) {
+    const t = time * 2 + i * 0.9;
+    const flicker = 0.4 + 0.6 * (0.5 + 0.5 * Math.sin(t));
+    const size = (p.w >= p.h ? p.h : p.w) * (0.25 + 0.18 * flicker);
+    const offset = (p.w >= p.h ? p.w : p.h) / flames;
+    const x = p.w >= p.h ? p.x + i * offset : p.x + p.w * 0.5;
+    const y = p.w >= p.h ? p.y + p.h * 0.5 : p.y + i * offset;
+    ctx.beginPath();
+    if (p.w >= p.h) {
+      const baseY = y + Math.sin(t * 1.2) * (p.h * 0.12);
+      ctx.moveTo(x, baseY);
+      ctx.lineTo(x + size * 0.6, baseY - size * 0.5);
+      ctx.lineTo(x + size * 1.2, baseY);
+    } else {
+      const baseX = x + Math.sin(t * 1.2) * (p.w * 0.12);
+      ctx.moveTo(baseX, y);
+      ctx.lineTo(baseX - size * 0.5, y + size * 0.6);
+      ctx.lineTo(baseX, y + size * 1.2);
+    }
+    ctx.closePath();
+    ctx.fillStyle = `rgba(255,220,140,${0.15 + flicker * 0.35})`;
+    ctx.fill();
+  }
+}
+
+function drawRocketEmojis(ctx, p, { time = 0, detail = 2 } = {}) {
+  const bg = ctx.createLinearGradient(p.x, p.y, p.x + p.w, p.y + p.h);
+  bg.addColorStop(0, "rgba(12,22,42,0.9)");
+  bg.addColorStop(1, "rgba(8,8,18,0.95)");
+  ctx.fillStyle = bg;
+  ctx.fillRect(p.x, p.y, p.w, p.h);
+
+  const rockets = Math.max(4, Math.floor((p.w >= p.h ? p.w : p.h) / 22) + detail);
+  const fontSize = Math.max(10, Math.min(p.w, p.h) * 0.28);
+  ctx.font = `${fontSize}px "Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif`;
+  for (let i = 0; i < rockets; i++) {
+    const offset = (i * 37 + time * 40) % (p.w >= p.h ? p.w + fontSize * 2 : p.h + fontSize * 2);
+    const wobble = Math.sin(time * 2 + i) * (p.w >= p.h ? p.h : p.w) * 0.15;
+    const x = p.w >= p.h ? p.x + offset - fontSize : p.x + p.w * 0.5 + wobble;
+    const y = p.w >= p.h ? p.y + p.h * 0.5 + wobble : p.y + offset - fontSize;
+    ctx.fillText("🚀", x, y);
+  }
+}
+
 function applyPipeFinish(ctx, p, base, { detail = 2, strength = 0.2 } = {}) {
   const hi = shade(base, 1.2);
   const low = shade(base, 0.55);
@@ -433,6 +573,21 @@ export function drawPipeTexture(ctx, p, base, {
       break;
     case "checkerboard2":
       drawCheckerboard(ctx, p, { light: rgb(toneBase, 0.85), dark: "#0b0f18", detail });
+      break;
+    case "disco":
+      drawDisco(ctx, p, { time, detail, monoBase: resolvedMode === "MONOCHROME" ? toneBase : null });
+      break;
+    case "ultradisco":
+      drawUltraDisco(ctx, p, { time, detail, monoBase: resolvedMode === "MONOCHROME" ? toneBase : null });
+      break;
+    case "fire":
+      drawFire(ctx, p, { time, detail, colors: ["#1a0600", "#ff4500", "#ffd36a"] });
+      break;
+    case "bluefire":
+      drawFire(ctx, p, { time, detail, colors: ["#020615", "#00b7ff", "#c2f5ff"] });
+      break;
+    case "rocket_emojis":
+      drawRocketEmojis(ctx, p, { time, detail });
       break;
     default:
       ctx.fillStyle = baseGradient(ctx, p, toneBase);
