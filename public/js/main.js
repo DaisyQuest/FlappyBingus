@@ -91,6 +91,7 @@ import {
 import { playbackTicks, chooseReplayRandSource } from "./replayUtils.js";
 import { bindSkillOptionGroup, markSkillOptionSelection } from "./skillOptions.js";
 import { renderSkillUsageStats } from "./skillUsageStats.js";
+import { getIconDisplayName, getTrailDisplayName, syncMenuProfileBindings } from "./menuProfileBindings.js";
 
 // ---- DOM ----
 const ui = buildGameUI();
@@ -522,10 +523,6 @@ function renderHighscoresUI() {
   });
 }
 
-function getIconDisplayName(id, icons = playerIcons) {
-  return icons.find((i) => i.id === id)?.name || id || DEFAULT_PLAYER_ICON_ID;
-}
-
 function syncIconCatalog(nextIcons = null) {
   const normalized = normalizePlayerIcons(nextIcons || playerIcons);
   playerIcons = normalized;
@@ -616,10 +613,6 @@ function applyIconSelection(id = currentIconId, icons = playerIcons, unlocked = 
   return nextId;
 }
 
-function getTrailDisplayName(id, trails = net.trails) {
-  return trails.find(t => t.id === id)?.name || id;
-}
-
 function applyTrailSelection(id, trails = net.trails) {
   const safeId = id || "classic";
   currentTrailId = safeId;
@@ -632,6 +625,22 @@ function applyTrailSelection(id, trails = net.trails) {
   }
   trailPreview?.setTrail(safeId);
   syncLauncherSwatch(currentIconId, playerIcons, playerImg);
+}
+
+function syncMenuProfileBindingsFromState({
+  fallbackTrailId = currentTrailId,
+  fallbackIconId = currentIconId,
+  bestScoreFallback = 0
+} = {}) {
+  return syncMenuProfileBindings({
+    refs: { usernameInput, pbText, trailText, iconText, bustercoinText },
+    user: net.user,
+    trails: net.trails,
+    icons: playerIcons,
+    fallbackTrailId,
+    fallbackIconId,
+    bestScoreFallback
+  });
 }
 
 function setTrailHint(hint, { persist = true } = {}) {
@@ -827,8 +836,13 @@ async function refreshProfileAndHighscores() {
   }
 
   setUserHint();
-  refreshTrailMenu();
-  applyIconSelection(net.user?.selectedIcon || currentIconId, playerIcons);
+  const { selected, best } = refreshTrailMenu();
+  const iconId = applyIconSelection(net.user?.selectedIcon || currentIconId, playerIcons);
+  syncMenuProfileBindingsFromState({
+    fallbackTrailId: selected,
+    fallbackIconId: iconId,
+    bestScoreFallback: best
+  });
   renderHighscoresUI();
   renderAchievements();
   renderBindUI();
