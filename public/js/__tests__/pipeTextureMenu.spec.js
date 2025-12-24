@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 import { JSDOM } from "jsdom";
 import {
   DEFAULT_PIPE_TEXTURE_HINT,
+  PIPE_TEXTURE_SWATCH_HEIGHT,
+  PIPE_TEXTURE_SWATCH_WIDTH,
   describePipeTextureLock,
   pipeTextureHoverText,
   renderPipeTextureOptions,
@@ -32,7 +34,10 @@ describe("pipeTextureMenu helpers", () => {
     expect(buttons).toHaveLength(2);
     const locked = buttons.find((b) => b.dataset.pipeTextureId === "locked");
     expect(locked?.querySelector(".pipe-texture-lock")?.textContent).toBe("🔒");
-    expect(container.querySelector(".pipe-texture-swatch-canvas")).toBeInstanceOf(dom.window.HTMLCanvasElement);
+    const canvas = container.querySelector(".pipe-texture-swatch-canvas");
+    expect(canvas).toBeInstanceOf(dom.window.HTMLCanvasElement);
+    expect(canvas?.width).toBe(PIPE_TEXTURE_SWATCH_WIDTH);
+    expect(canvas?.height).toBe(PIPE_TEXTURE_SWATCH_HEIGHT);
   });
 
   it("describes lock status and hover text", () => {
@@ -40,6 +45,45 @@ describe("pipeTextureMenu helpers", () => {
     expect(pipeTextureHoverText(TEXTURES[0], { unlocked: true })).toContain("Click to equip");
     expect(pipeTextureHoverText(TEXTURES[1], { unlocked: false })).toContain("Locked");
     expect(DEFAULT_PIPE_TEXTURE_HINT).toContain("pipe texture");
+  });
+
+  it("handles empty state and custom swatch sizes", () => {
+    const dom = new JSDOM("<!doctype html><body><div id='root'></div></body>");
+    const document = dom.window.document;
+    const container = document.getElementById("root");
+
+    const { rendered } = renderPipeTextureOptions({ container, textures: [] });
+    expect(rendered).toBe(0);
+    expect(container?.querySelector(".hint.bad")?.textContent).toContain("No pipe textures");
+
+    renderPipeTextureOptions({
+      container,
+      textures: TEXTURES.slice(0, 1),
+      unlockedIds: new Set(["basic"]),
+      swatchSize: { width: 160, height: 90 }
+    });
+    const canvas = container?.querySelector(".pipe-texture-swatch-canvas");
+    expect(canvas?.width).toBe(160);
+    expect(canvas?.height).toBe(90);
+  });
+
+  it("invokes callbacks when rendering swatches", () => {
+    const dom = new JSDOM("<!doctype html><body><div id='root'></div></body>");
+    const document = dom.window.document;
+    const container = document.getElementById("root");
+    const swatches = [];
+
+    renderPipeTextureOptions({
+      container,
+      textures: TEXTURES,
+      unlockedIds: new Set(["basic"]),
+      lockTextFor: () => "Custom lock message",
+      onRenderSwatch: (payload) => swatches.push(payload)
+    });
+
+    const lockedButton = container?.querySelector("[data-pipe-texture-id='locked']");
+    expect(lockedButton?.dataset.statusText).toBe("Custom lock message");
+    expect(swatches).toHaveLength(2);
   });
 
   it("toggles pipe texture overlay visibility", () => {

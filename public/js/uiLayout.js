@@ -288,7 +288,7 @@ function createTrailCard(doc, refs) {
 
   const pipeTextureOptions = createElement(doc, refs, "div", {
     id: "pipeTextureOptions",
-    className: "pipe-texture-grid icon-grid",
+    className: "pipe-texture-grid",
     attrs: { role: "listbox" }
   });
 

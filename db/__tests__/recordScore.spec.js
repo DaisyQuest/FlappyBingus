@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { MongoDataStore } from "../mongo.cjs";
 import { DEFAULT_SKILL_TOTALS } from "../../services/skillConsts.cjs";
+import { DEFAULT_PIPE_TEXTURE_ID, DEFAULT_PIPE_TEXTURE_MODE } from "../../services/pipeTextures.cjs";
 
 const DEFAULT_PROGRESS = {
   bestScore: 0,
@@ -155,12 +156,14 @@ describe("MongoDataStore.recordScore", () => {
       createdAt: 100,
       selectedTrail: "classic",
       selectedIcon: "hi_vis_orange",
+      selectedPipeTexture: DEFAULT_PIPE_TEXTURE_ID,
+      pipeTextureMode: DEFAULT_PIPE_TEXTURE_MODE,
       ownedIcons: [],
       updatedAt: now,
       keybinds: null,
       bustercoins: 0,
-      achievements: { unlocked: {}, progress: DEFAULT_PROGRESS }
-      ,
+      achievements: { unlocked: {}, progress: DEFAULT_PROGRESS },
+      unlockables: { unlocked: {} },
       skillTotals: DEFAULT_SKILL_TOTALS
     });
   });
@@ -182,6 +185,8 @@ describe("MongoDataStore.recordScore", () => {
       username: "Jason",
       selectedTrail: "classic",
       selectedIcon: "hi_vis_orange",
+      selectedPipeTexture: DEFAULT_PIPE_TEXTURE_ID,
+      pipeTextureMode: DEFAULT_PIPE_TEXTURE_MODE,
       ownedIcons: [],
       keybinds: null,
       bustercoins: 0,
@@ -191,6 +196,7 @@ describe("MongoDataStore.recordScore", () => {
       createdAt: now,
       updatedAt: now,
       achievements: { unlocked: {}, progress: DEFAULT_PROGRESS },
+      unlockables: { unlocked: {} },
       skillTotals: DEFAULT_SKILL_TOTALS
     });
   });
@@ -212,6 +218,8 @@ describe("MongoDataStore.recordScore", () => {
       username: "Mel",
       selectedTrail: "classic",
       selectedIcon: "hi_vis_orange",
+      selectedPipeTexture: DEFAULT_PIPE_TEXTURE_ID,
+      pipeTextureMode: DEFAULT_PIPE_TEXTURE_MODE,
       ownedIcons: [],
       keybinds: null,
       runs: 6,
@@ -221,6 +229,7 @@ describe("MongoDataStore.recordScore", () => {
       createdAt: 10,
       updatedAt: now,
       achievements: { unlocked: {}, progress: DEFAULT_PROGRESS },
+      unlockables: { unlocked: {} },
       skillTotals: DEFAULT_SKILL_TOTALS
     });
   });
@@ -255,11 +264,14 @@ describe("MongoDataStore.recordScore", () => {
       createdAt: 50,
       selectedTrail: "classic",
       selectedIcon: "hi_vis_orange",
+      selectedPipeTexture: DEFAULT_PIPE_TEXTURE_ID,
+      pipeTextureMode: DEFAULT_PIPE_TEXTURE_MODE,
       ownedIcons: [],
       keybinds: null,
       bustercoins: 0,
       updatedAt: now,
       achievements: { unlocked: {}, progress: DEFAULT_PROGRESS },
+      unlockables: { unlocked: {} },
       skillTotals: DEFAULT_SKILL_TOTALS
     });
   });

@@ -4,6 +4,8 @@
 import { describeUnlock } from "./unlockables.js";
 
 export const DEFAULT_PIPE_TEXTURE_HINT = "Mouse over a pipe texture to see how to unlock it.";
+export const PIPE_TEXTURE_SWATCH_WIDTH = 120;
+export const PIPE_TEXTURE_SWATCH_HEIGHT = 68;
 
 export function describePipeTextureLock(texture, { unlocked }) {
   if (unlocked) return texture?.unlock?.label || "Unlocked";
@@ -22,15 +24,20 @@ export function renderPipeTextureOptions({
   selectedId = "",
   unlockedIds = new Set(),
   onRenderSwatch = null,
-  lockTextFor = null
+  lockTextFor = null,
+  swatchSize = null
 } = {}) {
   if (!container) return { rendered: 0, swatches: [] };
+  const doc = container.ownerDocument || globalThis.document;
+  if (!doc) return { rendered: 0, swatches: [] };
   container.innerHTML = "";
   const unlockedSet = unlockedIds instanceof Set ? unlockedIds : new Set(unlockedIds || []);
   const swatches = [];
+  const width = Math.max(1, Number(swatchSize?.width) || PIPE_TEXTURE_SWATCH_WIDTH);
+  const height = Math.max(1, Number(swatchSize?.height) || PIPE_TEXTURE_SWATCH_HEIGHT);
 
   if (!textures.length) {
-    const empty = document.createElement("div");
+    const empty = doc.createElement("div");
     empty.className = "hint bad";
     empty.textContent = "No pipe textures available.";
     container.append(empty);
@@ -41,7 +48,7 @@ export function renderPipeTextureOptions({
     const unlocked = unlockedSet.has(texture.id);
     const statusText = lockTextFor?.(texture, { unlocked }) ?? describePipeTextureLock(texture, { unlocked });
 
-    const btn = document.createElement("button");
+    const btn = doc.createElement("button");
     btn.type = "button";
     btn.dataset.pipeTextureId = texture.id;
     btn.dataset.locked = unlocked ? "false" : "true";
@@ -52,21 +59,21 @@ export function renderPipeTextureOptions({
     btn.setAttribute("aria-disabled", unlocked ? "false" : "true");
     btn.tabIndex = unlocked ? 0 : -1;
 
-    const swatch = document.createElement("span");
+    const swatch = doc.createElement("span");
     swatch.className = "pipe-texture-swatch";
-    const canvas = document.createElement("canvas");
+    const canvas = doc.createElement("canvas");
     canvas.className = "pipe-texture-swatch-canvas";
-    canvas.width = 140;
-    canvas.height = 80;
+    canvas.width = width;
+    canvas.height = height;
     swatch.append(canvas);
 
-    const label = document.createElement("div");
+    const label = doc.createElement("div");
     label.className = "pipe-texture-option-name";
     label.textContent = texture.name || texture.id;
 
     btn.append(swatch, label);
     if (!unlocked) {
-      const lock = document.createElement("div");
+      const lock = doc.createElement("div");
       lock.className = "pipe-texture-lock";
       lock.textContent = "🔒";
       btn.append(lock);
