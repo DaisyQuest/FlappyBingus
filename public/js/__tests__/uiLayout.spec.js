@@ -233,7 +233,9 @@ describe("uiLayout", () => {
     const ui = buildGameUI({ document, mount });
     const launcher = mount.querySelector("#themeLauncher");
     const overlay = mount.querySelector("#themeOverlay");
-    expect(launcher?.textContent).toBe("Customize");
+    expect(launcher?.textContent).toBe("🖌️");
+    expect(launcher?.getAttribute("aria-label")).toBe("Customize theme");
+    expect(launcher?.parentElement?.classList.contains("main-launcher-row")).toBe(true);
     expect(ui.themePresetSelect).toBeInstanceOf(window.HTMLSelectElement);
     expect(ui.themeResetBtn).toBeInstanceOf(window.HTMLButtonElement);
     expect(ui.themeRandomizeBtn).toBeInstanceOf(window.HTMLButtonElement);

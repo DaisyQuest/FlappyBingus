@@ -1012,12 +1012,16 @@ function createMenuScreen(doc, refs) {
   const mainGrid = doc.createElement("div");
   mainGrid.className = "info-grid";
   mainGrid.append(createTrailCard(doc, refs), createHowToCard(doc, refs));
-  mainPanel.append(mainGrid);
+  const launcherRow = doc.createElement("div");
+  launcherRow.className = "main-launcher-row";
   const themeLauncher = createElement(doc, refs, "button", {
     id: "themeLauncher",
     className: "theme-launcher",
-    text: "Customize"
+    text: "🖌️",
+    attrs: { "aria-label": "Customize theme" }
   });
+  launcherRow.append(themeLauncher);
+  mainPanel.append(mainGrid, launcherRow);
 
   const settingsPanel = doc.createElement("div");
   settingsPanel.className = "panel-settings tab-panel";
@@ -1050,7 +1054,7 @@ function createMenuScreen(doc, refs) {
   sideStack.className = "side-stack";
   sideStack.append(createProfileCard(doc, refs), createHighscoreCard(doc, refs));
 
-  shell.append(mainCard, sideStack, themeLauncher, createThemeOverlay(doc, refs));
+  shell.append(mainCard, sideStack, createThemeOverlay(doc, refs));
   const achievementsHeaderBack = refs.achievementsHeaderBack;
   const settingsHeaderBack = refs.settingsHeaderBack;
 
