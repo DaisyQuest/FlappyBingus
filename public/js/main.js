@@ -51,6 +51,7 @@ import {
   setMuted,
   sfxAchievementUnlock
 } from "./audio.js";
+import { DEFAULT_AUDIO_SETTINGS, readAudioSettings, writeAudioSettings } from "./audioSettings.js";
 import { applyBustercoinEarnings } from "./bustercoins.js";
 import { ACHIEVEMENTS, normalizeAchievementState, renderAchievementsList, appendAchievementToast } from "./achievements.js";
 import { renderScoreBreakdown } from "./scoreBreakdown.js";
@@ -347,8 +348,9 @@ const AUDIO = Object.freeze({
 });
 
 // Volume UI defaults (match HTML defaults in flappybingus.html)
-const DEFAULT_MUSIC = 0.7;
-const DEFAULT_SFX = 0.8;
+const DEFAULT_MUSIC = DEFAULT_AUDIO_SETTINGS.music;
+const DEFAULT_SFX = DEFAULT_AUDIO_SETTINGS.sfx;
+const DEFAULT_AUDIO = { ...DEFAULT_AUDIO_SETTINGS, music: DEFAULT_MUSIC, sfx: DEFAULT_SFX, muted: false };
 
 function sliderValueTo01(el, fallback01) {
   const raw = el ? Number.parseFloat(el.value) : Number.NaN;
@@ -365,6 +367,7 @@ function applyVolumeFromUI() {
 
   const isMuted = !!(muteToggle && muteToggle.checked);
   setMuted(isMuted);
+  writeAudioSettings({ music, sfx, muted: isMuted }, DEFAULT_AUDIO);
 
   if (game) {
     const sfxAudible = !isMuted && sfx > 0;
@@ -373,9 +376,10 @@ function applyVolumeFromUI() {
 }
 
 function primeVolumeUI() {
-  if (musicSlider && !musicSlider.value) musicSlider.value = String(Math.round(DEFAULT_MUSIC * 100));
-  if (sfxSlider && !sfxSlider.value) sfxSlider.value = String(Math.round(DEFAULT_SFX * 100));
-  if (muteToggle) muteToggle.checked = false;
+  const saved = readAudioSettings(DEFAULT_AUDIO) || DEFAULT_AUDIO;
+  if (musicSlider) musicSlider.value = String(Math.round(saved.music * 100));
+  if (sfxSlider) sfxSlider.value = String(Math.round(saved.sfx * 100));
+  if (muteToggle) muteToggle.checked = !!saved.muted;
   applyVolumeFromUI();
 }
 
