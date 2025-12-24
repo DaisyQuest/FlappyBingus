@@ -4,6 +4,8 @@ import {
   THEME_DEFAULT_VALUES,
   applyThemeValues,
   buildThemeLibrary,
+  exportThemeString,
+  importThemeString,
   initThemeEditor,
   mergeThemeValues,
   normalizeThemeValues
@@ -92,6 +94,29 @@ describe("theme helpers", () => {
     expect(root.style.getPropertyValue("--panel")).toBe("rgba(0,0,0,0.5)");
     expect(root.style.getPropertyValue("--bg0")).toBe("#123456");
     expect(root.style.getPropertyValue("--panel-blur")).toBe("0px");
+  });
+
+  it("exports and imports a base64 theme payload", () => {
+    const exported = exportThemeString({
+      ...THEME_DEFAULT_VALUES,
+      accent: "#112233",
+      pipeGreen: "#445566"
+    });
+    const imported = importThemeString(exported);
+
+    expect(imported.error).toBeUndefined();
+    expect(imported.values.accent).toBe("#112233");
+    expect(imported.values.pipeGreen).toBe("#445566");
+  });
+
+  it("rejects malformed import payloads", () => {
+    expect(importThemeString("")).toEqual({ error: "empty_payload" });
+    expect(importThemeString("not-base64")).toEqual({ error: "invalid_payload" });
+  });
+
+  it("rejects unsupported import versions", () => {
+    const encoded = Buffer.from(JSON.stringify({ version: 99, values: {} }), "utf8").toString("base64");
+    expect(importThemeString(encoded)).toEqual({ error: "unsupported_version" });
   });
 });
 

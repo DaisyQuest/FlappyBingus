@@ -5,6 +5,7 @@ import { clamp } from "./util.js";
 
 const THEME_STORAGE_KEY = "bingus_theme_state";
 const THEME_STORAGE_VERSION = 1;
+const THEME_EXPORT_VERSION = 1;
 
 const COLOR_RE = /^#([0-9a-fA-F]{6})$/;
 
@@ -487,6 +488,30 @@ export const THEME_FIELDS = [
     group: "Buttons & Focus"
   },
   {
+    id: "pipeGreen",
+    label: "Pipe green",
+    type: "color",
+    group: "Pipes"
+  },
+  {
+    id: "pipeBlue",
+    label: "Pipe blue",
+    type: "color",
+    group: "Pipes"
+  },
+  {
+    id: "pipeWisteria",
+    label: "Pipe wisteria",
+    type: "color",
+    group: "Pipes"
+  },
+  {
+    id: "pipeRed",
+    label: "Pipe red",
+    type: "color",
+    group: "Pipes"
+  },
+  {
     id: "scrollbarTrack",
     label: "Scrollbar track",
     type: "color",
@@ -598,6 +623,10 @@ export const THEME_DEFAULT_VALUES = {
   focusAlpha: 0.9,
   sparkle: "#ffffff",
   sparkleEnabled: true,
+  pipeGreen: "#b7efb2",
+  pipeBlue: "#b3ebf2",
+  pipeWisteria: "#c9a0dc",
+  pipeRed: "#ff746c",
   scrollbarTrack: "#ffffff",
   scrollbarTrackAlpha: 0.06,
   scrollbarThumbStart: "#aadcff",
@@ -678,6 +707,56 @@ const THEME_PRESETS = {
       primaryStart: "#b8b4ff",
       primaryEnd: "#8e9bff"
     }
+  },
+  solstice: {
+    name: "Solar Solstice",
+    values: {
+      bg0: "#1a0c07",
+      bg1: "#3a1b0b",
+      bgGlow1: "#ffb35b",
+      bgGlow2: "#ff6b3d",
+      bgGlow3: "#ffd27f",
+      panel: "#2b140a",
+      panelAlt: "#3c1a0c",
+      accent: "#ffcc7a",
+      accentStrong: "#ffe6b6",
+      accentAlt: "#ff9f6b",
+      bubble: "#ffd99c",
+      deepGlow: "#ff8b5a",
+      ok: "#ffd089",
+      danger: "#ff7a6a",
+      primaryStart: "#ffb35b",
+      primaryEnd: "#ff6b3d",
+      pipeGreen: "#f7d26c",
+      pipeBlue: "#ff9f6b",
+      pipeWisteria: "#ffbfa1",
+      pipeRed: "#ff6b3d"
+    }
+  },
+  verdant: {
+    name: "Verdant Glow",
+    values: {
+      bg0: "#06130d",
+      bg1: "#0c2b1b",
+      bgGlow1: "#74ffb0",
+      bgGlow2: "#4df0c9",
+      bgGlow3: "#2ad1a2",
+      panel: "#0a2016",
+      panelAlt: "#0d2f20",
+      accent: "#6dffc5",
+      accentStrong: "#c7ffe7",
+      accentAlt: "#76f0c0",
+      bubble: "#8affd9",
+      deepGlow: "#56e7c8",
+      ok: "#78ffb4",
+      danger: "#ff7a8a",
+      primaryStart: "#6dffc5",
+      primaryEnd: "#2ad1a2",
+      pipeGreen: "#72f2b1",
+      pipeBlue: "#6ad6ff",
+      pipeWisteria: "#9be8d0",
+      pipeRed: "#ff7a8a"
+    }
   }
 };
 
@@ -756,6 +835,50 @@ export function normalizeThemeValues(values = {}) {
 
 export function mergeThemeValues(base, overrides) {
   return normalizeThemeValues({ ...base, ...(overrides || {}) });
+}
+
+function base64Encode(value) {
+  if (typeof btoa === "function") return btoa(value);
+  return Buffer.from(value, "utf8").toString("base64");
+}
+
+function base64Decode(value) {
+  if (typeof atob === "function") return atob(value);
+  return Buffer.from(value, "base64").toString("utf8");
+}
+
+function pickThemeValues(values) {
+  const out = {};
+  THEME_FIELDS.forEach((field) => {
+    if (field.id in values) out[field.id] = values[field.id];
+  });
+  return out;
+}
+
+export function exportThemeString(values, { themeId = "custom" } = {}) {
+  const payload = {
+    version: THEME_EXPORT_VERSION,
+    themeId,
+    values: pickThemeValues(values)
+  };
+  return base64Encode(JSON.stringify(payload));
+}
+
+export function importThemeString(encoded) {
+  if (typeof encoded !== "string" || !encoded.trim()) {
+    return { error: "empty_payload" };
+  }
+  try {
+    const decoded = base64Decode(encoded.trim());
+    const parsed = JSON.parse(decoded);
+    if (!parsed || typeof parsed !== "object") return { error: "invalid_payload" };
+    if (parsed.version !== THEME_EXPORT_VERSION) return { error: "unsupported_version" };
+    const values = parsed.values && typeof parsed.values === "object" ? parsed.values : {};
+    const themeId = typeof parsed.themeId === "string" ? parsed.themeId : "custom";
+    return { values: normalizeThemeValues(values), themeId };
+  } catch {
+    return { error: "invalid_payload" };
+  }
 }
 
 function hexToRgb(hex) {
@@ -1103,6 +1226,35 @@ export function initThemeEditor({ refs, config, onApply }) {
         nextValues[key] = randomHex();
       });
       applyTheme(nextValues, "custom");
+    });
+  }
+
+  if (refs.themeExportBtn) {
+    refs.themeExportBtn.addEventListener("click", () => {
+      const encoded = exportThemeString(state.customValues, { themeId: state.activeThemeId });
+      if (refs.themeExportField) refs.themeExportField.value = encoded;
+      if (refs.themeStatus) {
+        refs.themeStatus.className = "hint good";
+        refs.themeStatus.textContent = "Theme exported. Copy the base64 string to share.";
+      }
+    });
+  }
+
+  if (refs.themeImportBtn) {
+    refs.themeImportBtn.addEventListener("click", () => {
+      const payload = importThemeString(refs.themeExportField?.value || "");
+      if (payload?.error) {
+        if (refs.themeStatus) {
+          refs.themeStatus.className = "hint bad";
+          refs.themeStatus.textContent = "Import failed. Check that the base64 string is valid.";
+        }
+        return;
+      }
+      applyTheme(payload.values, "custom");
+      if (refs.themeStatus) {
+        refs.themeStatus.className = "hint good";
+        refs.themeStatus.textContent = "Theme imported successfully.";
+      }
     });
   }
 
