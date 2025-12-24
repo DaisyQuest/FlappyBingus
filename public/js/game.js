@@ -919,16 +919,8 @@ export class Game {
       const pad = p.r + 2;
       const ox = p.x, oy = p.y;
 
-      // --- KEY FIX: map cursor -> world space ---
-      const cw = this.canvas?.width || this.W;
-      const ch = this.canvas?.height || this.H;
-
-      const sx = (cw > 0) ? (this.W / cw) : 1;
-      const sy = (ch > 0) ? (this.H / ch) : 1;
-
-      const tx = cur.x * sx;
-      const ty = cur.y * sy;
-
+      const tx = cur.x;
+      const ty = cur.y;
       const nx = clamp(tx, pad, this.W - pad);
       const ny = clamp(ty, pad, this.H - pad);
       // --- END FIX ---
