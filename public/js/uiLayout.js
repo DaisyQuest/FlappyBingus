@@ -236,6 +236,8 @@ function createTrailCard(doc, refs) {
   pipeTextureSwatch.className = "pipe-texture-swatch";
   const pipeTextureCanvas = doc.createElement("canvas");
   pipeTextureCanvas.className = "pipe-texture-swatch-canvas";
+  pipeTextureCanvas.width = 84;
+  pipeTextureCanvas.height = 56;
   pipeTextureCanvas.setAttribute("aria-hidden", "true");
   pipeTextureSwatch.append(pipeTextureCanvas);
   const pipeTextureLabel = doc.createElement("div");

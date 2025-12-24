@@ -43,7 +43,10 @@ describe("uiLayout", () => {
     expect(ui.iconLauncher).toBeInstanceOf(window.HTMLElement);
     expect(ui.iconLauncher?.querySelector(".icon-swatch-canvas")).toBeInstanceOf(window.HTMLCanvasElement);
     expect(ui.iconOverlay?.classList.contains("hidden")).toBe(true);
-    expect(ui.pipeTextureLauncher?.querySelector(".pipe-texture-swatch-canvas")).toBeInstanceOf(window.HTMLCanvasElement);
+    const pipeCanvas = ui.pipeTextureLauncher?.querySelector(".pipe-texture-swatch-canvas");
+    expect(pipeCanvas).toBeInstanceOf(window.HTMLCanvasElement);
+    expect(pipeCanvas?.width).toBe(84);
+    expect(pipeCanvas?.height).toBe(56);
     expect(ui.pipeTextureOverlay?.classList.contains("hidden")).toBe(true);
     const overlay = mount.querySelector("#menu .trail-preview-overlay");
     expect(overlay?.querySelectorAll(".trail-preview-canvas")?.length).toBe(1);
