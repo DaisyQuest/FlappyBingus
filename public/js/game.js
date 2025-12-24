@@ -8,7 +8,6 @@ import {
 } from "./util.js";
 import { ACTIONS, humanizeBind } from "./keybinds.js";
 import { resolveGapPerfect } from "./perfectGaps.js";
-import { resolveGameplayScale } from "./displayScale.js";
 
 // NEW: orb pickup SFX (pitch shifts by combo)
 import {
@@ -26,6 +25,8 @@ import {
   sfxGameOver
 } from "./audio.js";
 import { DEFAULT_SKILL_SETTINGS, normalizeSkillSettings } from "./settings.js";
+
+const BASE_DPR = Math.max(0.25, window.devicePixelRatio || 1);
 
 const STATE = Object.freeze({ MENU: 0, PLAY: 1, OVER: 2 });
 
@@ -63,7 +64,7 @@ export class Game {
 
     this.state = STATE.MENU;
 
-    this.W = 1; this.H = 1; this.DPR = 1; this.scale = 1;
+    this.W = 1; this.H = 1; this.DPR = 1;
 
     // Offscreen background (dots + vignette) to avoid repainting thousands of primitives per frame
     this.bgCanvas = null;
@@ -275,31 +276,29 @@ export class Game {
     const dpr = Math.min(window.devicePixelRatio || 1, 2);
     const cssW = Math.max(1, Math.round(window.visualViewport?.width || window.innerWidth));
     const cssH = Math.max(1, Math.round(window.visualViewport?.height || window.innerHeight));
-    const scale = resolveGameplayScale(this.cfg?.display, cssW, cssH);
+    const norm = Math.max(0.25, (window.devicePixelRatio || 1) / BASE_DPR);
 
-    // Logical game space is normalized to the 1440p reference so browser DPR/zoom
+    // Logical game space is normalized to the DPR at page load so browser zoom
     // does not change the effective playfield size.
-    const logicalW = cssW / scale;
-    const logicalH = cssH / scale;
+    const logicalW = cssW * norm;
+    const logicalH = cssH * norm;
 
     this.canvas.style.width = cssW + "px";
     this.canvas.style.height = cssH + "px";
     this.canvas.width = Math.floor(cssW * dpr);
     this.canvas.height = Math.floor(cssH * dpr);
 
-    this.ctx.setTransform(dpr * scale, 0, 0, dpr * scale, 0, 0);
+    this.ctx.setTransform(dpr / norm, 0, 0, dpr / norm, 0, 0);
     this.ctx.imageSmoothingEnabled = true;
 
-    this.DPR = dpr * scale;
-    this.scale = scale;
+    this.DPR = dpr / norm;
     this.W = logicalW;
     this.H = logicalH;
 
     // Expose logical size + zoom to input mapping.
     this.canvas._logicalW = logicalW;
     this.canvas._logicalH = logicalH;
-    this.canvas._norm = scale;
-    this.canvas._scale = scale;
+    this.canvas._norm = norm;
 
     this._computePlayerSize();
     this._initBackground();

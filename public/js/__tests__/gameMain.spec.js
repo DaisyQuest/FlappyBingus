@@ -50,75 +50,13 @@ describe("Game core loop hooks", () => {
     const bgSpy = vi.spyOn(game, "_initBackground").mockImplementation(() => {});
     game.resizeToWindow();
 
-    expect(ctx.setTransform).toHaveBeenCalledWith(1, 0, 0, 1, 0, 0);
-    expect(game.W).toBeCloseTo(600);
-    expect(game.H).toBeCloseTo(400);
-    expect(canvas._logicalW).toBeCloseTo(600);
-    expect(canvas._logicalH).toBeCloseTo(400);
-    expect(canvas._norm).toBeCloseTo(0.5);
+    expect(ctx.setTransform).toHaveBeenCalledWith(2, 0, 0, 2, 0, 0);
+    expect(game.W).toBeCloseTo(300);
+    expect(game.H).toBeCloseTo(200);
+    expect(canvas._logicalW).toBeCloseTo(300);
+    expect(canvas._logicalH).toBeCloseTo(200);
     expect(game.player.r).toBeGreaterThan(0);
     expect(bgSpy).toHaveBeenCalled();
-  });
-
-  it("normalizes gameplay sizing across 1080p and 1440p with different DPR", async () => {
-    makeWindow(1920, 1080, 1);
-    const { canvas: canvasA, ctx: ctxA } = baseCanvas();
-    const { Game } = await import("../game.js");
-    const gameA = new Game({
-      canvas: canvasA,
-      ctx: ctxA,
-      config: cloneCfg(),
-      playerImg: { naturalWidth: 10, naturalHeight: 20 },
-      input: { getMove: () => ({ dx: 0, dy: 0 }), cursor: { has: false } },
-      getTrailId: () => "classic",
-      getBinds: () => ({}),
-      onGameOver: () => {}
-    });
-    gameA.resizeToWindow();
-
-    makeWindow(2560, 1440, 2);
-    const { canvas: canvasB, ctx: ctxB } = baseCanvas();
-    const gameB = new Game({
-      canvas: canvasB,
-      ctx: ctxB,
-      config: cloneCfg(),
-      playerImg: { naturalWidth: 10, naturalHeight: 20 },
-      input: { getMove: () => ({ dx: 0, dy: 0 }), cursor: { has: false } },
-      getTrailId: () => "classic",
-      getBinds: () => ({}),
-      onGameOver: () => {}
-    });
-    gameB.resizeToWindow();
-
-    expect(gameA.W).toBeCloseTo(2560);
-    expect(gameA.H).toBeCloseTo(1440);
-    expect(gameB.W).toBeCloseTo(2560);
-    expect(gameB.H).toBeCloseTo(1440);
-    expect(gameA.player.r).toBeCloseTo(gameB.player.r);
-    expect(canvasA._logicalW).toBeCloseTo(canvasB._logicalW);
-    expect(canvasA._logicalH).toBeCloseTo(canvasB._logicalH);
-    expect(ctxA.setTransform).toHaveBeenCalledWith(0.75, 0, 0, 0.75, 0, 0);
-    expect(ctxB.setTransform).toHaveBeenCalledWith(2, 0, 0, 2, 0, 0);
-  });
-
-  it("clamps gameplay scale at max for large resolutions", async () => {
-    makeWindow(5120, 2880, 1);
-    const { canvas, ctx } = baseCanvas();
-    const { Game } = await import("../game.js");
-    const game = new Game({
-      canvas,
-      ctx,
-      config: cloneCfg(),
-      playerImg: { naturalWidth: 10, naturalHeight: 20 },
-      input: { getMove: () => ({ dx: 0, dy: 0 }), cursor: { has: false } },
-      getTrailId: () => "classic",
-      getBinds: () => ({}),
-      onGameOver: () => {}
-    });
-
-    game.resizeToWindow();
-    expect(game.scale).toBeCloseTo(1.5);
-    expect(ctx.setTransform).toHaveBeenCalledWith(1.5, 0, 0, 1.5, 0, 0);
   });
 
   it("resets run state and timers deterministically", async () => {
