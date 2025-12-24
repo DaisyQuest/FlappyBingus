@@ -14,7 +14,7 @@ export const DEFAULT_KEYBINDS = Object.freeze({
   dash: { type: "key", code: "Space" },
   phase: { type: "mouse", button: 2 },
   teleport: { type: "mouse", button: 0 },   // Left Mouse
-  slowField: { type: "key", code: "Shift" }
+  slowField: { type: "key", code: "KeyE" }
 });
 
 // Guest persistence cookie for binds (small + safe)

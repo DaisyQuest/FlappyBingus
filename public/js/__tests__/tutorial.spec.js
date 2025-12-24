@@ -282,6 +282,133 @@ describe("Tutorial copy, guides, and slow-field flows", () => {
     tutorial.stop();
   });
 
+  it("uses the bound hotkeys for each ability prompt", () => {
+    const game = setupGame();
+    const tutorial = new Tutorial({
+      game,
+      input: game.input,
+      getBinds: () => ({
+        dash: { type: "key", code: "Space" },
+        phase: { type: "mouse", button: 2 },
+        teleport: { type: "mouse", button: 0 },
+        slowField: { type: "key", code: "KeyE" }
+      }),
+      onExit: () => {}
+    });
+    tutorial.start();
+
+    const copyFor = (id) => {
+      tutorial._enterStep(tutorial._steps().findIndex((s) => s.id === id));
+      return tutorial._uiCopy();
+    };
+
+    expect(copyFor("skill_phase").hotkey.label).toBe("RMB");
+    expect(copyFor("skill_dash").hotkey.label).toBe("Space");
+    expect(copyFor("skill_teleport").hotkey.label).toBe("LMB");
+    expect(copyFor("skill_slow").hotkey.label).toBe("E");
+    tutorial.stop();
+  });
+
+  it("allows every tutorial step to complete when success conditions are met", () => {
+    const game = setupGame();
+    const tutorial = new Tutorial({ game, input: game.input, getBinds: () => ({}), onExit: () => {} });
+    tutorial.start();
+
+    const advance = vi.spyOn(tutorial, "_nextStep");
+    const completeStep = (id, fn) => {
+      tutorial._enterStep(tutorial._steps().findIndex((s) => s.id === id));
+      fn();
+      expect(advance).toHaveBeenCalled();
+      advance.mockClear();
+    };
+
+    completeStep("move", () => {
+      tutorial.game.player.x = tutorial._moveTarget.x;
+      tutorial.game.player.y = tutorial._moveTarget.y;
+      tutorial._stepMove(0.1);
+    });
+
+    completeStep("orbs", () => {
+      tutorial.game.combo = 5;
+      tutorial._stepOrbs(0.1);
+    });
+
+    completeStep("perfect", () => {
+      tutorial.game.perfectT = 1;
+      tutorial._prevPerfectT = 0;
+      tutorial._stepPerfect(0.1);
+      tutorial._stepPerfect(1.0);
+    });
+
+    completeStep("skill_phase", () => {
+      tutorial._spawnPhaseScenario();
+      tutorial.game.player.invT = 1;
+      tutorial._phaseWall.x = tutorial.game.player.x + tutorial.game.player.r + 8;
+      tutorial._stepSkillPhase(0.1);
+      tutorial._stepSkillPhase(1.0);
+    });
+
+    completeStep("skill_dash", () => {
+      tutorial._spawnDashScenario();
+      tutorial.game.player.dashT = 1;
+      tutorial.game.player.x = tutorial._dashTarget.x;
+      tutorial.game.player.y = tutorial._dashTarget.y;
+      tutorial._stepSkillDash(0.1);
+      tutorial._stepSkillDash(1.0);
+    });
+
+    completeStep("dash_reflect", () => {
+      tutorial._spawnDashReflectScenario();
+      tutorial._reflectSuccessDelay = 0.1;
+      tutorial._stepDashReflect(0.2);
+    });
+
+    completeStep("dash_destroy", () => {
+      tutorial._spawnDashDestroyScenario();
+      tutorial.game.lastPipeShatter = { cause: "dashDestroy" };
+      tutorial._stepDashDestroy(0.1);
+      tutorial._stepDashDestroy(1.0);
+    });
+
+    completeStep("skill_teleport", () => {
+      tutorial._spawnTeleportScenario();
+      tutorial._teleUsed = true;
+      tutorial.game.player.x = tutorial._teleTarget.x;
+      tutorial.game.player.y = tutorial._teleTarget.y;
+      tutorial._stepSkillTeleport();
+    });
+
+    completeStep("skill_slow", () => {
+      tutorial.game.slowField = {};
+      tutorial._stepSkillSlow(0.1);
+      tutorial._stepSkillSlow(3.0);
+    });
+
+    completeStep("slow_explosion", () => {
+      tutorial._spawnSlowExplosionScenario();
+      tutorial.game.lastSlowBlast = { happened: true };
+      tutorial._stepSlowExplosion(0.1);
+      tutorial.game.pipes = [];
+      tutorial._stepSlowExplosion(0.1);
+      tutorial._stepSlowExplosion(1.0);
+    });
+
+    tutorial.stop();
+  });
+
+  it("exits practice mode with Enter once the tutorial is complete", () => {
+    const game = setupGame();
+    const onExit = vi.fn();
+    const tutorial = new Tutorial({ game, input: game.input, getBinds: () => ({}), onExit });
+    tutorial.start();
+
+    tutorial._enterStep(tutorial._steps().findIndex((s) => s.id === "practice"));
+    tutorial._boundKeyDown({ code: "Enter", preventDefault: vi.fn() });
+
+    expect(onExit).toHaveBeenCalled();
+    expect(tutorial.active).toBe(false);
+  });
+
   it("walks through the slow-field survival and completion flow", () => {
     const game = setupGame();
     const tutorial = new Tutorial({ game, input: game.input, getBinds: () => ({}), onExit: () => {} });
