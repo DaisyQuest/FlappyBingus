@@ -185,7 +185,7 @@ function createTrailCard(doc, refs) {
 
   const iconOverlay = createElement(doc, refs, "div", {
     id: "iconOverlay",
-    className: "icon-overlay hidden",
+    className: "icon-overlay modal-layer hidden",
     attrs: { role: "dialog", "aria-modal": "true", "aria-labelledby": "iconOverlayTitle", "aria-hidden": "true" }
   });
 
@@ -254,7 +254,7 @@ function createTrailCard(doc, refs) {
 
   const pipeTextureOverlay = createElement(doc, refs, "div", {
     id: "pipeTextureOverlay",
-    className: "pipe-texture-overlay hidden",
+    className: "pipe-texture-overlay modal-layer hidden",
     attrs: { role: "dialog", "aria-modal": "true", "aria-labelledby": "pipeTextureOverlayTitle", "aria-hidden": "true" }
   });
   const pipeTextureOverlayPanel = doc.createElement("div");
@@ -329,7 +329,7 @@ function createTrailCard(doc, refs) {
 
   const trailOverlay = createElement(doc, refs, "div", {
     id: "trailOverlay",
-    className: "trail-overlay hidden",
+    className: "trail-overlay modal-layer hidden",
     attrs: { role: "dialog", "aria-modal": "true", "aria-labelledby": "trailOverlayTitle", "aria-hidden": "true" }
   });
   const trailOverlayPanel = doc.createElement("div");
@@ -773,7 +773,7 @@ function createSkillSettingsCard(doc, refs) {
 function createThemeOverlay(doc, refs) {
   const overlay = createElement(doc, refs, "div", {
     id: "themeOverlay",
-    className: "theme-overlay hidden",
+    className: "theme-overlay modal-layer hidden",
     attrs: { role: "dialog", "aria-modal": "true", "aria-labelledby": "themeOverlayTitle", "aria-hidden": "true" }
   });
 
@@ -861,7 +861,7 @@ function createThemeOverlay(doc, refs) {
 function createShopOverlay(doc, refs) {
   const overlay = createElement(doc, refs, "div", {
     id: "shopOverlay",
-    className: "shop-overlay hidden",
+    className: "shop-overlay modal-layer hidden",
     attrs: { role: "dialog", "aria-modal": "true", "aria-labelledby": "shopOverlayTitle", "aria-hidden": "true" }
   });
 
@@ -921,7 +921,7 @@ function createShopOverlay(doc, refs) {
 function createPurchaseModal(doc, refs) {
   const overlay = createElement(doc, refs, "div", {
     id: "purchaseModal",
-    className: "purchase-modal hidden",
+    className: "purchase-modal modal-layer hidden",
     attrs: { role: "dialog", "aria-modal": "true", "aria-labelledby": "purchaseModalTitle", "aria-hidden": "true" }
   });
 
