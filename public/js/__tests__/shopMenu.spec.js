@@ -46,4 +46,29 @@ describe("shop menu helpers", () => {
     button?.dispatchEvent(new dom.window.MouseEvent("click", { bubbles: true }));
     expect(onPurchase).toHaveBeenCalledWith(expect.objectContaining({ id: "spark" }));
   });
+
+  it("marks owned shop items as already owned and disables purchases", () => {
+    const dom = new JSDOM("<!doctype html><body><div id='root'></div></body>");
+    const container = dom.window.document.getElementById("root");
+    const onPurchase = vi.fn();
+    const items = [
+      { id: "trail-1", type: UNLOCKABLE_TYPES.trail, name: "Trail One", unlock: { type: "purchase", cost: 25 } }
+    ];
+
+    renderShopItems({
+      container,
+      items,
+      context: { ownedIds: ["trail-1"] },
+      onPurchase
+    });
+
+    const button = container?.querySelector("button.shop-item");
+    expect(button?.classList.contains("owned")).toBe(true);
+    expect(button?.getAttribute("aria-disabled")).toBe("true");
+    expect(button?.dataset.owned).toBe("true");
+    expect(button?.querySelector(".shop-item-cost")?.textContent).toBe("Already Owned");
+    expect(button?.querySelector(".shop-item-owned")?.textContent).toBe("Already Owned");
+    button?.dispatchEvent(new dom.window.MouseEvent("click", { bubbles: true }));
+    expect(onPurchase).not.toHaveBeenCalled();
+  });
 });

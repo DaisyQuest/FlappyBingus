@@ -68,10 +68,17 @@ export function renderShopItems({
     meta.className = "shop-item-meta";
     const cost = doc.createElement("span");
     cost.className = "shop-item-cost";
-    cost.textContent = unlocked ? "Owned" : `Cost: ${costLabel}`;
+    cost.textContent = unlocked ? "Already Owned" : `Cost: ${costLabel}`;
     meta.append(cost);
 
-    btn.append(name, meta);
+    if (unlocked) {
+      const ownedBadge = doc.createElement("div");
+      ownedBadge.className = "shop-item-owned";
+      ownedBadge.textContent = "Already Owned";
+      btn.append(name, meta, ownedBadge);
+    } else {
+      btn.append(name, meta);
+    }
     if (typeof onPurchase === "function") {
       btn.addEventListener("click", () => {
         if (btn.dataset.owned === "true") return;

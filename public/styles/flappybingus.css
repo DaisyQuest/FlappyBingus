@@ -1112,9 +1112,10 @@ input[type="range"]::-moz-range-thumb{
 .shop-tab-btn:hover{border-color:rgba(125,211,252,.6)}
 .shop-tab-btn.selected{background:rgba(56,189,248,.22);border-color:rgba(125,211,252,.8);color:#f8fafc}
 .shop-items{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;overflow:auto;padding:4px;flex:1;min-height:0}
-.shop-item{border:1px solid rgba(255,255,255,.12);border-radius:12px;padding:10px;background:rgba(255,255,255,.04);display:flex;flex-direction:column;gap:6px;align-items:flex-start;cursor:pointer;transition:transform .12s ease,border-color .12s ease,box-shadow .12s ease;color:#e5e7eb;text-align:left}
+.shop-item{border:1px solid rgba(255,255,255,.12);border-radius:12px;padding:10px;background:rgba(255,255,255,.04);display:flex;flex-direction:column;gap:6px;align-items:flex-start;cursor:pointer;transition:transform .12s ease,border-color .12s ease,box-shadow .12s ease;color:#e5e7eb;text-align:left;position:relative}
 .shop-item:hover{transform:translateY(-2px);border-color:rgba(125,211,252,.6);box-shadow:0 14px 28px rgba(0,0,0,.35)}
 .shop-item.owned{opacity:.7;cursor:not-allowed}
+.shop-item-owned{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;text-align:center;background:rgba(15,23,42,.74);border-radius:12px;font-weight:900;font-size:13px;letter-spacing:.3px;text-transform:uppercase}
 .shop-item-name{font-weight:800;font-size:14px}
 .shop-item-meta{font-size:12px;color:rgba(148,163,184,.95);font-weight:700}
 .purchase-modal-line{font-size:14px;color:#e2e8f0}
