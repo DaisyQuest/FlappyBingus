@@ -185,7 +185,7 @@ function createTrailCard(doc, refs) {
 
   const iconOverlay = createElement(doc, refs, "div", {
     id: "iconOverlay",
-    className: "icon-overlay hidden",
+    className: "icon-overlay modal-layer hidden",
     attrs: { role: "dialog", "aria-modal": "true", "aria-labelledby": "iconOverlayTitle", "aria-hidden": "true" }
   });
 
@@ -254,7 +254,7 @@ function createTrailCard(doc, refs) {
 
   const pipeTextureOverlay = createElement(doc, refs, "div", {
     id: "pipeTextureOverlay",
-    className: "pipe-texture-overlay hidden",
+    className: "pipe-texture-overlay modal-layer hidden",
     attrs: { role: "dialog", "aria-modal": "true", "aria-labelledby": "pipeTextureOverlayTitle", "aria-hidden": "true" }
   });
   const pipeTextureOverlayPanel = doc.createElement("div");
@@ -329,7 +329,7 @@ function createTrailCard(doc, refs) {
 
   const trailOverlay = createElement(doc, refs, "div", {
     id: "trailOverlay",
-    className: "trail-overlay hidden",
+    className: "trail-overlay modal-layer hidden",
     attrs: { role: "dialog", "aria-modal": "true", "aria-labelledby": "trailOverlayTitle", "aria-hidden": "true" }
   });
   const trailOverlayPanel = doc.createElement("div");
@@ -365,9 +365,15 @@ function createTrailCard(doc, refs) {
     attrs: { for: "viewAchievements", role: "button", tabindex: "0" },
     text: "Achievements"
   });
+  const shopLauncher = createElement(doc, refs, "button", {
+    id: "shopLauncher",
+    className: "cta-btn wide",
+    text: "Shop",
+    attrs: { type: "button" }
+  });
   const actionsRow = doc.createElement("div");
   actionsRow.className = "card-actions center";
-  actionsRow.append(achievementsAction);
+  actionsRow.append(achievementsAction, shopLauncher);
 
   trailOverlayPanel.append(trailOverlayHeader, trailOptions);
   trailOverlay.append(trailOverlayPanel);
@@ -767,7 +773,7 @@ function createSkillSettingsCard(doc, refs) {
 function createThemeOverlay(doc, refs) {
   const overlay = createElement(doc, refs, "div", {
     id: "themeOverlay",
-    className: "theme-overlay hidden",
+    className: "theme-overlay modal-layer hidden",
     attrs: { role: "dialog", "aria-modal": "true", "aria-labelledby": "themeOverlayTitle", "aria-hidden": "true" }
   });
 
@@ -848,6 +854,128 @@ function createThemeOverlay(doc, refs) {
   });
 
   panel.append(header, sub, toolbar, paletteTitle, palettes, editor, exportTitle, exportField, exportActions, status);
+  overlay.append(panel);
+  return overlay;
+}
+
+function createShopOverlay(doc, refs) {
+  const overlay = createElement(doc, refs, "div", {
+    id: "shopOverlay",
+    className: "shop-overlay modal-layer hidden",
+    attrs: { role: "dialog", "aria-modal": "true", "aria-labelledby": "shopOverlayTitle", "aria-hidden": "true" }
+  });
+
+  const panel = doc.createElement("div");
+  panel.className = "shop-overlay-panel";
+
+  const header = doc.createElement("div");
+  header.className = "shop-overlay-header";
+  const title = doc.createElement("div");
+  title.id = "shopOverlayTitle";
+  title.className = "section-title";
+  title.textContent = "Bustercoin Shop";
+  const close = createElement(doc, refs, "button", {
+    id: "shopOverlayClose",
+    className: "shop-overlay-close",
+    attrs: { type: "button" },
+    text: "Close"
+  });
+  header.append(title, close);
+
+  const tabs = createElement(doc, refs, "div", {
+    id: "shopTabs",
+    className: "shop-tabs"
+  });
+  [
+    { id: "shopTabIcons", label: "Icons", type: "player_texture" },
+    { id: "shopTabTrails", label: "Trails", type: "trail" },
+    { id: "shopTabPipeTextures", label: "Pipe Textures", type: "pipe_texture" }
+  ].forEach(({ id, label, type }, index) => {
+    const btn = createElement(doc, refs, "button", {
+      id,
+      className: `shop-tab-btn${index === 0 ? " selected" : ""}`,
+      text: label,
+      attrs: { type: "button" },
+      dataset: { shopType: type }
+    });
+    btn.setAttribute("aria-pressed", index === 0 ? "true" : "false");
+    tabs.append(btn);
+  });
+
+  const items = createElement(doc, refs, "div", {
+    id: "shopItems",
+    className: "shop-items"
+  });
+
+  const hint = createElement(doc, refs, "div", {
+    id: "shopHint",
+    className: "hint",
+    text: "Pick a category to browse purchasable unlockables."
+  });
+
+  panel.append(header, tabs, items, hint);
+  overlay.append(panel);
+  return overlay;
+}
+
+function createPurchaseModal(doc, refs) {
+  const overlay = createElement(doc, refs, "div", {
+    id: "purchaseModal",
+    className: "purchase-modal modal-layer hidden",
+    attrs: { role: "dialog", "aria-modal": "true", "aria-labelledby": "purchaseModalTitle", "aria-hidden": "true" }
+  });
+
+  const panel = doc.createElement("div");
+  panel.className = "purchase-modal-panel";
+
+  const header = doc.createElement("div");
+  header.className = "purchase-modal-header";
+  const title = doc.createElement("div");
+  title.id = "purchaseModalTitle";
+  title.className = "section-title";
+  title.textContent = "Confirm Purchase";
+  const close = createElement(doc, refs, "button", {
+    id: "purchaseModalClose",
+    className: "purchase-modal-close",
+    attrs: { type: "button" },
+    text: "Close"
+  });
+  header.append(title, close);
+
+  const balance = createElement(doc, refs, "div", {
+    id: "purchaseModalBalance",
+    className: "purchase-modal-line",
+    text: "Current Balance: 0"
+  });
+
+  const prompt = createElement(doc, refs, "div", {
+    id: "purchaseModalPrompt",
+    className: "purchase-modal-line",
+    text: "Do you want to spend 0 on Item"
+  });
+
+  const status = createElement(doc, refs, "div", {
+    id: "purchaseModalStatus",
+    className: "hint"
+  });
+
+  const actions = doc.createElement("div");
+  actions.className = "purchase-modal-actions";
+  const cancel = createElement(doc, refs, "button", {
+    id: "purchaseModalCancel",
+    className: "cta-btn",
+    attrs: { type: "button" },
+    text: "Cancel"
+  });
+  const confirm = createElement(doc, refs, "button", {
+    id: "purchaseModalConfirm",
+    className: "cta-btn primary",
+    attrs: { type: "button" },
+    text: "Purchase"
+  });
+  actions.append(cancel, confirm);
+
+  panel.append(header, balance, prompt, status, actions);
   overlay.append(panel);
   return overlay;
 }
@@ -1193,7 +1321,7 @@ function createMenuScreen(doc, refs) {
   updateMenuView();
   content.append(header, menuBody);
   panel.append(parallax, aurora, content);
-  screen.append(trailOverlay, panel);
+  screen.append(trailOverlay, panel, createShopOverlay(doc, refs), createPurchaseModal(doc, refs));
   return screen;
 }
 

@@ -34,7 +34,12 @@ describe("unlockables", () => {
       minScore: null,
       label: "Achievement"
     });
-    expect(normalizeUnlock({ type: "purchase", cost: 2.4 })).toEqual({ type: "purchase", cost: 2, label: "Cost: 2" });
+    expect(normalizeUnlock({ type: "purchase", cost: 2.4 })).toEqual({
+      type: "purchase",
+      cost: 2,
+      currencyId: "bustercoin",
+      label: "Cost: 2 BC"
+    });
     expect(normalizeUnlock({ type: "record" }).label).toBe("Record holder");
     expect(normalizeUnlock(null)).toEqual({ type: "free", label: "Free" });
   });

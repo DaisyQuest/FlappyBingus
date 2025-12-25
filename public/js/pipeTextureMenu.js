@@ -1,6 +1,7 @@
 // =====================
 // FILE: public/js/pipeTextureMenu.js
 // =====================
+import { DEFAULT_CURRENCY_ID, formatCurrencyAmount } from "./currencySystem.js";
 import { describeUnlock } from "./unlockables.js";
 
 export const DEFAULT_PIPE_TEXTURE_HINT = "Mouse over a pipe texture to see how to unlock it.";
@@ -46,6 +47,8 @@ export function renderPipeTextureOptions({
 
   textures.forEach((texture) => {
     const unlocked = unlockedSet.has(texture.id);
+    const unlock = texture.unlock || {};
+    const isPurchase = unlock.type === "purchase";
     const statusText = lockTextFor?.(texture, { unlocked }) ?? describePipeTextureLock(texture, { unlocked });
 
     const btn = doc.createElement("button");
@@ -54,10 +57,17 @@ export function renderPipeTextureOptions({
     btn.dataset.locked = unlocked ? "false" : "true";
     btn.dataset.statusText = statusText;
     btn.className = "pipe-texture-option" + (texture.id === selectedId ? " selected" : "") + (unlocked ? "" : " locked");
+    if (isPurchase) {
+      btn.dataset.unlockType = "purchase";
+      btn.dataset.unlockCost = String(unlock.cost || 0);
+      btn.dataset.unlockCurrency = unlock.currencyId || DEFAULT_CURRENCY_ID;
+      btn.classList.add("purchasable");
+    }
     btn.setAttribute("aria-pressed", texture.id === selectedId ? "true" : "false");
     btn.setAttribute("aria-label", unlocked ? `${texture.name} (pipe texture)` : `${texture.name} (${statusText})`);
-    btn.setAttribute("aria-disabled", unlocked ? "false" : "true");
-    btn.tabIndex = unlocked ? 0 : -1;
+    const interactive = unlocked || isPurchase;
+    btn.setAttribute("aria-disabled", interactive ? "false" : "true");
+    btn.tabIndex = interactive ? 0 : -1;
 
     const swatch = doc.createElement("span");
     swatch.className = "pipe-texture-swatch";
@@ -77,6 +87,14 @@ export function renderPipeTextureOptions({
       lock.className = "pipe-texture-lock";
       lock.textContent = "🔒";
       btn.append(lock);
+    }
+
+    if (!unlocked && isPurchase) {
+      const cost = doc.createElement("div");
+      cost.className = "unlock-cost";
+      const currencyId = unlock.currencyId || DEFAULT_CURRENCY_ID;
+      cost.textContent = `Cost: ${formatCurrencyAmount(unlock.cost || 0, currencyId)}`;
+      btn.append(cost);
     }
 
     container.append(btn);

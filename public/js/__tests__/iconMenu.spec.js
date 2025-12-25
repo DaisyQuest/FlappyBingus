@@ -47,6 +47,23 @@ describe("iconMenu helpers", () => {
     expect(free?.querySelector(".icon-swatch-canvas")).toBeInstanceOf(window.HTMLCanvasElement);
   });
 
+  it("marks purchasable icons as interactive with cost metadata", () => {
+    const container = document.createElement("div");
+    renderIconOptions({
+      container,
+      icons: [{ id: "coin", name: "Coin", unlock: { type: "purchase", cost: 12 } }],
+      selectedId: "none",
+      unlockedIds: new Set()
+    });
+
+    const purchasable = container.querySelector("button[data-icon-id='coin']");
+    expect(purchasable?.dataset.unlockType).toBe("purchase");
+    expect(purchasable?.dataset.unlockCost).toBe("12");
+    expect(purchasable?.getAttribute("aria-disabled")).toBe("false");
+    expect(purchasable?.tabIndex).toBe(0);
+    expect(purchasable?.querySelector(".unlock-cost")?.textContent).toContain("Cost");
+  });
+
   it("applies swatch styles with sensible defaults", () => {
     const span = document.createElement("span");
     applyIconSwatchStyles(span, ICONS[0]);

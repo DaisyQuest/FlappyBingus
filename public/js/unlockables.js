@@ -1,6 +1,7 @@
 // =====================
 // FILE: public/js/unlockables.js
 // =====================
+import { DEFAULT_CURRENCY_ID, formatCurrencyAmount, normalizeCurrencyId } from "./currencySystem.js";
 export const UNLOCKABLE_TYPES = Object.freeze({
   trail: "trail",
   playerTexture: "player_texture",
@@ -20,7 +21,13 @@ export function normalizeUnlock(unlock) {
   }
   if (type === "purchase") {
     const cost = Number.isFinite(unlock.cost) ? Math.max(0, Math.floor(unlock.cost)) : 0;
-    return { type, cost, label: unlock.label || `Cost: ${cost}` };
+    const currencyId = normalizeCurrencyId(unlock.currencyId || DEFAULT_CURRENCY_ID);
+    return {
+      type,
+      cost,
+      currencyId,
+      label: unlock.label || `Cost: ${formatCurrencyAmount(cost, currencyId)}`
+    };
   }
   if (type === "record") {
     return { type: "record", label: unlock.label || "Record holder" };

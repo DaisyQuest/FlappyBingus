@@ -1,6 +1,7 @@
 // =====================
 // FILE: public/js/bustercoins.js
 // =====================
+import { DEFAULT_CURRENCY_ID, creditCurrency, normalizeCurrencyAmount } from "./currencySystem.js";
 
 function normalizeCount(value) {
   const n = Number(value);
@@ -16,11 +17,12 @@ function normalizeCount(value) {
 export function applyBustercoinEarnings(net, coinsEarned = 0, bustercoinText) {
   if (!net?.user) return { applied: false, total: null };
 
-  const base = normalizeCount(net.user.bustercoins);
-  const gain = normalizeCount(coinsEarned);
+  const base = normalizeCurrencyAmount(net.user.bustercoins);
+  const gain = normalizeCurrencyAmount(coinsEarned);
   const total = base + gain;
+  const walletUpdate = creditCurrency(net.user.currencies, { currencyId: DEFAULT_CURRENCY_ID, amount: gain });
 
-  net.user = { ...net.user, bustercoins: total };
+  net.user = { ...net.user, bustercoins: total, currencies: walletUpdate.wallet };
   if (bustercoinText) bustercoinText.textContent = String(total);
 
   return { applied: true, total };
@@ -29,4 +31,3 @@ export function applyBustercoinEarnings(net, coinsEarned = 0, bustercoinText) {
 export function _testables() {
   return { normalizeCount };
 }
-

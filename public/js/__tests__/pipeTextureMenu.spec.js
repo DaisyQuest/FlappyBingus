@@ -68,6 +68,25 @@ describe("pipeTextureMenu helpers", () => {
     expect(canvas?.height).toBe(90);
   });
 
+  it("marks purchasable textures as interactive with cost metadata", () => {
+    const dom = new JSDOM("<!doctype html><body><div id='root'></div></body>");
+    const document = dom.window.document;
+    const container = document.getElementById("root");
+
+    renderPipeTextureOptions({
+      container,
+      textures: [{ id: "ultra", name: "Ultra", unlock: { type: "purchase", cost: 20 } }],
+      unlockedIds: new Set()
+    });
+
+    const button = container?.querySelector("button[data-pipe-texture-id='ultra']");
+    expect(button?.dataset.unlockType).toBe("purchase");
+    expect(button?.dataset.unlockCost).toBe("20");
+    expect(button?.getAttribute("aria-disabled")).toBe("false");
+    expect(button?.tabIndex).toBe(0);
+    expect(button?.querySelector(".unlock-cost")?.textContent).toContain("Cost");
+  });
+
   it("invokes callbacks when rendering swatches", () => {
     const dom = new JSDOM("<!doctype html><body><div id='root'></div></body>");
     const document = dom.window.document;

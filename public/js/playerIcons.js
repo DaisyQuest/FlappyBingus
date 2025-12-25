@@ -2,6 +2,7 @@
 // FILE: public/js/playerIcons.js
 // Player icon definitions + helpers for unlock logic and UI presentation.
 // =====================
+import { DEFAULT_CURRENCY_ID, formatCurrencyAmount, normalizeCurrencyId } from "./currencySystem.js";
 
 export const DEFAULT_PLAYER_ICON_ID = "hi_vis_orange";
 
@@ -102,7 +103,8 @@ export function normalizeIconUnlock(unlock) {
   }
   if (type === "purchase") {
     const cost = Number.isFinite(unlock.cost) ? Math.max(0, Math.floor(unlock.cost)) : 0;
-    return { type, cost, label: unlock.label || `Cost: ${cost}` };
+    const currencyId = normalizeCurrencyId(unlock.currencyId || DEFAULT_CURRENCY_ID);
+    return { type, cost, currencyId, label: unlock.label || `Cost: ${formatCurrencyAmount(cost, currencyId)}` };
   }
   if (type === "record") {
     return { type: "record", label: unlock.label || "Record holder" };
@@ -205,7 +207,9 @@ export function describeIconLock(icon, { unlocked }) {
     case "achievement":
       return "Locked: Achievement";
     case "purchase":
-      return unlock.cost ? `Locked: Costs ${unlock.cost} BC` : "Locked: Purchase";
+      return unlock.cost
+        ? `Locked: Costs ${formatCurrencyAmount(unlock.cost, unlock.currencyId || DEFAULT_CURRENCY_ID)}`
+        : "Locked: Purchase";
     case "record":
       return "Locked: Record holder";
     default:

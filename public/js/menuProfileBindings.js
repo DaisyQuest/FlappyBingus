@@ -3,6 +3,7 @@
 // ================================
 import { DEFAULT_PLAYER_ICON_ID } from "./playerIcons.js";
 import { DEFAULT_PIPE_TEXTURE_ID } from "./pipeTextures.js";
+import { DEFAULT_CURRENCY_ID, getUserCurrencyBalance } from "./currencySystem.js";
 
 export function getIconDisplayName(id, icons = []) {
   if (!id) return DEFAULT_PLAYER_ICON_ID;
@@ -36,7 +37,7 @@ export function syncMenuProfileBindings({
   const bestScore = Number.isFinite(user?.bestScore) ? user.bestScore : bestScoreFallback;
   if (refs.pbText) refs.pbText.textContent = String(bestScore);
 
-  const bustercoins = Number.isFinite(user?.bustercoins) ? user.bustercoins : 0;
+  const bustercoins = getUserCurrencyBalance(user, DEFAULT_CURRENCY_ID);
   if (refs.bustercoinText) refs.bustercoinText.textContent = String(bustercoins);
 
   const trailId = user?.selectedTrail || fallbackTrailId;

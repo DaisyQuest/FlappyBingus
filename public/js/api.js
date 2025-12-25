@@ -8,6 +8,7 @@ const CLIENT_RATE_LIMITS = Object.freeze({
   "/api/cosmetics/trail": { limit: 6, windowMs: 10_000 },
   "/api/cosmetics/icon": { limit: 6, windowMs: 10_000 },
   "/api/cosmetics/pipe_texture": { limit: 6, windowMs: 10_000 },
+  "/api/shop/purchase": { limit: 6, windowMs: 10_000 },
   "/api/binds": { limit: 8, windowMs: 10_000 },
   "/api/settings": { limit: 8, windowMs: 10_000 },
   "/api/highscores": { limit: 10, windowMs: 5_000 },
@@ -101,6 +102,14 @@ export async function apiSetPipeTexture(textureId, mode) {
   return requestJson("/api/cosmetics/pipe_texture", {
     method: "POST",
     body: JSON.stringify({ textureId, mode })
+  });
+}
+
+export async function apiPurchaseUnlockable({ id, type } = {}) {
+  if (hitClientRateLimit("/api/shop/purchase")) return null;
+  return requestJson("/api/shop/purchase", {
+    method: "POST",
+    body: JSON.stringify({ id, type })
   });
 }
 

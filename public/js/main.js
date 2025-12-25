@@ -11,6 +11,7 @@ import {
   apiSetIcon,
   apiSetPipeTexture,
   apiSubmitScore,
+  apiPurchaseUnlockable,
   apiGetBestRun,
   apiUploadBestRun,
   apiSetKeybinds,
@@ -58,6 +59,7 @@ import { ACHIEVEMENTS, normalizeAchievementState, renderAchievementsList, append
 import { renderScoreBreakdown } from "./scoreBreakdown.js";
 import { computePersonalBestStatus, updatePersonalBestElements } from "./personalBest.js";
 import { buildUnlockablesCatalog, getUnlockedIdsByType, UNLOCKABLE_TYPES } from "./unlockables.js";
+import { DEFAULT_CURRENCY_ID, getUserCurrencyBalance } from "./currencySystem.js";
 import {
   DEFAULT_PLAYER_ICON_ID,
   DEFAULT_PLAYER_ICONS,
@@ -107,6 +109,7 @@ import {
   renderTrailOptions as renderTrailMenuOptions,
   toggleTrailMenu
 } from "./trailMenu.js";
+import { SHOP_TABS, getPurchasableUnlockablesByType, renderShopItems } from "./shopMenu.js";
 import { playbackTicks, chooseReplayRandSource } from "./replayUtils.js";
 import { bindSkillOptionGroup, markSkillOptionSelection } from "./skillOptions.js";
 import { renderSkillUsageStats } from "./skillUsageStats.js";
@@ -200,6 +203,19 @@ const {
   themeExportBtn,
   themeImportBtn,
   themeStatus,
+  shopLauncher,
+  shopOverlay,
+  shopOverlayClose,
+  shopTabs,
+  shopItems,
+  shopHint,
+  purchaseModal,
+  purchaseModalClose,
+  purchaseModalBalance,
+  purchaseModalPrompt,
+  purchaseModalStatus,
+  purchaseModalCancel,
+  purchaseModalConfirm,
   updateSkillCooldowns
 } = ui;
 
@@ -345,6 +361,8 @@ let currentIconId = normalizeIconSelection({
 });
 let currentPipeTextureId = readPipeTextureCookie() || DEFAULT_PIPE_TEXTURE_ID;
 let currentPipeTextureMode = normalizePipeTextureMode(readPipeTextureModeCookie() || DEFAULT_PIPE_TEXTURE_MODE);
+let activeShopTab = SHOP_TABS[0]?.type || UNLOCKABLE_TYPES.playerTexture;
+let pendingPurchase = null;
 
 // assets
 let playerImg = getCachedIconSprite(playerIcons.find((i) => i.id === currentIconId));
@@ -551,7 +569,7 @@ function setUserHint() {
     return;
   }
   userHint.className = "hint good";
-  const coins = net.user?.bustercoins ?? 0;
+  const coins = getUserCurrencyBalance(net.user, DEFAULT_CURRENCY_ID);
   userHint.textContent = `Signed in as ${net.user.username}. Runs: ${net.user.runs} • Total: ${net.user.totalScore} • Bustercoins: ${coins}`;
 }
 
@@ -629,10 +647,17 @@ function syncPipeTextureCatalog(nextTextures = null) {
   syncUnlockablesCatalog({ pipeTextures: net.pipeTextures });
 }
 
+function getOwnedUnlockables(user = net.user) {
+  if (!user) return [];
+  if (Array.isArray(user.ownedUnlockables)) return user.ownedUnlockables;
+  if (Array.isArray(user.ownedIcons)) return user.ownedIcons;
+  return [];
+}
+
 function computeUnlockedIconSet(icons = playerIcons) {
   const best = net.user ? (net.user.bestScore | 0) : readLocalBest();
   const achievements = net.user?.achievements || net.achievements?.state;
-  const owned = net.user?.ownedIcons || [];
+  const owned = getOwnedUnlockables(net.user);
   const isRecordHolder = Boolean(net.user?.isRecordHolder);
   return new Set(
     getUnlockedPlayerIcons(icons, {
@@ -653,7 +678,7 @@ function computeUnlockedTrailSet(trails = net.trails) {
 function computeUnlockedPipeTextureSet(textures = net.pipeTextures) {
   const best = net.user ? (net.user.bestScore | 0) : readLocalBest();
   const achievements = net.user?.achievements || net.achievements?.state;
-  const owned = net.user?.ownedIcons || [];
+  const owned = getOwnedUnlockables(net.user);
   const isRecordHolder = Boolean(net.user?.isRecordHolder);
   const unlockedIds = getUnlockedIdsByType({
     unlockables: net.unlockables?.unlockables || [],
@@ -856,7 +881,7 @@ function refreshTrailMenu(selectedId = currentTrailId) {
   });
 
   pbText.textContent = String(best);
-  if (bustercoinText) bustercoinText.textContent = String(net.user?.bustercoins ?? 0);
+  if (bustercoinText) bustercoinText.textContent = String(getUserCurrencyBalance(net.user, DEFAULT_CURRENCY_ID));
 
   const hint = buildTrailHint({
     online: net.online,
@@ -890,6 +915,154 @@ function refreshPipeTextureMenu(selectedId = currentPipeTextureId) {
   renderPipeTextureModeButtons(currentPipeTextureMode);
   const rendered = renderPipeTextureMenuOptions(safeId, unlocked, net.pipeTextures);
   return { selected: safeId, unlocked, rendered };
+}
+
+function buildPurchaseContext() {
+  return {
+    achievements: net.user?.achievements || net.achievements?.state,
+    bestScore: net.user ? (net.user.bestScore | 0) : readLocalBest(),
+    ownedIds: getOwnedUnlockables(net.user),
+    recordHolder: Boolean(net.user?.isRecordHolder)
+  };
+}
+
+function updateShopTabs(type = activeShopTab) {
+  activeShopTab = type;
+  if (!shopTabs) return;
+  const buttons = shopTabs.querySelectorAll("button[data-shop-type]");
+  buttons.forEach((btn) => {
+    const isActive = btn.dataset.shopType === activeShopTab;
+    btn.classList.toggle("selected", isActive);
+    btn.setAttribute("aria-pressed", isActive ? "true" : "false");
+  });
+}
+
+function renderShopCategory(type = activeShopTab) {
+  if (!shopItems) return { rendered: 0 };
+  updateShopTabs(type);
+  const purchasables = getPurchasableUnlockablesByType(net.unlockables?.unlockables || [], type);
+  const context = buildPurchaseContext();
+  const { rendered } = renderShopItems({
+    container: shopItems,
+    items: purchasables,
+    context,
+    onPurchase: (def) => openPurchaseModal(def, { source: "shop" })
+  });
+  if (shopHint) {
+    shopHint.className = rendered ? "hint" : "hint";
+    shopHint.textContent = rendered
+      ? "Select an item to purchase it with your currency balance."
+      : "No purchasable items in this category yet.";
+  }
+  return { rendered };
+}
+
+function toggleShopOverlay(open) {
+  if (!shopOverlay) return;
+  shopOverlay.classList.toggle("hidden", !open);
+  shopOverlay.setAttribute("aria-hidden", open ? "false" : "true");
+  if (open) {
+    renderShopCategory(activeShopTab);
+  }
+}
+
+function togglePurchaseModal(open) {
+  if (!purchaseModal) return;
+  purchaseModal.classList.toggle("hidden", !open);
+  purchaseModal.setAttribute("aria-hidden", open ? "false" : "true");
+}
+
+function openPurchaseModal(def, { source = "menu" } = {}) {
+  if (!def || def.unlock?.type !== "purchase") return;
+  pendingPurchase = { def, source };
+  const currencyId = def.unlock.currencyId || DEFAULT_CURRENCY_ID;
+  const balance = getUserCurrencyBalance(net.user, currencyId);
+  const cost = Number(def.unlock.cost || 0);
+  const insufficient = Boolean(net.user && balance < cost);
+  if (purchaseModalBalance) {
+    purchaseModalBalance.textContent = `Current Balance: ${balance}`;
+  }
+  if (purchaseModalPrompt) {
+    purchaseModalPrompt.textContent = `Do you want to spend ${cost} on ${def.name || def.id}`;
+  }
+  if (purchaseModalStatus) {
+    if (!net.user) {
+      purchaseModalStatus.className = "hint bad";
+      purchaseModalStatus.textContent = "Sign in to purchase unlockables.";
+    } else if (insufficient) {
+      purchaseModalStatus.className = "hint bad";
+      purchaseModalStatus.textContent = "Not enough currency to purchase this item.";
+    } else {
+      purchaseModalStatus.className = "hint";
+      purchaseModalStatus.textContent = "";
+    }
+  }
+  if (purchaseModalConfirm) {
+    purchaseModalConfirm.disabled = !net.user || insufficient;
+  }
+  togglePurchaseModal(true);
+}
+
+function closePurchaseModal() {
+  pendingPurchase = null;
+  togglePurchaseModal(false);
+}
+
+async function confirmPendingPurchase() {
+  if (!pendingPurchase?.def) return;
+  if (!net.user) {
+    if (purchaseModalStatus) {
+      purchaseModalStatus.className = "hint bad";
+      purchaseModalStatus.textContent = "Sign in to purchase unlockables.";
+    }
+    return;
+  }
+  if (purchaseModalConfirm) purchaseModalConfirm.disabled = true;
+  if (purchaseModalStatus) {
+    purchaseModalStatus.className = "hint";
+    purchaseModalStatus.textContent = "Processing purchase…";
+  }
+
+  const { def, source } = pendingPurchase;
+  const res = await apiPurchaseUnlockable({ id: def.id, type: def.type });
+  if (!res || !res.ok) {
+    if (purchaseModalStatus) {
+      purchaseModalStatus.className = "hint bad";
+      purchaseModalStatus.textContent = res?.error === "insufficient_funds"
+        ? "Not enough currency to complete this purchase."
+        : res?.error === "already_owned"
+          ? "You already own this unlockable."
+          : "Purchase failed. Please try again.";
+    }
+    if (purchaseModalConfirm) purchaseModalConfirm.disabled = false;
+    return;
+  }
+
+  net.online = true;
+  if (res.user) net.user = res.user;
+  if (res.trails) net.trails = normalizeTrails(res.trails);
+  if (res.icons) syncIconCatalog(res.icons);
+  if (res.pipeTextures) syncPipeTextureCatalog(res.pipeTextures);
+  syncUnlockablesCatalog({ trails: net.trails });
+
+  refreshTrailMenu();
+  refreshPipeTextureMenu(currentPipeTextureId);
+  renderIconOptions(currentIconId, computeUnlockedIconSet(playerIcons), playerIcons);
+  renderShopCategory(activeShopTab);
+  setUserHint();
+  if (bustercoinText) bustercoinText.textContent = String(getUserCurrencyBalance(net.user, DEFAULT_CURRENCY_ID));
+
+  if (source === "pipe_texture" && pipeTextureHint) {
+    pipeTextureHint.className = "hint good";
+    pipeTextureHint.textContent = "Purchase complete! Texture unlocked.";
+  } else if (source === "icon" && iconHint) {
+    iconHint.className = "hint good";
+    iconHint.textContent = "Purchase complete! Icon unlocked.";
+  } else if (source === "trail" && trailHint) {
+    setTrailHint({ className: "hint good", text: "Purchase complete! Trail unlocked." }, { persist: false });
+  }
+
+  closePurchaseModal();
 }
 
 function renderAchievements(payload = null) {
@@ -1240,6 +1413,19 @@ trailOptions?.addEventListener("click", async (e) => {
   const targetTrail = ordered.find((t) => t.id === id) || { id, name: id };
 
   if (!unlocked.has(id)) {
+    if (btn.dataset.unlockType === "purchase") {
+      openPurchaseModal({
+        id,
+        name: targetTrail.name || id,
+        type: UNLOCKABLE_TYPES.trail,
+        unlock: {
+          type: "purchase",
+          cost: Number(btn.dataset.unlockCost || 0),
+          currencyId: btn.dataset.unlockCurrency || DEFAULT_CURRENCY_ID
+        }
+      }, { source: "trail" });
+      return;
+    }
     setTrailHint({ className: "hint bad", text: btn.dataset.statusText || describeTrailLock(targetTrail, { unlocked: false, bestScore: best, isRecordHolder: Boolean(net.user?.isRecordHolder) }) }, { persist: false });
     refreshTrailMenu(currentTrailId);
     return;
@@ -1364,6 +1550,20 @@ pipeTextureOptions?.addEventListener("click", async (e) => {
   const id = btn.dataset.pipeTextureId;
   const unlocked = computeUnlockedPipeTextureSet(net.pipeTextures);
   if (!unlocked.has(id)) {
+    if (btn.dataset.unlockType === "purchase") {
+      const texture = net.pipeTextures.find((t) => t.id === id) || { id, name: id, unlock: {} };
+      openPurchaseModal({
+        id,
+        name: texture.name || id,
+        type: UNLOCKABLE_TYPES.pipeTexture,
+        unlock: {
+          type: "purchase",
+          cost: Number(btn.dataset.unlockCost || 0),
+          currencyId: btn.dataset.unlockCurrency || DEFAULT_CURRENCY_ID
+        }
+      }, { source: "pipe_texture" });
+      return;
+    }
     if (pipeTextureHint) {
       pipeTextureHint.className = "hint bad";
       pipeTextureHint.textContent = describePipeTextureLock(
@@ -1433,6 +1633,20 @@ iconOptions?.addEventListener("click", async (e) => {
   const id = btn.dataset.iconId;
   const unlocked = computeUnlockedIconSet(playerIcons);
   if (!unlocked.has(id)) {
+    if (btn.dataset.unlockType === "purchase") {
+      const icon = playerIcons.find((i) => i.id === id) || { id, name: id, unlock: {} };
+      openPurchaseModal({
+        id,
+        name: icon.name || id,
+        type: UNLOCKABLE_TYPES.playerTexture,
+        unlock: {
+          type: "purchase",
+          cost: Number(btn.dataset.unlockCost || 0),
+          currencyId: btn.dataset.unlockCurrency || DEFAULT_CURRENCY_ID
+        }
+      }, { source: "icon" });
+      return;
+    }
     if (iconHint) {
       iconHint.className = "hint bad";
       iconHint.textContent = describeIconLock(playerIcons.find((i) => i.id === id) || { unlock: {} }, { unlocked: false });
@@ -1524,6 +1738,24 @@ themeLauncher?.addEventListener("click", () => toggleThemeOverlay(true));
 themeOverlayClose?.addEventListener("click", () => toggleThemeOverlay(false));
 themeOverlay?.addEventListener("click", (e) => {
   if (e.target === themeOverlay) toggleThemeOverlay(false);
+});
+
+shopLauncher?.addEventListener("click", () => toggleShopOverlay(true));
+shopOverlayClose?.addEventListener("click", () => toggleShopOverlay(false));
+shopOverlay?.addEventListener("click", (e) => {
+  if (e.target === shopOverlay) toggleShopOverlay(false);
+});
+shopTabs?.addEventListener("click", (e) => {
+  const btn = e.target.closest("button[data-shop-type]");
+  if (!btn) return;
+  renderShopCategory(btn.dataset.shopType);
+});
+
+purchaseModalClose?.addEventListener("click", closePurchaseModal);
+purchaseModalCancel?.addEventListener("click", closePurchaseModal);
+purchaseModalConfirm?.addEventListener("click", confirmPendingPurchase);
+purchaseModal?.addEventListener("click", (e) => {
+  if (e.target === purchaseModal) closePurchaseModal();
 });
 
 // ---- Keybind rebinding flow ----
@@ -1850,7 +2082,7 @@ async function onGameOver(finalScore) {
       if (optimistic.applied && net.user?.bustercoins !== undefined) {
         // Preserve optimistic balance locally so the menu reflects the run's pickups even if the
         // score submission failed (e.g., offline). A later refresh will reconcile with the server.
-        if (bustercoinText) bustercoinText.textContent = String(net.user.bustercoins);
+        if (bustercoinText) bustercoinText.textContent = String(getUserCurrencyBalance(net.user, DEFAULT_CURRENCY_ID));
       }
       net.online = false;
 

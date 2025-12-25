@@ -15,10 +15,12 @@ const baseUser = () => ({
   selectedPipeTexture: "basic",
   pipeTextureMode: "NORMAL",
   ownedIcons: [],
+  ownedUnlockables: [],
   keybinds: {},
   runs: 10,
   totalScore: 42_000,
-  bustercoins: 120
+  bustercoins: 120,
+  currencies: { bustercoin: 120 }
 });
 
 describe("server helpers (trails)", () => {

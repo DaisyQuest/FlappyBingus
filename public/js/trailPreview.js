@@ -19,6 +19,15 @@ const DEFAULT_OBSTRUCTION_PADDING = { x: 0.04, y: 0.06 };
 
 function lerp(a, b, t) { return a + (b - a) * t; }
 
+function safeGetCanvasContext(canvas, type = "2d") {
+  if (!canvas?.getContext) return null;
+  try {
+    return canvas.getContext(type) || null;
+  } catch {
+    return null;
+  }
+}
+
 export class TrailPreview {
   constructor({
     canvas,
@@ -35,7 +44,7 @@ export class TrailPreview {
     obstructionPadding = DEFAULT_OBSTRUCTION_PADDING
   } = {}) {
     this.canvas = canvas || null;
-    this.ctx = this.canvas?.getContext?.("2d") || null;
+    this.ctx = safeGetCanvasContext(this.canvas);
     this.playerImg = playerImg;
     this.mode = mode;
     this.anchor = anchor || { x: 0.5, y: 0.5 };

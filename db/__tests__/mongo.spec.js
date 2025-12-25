@@ -437,7 +437,9 @@ describe("MongoDataStore mutations and reads", () => {
   it("persists score submissions with normalized counters and achievements", async () => {
     const { MongoDataStore } = await loadModule();
     const coll = makeCollection({
-      findOneAndUpdate: vi.fn(async () => ({ value: { key: "k", bestScore: 50, bustercoins: 7, runs: 2 } }))
+      findOneAndUpdate: vi.fn(async () => ({
+        value: { key: "k", bestScore: 50, bustercoins: 7, currencies: { bustercoin: 7 }, runs: 2 }
+      }))
     });
     const store = new MongoDataStore({ uri: "mongodb://ok", dbName: "db" });
     store.ensureConnected = vi.fn();
@@ -450,6 +452,7 @@ describe("MongoDataStore mutations and reads", () => {
       totalScore: 10,
       bestScore: 40,
       bustercoins: 4,
+      currencies: { bustercoin: 4 },
       achievements: { unlocked: {}, progress: {} },
       skillTotals: { dash: 1, phase: 2, teleport: 3, slowField: 4 }
     };
@@ -470,7 +473,33 @@ describe("MongoDataStore mutations and reads", () => {
     const setStage = pipeline[0].$set;
     expect(setStage.bestScore).toBeDefined();
     expect(setStage.skillTotals).toBeDefined();
-    expect(updated).toEqual({ key: "k", bestScore: 50, bustercoins: 7, runs: 2 });
+    expect(updated).toEqual({ key: "k", bestScore: 50, bustercoins: 7, currencies: { bustercoin: 7 }, runs: 2 });
+  });
+
+  it("updates purchase payloads in the datastore", async () => {
+    const { MongoDataStore } = await loadModule();
+    const coll = makeCollection({
+      findOneAndUpdate: vi.fn(async () => ({
+        value: { key: "k", ownedUnlockables: ["u1"], currencies: { bustercoin: 5 } }
+      }))
+    });
+    const store = new MongoDataStore({ uri: "mongodb://ok", dbName: "db" });
+    store.ensureConnected = vi.fn();
+    store.usersCollection = () => coll;
+
+    const updated = await store.purchaseUnlockable("k", {
+      ownedUnlockables: ["u1"],
+      currencies: { bustercoin: 5 },
+      bustercoins: 5,
+      unlockables: { unlocked: {} }
+    });
+
+    expect(coll.findOneAndUpdate).toHaveBeenCalledWith(
+      { key: "k" },
+      { $set: expect.objectContaining({ ownedUnlockables: ["u1"], bustercoins: 5 }) },
+      { returnDocument: "after" }
+    );
+    expect(updated).toEqual({ key: "k", ownedUnlockables: ["u1"], currencies: { bustercoin: 5 } });
   });
 
   it("throws when recordScore is called without a user key or when the update yields no document", async () => {

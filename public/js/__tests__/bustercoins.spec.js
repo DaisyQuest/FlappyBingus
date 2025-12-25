@@ -12,13 +12,14 @@ describe("bustercoin helpers", () => {
   });
 
   it("applies earned coins to the user model and UI", () => {
-    const net = { user: { username: "bingus", bustercoins: 2 } };
+    const net = { user: { username: "bingus", bustercoins: 2, currencies: { bustercoin: 2 } } };
     const badge = { textContent: "" };
 
     const res = applyBustercoinEarnings(net, 3.9, badge);
 
     expect(res).toEqual({ applied: true, total: 5 });
     expect(net.user.bustercoins).toBe(5);
+    expect(net.user.currencies).toEqual({ bustercoin: 5 });
     expect(badge.textContent).toBe("5");
   });
 
@@ -32,4 +33,3 @@ describe("bustercoin helpers", () => {
     expect(badge.textContent).toBe("stale");
   });
 });
-

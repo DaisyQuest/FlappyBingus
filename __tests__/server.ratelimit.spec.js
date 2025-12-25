@@ -8,7 +8,10 @@ const baseUser = () => ({
   bestScore: 100,
   selectedTrail: "classic",
   selectedIcon: "hi_vis_orange",
+  selectedPipeTexture: "basic",
+  pipeTextureMode: "NORMAL",
   ownedIcons: [],
+  ownedUnlockables: [],
   keybinds: {},
   settings: {
     dashBehavior: "ricochet",
@@ -19,6 +22,7 @@ const baseUser = () => ({
   runs: 1,
   totalScore: 100,
   bustercoins: 1,
+  currencies: { bustercoin: 1 },
   achievements: { unlocked: {}, progress: {} }
 });
 
@@ -65,7 +69,10 @@ async function importServer(overrides = {}) {
       ...user,
       achievements: achievements || { unlocked: {}, progress: {} },
       bestScore: score,
-      bustercoins: (user?.bustercoins || 0) + (bustercoinsEarned || 0)
+      bustercoins: (user?.bustercoins || 0) + (bustercoinsEarned || 0),
+      currencies: {
+        bustercoin: (user?.currencies?.bustercoin || user?.bustercoins || 0) + (bustercoinsEarned || 0)
+      }
     })),
     setTrail: vi.fn(async (_key, trailId) => ({ ...baseUser(), selectedTrail: trailId })),
     setIcon: vi.fn(async (_key, iconId) => ({ ...baseUser(), selectedIcon: iconId })),
