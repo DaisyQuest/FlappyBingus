@@ -58,3 +58,55 @@ export function syncMenuProfileBindings({
     pipeTextureId
   };
 }
+
+export function createMenuProfileModel({
+  refs = {},
+  user = null,
+  trails = [],
+  icons = [],
+  pipeTextures = [],
+  fallbackTrailId = "classic",
+  fallbackIconId = DEFAULT_PLAYER_ICON_ID,
+  fallbackPipeTextureId = DEFAULT_PIPE_TEXTURE_ID,
+  bestScoreFallback = 0
+} = {}) {
+  let model = {
+    refs,
+    user,
+    trails,
+    icons,
+    pipeTextures,
+    fallbackTrailId,
+    fallbackIconId,
+    fallbackPipeTextureId,
+    bestScoreFallback
+  };
+
+  function sync(overrides = {}) {
+    model = { ...model, ...overrides };
+    return syncMenuProfileBindings(model);
+  }
+
+  function updateUser(nextUser) {
+    return sync({ user: nextUser });
+  }
+
+  function updateCatalogs({ trails: nextTrails, icons: nextIcons, pipeTextures: nextPipeTextures } = {}) {
+    return sync({
+      trails: nextTrails ?? model.trails,
+      icons: nextIcons ?? model.icons,
+      pipeTextures: nextPipeTextures ?? model.pipeTextures
+    });
+  }
+
+  function getModel() {
+    return { ...model };
+  }
+
+  return {
+    sync,
+    updateUser,
+    updateCatalogs,
+    getModel
+  };
+}

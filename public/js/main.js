@@ -118,7 +118,7 @@ import {
   getIconDisplayName,
   getPipeTextureDisplayName as getPipeTextureLabel,
   getTrailDisplayName,
-  syncMenuProfileBindings
+  createMenuProfileModel
 } from "./menuProfileBindings.js";
 
 // ---- DOM ----
@@ -364,6 +364,18 @@ let currentPipeTextureMode = normalizePipeTextureMode(readPipeTextureModeCookie(
 let activeShopTab = SHOP_TABS[0]?.type || UNLOCKABLE_TYPES.playerTexture;
 let pendingPurchase = null;
 
+const menuProfileModel = createMenuProfileModel({
+  refs: { usernameInput, pbText, trailText, iconText, pipeTextureText, bustercoinText },
+  user: net.user,
+  trails: net.trails,
+  icons: playerIcons,
+  pipeTextures: net.pipeTextures,
+  fallbackTrailId: currentTrailId,
+  fallbackIconId: currentIconId,
+  fallbackPipeTextureId: currentPipeTextureId,
+  bestScoreFallback: readLocalBest()
+});
+
 // assets
 let playerImg = getCachedIconSprite(playerIcons.find((i) => i.id === currentIconId));
 boot.imgReady = true; boot.imgOk = true;
@@ -557,6 +569,31 @@ function refreshBootUI() {
 }
 
 // ---- Menu rendering (highscores, cosmetics, binds) ----
+function syncMenuProfileBindingsFromState({
+  fallbackTrailId = currentTrailId,
+  fallbackIconId = currentIconId,
+  fallbackPipeTextureId = currentPipeTextureId,
+  bestScoreFallback = net.user ? (net.user.bestScore | 0) : readLocalBest()
+} = {}) {
+  return menuProfileModel.sync({
+    user: net.user,
+    trails: net.trails,
+    icons: playerIcons,
+    pipeTextures: net.pipeTextures,
+    fallbackTrailId,
+    fallbackIconId,
+    fallbackPipeTextureId,
+    bestScoreFallback
+  });
+}
+
+function setNetUser(nextUser, { syncProfile = true } = {}) {
+  net.user = nextUser;
+  if (syncProfile) {
+    syncMenuProfileBindingsFromState();
+  }
+}
+
 function setUserHint() {
   if (!net.online) {
     userHint.className = "hint bad";
@@ -639,12 +676,14 @@ function syncIconCatalog(nextIcons = null) {
   trailPreview?.setPlayerImage(playerImg);
   syncLauncherSwatch(currentIconId, playerIcons, playerImg);
   syncUnlockablesCatalog({ icons: playerIcons });
+  syncMenuProfileBindingsFromState();
 }
 
 function syncPipeTextureCatalog(nextTextures = null) {
   const normalized = normalizePipeTextures(nextTextures || net.pipeTextures);
   net.pipeTextures = normalized.map((t) => ({ ...t }));
   syncUnlockablesCatalog({ pipeTextures: net.pipeTextures });
+  syncMenuProfileBindingsFromState();
 }
 
 function getOwnedUnlockables(user = net.user) {
@@ -814,25 +853,6 @@ function applyTrailSelection(id, trails = net.trails) {
   syncLauncherSwatch(currentIconId, playerIcons, playerImg);
 }
 
-function syncMenuProfileBindingsFromState({
-  fallbackTrailId = currentTrailId,
-  fallbackIconId = currentIconId,
-  fallbackPipeTextureId = currentPipeTextureId,
-  bestScoreFallback = 0
-} = {}) {
-  return syncMenuProfileBindings({
-    refs: { usernameInput, pbText, trailText, iconText, pipeTextureText, bustercoinText },
-    user: net.user,
-    trails: net.trails,
-    icons: playerIcons,
-    pipeTextures: net.pipeTextures,
-    fallbackTrailId,
-    fallbackIconId,
-    fallbackPipeTextureId,
-    bestScoreFallback
-  });
-}
-
 function setTrailHint(hint, { persist = true } = {}) {
   if (trailHint) {
     trailHint.className = hint.className || "hint";
@@ -880,8 +900,7 @@ function refreshTrailMenu(selectedId = currentTrailId) {
     })
   });
 
-  pbText.textContent = String(best);
-  if (bustercoinText) bustercoinText.textContent = String(getUserCurrencyBalance(net.user, DEFAULT_CURRENCY_ID));
+  syncMenuProfileBindingsFromState({ bestScoreFallback: best, fallbackTrailId: selected });
 
   const hint = buildTrailHint({
     online: net.online,
@@ -1039,7 +1058,7 @@ async function confirmPendingPurchase() {
   }
 
   net.online = true;
-  if (res.user) net.user = res.user;
+  if (res.user) setNetUser(res.user);
   if (res.trails) net.trails = normalizeTrails(res.trails);
   if (res.icons) syncIconCatalog(res.icons);
   if (res.pipeTextures) syncPipeTextureCatalog(res.pipeTextures);
@@ -1050,7 +1069,7 @@ async function confirmPendingPurchase() {
   renderIconOptions(currentIconId, computeUnlockedIconSet(playerIcons), playerIcons);
   renderShopCategory(activeShopTab);
   setUserHint();
-  if (bustercoinText) bustercoinText.textContent = String(getUserCurrencyBalance(net.user, DEFAULT_CURRENCY_ID));
+  syncMenuProfileBindingsFromState();
 
   if (source === "pipe_texture" && pipeTextureHint) {
     pipeTextureHint.className = "hint good";
@@ -1161,7 +1180,7 @@ async function updateSkillSettings(next, { persist = true } = {}) {
   if (persist && net.user && changed) {
     const res = await apiSetSettings(skillSettings);
     if (res?.user) {
-      net.user = res.user;
+      setNetUser(res.user);
       setUserHint();
     }
   }
@@ -1172,12 +1191,12 @@ async function refreshProfileAndHighscores() {
   const me = await apiGetMe();
   if (!me?.ok) {
     net.online = false;
-    net.user = null;
+    setNetUser(null);
     syncIconCatalog(net.icons || playerIcons);
     net.achievements = { definitions: ACHIEVEMENTS, state: normalizeAchievementState() };
   } else {
     net.online = true;
-    net.user = me.user || null;
+    setNetUser(me.user || null);
     net.trails = normalizeTrails(me.trails || net.trails);
     syncUnlockablesCatalog({ trails: net.trails });
     syncIconCatalog(me.icons || net.icons);
@@ -1238,7 +1257,7 @@ saveUserBtn.addEventListener("click", async () => {
   }
   if (res.ok) {
     net.online = true;
-    net.user = res.user;
+    setNetUser(res.user);
     net.trails = normalizeTrails(res.trails || net.trails);
     syncUnlockablesCatalog({ trails: net.trails });
     syncUnlockablesCatalog({ trails: net.trails });
@@ -1432,7 +1451,7 @@ trailOptions?.addEventListener("click", async (e) => {
   }
 
   if (net.user) {
-    net.user = { ...net.user, selectedTrail: id };
+    setNetUser({ ...net.user, selectedTrail: id });
   }
   applyTrailSelection(id, ordered);
   refreshTrailMenu(id);
@@ -1460,7 +1479,7 @@ trailOptions?.addEventListener("click", async (e) => {
   }
 
   net.online = true;
-  net.user = res.user;
+  setNetUser(res.user);
   net.trails = normalizeTrails(res.trails || net.trails);
   syncUnlockablesCatalog({ trails: net.trails });
   syncIconCatalog(res.icons || net.icons);
@@ -1532,7 +1551,7 @@ pipeTextureModeOptions?.addEventListener("click", async (e) => {
     return;
   }
 
-  net.user = res.user;
+  setNetUser(res.user);
   syncPipeTextureCatalog(res.pipeTextures || net.pipeTextures);
   currentPipeTextureMode = normalizePipeTextureMode(res.user?.pipeTextureMode || currentPipeTextureMode);
   writePipeTextureModeCookie(currentPipeTextureMode);
@@ -1596,7 +1615,7 @@ pipeTextureOptions?.addEventListener("click", async (e) => {
     return;
   }
 
-  net.user = res.user;
+  setNetUser(res.user);
   syncPipeTextureCatalog(res.pipeTextures || net.pipeTextures);
   currentPipeTextureMode = normalizePipeTextureMode(res.user?.pipeTextureMode || currentPipeTextureMode);
   applyPipeTextureSelection(res.user?.selectedPipeTexture || id, net.pipeTextures, computeUnlockedPipeTextureSet(net.pipeTextures));
@@ -1669,11 +1688,11 @@ iconOptions?.addEventListener("click", async (e) => {
   net.online = outcome.online;
 
   if (outcome.resetUser) {
-    net.user = null;
+    setNetUser(null);
   }
 
   if (outcome.outcome === "saved" && res) {
-    net.user = res.user;
+    setNetUser(res.user);
     net.trails = normalizeTrails(res.trails || net.trails);
     syncUnlockablesCatalog({ trails: net.trails });
     syncIconCatalog(res.icons || net.icons);
@@ -1793,7 +1812,7 @@ function beginRebind(actionId) {
     if (net.user) {
       const res = await apiSetKeybinds(binds);
       if (res && res.ok) {
-        net.user = res.user;
+      setNetUser(res.user);
       } else {
         binds = before;
         bindHint.className = "hint bad";
@@ -2054,7 +2073,9 @@ async function onGameOver(finalScore) {
 
   if (net.user) {
     const coinsEarned = game?.bustercoinsEarned || 0;
-    const optimistic = applyBustercoinEarnings(net, coinsEarned, bustercoinText);
+    const optimistic = applyBustercoinEarnings(net, coinsEarned, {
+      onUserUpdate: (nextUser) => setNetUser(nextUser)
+    });
     const res = await apiSubmitScore({
       score: finalScore | 0,
       bustercoinsEarned: coinsEarned,
@@ -2062,7 +2083,7 @@ async function onGameOver(finalScore) {
     });
     if (res && res.ok && res.user) {
       net.online = true;
-      net.user = res.user;
+      setNetUser(res.user);
       net.trails = normalizeTrails(res.trails || net.trails);
       syncUnlockablesCatalog({ trails: net.trails });
       syncIconCatalog(res.icons || net.icons);
@@ -2082,7 +2103,7 @@ async function onGameOver(finalScore) {
       if (optimistic.applied && net.user?.bustercoins !== undefined) {
         // Preserve optimistic balance locally so the menu reflects the run's pickups even if the
         // score submission failed (e.g., offline). A later refresh will reconcile with the server.
-        if (bustercoinText) bustercoinText.textContent = String(getUserCurrencyBalance(net.user, DEFAULT_CURRENCY_ID));
+        syncMenuProfileBindingsFromState();
       }
       net.online = false;
 
