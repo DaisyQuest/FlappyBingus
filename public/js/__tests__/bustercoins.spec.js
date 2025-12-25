@@ -11,25 +11,30 @@ describe("bustercoin helpers", () => {
     expect(normalizeCount(NaN)).toBe(0);
   });
 
-  it("applies earned coins to the user model and UI", () => {
+  it("applies earned coins to the user model and invokes the update callback", () => {
     const net = { user: { username: "bingus", bustercoins: 2, currencies: { bustercoin: 2 } } };
-    const badge = { textContent: "" };
+    const updates = [];
 
-    const res = applyBustercoinEarnings(net, 3.9, badge);
+    const res = applyBustercoinEarnings(net, 3.9, {
+      onUserUpdate: (nextUser) => updates.push(nextUser)
+    });
 
     expect(res).toEqual({ applied: true, total: 5 });
     expect(net.user.bustercoins).toBe(5);
     expect(net.user.currencies).toEqual({ bustercoin: 5 });
-    expect(badge.textContent).toBe("5");
+    expect(updates).toHaveLength(1);
+    expect(updates[0]).toMatchObject({ bustercoins: 5, currencies: { bustercoin: 5 } });
   });
 
   it("no-ops when no user is present", () => {
     const net = { user: null };
-    const badge = { textContent: "stale" };
+    const updates = [];
 
-    const res = applyBustercoinEarnings(net, 10, badge);
+    const res = applyBustercoinEarnings(net, 10, {
+      onUserUpdate: (nextUser) => updates.push(nextUser)
+    });
 
     expect(res).toEqual({ applied: false, total: null });
-    expect(badge.textContent).toBe("stale");
+    expect(updates).toHaveLength(0);
   });
 });

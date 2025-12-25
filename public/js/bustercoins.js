@@ -10,11 +10,11 @@ function normalizeCount(value) {
 }
 
 /**
- * Adds the earned bustercoins for the current run to the in-memory user model and UI text.
+ * Adds the earned bustercoins for the current run to the in-memory user model.
  * Returns the new total so callers can optimistically render while waiting for the server
  * response. If no user is available, this function is a no-op.
  */
-export function applyBustercoinEarnings(net, coinsEarned = 0, bustercoinText) {
+export function applyBustercoinEarnings(net, coinsEarned = 0, { onUserUpdate } = {}) {
   if (!net?.user) return { applied: false, total: null };
 
   const base = normalizeCurrencyAmount(net.user.bustercoins);
@@ -22,8 +22,9 @@ export function applyBustercoinEarnings(net, coinsEarned = 0, bustercoinText) {
   const total = base + gain;
   const walletUpdate = creditCurrency(net.user.currencies, { currencyId: DEFAULT_CURRENCY_ID, amount: gain });
 
-  net.user = { ...net.user, bustercoins: total, currencies: walletUpdate.wallet };
-  if (bustercoinText) bustercoinText.textContent = String(total);
+  const nextUser = { ...net.user, bustercoins: total, currencies: walletUpdate.wallet };
+  net.user = nextUser;
+  if (typeof onUserUpdate === "function") onUserUpdate(nextUser);
 
   return { applied: true, total };
 }
