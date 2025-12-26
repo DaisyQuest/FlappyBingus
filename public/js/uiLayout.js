@@ -1364,7 +1364,7 @@ function createOverScreen(doc, refs) {
   const finalCard = doc.createElement("div");
   finalCard.className = "over-stat-card over-final-card";
   const finalLabel = doc.createElement("div");
-  finalLabel.className = "over-stat-label";
+  finalLabel.className = "over-stat-label over-final-label";
   finalLabel.textContent = "Final score";
   const final = createElement(doc, refs, "span", { id: "final", className: "over-final-score", text: "0" });
   const bestStack = doc.createElement("div");

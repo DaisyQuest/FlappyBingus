@@ -21,13 +21,39 @@ describe("game over stats builder", () => {
     const achievementsState = {
       progress: { maxOrbComboInRun: 10.2, maxPerfectComboInRun: 8, skillTotals: { dash: 5, phase: 1 } }
     };
-    const result = buildGameOverStats({ view: GAME_OVER_STAT_VIEWS.lifetime, runStats, achievementsState });
+    const skillTotals = { dash: 12.8, phase: -2, teleport: 1 };
+    const result = buildGameOverStats({ view: GAME_OVER_STAT_VIEWS.lifetime, runStats, achievementsState, skillTotals });
 
     expect(result.view).toBe(GAME_OVER_STAT_VIEWS.lifetime);
     expect(result.combo).toEqual({ orb: 10, perfect: 8 });
-    expect(result.skillUsage).toEqual({ dash: 5, phase: 1 });
+    expect(result.skillUsage).toEqual({ dash: 12, phase: 0, teleport: 1 });
     expect(result.labels.orb).toBe("Best orb combo (lifetime)");
     expect(result.labels.toggle).toBe("Show run stats");
+  });
+
+  it("falls back to achievement skill totals when explicit values are invalid", () => {
+    const achievementsState = {
+      progress: { maxOrbComboInRun: 3, maxPerfectComboInRun: 2, skillTotals: { dash: 4, slowField: 2 } }
+    };
+    const result = buildGameOverStats({
+      view: GAME_OVER_STAT_VIEWS.lifetime,
+      runStats: null,
+      achievementsState,
+      skillTotals: "invalid"
+    });
+
+    expect(result.skillUsage).toEqual({ dash: 4, slowField: 2 });
+  });
+
+  it("returns null skill usage when no totals are available", () => {
+    const result = buildGameOverStats({
+      view: GAME_OVER_STAT_VIEWS.lifetime,
+      runStats: null,
+      achievementsState: { progress: { maxOrbComboInRun: 0, maxPerfectComboInRun: 0 } },
+      skillTotals: {}
+    });
+
+    expect(result.skillUsage).toBeNull();
   });
 
   it("falls back to run view and empty stats when data is missing", () => {
