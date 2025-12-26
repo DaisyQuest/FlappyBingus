@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { Gate } from "../entities.js";
-import { resolveGapPerfect } from "../perfectGaps.js";
+import { getPerfectGapThreshold, resolveGapPerfect, resolvePerfectGapAlignment } from "../perfectGaps.js";
 
 function makeGame() {
   return {
@@ -301,5 +301,24 @@ describe("resolveGapPerfect", () => {
     expect(res.crossed).toBe(false);
     expect(res.distance).toBe(Infinity);
     expect(res.threshold).toBeGreaterThan(0);
+  });
+});
+
+describe("perfect gap helpers", () => {
+  it("computes a clamped threshold with leniency for small gaps", () => {
+    const gate = prepGate({ gapHalf: 2 });
+    const threshold = getPerfectGapThreshold({ gate, windowScale: 0.05, leniency: 0.2, minWindow: 3 });
+    expect(threshold).toBeGreaterThan(3);
+  });
+
+  it("reports alignment based on perpendicular distance and guards invalid inputs", () => {
+    const gate = prepGate({ gapCenter: 100, gapHalf: 20 });
+    const aligned = resolvePerfectGapAlignment({ gate, perpAxis: 102, windowScale: 0.2 });
+    expect(aligned.aligned).toBe(true);
+    expect(aligned.distance).toBeLessThanOrEqual(aligned.threshold);
+
+    const invalid = resolvePerfectGapAlignment({ gate, perpAxis: "nope", windowScale: 0.2 });
+    expect(invalid.aligned).toBe(false);
+    expect(invalid.distance).toBe(Infinity);
   });
 });

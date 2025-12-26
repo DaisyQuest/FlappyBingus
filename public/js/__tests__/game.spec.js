@@ -233,6 +233,23 @@ describe("Game core utilities", () => {
     expect(audio.sfxGameOver).toHaveBeenCalledTimes(1);
   });
 
+  it("renders gold and rainbow aura rings around the player", () => {
+    const { game, ctx } = buildGame();
+    game.player.x = 30;
+    game.player.y = 40;
+
+    game.perfectAuraIntensity = 0.6;
+    game.perfectAuraMode = "gold";
+    ctx.createRadialGradient.mockClear();
+    game._drawPlayer();
+    expect(ctx.createRadialGradient).not.toHaveBeenCalled();
+
+    game.perfectAuraMode = "rainbow";
+    ctx.createRadialGradient.mockClear();
+    game._drawPlayer();
+    expect(ctx.createRadialGradient).toHaveBeenCalled();
+  });
+
   it("handles state transitions and run resets", () => {
     const { game } = buildGame();
     const useSkill = vi.spyOn(game, "_useSkill");
@@ -312,12 +329,12 @@ describe("Game core utilities", () => {
 
     game.perfectCombo = 5;
     const pipe = pipeStub({ gapId: 1 });
-    game._gapMeta.set(1, { perfected: false });
+    game._gapMeta.set(1, { perfected: false, broken: false, pipesRemaining: 1 });
     game._onGapPipeRemoved(pipe);
     expect(game.perfectCombo).toBe(0);
     expect(game._gapMeta.size).toBe(0);
 
-    game._gapMeta.set(2, { perfected: true });
+    game._gapMeta.set(2, { perfected: true, broken: false, pipesRemaining: 1 });
     game._onGapPipeRemoved(pipeStub({ gapId: 2 }));
     expect(game.perfectCombo).toBe(0);
     expect(game._gapMeta.size).toBe(0);
@@ -422,6 +439,8 @@ describe("Skill usage", () => {
     game._useSkill("teleport");
 
     expect(game.pipes.length).toBe(0);
+    expect(game.runStats.brokenPipes).toBe(2);
+    expect(game.runStats.maxBrokenPipesInExplosion).toBe(2);
     expect(game.cds.teleport).toBeCloseTo(game.cfg.skills.teleport.cooldown * 2);
     expect(game.floats.some((f) => f.txt === "TELEPORT")).toBe(true);
   });
@@ -591,13 +610,24 @@ describe("Player movement and trail emission", () => {
 
   it("drops perfect streak metadata when a non-perfected gap despawns", () => {
     const { game } = buildGame();
-    game._gapMeta.set(7, { perfected: false });
+    game._gapMeta.set(7, { perfected: false, broken: false, pipesRemaining: 1 });
     game.perfectCombo = 5;
 
     game._onGapPipeRemoved({ gapId: 7 });
 
     expect(game.perfectCombo).toBe(0);
     expect(game._gapMeta.size).toBe(0);
+  });
+
+  it("keeps perfect combos alive when a gap is broken", () => {
+    const { game } = buildGame();
+    game._gapMeta.set(8, { perfected: false, broken: false, pipesRemaining: 1 });
+    game.perfectCombo = 3;
+
+    game._onGapPipeRemovedWithFlags({ gapId: 8 }, { broken: true });
+
+    expect(game.perfectCombo).toBe(3);
+    expect(game._gapMeta.get(8)?.broken).toBe(true);
   });
 
   it("falls back to dash direction when a reflection normal is degenerate", () => {
@@ -853,6 +883,8 @@ describe("Player movement and trail emission", () => {
     expect(res).toBe("destroyed");
     expect(game.pipes.includes(target)).toBe(false);
     expect(game.score).toBe(0);
+    expect(game.runStats.brokenPipes).toBe(1);
+    expect(game.runStats.maxBrokenPipesInExplosion).toBe(0);
     expect(game.player.invT).toBeGreaterThan(0);
     expect(game.lastPipeShatter?.cause).toBe("dashDestroy");
   });
@@ -923,6 +955,8 @@ describe("Player movement and trail emission", () => {
     expect(game.pipes.length).toBe(0);
     expect(game.lastPipeShatter?.cause).toBe("slowExplosion");
     expect(game.lastSlowBlast).toBeTruthy();
+    expect(game.runStats.brokenPipes).toBe(2);
+    expect(game.runStats.maxBrokenPipesInExplosion).toBe(2);
     expect(game.cds.slowField).toBeCloseTo(game.cfg.skills.slowExplosion.cooldown);
   });
 
@@ -1120,7 +1154,7 @@ describe("Game loop", () => {
     game.orbs.push(firstOrb, expiredOrb);
 
     game.pipes.push(pipeStub({ off: true, gapId: 3, w: 5, h: 5 }));
-    game._gapMeta.set(3, { perfected: false });
+    game._gapMeta.set(3, { perfected: false, broken: false, pipesRemaining: 1 });
     game.gates.push(gateStub({ off: true }));
 
     game.parts.push({ life: 0, update: vi.fn() });
@@ -1144,6 +1178,29 @@ describe("Game loop", () => {
     expect(game.pipes.length).toBeLessThanOrEqual(280);
     expect(game.parts.length).toBeLessThanOrEqual(1100);
     expect(game.floats.length).toBeLessThanOrEqual(80);
+  });
+
+  it("skips perfect scoring and aura cues for broken gaps", () => {
+    const { game } = buildGame();
+    game.resizeToWindow();
+    game.state = 1;
+    game.player.x = 50;
+    game.player.y = 50;
+
+    const gate = gateStub({ gapId: 10, axis: "x", pos: 52 });
+    gate.gapCenter = 50;
+    gate.gapHalf = 30;
+    gate.entered = true;
+    game.gates.push(gate);
+    game._gapMeta.set(10, { perfected: false, broken: true, pipesRemaining: 0 });
+
+    const perfectSpy = vi.spyOn(perfectGaps, "resolveGapPerfect");
+
+    game.update(0.01);
+
+    expect(perfectSpy).not.toHaveBeenCalled();
+    expect(game.perfectAuraIntensity).toBe(0);
+    expect(game.perfectAuraMode).toBeNull();
   });
 
   it("tracks bustercoins earned from orb pickups and resets per run", () => {
@@ -1352,7 +1409,7 @@ describe("Game loop", () => {
     game._onGapPipeRemoved(null);
     game._gapMeta = new Map();
     game._onGapPipeRemoved({});
-    game._gapMeta.set(4, { perfected: true });
+    game._gapMeta.set(4, { perfected: true, broken: false, pipesRemaining: 1 });
     game._onGapPipeRemoved({ gapId: 5 });
 
     game.player.vx = 0; game.player.vy = 0; game.player.dashVX = 0; game.player.dashVY = -1;

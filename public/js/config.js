@@ -58,7 +58,14 @@ export const DEFAULT_CONFIG = {
     orbBase: 5,
     orbComboBonus: 1,
     orbComboMax: 30,
-    perfect: { enabled: true, bonus: 10, windowScale: 0.075, flashDuration: 0.55 }
+    perfect: {
+      enabled: true,
+      bonus: 10,
+      windowScale: 0.075,
+      flashDuration: 0.55,
+      auraRangeScale: 0.6,
+      auraMinIntensity: 0.05
+    }
   },
   ui: {
     comboBar: { glowAt: 8, sparkleAt: 12, sparkleRate: 28 },

@@ -35,7 +35,10 @@ describe("achievements definitions", () => {
         totalPerfects: 55.2,
         maxOrbsInRun: 33.3,
         totalOrbsCollected: "200",
-        totalScore: 5000.9
+        totalScore: 5000.9,
+        maxBrokenPipesInExplosion: 8.9,
+        maxBrokenPipesInRun: -1,
+        totalBrokenPipes: 250.4
       }
     });
 
@@ -49,6 +52,9 @@ describe("achievements definitions", () => {
       maxOrbsInRun: 33,
       totalOrbsCollected: 200,
       totalScore: 5000,
+      maxBrokenPipesInExplosion: 8,
+      maxBrokenPipesInRun: 0,
+      totalBrokenPipes: 250,
       skillTotals: {
         dash: 0,
         phase: 0,
@@ -63,11 +69,25 @@ describe("validateRunStats", () => {
   it("accepts omitted stats while rejecting malformed payloads", () => {
     expect(validateRunStats()).toEqual({
       ok: true,
-      stats: { orbsCollected: null, abilitiesUsed: null, perfects: null, skillUsage: null }
+      stats: {
+        orbsCollected: null,
+        abilitiesUsed: null,
+        perfects: null,
+        brokenPipes: null,
+        maxBrokenPipesInExplosion: null,
+        skillUsage: null
+      }
     });
     expect(validateRunStats({ orbsCollected: 2, abilitiesUsed: 1 })).toEqual({
       ok: true,
-      stats: { orbsCollected: 2, abilitiesUsed: 1, perfects: null, skillUsage: null }
+      stats: {
+        orbsCollected: 2,
+        abilitiesUsed: 1,
+        perfects: null,
+        brokenPipes: null,
+        maxBrokenPipesInExplosion: null,
+        skillUsage: null
+      }
     });
     expect(validateRunStats({ orbsCollected: -1 })).toEqual({ ok: false, error: "invalid_run_stats" });
     expect(validateRunStats({ perfects: "bad" })).toEqual({ ok: false, error: "invalid_run_stats" });
@@ -80,12 +100,21 @@ describe("validateRunStats", () => {
         orbsCollected: 0,
         abilitiesUsed: 0,
         perfects: 1,
+        brokenPipes: 4,
+        maxBrokenPipesInExplosion: 2,
         scoreBreakdown: { orbs: { points: 99 } },
         skillUsage: { dash: 2, phase: 0, teleport: 1, slowField: 0 }
       })
     ).toEqual({
       ok: true,
-      stats: { orbsCollected: 0, abilitiesUsed: 0, perfects: 1, skillUsage: { dash: 2, phase: 0, teleport: 1, slowField: 0 } }
+      stats: {
+        orbsCollected: 0,
+        abilitiesUsed: 0,
+        perfects: 1,
+        brokenPipes: 4,
+        maxBrokenPipesInExplosion: 2,
+        skillUsage: { dash: 2, phase: 0, teleport: 1, slowField: 0 }
+      }
     });
 
     expect(validateRunStats({ skillUsage: { dash: -1 } })).toEqual({ ok: false, error: "invalid_run_stats" });
@@ -234,6 +263,33 @@ describe("evaluateRunForAchievements", () => {
     expect(state.unlocked.perfects_total_100).toBe(10);
   });
 
+  it("tracks broken pipe totals and unlocks shatter achievements", () => {
+    const first = evaluateRunForAchievements({
+      previous: { unlocked: {}, progress: DEFAULT_PROGRESS },
+      runStats: { brokenPipes: 120, maxBrokenPipesInExplosion: 12 },
+      score: 50,
+      now: 100
+    });
+
+    expect(first.state.progress.totalBrokenPipes).toBe(120);
+    expect(first.state.progress.maxBrokenPipesInRun).toBe(120);
+    expect(first.state.progress.maxBrokenPipesInExplosion).toBe(12);
+    expect(first.unlocked).toEqual(expect.arrayContaining([
+      "pipes_broken_explosion_10",
+      "pipes_broken_run_100"
+    ]));
+
+    const second = evaluateRunForAchievements({
+      previous: first.state,
+      runStats: { brokenPipes: 900, maxBrokenPipesInExplosion: 4 },
+      score: 10,
+      now: 200
+    });
+
+    expect(second.state.progress.totalBrokenPipes).toBe(1020);
+    expect(second.unlocked).toContain("pipes_broken_total_1000");
+  });
+
   it("does not unlock run-conditional achievements without telemetry", () => {
     const { unlocked, state } = evaluateRunForAchievements({
       previous: { unlocked: {}, progress: DEFAULT_PROGRESS },
@@ -278,7 +334,7 @@ describe("evaluateRunForAchievements", () => {
     ACHIEVEMENTS.forEach((def) => {
       const req = def.requirement || {};
       const progress = { ...DEFAULT_PROGRESS };
-      const runStats = { orbsCollected: null, abilitiesUsed: null, perfects: null };
+      const runStats = { orbsCollected: null, abilitiesUsed: null, perfects: null, brokenPipes: null, maxBrokenPipesInExplosion: null };
 
       let score = req.minScore ?? 0;
       let bestScore = req.minScore ?? 0;
@@ -303,6 +359,16 @@ describe("evaluateRunForAchievements", () => {
         progress.totalScore = Math.max(0, req.totalScore - 1);
         totalScore = progress.totalScore;
         score = Math.max(score, 2);
+      }
+      if (req.minBrokenPipesInExplosion !== undefined) {
+        runStats.maxBrokenPipesInExplosion = req.minBrokenPipesInExplosion;
+      }
+      if (req.minBrokenPipesInRun !== undefined) {
+        runStats.brokenPipes = req.minBrokenPipesInRun;
+      }
+      if (req.totalBrokenPipes !== undefined) {
+        progress.totalBrokenPipes = Math.max(0, req.totalBrokenPipes - 1);
+        runStats.brokenPipes = runStats.brokenPipes ?? 1;
       }
 
       const previous = { unlocked: {}, progress };

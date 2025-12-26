@@ -81,7 +81,7 @@ describe("Game core loop hooks", () => {
     game.score = 100;
     game.pipes.push({}); game.gates.push({}); game.orbs.push({});
     game.parts.push({}); game.floats.push({});
-    game._gapMeta.set(99, { perfected: true });
+    game._gapMeta.set(99, { perfected: true, broken: false, pipesRemaining: 1 });
     game._resetRun(true);
 
     expect(game.score).toBe(0);
