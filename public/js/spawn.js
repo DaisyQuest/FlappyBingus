@@ -85,7 +85,7 @@ export function spawnWall(game, opts = {}) {
   }
 
   if (pipeCount > 0 && game._gapMeta) {
-    game._gapMeta.set(gapId, { perfected: false });
+    game._gapMeta.set(gapId, { perfected: false, broken: false, pipesRemaining: pipeCount });
   }
 }
 

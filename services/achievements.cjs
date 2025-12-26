@@ -213,6 +213,30 @@ const ACHIEVEMENTS = Object.freeze([
     requirement: { totalOrbs: 2_000 },
     progressKey: "totalOrbsCollected",
     reward: "Cosmetics coming soon"
+  },
+  {
+    id: "pipes_broken_explosion_10",
+    title: "Pipe Shatterburst",
+    description: "Break 10 pipes in a single explosion.",
+    requirement: { minBrokenPipesInExplosion: 10 },
+    progressKey: "maxBrokenPipesInExplosion",
+    reward: "Cosmetics coming soon"
+  },
+  {
+    id: "pipes_broken_run_100",
+    title: "Shatterstorm Run",
+    description: "Break 100 pipes in one run.",
+    requirement: { minBrokenPipesInRun: 100 },
+    progressKey: "maxBrokenPipesInRun",
+    reward: "Cosmetics coming soon"
+  },
+  {
+    id: "pipes_broken_total_1000",
+    title: "Pipe Purger",
+    description: "Break 1,000 pipes total across all runs.",
+    requirement: { totalBrokenPipes: 1_000 },
+    progressKey: "totalBrokenPipes",
+    reward: "Cosmetics coming soon"
   }
 ]);
 
@@ -225,6 +249,9 @@ const DEFAULT_PROGRESS = Object.freeze({
   maxOrbsInRun: 0,
   totalOrbsCollected: 0,
   totalScore: 0,
+  maxBrokenPipesInExplosion: 0,
+  maxBrokenPipesInRun: 0,
+  totalBrokenPipes: 0,
   skillTotals: DEFAULT_SKILL_TOTALS
 });
 
@@ -275,13 +302,25 @@ function parseNonNegativeInt(v) {
 
 function validateRunStats(raw) {
   if (raw === null || raw === undefined) {
-    return { ok: true, stats: { orbsCollected: null, abilitiesUsed: null, perfects: null, skillUsage: null } };
+    return {
+      ok: true,
+      stats: {
+        orbsCollected: null,
+        abilitiesUsed: null,
+        perfects: null,
+        brokenPipes: null,
+        maxBrokenPipesInExplosion: null,
+        skillUsage: null
+      }
+    };
   }
   if (typeof raw !== "object") return { ok: false, error: "invalid_run_stats" };
 
   const orbs = parseNonNegativeInt(raw.orbsCollected);
   const abilities = parseNonNegativeInt(raw.abilitiesUsed);
   const perfects = parseNonNegativeInt(raw.perfects);
+  const brokenPipes = parseNonNegativeInt(raw.brokenPipes);
+  const maxBrokenPipesInExplosion = parseNonNegativeInt(raw.maxBrokenPipesInExplosion);
   const skills =
     raw.skillUsage === undefined || raw.skillUsage === null
       ? null
@@ -296,6 +335,12 @@ function validateRunStats(raw) {
   if (raw.perfects !== undefined && raw.perfects !== null && perfects === null) {
     return { ok: false, error: "invalid_run_stats" };
   }
+  if (raw.brokenPipes !== undefined && raw.brokenPipes !== null && brokenPipes === null) {
+    return { ok: false, error: "invalid_run_stats" };
+  }
+  if (raw.maxBrokenPipesInExplosion !== undefined && raw.maxBrokenPipesInExplosion !== null && maxBrokenPipesInExplosion === null) {
+    return { ok: false, error: "invalid_run_stats" };
+  }
   if (raw.skillUsage !== undefined && raw.skillUsage !== null && !skills) {
     return { ok: false, error: "invalid_run_stats" };
   }
@@ -306,6 +351,8 @@ function validateRunStats(raw) {
       orbsCollected: orbs,
       abilitiesUsed: abilities,
       perfects,
+      brokenPipes,
+      maxBrokenPipesInExplosion,
       skillUsage: skills
     }
   };
@@ -319,13 +366,15 @@ function evaluateRunForAchievements({ previous, runStats, score, totalScore, bes
   const baseBestScore = clampScoreProgress(
     Math.max(previous?.progress?.bestScore ?? 0, bestScore ?? 0)
   );
-  const { orbsCollected, abilitiesUsed, perfects, skillUsage } = runStats || {};
+  const { orbsCollected, abilitiesUsed, perfects, brokenPipes, maxBrokenPipesInExplosion, skillUsage } = runStats || {};
   const hasOrbs = orbsCollected !== null && orbsCollected !== undefined;
   const hasAbilities = abilitiesUsed !== null && abilitiesUsed !== undefined;
   const hasPerfects = perfects !== null && perfects !== undefined;
   const safeOrbs = clampScoreProgress(orbsCollected ?? 0);
   const safeAbilities = hasAbilities ? abilitiesUsed : null;
   const safePerfects = clampScoreProgress(perfects ?? 0);
+  const safeBrokenPipes = clampScoreProgress(brokenPipes ?? 0);
+  const safeBrokenExplosion = clampScoreProgress(maxBrokenPipesInExplosion ?? 0);
   const baseTotalScore = totalScore === undefined ? state.progress.totalScore : clampScoreProgress(totalScore);
   const safeSkillTotals = skillUsage ? normalizeSkillTotals(skillUsage) : null;
 
@@ -339,6 +388,13 @@ function evaluateRunForAchievements({ previous, runStats, score, totalScore, bes
   if (hasPerfects) {
     state.progress.totalPerfects = clampScoreProgress(state.progress.totalPerfects + safePerfects);
     state.progress.maxPerfectsInRun = Math.max(state.progress.maxPerfectsInRun, safePerfects);
+  }
+  if (brokenPipes !== null && brokenPipes !== undefined) {
+    state.progress.totalBrokenPipes = clampScoreProgress(state.progress.totalBrokenPipes + safeBrokenPipes);
+    state.progress.maxBrokenPipesInRun = Math.max(state.progress.maxBrokenPipesInRun, safeBrokenPipes);
+  }
+  if (maxBrokenPipesInExplosion !== null && maxBrokenPipesInExplosion !== undefined) {
+    state.progress.maxBrokenPipesInExplosion = Math.max(state.progress.maxBrokenPipesInExplosion, safeBrokenExplosion);
   }
 
   if (safeOrbs === 0 && hasOrbs) {
@@ -386,12 +442,36 @@ function evaluateRunForAchievements({ previous, runStats, score, totalScore, bes
       def.requirement?.minPerfects === undefined
         ? true
         : hasPerfects && safePerfects >= def.requirement.minPerfects;
+    const minBrokenExplosionOk =
+      def.requirement?.minBrokenPipesInExplosion === undefined
+        ? true
+        : maxBrokenPipesInExplosion !== null && safeBrokenExplosion >= def.requirement.minBrokenPipesInExplosion;
+    const minBrokenRunOk =
+      def.requirement?.minBrokenPipesInRun === undefined
+        ? true
+        : brokenPipes !== null && safeBrokenPipes >= def.requirement.minBrokenPipesInRun;
+    const totalBrokenOk =
+      def.requirement?.totalBrokenPipes === undefined
+        ? true
+        : state.progress.totalBrokenPipes >= def.requirement.totalBrokenPipes;
     const totalScoreOk =
       def.requirement?.totalScore === undefined
         ? true
         : state.progress.totalScore >= def.requirement.totalScore;
 
-    if (meetsScore && orbsOk && abilitiesOk && totalOrbsOk && minOrbsOk && totalPerfectsOk && minPerfectsOk && totalScoreOk) {
+    if (
+      meetsScore &&
+      orbsOk &&
+      abilitiesOk &&
+      totalOrbsOk &&
+      minOrbsOk &&
+      totalPerfectsOk &&
+      minPerfectsOk &&
+      minBrokenExplosionOk &&
+      minBrokenRunOk &&
+      totalBrokenOk &&
+      totalScoreOk
+    ) {
       state.unlocked[def.id] = now;
       unlocked.push(def.id);
     }

@@ -214,6 +214,30 @@ export const ACHIEVEMENTS = Object.freeze([
     requirement: { totalOrbs: 2_000 },
     progressKey: "totalOrbsCollected",
     reward: "Cosmetics coming soon"
+  },
+  {
+    id: "pipes_broken_explosion_10",
+    title: "Pipe Shatterburst",
+    description: "Break 10 pipes in a single explosion.",
+    requirement: { minBrokenPipesInExplosion: 10 },
+    progressKey: "maxBrokenPipesInExplosion",
+    reward: "Cosmetics coming soon"
+  },
+  {
+    id: "pipes_broken_run_100",
+    title: "Shatterstorm Run",
+    description: "Break 100 pipes in one run.",
+    requirement: { minBrokenPipesInRun: 100 },
+    progressKey: "maxBrokenPipesInRun",
+    reward: "Cosmetics coming soon"
+  },
+  {
+    id: "pipes_broken_total_1000",
+    title: "Pipe Purger",
+    description: "Break 1,000 pipes total across all runs.",
+    requirement: { totalBrokenPipes: 1_000 },
+    progressKey: "totalBrokenPipes",
+    reward: "Cosmetics coming soon"
   }
 ]);
 
@@ -227,7 +251,10 @@ const DEFAULT_STATE = Object.freeze({
     totalPerfects: 0,
     maxOrbsInRun: 0,
     totalOrbsCollected: 0,
-    totalScore: 0
+    totalScore: 0,
+    maxBrokenPipesInExplosion: 0,
+    maxBrokenPipesInRun: 0,
+    totalBrokenPipes: 0
   })
 });
 
@@ -281,7 +308,16 @@ function progressFor(def, state) {
   const key = def?.progressKey;
   const best = key ? (state.progress?.[key] || 0) : 0;
   const target =
-    req.minScore ?? req.totalScore ?? req.minPerfects ?? req.totalPerfects ?? req.minOrbs ?? req.totalOrbs ?? 0;
+    req.minScore ??
+    req.totalScore ??
+    req.minPerfects ??
+    req.totalPerfects ??
+    req.minOrbs ??
+    req.totalOrbs ??
+    req.minBrokenPipesInExplosion ??
+    req.minBrokenPipesInRun ??
+    req.totalBrokenPipes ??
+    0;
   const pct = target > 0 ? clamp(best / target, 0, 1) : 1;
   return { best, pct, target };
 }
@@ -302,6 +338,15 @@ function describeRequirement(def) {
   if (req.totalPerfects !== undefined) return `Clear ${req.totalPerfects} perfect gap${req.totalPerfects === 1 ? "" : "s"} total`;
   if (req.minOrbs !== undefined) return `Collect ${req.minOrbs} orb${req.minOrbs === 1 ? "" : "s"} in one run`;
   if (req.totalOrbs !== undefined) return `Collect ${req.totalOrbs} orb${req.totalOrbs === 1 ? "" : "s"} total`;
+  if (req.minBrokenPipesInExplosion !== undefined) {
+    return `Break ${req.minBrokenPipesInExplosion} pipe${req.minBrokenPipesInExplosion === 1 ? "" : "s"} in one explosion`;
+  }
+  if (req.minBrokenPipesInRun !== undefined) {
+    return `Break ${req.minBrokenPipesInRun} pipe${req.minBrokenPipesInRun === 1 ? "" : "s"} in one run`;
+  }
+  if (req.totalBrokenPipes !== undefined) {
+    return `Break ${req.totalBrokenPipes} pipe${req.totalBrokenPipes === 1 ? "" : "s"} total`;
+  }
   return "Unlock with a special challenge";
 }
 

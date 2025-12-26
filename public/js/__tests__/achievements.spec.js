@@ -41,7 +41,10 @@ describe("achievements helpers", () => {
         totalPerfects: "55",
         maxOrbsInRun: 77.7,
         totalOrbsCollected: 1999.8,
-        totalScore: 10_000.5
+        totalScore: 10_000.5,
+        maxBrokenPipesInExplosion: 12.9,
+        maxBrokenPipesInRun: -4,
+        totalBrokenPipes: 501.2
       }
     });
     expect(normalized.unlocked).toEqual({ no_orbs_100: 2000 });
@@ -53,7 +56,10 @@ describe("achievements helpers", () => {
       totalPerfects: 55,
       maxOrbsInRun: 77,
       totalOrbsCollected: 1999,
-      totalScore: 10_000
+      totalScore: 10_000,
+      maxBrokenPipesInExplosion: 12,
+      maxBrokenPipesInRun: 0,
+      totalBrokenPipes: 501
     });
   });
 
@@ -69,7 +75,10 @@ describe("achievements helpers", () => {
           totalPerfects: 80,
           maxOrbsInRun: 10,
           totalOrbsCollected: 1500,
-          totalScore: 8000
+          totalScore: 8000,
+          maxBrokenPipesInExplosion: 0,
+          maxBrokenPipesInRun: 0,
+          totalBrokenPipes: 0
         }
       }
     });

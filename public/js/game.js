@@ -7,7 +7,7 @@ import {
   hexToRgb, lerpC, rgb, shade, hsla
 } from "./util.js";
 import { ACTIONS, humanizeBind } from "./keybinds.js";
-import { resolveGapPerfect } from "./perfectGaps.js";
+import { resolveGapPerfect, resolvePerfectGapAlignment } from "./perfectGaps.js";
 
 // NEW: orb pickup SFX (pitch shifts by combo)
 import {
@@ -107,7 +107,7 @@ export class Game {
     this.perfectMax = 0;
     this.perfectCombo = 0;
 
-    this._gapMeta = new Map(); // gapId -> { perfected }
+    this._gapMeta = new Map(); // gapId -> { perfected, broken, pipesRemaining }
     this._nextGapId = 1;
 
     this.lastDashReflect = null;
@@ -167,6 +167,8 @@ export class Game {
       abilitiesUsed: toInt(this.runStats?.abilitiesUsed),
       perfects: toInt(this.runStats?.perfects),
       pipesDodged: toInt(this.runStats?.pipesDodged),
+      brokenPipes: toInt(this.runStats?.brokenPipes),
+      maxBrokenPipesInExplosion: toInt(this.runStats?.maxBrokenPipesInExplosion),
       totalScore: toInt(this.score),
       skillUsage: skills,
       scoreBreakdown: {
@@ -184,6 +186,8 @@ export class Game {
       abilitiesUsed: 0,
       perfects: 0,
       pipesDodged: 0,
+      brokenPipes: 0,
+      maxBrokenPipesInExplosion: 0,
       skillUsage: {
         dash: 0,
         phase: 0,
@@ -227,6 +231,18 @@ export class Game {
   _recordPipeScore(points) {
     this.runStats.pipesDodged = (this.runStats.pipesDodged || 0) + 1;
     this._addScore(points, { bucket: "pipes", count: 1 });
+  }
+
+  _recordBrokenPipe(count = 1) {
+    const safe = Math.max(0, Math.floor(Number(count) || 0));
+    if (safe <= 0) return;
+    this.runStats.brokenPipes = (this.runStats.brokenPipes || 0) + safe;
+  }
+
+  _recordBrokenExplosion(count = 0) {
+    const safe = Math.max(0, Math.floor(Number(count) || 0));
+    if (safe <= 0) return;
+    this.runStats.maxBrokenPipesInExplosion = Math.max(this.runStats.maxBrokenPipesInExplosion || 0, safe);
   }
 
   // NEW: orb pickup sound, pitched by combo
@@ -346,6 +362,8 @@ export class Game {
     this.perfectT = 0;
     this.perfectMax = 0;
     this.perfectCombo = 0;
+    this.perfectAuraIntensity = 0;
+    this.perfectAuraMode = null;
 
     this._gapMeta.clear();
     this._nextGapId = 1;
@@ -581,14 +599,32 @@ export class Game {
   }
 
   _onGapPipeRemoved(pipe) {
+    return this._onGapPipeRemovedWithFlags(pipe);
+  }
+
+  _onGapPipeRemovedWithFlags(pipe, { broken = false } = {}) {
     if (!this._gapMeta) return;
     const gid = pipe?.gapId;
     if (!gid) return;
     const meta = this._gapMeta.get(gid);
     if (!meta) return;
 
+    if (broken) meta.broken = true;
+    meta.pipesRemaining = Math.max(0, (meta.pipesRemaining ?? 0) - 1);
+    if (meta.broken) return;
+    if (meta.pipesRemaining > 0) return;
     this._gapMeta.delete(gid);
     if (!meta.perfected) this._resetPerfectCombo();
+  }
+
+  _onGapGateRemoved(gate) {
+    if (!this._gapMeta) return;
+    const gid = gate?.gapId;
+    if (!gid) return;
+    const meta = this._gapMeta.get(gid);
+    if (!meta) return;
+    this._gapMeta.delete(gid);
+    if (!meta.perfected && !meta.broken) this._resetPerfectCombo();
   }
 
   _tickCooldowns(dt) {
@@ -723,10 +759,12 @@ export class Game {
   }
 
   _shatterPipe(pipe, { hit, particles = 30, cause = "dashDestroy" } = {}) {
-    if (!pipe) return;
+    if (!pipe) return false;
     const idx = this.pipes.indexOf(pipe);
     if (idx >= 0) this.pipes.splice(idx, 1);
-    this._onGapPipeRemoved(pipe);
+    if (idx < 0) return false;
+    this._onGapPipeRemovedWithFlags(pipe, { broken: true });
+    this._recordBrokenPipe(1);
 
     const cx = (hit?.contactX != null) ? hit.contactX : (pipe.cx ? pipe.cx() : pipe.x + pipe.w * 0.5);
     const cy = (hit?.contactY != null) ? hit.contactY : (pipe.cy ? pipe.cy() : pipe.y + pipe.h * 0.5);
@@ -752,6 +790,7 @@ export class Game {
     }
 
     this.lastPipeShatter = { t: this.timeAlive, x: cx, y: cy, cause };
+    return true;
   }
 
   _applyDashDestroy(hit, dashCfg) {
@@ -810,12 +849,14 @@ export class Game {
   }
 
   _destroyPipesInRadius({ x, y, r, cause = "slowExplosion" }) {
+    let brokenCount = 0;
     for (let i = this.pipes.length - 1; i >= 0; i--) {
       const pipe = this.pipes[i];
       if (this._pipeOverlapsCircle(pipe, { x, y, r })) {
-        this._shatterPipe(pipe, { particles: 24, cause });
+        if (this._shatterPipe(pipe, { particles: 24, cause })) brokenCount += 1;
       }
     }
+    this._recordBrokenExplosion(brokenCount);
   }
 
   _handlePipeCollision(hit, bounceCap, dashCfg) {
@@ -1396,12 +1437,37 @@ export class Game {
       const bonus = Math.max(0, Number(this.cfg.scoring.perfect.bonus) || 0);
       const wS = clamp(Number(this.cfg.scoring.perfect.windowScale) || 0.075, 0, 1);
       const flashDuration = Number(this.cfg.scoring.perfect.flashDuration) || 0.55;
+      const auraRangeScale = clamp(Number(this.cfg.scoring.perfect.auraRangeScale) || 0.6, 0.1, 2);
+      const auraMinIntensity = clamp(Number(this.cfg.scoring.perfect.auraMinIntensity) || 0.05, 0, 1);
+      const auraRange = Math.max(40, Math.min(this.W, this.H) * auraRangeScale);
+
+      let auraIntensity = 0;
+      let auraAligned = 0;
 
       for (const g of this.gates) {
         if (g.perfected) continue;
+        const meta = g.gapId && this._gapMeta ? this._gapMeta.get(g.gapId) : null;
+        if (meta?.broken) continue;
+
         const pAxis = (g.axis === "x") ? this.player.x : this.player.y;
         const perpPrev = (g.axis === "x") ? prevPlayerY : prevPlayerX;
         const perpCurr = (g.axis === "x") ? this.player.y : this.player.x;
+
+        if (g.entered) {
+          const alignment = resolvePerfectGapAlignment({
+            gate: g,
+            perpAxis: perpCurr,
+            windowScale: wS
+          });
+          if (alignment.aligned) {
+            const axisDistance = Math.abs(g.pos - pAxis);
+            const intensity = clamp(1 - (axisDistance / Math.max(1, auraRange)), 0, 1);
+            if (intensity > auraMinIntensity) {
+              auraAligned += 1;
+              auraIntensity = Math.max(auraIntensity, intensity);
+            }
+          }
+        }
 
         const res = resolveGapPerfect({
           gate: g,
@@ -1428,6 +1494,12 @@ export class Game {
           }
         }
       }
+
+      this.perfectAuraIntensity = auraIntensity;
+      this.perfectAuraMode = auraAligned >= 2 ? "rainbow" : auraAligned === 1 ? "gold" : null;
+    } else {
+      this.perfectAuraIntensity = 0;
+      this.perfectAuraMode = null;
     }
 
     // update pipes
@@ -1509,7 +1581,13 @@ export class Game {
         this.pipes.splice(i, 1);
       }
     }
-    for (let i = this.gates.length - 1; i >= 0; i--) if (this.gates[i].off(this.W, this.H, m)) this.gates.splice(i, 1);
+    for (let i = this.gates.length - 1; i >= 0; i--) {
+      if (this.gates[i].off(this.W, this.H, m)) {
+        const gate = this.gates[i];
+        this._onGapGateRemoved(gate);
+        this.gates.splice(i, 1);
+      }
+    }
 
     // fx update/cleanup
     for (const p of this.parts) p.update(dt);
@@ -1658,6 +1736,36 @@ _drawOrb(o) {
     ctx.save();
     ctx.shadowBlur = 18;
     ctx.shadowColor = (p.invT > 0) ? "rgba(160,220,255,.35)" : "rgba(120,210,255,.22)";
+
+    const auraIntensity = clamp(this.perfectAuraIntensity || 0, 0, 1);
+    const auraMode = this.perfectAuraMode;
+    if (auraIntensity > 0 && auraMode) {
+      const outer = p.r * (1.6 + auraIntensity * 1.0);
+      const inner = Math.max(p.r * 0.6, outer * 0.35);
+      ctx.save();
+      ctx.globalAlpha = clamp(0.25 + auraIntensity * 0.65, 0, 1);
+      ctx.globalCompositeOperation = "lighter";
+      if (auraMode === "rainbow") {
+        const grad = ctx.createRadialGradient(p.x, p.y, inner, p.x, p.y, outer);
+        grad.addColorStop(0, "rgba(255,255,255,.95)");
+        grad.addColorStop(0.25, "rgba(120,220,255,.9)");
+        grad.addColorStop(0.45, "rgba(160,255,170,.9)");
+        grad.addColorStop(0.65, "rgba(255,220,120,.9)");
+        grad.addColorStop(0.85, "rgba(255,140,240,.9)");
+        grad.addColorStop(1, "rgba(255,255,255,.0)");
+        ctx.fillStyle = grad;
+        ctx.shadowColor = "rgba(255,255,255,.65)";
+        ctx.shadowBlur = 20 + auraIntensity * 18;
+      } else {
+        ctx.fillStyle = `rgba(255,215,140,${0.28 + auraIntensity * 0.6})`;
+        ctx.shadowColor = "rgba(255,215,140,.75)";
+        ctx.shadowBlur = 20 + auraIntensity * 16;
+      }
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, outer, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+    }
 
     const iw = this.playerImg?.naturalWidth || this.playerImg?.width || 0;
     const ih = this.playerImg?.naturalHeight || this.playerImg?.height || 0;

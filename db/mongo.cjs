@@ -19,6 +19,9 @@ const DEFAULT_ACHIEVEMENTS_STATE = Object.freeze({
     maxOrbsInRun: 0,
     totalOrbsCollected: 0,
     totalScore: 0,
+    maxBrokenPipesInExplosion: 0,
+    maxBrokenPipesInRun: 0,
+    totalBrokenPipes: 0,
     skillTotals: DEFAULT_SKILL_TOTALS
   })
 });
