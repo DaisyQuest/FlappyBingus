@@ -272,9 +272,9 @@ function applyStatsLabels(labels) {
   if (overStatsToggle) overStatsToggle.textContent = labels.toggle;
 }
 
-function updateGameOverStats({ view = currentStatsView, runStats = lastRunStats, achievementsState } = {}) {
+function updateGameOverStats({ view = currentStatsView, runStats = lastRunStats, achievementsState, skillTotals = net.user?.skillTotals } = {}) {
   if (!overOrbCombo || !overPerfectCombo || !skillUsageStats) return;
-  const resolved = buildGameOverStats({ view, runStats, achievementsState });
+  const resolved = buildGameOverStats({ view, runStats, achievementsState, skillTotals });
   currentStatsView = resolved.view;
   overOrbCombo.textContent = String(resolved.combo.orb);
   overPerfectCombo.textContent = String(resolved.combo.perfect);
@@ -1160,7 +1160,7 @@ function applyAchievementsPayload(payload) {
   if (net.user) net.user.achievements = state;
   renderAchievements({ definitions, state });
   notifyAchievements(payload.unlocked);
-  updateGameOverStats({ achievementsState: state });
+  updateGameOverStats({ achievementsState: state, skillTotals: net.user?.skillTotals });
 }
 
 function notifyAchievements(unlockedIds = []) {
@@ -1942,7 +1942,7 @@ bindSkillOptionGroup(slowFieldBehaviorOptions, (value) => {
 
 overStatsToggle?.addEventListener("click", () => {
   const nextView = currentStatsView === GAME_OVER_STAT_VIEWS.lifetime ? GAME_OVER_STAT_VIEWS.run : GAME_OVER_STAT_VIEWS.lifetime;
-  updateGameOverStats({ view: nextView, runStats: lastRunStats, achievementsState: net.user?.achievements });
+  updateGameOverStats({ view: nextView, runStats: lastRunStats, achievementsState: net.user?.achievements, skillTotals: net.user?.skillTotals });
 });
 
 // ---- Menu/game over buttons ----
@@ -2137,7 +2137,7 @@ async function onGameOver(finalScore) {
   currentStatsView = GAME_OVER_STAT_VIEWS.run;
   renderScoreBreakdown(scoreBreakdown, runStats, finalScore);
   updatePersonalBestUI(finalScore, net.user?.bestScore);
-  updateGameOverStats({ view: currentStatsView, runStats, achievementsState: net.user?.achievements });
+  updateGameOverStats({ view: currentStatsView, runStats, achievementsState: net.user?.achievements, skillTotals: net.user?.skillTotals });
 
   over.classList.remove("hidden");
 
@@ -2170,7 +2170,7 @@ async function onGameOver(finalScore) {
       renderAchievements();
 
       updatePersonalBestUI(finalScore, net.user.bestScore);
-      updateGameOverStats({ runStats, achievementsState: net.user.achievements });
+      updateGameOverStats({ runStats, achievementsState: net.user.achievements, skillTotals: net.user?.skillTotals });
     } else {
       if (optimistic.applied && net.user?.bustercoins !== undefined) {
         // Preserve optimistic balance locally so the menu reflects the run's pickups even if the
@@ -2184,7 +2184,7 @@ async function onGameOver(finalScore) {
 
       // Keep PB display meaningful even if the submission failed.
       updatePersonalBestUI(finalScore, net.user?.bestScore);
-      updateGameOverStats({ runStats, achievementsState: net.user?.achievements });
+      updateGameOverStats({ runStats, achievementsState: net.user?.achievements, skillTotals: net.user?.skillTotals });
     }
   }
 

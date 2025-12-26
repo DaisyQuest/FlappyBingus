@@ -27,6 +27,17 @@ function clampCount(value) {
   return Math.floor(n);
 }
 
+function normalizeSkillTotals(skillTotals) {
+  if (!skillTotals || typeof skillTotals !== "object") return null;
+  const entries = Object.entries(skillTotals);
+  if (!entries.length) return null;
+  const normalized = {};
+  for (const [key, value] of entries) {
+    normalized[key] = clampCount(value);
+  }
+  return normalized;
+}
+
 function normalizeRunStats(runStats = null) {
   return {
     maxOrbCombo: clampCount(runStats?.maxOrbCombo),
@@ -35,23 +46,24 @@ function normalizeRunStats(runStats = null) {
   };
 }
 
-function normalizeLifetimeStats(achievementsState = null) {
-  const rawTotals = achievementsState?.progress?.skillTotals;
+function normalizeLifetimeStats(achievementsState = null, skillTotals = null) {
   const state = normalizeAchievementState(achievementsState);
   const progress = state.progress || {};
+  const rawTotals = normalizeSkillTotals(skillTotals)
+    || normalizeSkillTotals(achievementsState?.progress?.skillTotals)
+    || normalizeSkillTotals(achievementsState?.skillTotals)
+    || normalizeSkillTotals(progress.skillTotals);
   return {
     maxOrbCombo: clampCount(progress.maxOrbComboInRun),
     maxPerfectCombo: clampCount(progress.maxPerfectComboInRun),
-    skillUsage: rawTotals && typeof rawTotals === "object"
-      ? rawTotals
-      : (progress.skillTotals && typeof progress.skillTotals === "object" ? progress.skillTotals : null)
+    skillUsage: rawTotals
   };
 }
 
-export function buildGameOverStats({ view, runStats, achievementsState } = {}) {
+export function buildGameOverStats({ view, runStats, achievementsState, skillTotals } = {}) {
   const normalizedView = view === GAME_OVER_STAT_VIEWS.lifetime ? GAME_OVER_STAT_VIEWS.lifetime : GAME_OVER_STAT_VIEWS.run;
   const run = normalizeRunStats(runStats);
-  const lifetime = normalizeLifetimeStats(achievementsState);
+  const lifetime = normalizeLifetimeStats(achievementsState, skillTotals);
   const source = normalizedView === GAME_OVER_STAT_VIEWS.lifetime ? lifetime : run;
   const labels = normalizedView === GAME_OVER_STAT_VIEWS.lifetime ? LIFETIME_LABELS : RUN_LABELS;
   return {
