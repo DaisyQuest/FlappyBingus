@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { JSDOM } from "jsdom";
-import { createPlayerIconSprite } from "../playerIconSprites.js";
+import { __testables, createPlayerIconSprite } from "../playerIconSprites.js";
 
 describe("player icon sprites", () => {
   let cleanup;
@@ -249,5 +249,89 @@ describe("player icon sprites", () => {
       global.requestAnimationFrame = prevRaf;
       global.cancelAnimationFrame = prevCaf;
     }
+  });
+
+  it("renders cape flow icons with ember streaks that flow downward", () => {
+    const operations = [];
+    const gradients = [];
+    const ctx = {
+      _lineWidth: 1,
+      save: () => operations.push({ type: "save" }),
+      restore: () => operations.push({ type: "restore" }),
+      translate: (x, y) => operations.push({ type: "translate", x, y }),
+      beginPath: () => operations.push({ type: "beginPath" }),
+      arc: () => operations.push({ type: "arc" }),
+      clip: () => operations.push({ type: "clip" }),
+      fill: () =>
+        operations.push({
+          type: "fill",
+          fillStyle: ctx.fillStyle,
+          globalAlpha: ctx.globalAlpha
+        }),
+      stroke: () => operations.push({ type: "stroke" }),
+      clearRect: () => operations.push({ type: "clearRect" }),
+      lineTo: () => {},
+      moveTo: () => {},
+      set lineWidth(v) { this._lineWidth = v; },
+      get lineWidth() { return this._lineWidth; },
+      set strokeStyle(v) { this._strokeStyle = v; },
+      get strokeStyle() { return this._strokeStyle; },
+      set fillStyle(v) { this._fillStyle = v; },
+      get fillStyle() { return this._fillStyle; },
+      set shadowColor(v) { this._shadowColor = v; },
+      set shadowBlur(v) { this._shadowBlur = v; },
+      set lineCap(v) { this._lineCap = v; },
+      set globalAlpha(v) { this._globalAlpha = v; },
+      get globalAlpha() { return this._globalAlpha ?? 1; },
+      createLinearGradient: () => {
+        const grad = { stops: [], addColorStop(pos, color) { this.stops.push({ pos, color }); } };
+        gradients.push(grad);
+        return grad;
+      }
+    };
+    const canvas = {
+      width: 90,
+      height: 90,
+      naturalWidth: 90,
+      naturalHeight: 90,
+      complete: true,
+      getContext: () => ctx
+    };
+    const prevDocument = global.document;
+    global.document = { createElement: (tag) => (tag === "canvas" ? canvas : {}) };
+
+    try {
+      const sprite = createPlayerIconSprite({
+        style: {
+          fill: "#2f0a0a",
+          core: "#ffb14b",
+          animation: { type: "cape_flow", speed: 0.4, bands: 5, embers: 1 }
+        }
+      }, { size: 90 });
+
+      expect(sprite.width).toBe(90);
+      expect(gradients.length).toBeGreaterThan(0);
+      expect(operations.some((op) => op.type === "clip")).toBe(true);
+      const fills = operations.filter((op) => op.type === "fill");
+      expect(fills.length).toBeGreaterThan(1);
+      expect(fills[0].fillStyle).toBe(gradients[0]);
+    } finally {
+      global.document = prevDocument;
+    }
+  });
+
+  it("builds cape flow gradients with multiple color bands", () => {
+    const gradients = [];
+    const ctx = {
+      createLinearGradient: () => {
+        const grad = { stops: [], addColorStop(pos, color) { this.stops.push({ pos, color }); } };
+        gradients.push(grad);
+        return grad;
+      }
+    };
+
+    const grad = __testables.createCapeFlowGradient(ctx, 40, { bands: 6 }, 0.25);
+    expect(grad).toBe(gradients[0]);
+    expect(gradients[0].stops.length).toBeGreaterThan(4);
   });
 });
