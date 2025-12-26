@@ -59,7 +59,7 @@ describe("trailStyles", () => {
 
     const ocean = trailStyleFor("ocean");
     const oceanColor = ocean.color({ rand: () => 0, hue: 0, i: 0 });
-    expect(oceanColor).toContain("rgba(0,182,204");
+    expect(oceanColor).toContain("rgba(0,164,214");
     expect(ocean.glint.color({ rand: () => 0, hue: 0, i: 0 })).toContain("rgba");
 
     const worldRecord = trailStyleFor("world_record");
@@ -67,5 +67,20 @@ describe("trailStyles", () => {
     expect(blossom).toContain("hsla");
     const plasma = trailStyleFor("plasma");
     expect(plasma.color({ rand: () => 0.75, hue: 0, i: 3 })).toContain("rgba");
+  });
+
+  it("supports aura mixes and additive overrides for moody trails", () => {
+    const nebula = trailStyleFor("nebula");
+    expect(nebula.add).toBe(false);
+    expect(nebula.aura).toBeTruthy();
+    expect(nebula.aura.add).toBe(false);
+    expect(nebula.aura.color({ rand: () => 0.3, hue: 210, i: 1 })).toContain("hsla");
+
+    const gothic = trailStyleFor("gothic");
+    expect(gothic.add).toBe(false);
+    expect(gothic.glint.rate).toBeLessThan(30);
+
+    const storm = trailStyleFor("storm");
+    expect(storm.sparkle.add).toBe(false);
   });
 });
