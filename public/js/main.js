@@ -124,6 +124,8 @@ import {
 } from "./menuProfileBindings.js";
 import { buildAuthHints } from "./authHints.js";
 import { OFFLINE_STATUS_TEXT } from "./userStatusCopy.js";
+import { applyNetUserUpdate } from "./netUser.js";
+import { handleTrailSaveResponse } from "./trailSaveResponse.js";
 
 // ---- DOM ----
 const ui = buildGameUI();
@@ -622,10 +624,7 @@ function syncMenuProfileBindingsFromState({
 }
 
 function setNetUser(nextUser, { syncProfile = true } = {}) {
-  net.user = nextUser;
-  if (syncProfile) {
-    syncMenuProfileBindingsFromState();
-  }
+  applyNetUserUpdate({ net, syncMenuProfileBindingsFromState }, nextUser, { syncProfile });
 }
 
 function setUserHint() {
@@ -1513,33 +1512,27 @@ trailOptions?.addEventListener("click", async (e) => {
   if (!net.user) return;
 
   const res = await apiSetTrail(id);
-  if (!res || !res.ok) {
-    const authStatus = getAuthStatusFromResponse(res);
-    net.online = authStatus.online;
-    if (authStatus.unauthorized) {
-      setNetUser(null);
-    }
-    setUserHint();
-    const hint = buildTrailHint({
-      online: net.online,
-      user: net.user,
-      bestScore: net.user ? (net.user.bestScore | 0) : readLocalBest(),
-      trails: ordered,
-      achievements: net.user?.achievements || net.achievements?.state,
-      selectedTrail: currentTrailId
-    });
-    setTrailHint(hint);
-    return;
-  }
-
-  net.online = true;
-  setNetUser(res.user);
-  net.trails = normalizeTrails(res.trails || net.trails);
-  syncUnlockablesCatalog({ trails: net.trails });
-  syncIconCatalog(res.icons || net.icons);
-  syncPipeTextureCatalog(res.pipeTextures || net.pipeTextures);
-  refreshTrailMenu(res.user?.selectedTrail || id);
-  applyIconSelection(net.user?.selectedIcon || currentIconId, playerIcons);
+  handleTrailSaveResponse({
+    res,
+    net,
+    orderedTrails: ordered,
+    selectedTrailId: id,
+    currentTrailId,
+    currentIconId,
+    playerIcons,
+    setNetUser,
+    setUserHint,
+    setTrailHint,
+    buildTrailHint,
+    normalizeTrails,
+    syncUnlockablesCatalog,
+    syncIconCatalog,
+    syncPipeTextureCatalog,
+    refreshTrailMenu,
+    applyIconSelection,
+    readLocalBest,
+    getAuthStatusFromResponse
+  });
 });
 
 trailOptions?.addEventListener("mouseover", (e) => {

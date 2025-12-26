@@ -19,4 +19,9 @@ describe("authResponse", () => {
     expect(getAuthStatusFromResponse({ status: 500 })).toEqual({ online: false, unauthorized: false });
     expect(getAuthStatusFromResponse({ status: 503 })).toEqual({ online: false, unauthorized: false });
   });
+
+  it("handles missing status values as offline without unauthorized", () => {
+    expect(getAuthStatusFromResponse({})).toEqual({ online: false, unauthorized: false });
+    expect(getAuthStatusFromResponse({ status: undefined })).toEqual({ online: false, unauthorized: false });
+  });
 });
