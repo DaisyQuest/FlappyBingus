@@ -24,6 +24,7 @@ function prepGate({ axis = "x", prev = 40, pos = 60, v = 20, gapCenter = 120, ga
 describe("resolveGapPerfect", () => {
   it("awards perfects on both axes with leniency and updates combo/meta", () => {
     const gameX = makeGame();
+    gameX._recordPerfectCombo = vi.fn();
     const gateX = prepGate({ axis: "x", gapCenter: 150, gapHalf: 40, gapId: 11 });
     gameX._gapMeta.set(11, { perfected: false });
 
@@ -42,6 +43,7 @@ describe("resolveGapPerfect", () => {
     expect(resX.awarded).toBe(true);
     expect(gameX.score).toBe(10);
     expect(gameX.perfectCombo).toBe(1);
+    expect(gameX._recordPerfectCombo).toHaveBeenCalledWith(1);
     expect(gameX._gapMeta.get(11).perfected).toBe(true);
     expect(gameX.perfectT).toBeGreaterThan(0);
 

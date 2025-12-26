@@ -69,6 +69,9 @@ export function resolveGapPerfect({
 
   gate.perfected = true;
   game.perfectCombo = streak;
+  if (typeof game._recordPerfectCombo === "function") {
+    game._recordPerfectCombo(streak);
+  }
   const awardScore =
     typeof game?._recordPerfectScore === "function"
       ? (amount) => game._recordPerfectScore(amount)

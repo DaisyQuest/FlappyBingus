@@ -216,6 +216,54 @@ export const ACHIEVEMENTS = Object.freeze([
     reward: "Cosmetics coming soon"
   },
   {
+    id: "orb_combo_20",
+    title: "Orb Crescendo",
+    description: "Reach a 20-orb combo in a single run.",
+    requirement: { minOrbCombo: 20 },
+    progressKey: "maxOrbComboInRun",
+    reward: "Cosmetics coming soon"
+  },
+  {
+    id: "orb_combo_50",
+    title: "Orb Maestro",
+    description: "Reach a 50-orb combo in a single run.",
+    requirement: { minOrbCombo: 50 },
+    progressKey: "maxOrbComboInRun",
+    reward: "Cosmetics coming soon"
+  },
+  {
+    id: "perfect_combo_10",
+    title: "Perfect Rhythm",
+    description: "Chain a 10-gap perfect combo in one run.",
+    requirement: { minPerfectCombo: 10 },
+    progressKey: "maxPerfectComboInRun",
+    reward: "Cosmetics coming soon"
+  },
+  {
+    id: "pipes_dodged_run_500",
+    title: "Pipe Whisperer",
+    description: "Dodge 500 pipes in a single run.",
+    requirement: { minPipesDodged: 500 },
+    progressKey: "maxPipesDodgedInRun",
+    reward: "Cosmetics coming soon"
+  },
+  {
+    id: "pipes_dodged_run_1000",
+    title: "Pipe Marathoner",
+    description: "Dodge 1,000 pipes in a single run.",
+    requirement: { minPipesDodged: 1_000 },
+    progressKey: "maxPipesDodgedInRun",
+    reward: "Cosmetics coming soon"
+  },
+  {
+    id: "pipes_dodged_total_10000",
+    title: "Skyway Veteran",
+    description: "Dodge 10,000 pipes total across all runs.",
+    requirement: { totalPipesDodged: 10_000 },
+    progressKey: "totalPipesDodged",
+    reward: "Cosmetics coming soon"
+  },
+  {
     id: "pipes_broken_explosion_10",
     title: "Pipe Shatterburst",
     description: "Break 10 pipes in a single explosion.",
@@ -251,6 +299,10 @@ const DEFAULT_STATE = Object.freeze({
     totalPerfects: 0,
     maxOrbsInRun: 0,
     totalOrbsCollected: 0,
+    maxOrbComboInRun: 0,
+    maxPerfectComboInRun: 0,
+    maxPipesDodgedInRun: 0,
+    totalPipesDodged: 0,
     totalScore: 0,
     maxBrokenPipesInExplosion: 0,
     maxBrokenPipesInRun: 0,
@@ -268,6 +320,7 @@ const ACHIEVEMENT_CATEGORIES = Object.freeze({
   score: "score",
   perfects: "perfects",
   orbs: "orbs",
+  pipes: "pipes",
   other: "other"
 });
 
@@ -275,6 +328,7 @@ const ACHIEVEMENT_CATEGORY_LABELS = Object.freeze({
   [ACHIEVEMENT_CATEGORIES.score]: "Score",
   [ACHIEVEMENT_CATEGORIES.perfects]: "Perfect Gaps",
   [ACHIEVEMENT_CATEGORIES.orbs]: "Orb Collection",
+  [ACHIEVEMENT_CATEGORIES.pipes]: "Pipes",
   [ACHIEVEMENT_CATEGORIES.other]: "Special"
 });
 
@@ -314,6 +368,10 @@ function progressFor(def, state) {
     req.totalPerfects ??
     req.minOrbs ??
     req.totalOrbs ??
+    req.minOrbCombo ??
+    req.minPerfectCombo ??
+    req.minPipesDodged ??
+    req.totalPipesDodged ??
     req.minBrokenPipesInExplosion ??
     req.minBrokenPipesInRun ??
     req.totalBrokenPipes ??
@@ -325,7 +383,16 @@ function progressFor(def, state) {
 function classifyAchievement(def) {
   const req = def?.requirement || {};
   if (req.minPerfects !== undefined || req.totalPerfects !== undefined) return ACHIEVEMENT_CATEGORIES.perfects;
-  if (req.minOrbs !== undefined || req.totalOrbs !== undefined) return ACHIEVEMENT_CATEGORIES.orbs;
+  if (req.minOrbs !== undefined || req.totalOrbs !== undefined || req.minOrbCombo !== undefined) return ACHIEVEMENT_CATEGORIES.orbs;
+  if (
+    req.minPipesDodged !== undefined ||
+    req.totalPipesDodged !== undefined ||
+    req.minBrokenPipesInExplosion !== undefined ||
+    req.minBrokenPipesInRun !== undefined ||
+    req.totalBrokenPipes !== undefined
+  ) {
+    return ACHIEVEMENT_CATEGORIES.pipes;
+  }
   if (req.minScore !== undefined || req.totalScore !== undefined) return ACHIEVEMENT_CATEGORIES.score;
   return ACHIEVEMENT_CATEGORIES.other;
 }
@@ -338,6 +405,10 @@ function describeRequirement(def) {
   if (req.totalPerfects !== undefined) return `Clear ${req.totalPerfects} perfect gap${req.totalPerfects === 1 ? "" : "s"} total`;
   if (req.minOrbs !== undefined) return `Collect ${req.minOrbs} orb${req.minOrbs === 1 ? "" : "s"} in one run`;
   if (req.totalOrbs !== undefined) return `Collect ${req.totalOrbs} orb${req.totalOrbs === 1 ? "" : "s"} total`;
+  if (req.minOrbCombo !== undefined) return `Reach an orb combo of ${req.minOrbCombo} in one run`;
+  if (req.minPerfectCombo !== undefined) return `Reach a perfect gap combo of ${req.minPerfectCombo} in one run`;
+  if (req.minPipesDodged !== undefined) return `Dodge ${req.minPipesDodged} pipe${req.minPipesDodged === 1 ? "" : "s"} in one run`;
+  if (req.totalPipesDodged !== undefined) return `Dodge ${req.totalPipesDodged} pipe${req.totalPipesDodged === 1 ? "" : "s"} total`;
   if (req.minBrokenPipesInExplosion !== undefined) {
     return `Break ${req.minBrokenPipesInExplosion} pipe${req.minBrokenPipesInExplosion === 1 ? "" : "s"} in one explosion`;
   }

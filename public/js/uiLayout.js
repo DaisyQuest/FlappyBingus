@@ -997,7 +997,8 @@ function createAchievementsCard(doc, refs) {
   const filterChecks = [
     { id: "achievementsFilterScore", label: "Score" },
     { id: "achievementsFilterPerfects", label: "Perfect Gaps" },
-    { id: "achievementsFilterOrbs", label: "Orb Collection" }
+    { id: "achievementsFilterOrbs", label: "Orb Collection" },
+    { id: "achievementsFilterPipes", label: "Pipes" }
   ].map(({ id, label }) => {
     const wrap = createElement(doc, refs, "label", { className: "checkbox pill" });
     const input = createElement(doc, refs, "input", { id, attrs: { type: "checkbox", checked: true } });
@@ -1375,7 +1376,24 @@ function createOverScreen(doc, refs) {
     text: "New personal best!"
   });
   bestCard.append(bestLabel, bestValue, bestBadge);
-  summary.append(finalCard, bestCard);
+
+  const orbComboCard = doc.createElement("div");
+  orbComboCard.className = "over-stat-card";
+  const orbComboLabel = doc.createElement("div");
+  orbComboLabel.className = "over-stat-label";
+  orbComboLabel.textContent = "Best orb combo";
+  const orbComboValue = createElement(doc, refs, "span", { id: "overOrbCombo", className: "over-personal-best", text: "0" });
+  orbComboCard.append(orbComboLabel, orbComboValue);
+
+  const perfectComboCard = doc.createElement("div");
+  perfectComboCard.className = "over-stat-card";
+  const perfectComboLabel = doc.createElement("div");
+  perfectComboLabel.className = "over-stat-label";
+  perfectComboLabel.textContent = "Best perfect combo";
+  const perfectComboValue = createElement(doc, refs, "span", { id: "overPerfectCombo", className: "over-personal-best", text: "0" });
+  perfectComboCard.append(perfectComboLabel, perfectComboValue);
+
+  summary.append(finalCard, bestCard, orbComboCard, perfectComboCard);
 
   const pbStatus = createElement(doc, refs, "div", {
     id: "overPbStatus",

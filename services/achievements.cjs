@@ -215,6 +215,54 @@ const ACHIEVEMENTS = Object.freeze([
     reward: "Cosmetics coming soon"
   },
   {
+    id: "orb_combo_20",
+    title: "Orb Crescendo",
+    description: "Reach a 20-orb combo in a single run.",
+    requirement: { minOrbCombo: 20 },
+    progressKey: "maxOrbComboInRun",
+    reward: "Cosmetics coming soon"
+  },
+  {
+    id: "orb_combo_50",
+    title: "Orb Maestro",
+    description: "Reach a 50-orb combo in a single run.",
+    requirement: { minOrbCombo: 50 },
+    progressKey: "maxOrbComboInRun",
+    reward: "Cosmetics coming soon"
+  },
+  {
+    id: "perfect_combo_10",
+    title: "Perfect Rhythm",
+    description: "Chain a 10-gap perfect combo in one run.",
+    requirement: { minPerfectCombo: 10 },
+    progressKey: "maxPerfectComboInRun",
+    reward: "Cosmetics coming soon"
+  },
+  {
+    id: "pipes_dodged_run_500",
+    title: "Pipe Whisperer",
+    description: "Dodge 500 pipes in a single run.",
+    requirement: { minPipesDodged: 500 },
+    progressKey: "maxPipesDodgedInRun",
+    reward: "Cosmetics coming soon"
+  },
+  {
+    id: "pipes_dodged_run_1000",
+    title: "Pipe Marathoner",
+    description: "Dodge 1,000 pipes in a single run.",
+    requirement: { minPipesDodged: 1_000 },
+    progressKey: "maxPipesDodgedInRun",
+    reward: "Cosmetics coming soon"
+  },
+  {
+    id: "pipes_dodged_total_10000",
+    title: "Skyway Veteran",
+    description: "Dodge 10,000 pipes total across all runs.",
+    requirement: { totalPipesDodged: 10_000 },
+    progressKey: "totalPipesDodged",
+    reward: "Cosmetics coming soon"
+  },
+  {
     id: "pipes_broken_explosion_10",
     title: "Pipe Shatterburst",
     description: "Break 10 pipes in a single explosion.",
@@ -248,6 +296,10 @@ const DEFAULT_PROGRESS = Object.freeze({
   totalPerfects: 0,
   maxOrbsInRun: 0,
   totalOrbsCollected: 0,
+  maxOrbComboInRun: 0,
+  maxPerfectComboInRun: 0,
+  maxPipesDodgedInRun: 0,
+  totalPipesDodged: 0,
   totalScore: 0,
   maxBrokenPipesInExplosion: 0,
   maxBrokenPipesInRun: 0,
@@ -308,6 +360,9 @@ function validateRunStats(raw) {
         orbsCollected: null,
         abilitiesUsed: null,
         perfects: null,
+        pipesDodged: null,
+        maxOrbCombo: null,
+        maxPerfectCombo: null,
         brokenPipes: null,
         maxBrokenPipesInExplosion: null,
         skillUsage: null
@@ -319,6 +374,9 @@ function validateRunStats(raw) {
   const orbs = parseNonNegativeInt(raw.orbsCollected);
   const abilities = parseNonNegativeInt(raw.abilitiesUsed);
   const perfects = parseNonNegativeInt(raw.perfects);
+  const pipesDodged = parseNonNegativeInt(raw.pipesDodged);
+  const maxOrbCombo = parseNonNegativeInt(raw.maxOrbCombo);
+  const maxPerfectCombo = parseNonNegativeInt(raw.maxPerfectCombo);
   const brokenPipes = parseNonNegativeInt(raw.brokenPipes);
   const maxBrokenPipesInExplosion = parseNonNegativeInt(raw.maxBrokenPipesInExplosion);
   const skills =
@@ -333,6 +391,15 @@ function validateRunStats(raw) {
     return { ok: false, error: "invalid_run_stats" };
   }
   if (raw.perfects !== undefined && raw.perfects !== null && perfects === null) {
+    return { ok: false, error: "invalid_run_stats" };
+  }
+  if (raw.pipesDodged !== undefined && raw.pipesDodged !== null && pipesDodged === null) {
+    return { ok: false, error: "invalid_run_stats" };
+  }
+  if (raw.maxOrbCombo !== undefined && raw.maxOrbCombo !== null && maxOrbCombo === null) {
+    return { ok: false, error: "invalid_run_stats" };
+  }
+  if (raw.maxPerfectCombo !== undefined && raw.maxPerfectCombo !== null && maxPerfectCombo === null) {
     return { ok: false, error: "invalid_run_stats" };
   }
   if (raw.brokenPipes !== undefined && raw.brokenPipes !== null && brokenPipes === null) {
@@ -351,6 +418,9 @@ function validateRunStats(raw) {
       orbsCollected: orbs,
       abilitiesUsed: abilities,
       perfects,
+      pipesDodged,
+      maxOrbCombo,
+      maxPerfectCombo,
       brokenPipes,
       maxBrokenPipesInExplosion,
       skillUsage: skills
@@ -366,13 +436,29 @@ function evaluateRunForAchievements({ previous, runStats, score, totalScore, bes
   const baseBestScore = clampScoreProgress(
     Math.max(previous?.progress?.bestScore ?? 0, bestScore ?? 0)
   );
-  const { orbsCollected, abilitiesUsed, perfects, brokenPipes, maxBrokenPipesInExplosion, skillUsage } = runStats || {};
+  const {
+    orbsCollected,
+    abilitiesUsed,
+    perfects,
+    pipesDodged,
+    maxOrbCombo,
+    maxPerfectCombo,
+    brokenPipes,
+    maxBrokenPipesInExplosion,
+    skillUsage
+  } = runStats || {};
   const hasOrbs = orbsCollected !== null && orbsCollected !== undefined;
   const hasAbilities = abilitiesUsed !== null && abilitiesUsed !== undefined;
   const hasPerfects = perfects !== null && perfects !== undefined;
+  const hasPipesDodged = pipesDodged !== null && pipesDodged !== undefined;
+  const hasOrbCombo = maxOrbCombo !== null && maxOrbCombo !== undefined;
+  const hasPerfectCombo = maxPerfectCombo !== null && maxPerfectCombo !== undefined;
   const safeOrbs = clampScoreProgress(orbsCollected ?? 0);
   const safeAbilities = hasAbilities ? abilitiesUsed : null;
   const safePerfects = clampScoreProgress(perfects ?? 0);
+  const safePipesDodged = clampScoreProgress(pipesDodged ?? 0);
+  const safeOrbCombo = clampScoreProgress(maxOrbCombo ?? 0);
+  const safePerfectCombo = clampScoreProgress(maxPerfectCombo ?? 0);
   const safeBrokenPipes = clampScoreProgress(brokenPipes ?? 0);
   const safeBrokenExplosion = clampScoreProgress(maxBrokenPipesInExplosion ?? 0);
   const baseTotalScore = totalScore === undefined ? state.progress.totalScore : clampScoreProgress(totalScore);
@@ -388,6 +474,16 @@ function evaluateRunForAchievements({ previous, runStats, score, totalScore, bes
   if (hasPerfects) {
     state.progress.totalPerfects = clampScoreProgress(state.progress.totalPerfects + safePerfects);
     state.progress.maxPerfectsInRun = Math.max(state.progress.maxPerfectsInRun, safePerfects);
+  }
+  if (hasPipesDodged) {
+    state.progress.totalPipesDodged = clampScoreProgress(state.progress.totalPipesDodged + safePipesDodged);
+    state.progress.maxPipesDodgedInRun = Math.max(state.progress.maxPipesDodgedInRun, safePipesDodged);
+  }
+  if (hasOrbCombo) {
+    state.progress.maxOrbComboInRun = Math.max(state.progress.maxOrbComboInRun, safeOrbCombo);
+  }
+  if (hasPerfectCombo) {
+    state.progress.maxPerfectComboInRun = Math.max(state.progress.maxPerfectComboInRun, safePerfectCombo);
   }
   if (brokenPipes !== null && brokenPipes !== undefined) {
     state.progress.totalBrokenPipes = clampScoreProgress(state.progress.totalBrokenPipes + safeBrokenPipes);
@@ -442,6 +538,22 @@ function evaluateRunForAchievements({ previous, runStats, score, totalScore, bes
       def.requirement?.minPerfects === undefined
         ? true
         : hasPerfects && safePerfects >= def.requirement.minPerfects;
+    const minPipesDodgedOk =
+      def.requirement?.minPipesDodged === undefined
+        ? true
+        : hasPipesDodged && safePipesDodged >= def.requirement.minPipesDodged;
+    const totalPipesDodgedOk =
+      def.requirement?.totalPipesDodged === undefined
+        ? true
+        : state.progress.totalPipesDodged >= def.requirement.totalPipesDodged;
+    const minOrbComboOk =
+      def.requirement?.minOrbCombo === undefined
+        ? true
+        : hasOrbCombo && safeOrbCombo >= def.requirement.minOrbCombo;
+    const minPerfectComboOk =
+      def.requirement?.minPerfectCombo === undefined
+        ? true
+        : hasPerfectCombo && safePerfectCombo >= def.requirement.minPerfectCombo;
     const minBrokenExplosionOk =
       def.requirement?.minBrokenPipesInExplosion === undefined
         ? true
@@ -467,6 +579,10 @@ function evaluateRunForAchievements({ previous, runStats, score, totalScore, bes
       minOrbsOk &&
       totalPerfectsOk &&
       minPerfectsOk &&
+      minPipesDodgedOk &&
+      totalPipesDodgedOk &&
+      minOrbComboOk &&
+      minPerfectComboOk &&
       minBrokenExplosionOk &&
       minBrokenRunOk &&
       totalBrokenOk &&

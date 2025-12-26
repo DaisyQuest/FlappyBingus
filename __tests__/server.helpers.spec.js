@@ -91,6 +91,10 @@ describe("server helpers (trails)", () => {
       totalPerfects: 0,
       maxOrbsInRun: 0,
       totalOrbsCollected: 0,
+      maxOrbComboInRun: 0,
+      maxPerfectComboInRun: 0,
+      maxPipesDodgedInRun: 0,
+      totalPipesDodged: 0,
       totalScore: 0,
       skillTotals: { dash: 0, phase: 0, teleport: 0, slowField: 0 }
     });
