@@ -136,6 +136,17 @@ const gateStub = (opts = {}) => {
   };
 };
 
+const orbStub = (opts = {}) => {
+  const { x = 10, y = 12, r = 6 } = opts;
+  return {
+    x,
+    y,
+    r,
+    update: vi.fn(),
+    dead: vi.fn(() => false)
+  };
+};
+
 beforeAll(() => {
   globalThis.OffscreenCanvas = class {
     constructor(w, h) { this.width = w; this.height = h; }
@@ -353,6 +364,103 @@ describe("Game core utilities", () => {
     game.cds = { dash: 1, phase: 2, teleport: 3, slowField: 4 };
     game._tickCooldowns(0.5);
     expect(game.cds).toEqual(mechanics.tickCooldowns({ dash: 1, phase: 2, teleport: 3, slowField: 4 }, 0.5));
+  });
+});
+
+describe("Combo timer logic", () => {
+  const stabilizeRun = (game) => {
+    game.startRun();
+    game.W = 320;
+    game.H = 200;
+    game.player.x = 10;
+    game.player.y = 12;
+    game.player.r = 10;
+    game.pipeT = 9999;
+    game.specialT = 9999;
+  };
+
+  it("sets a forgiving baseline combo window", () => {
+    const { game } = buildGame();
+    expect(game.getComboWindow(1)).toBe(10);
+  });
+
+  it("resets combo timer on orb pickup", () => {
+    const { game } = buildGame();
+    stabilizeRun(game);
+    game.combo = 1;
+    game.comboTimer = 0.5;
+    game.orbs = [orbStub()];
+
+    game.update(0.1);
+
+    expect(game.combo).toBe(2);
+    expect(game.comboTimer).toBeCloseTo(game.getComboWindow(2), 5);
+  });
+
+  it("counts down combo timer when no pickup happens", () => {
+    const { game } = buildGame({ catalysts: { orbs: { enabled: false } } });
+    stabilizeRun(game);
+    game.combo = 1;
+    game.comboTimer = 2;
+
+    game.update(0.5);
+
+    expect(game.combo).toBe(1);
+    expect(game.comboTimer).toBeCloseTo(1.5, 5);
+  });
+
+  it("breaks combo only after the timer reaches zero", () => {
+    const { game } = buildGame({ catalysts: { orbs: { enabled: false } } });
+    stabilizeRun(game);
+    game.combo = 1;
+    game.comboTimer = 0.25;
+
+    game.update(0.1);
+
+    expect(game.combo).toBe(1);
+    expect(game.comboTimer).toBeGreaterThan(0);
+
+    game.update(0.2);
+
+    expect(game.combo).toBe(0);
+    expect(game.comboTimer).toBe(0);
+  });
+
+  it("handles multiple orb pickups in the same update", () => {
+    const { game } = buildGame();
+    stabilizeRun(game);
+    game.orbs = [orbStub(), orbStub({ x: 12, y: 12 })];
+
+    game.update(0.1);
+
+    expect(game.combo).toBe(2);
+    expect(game.comboTimer).toBeCloseTo(game.getComboWindow(2), 5);
+  });
+
+  it("lets pickups at timer zero save the combo", () => {
+    const { game } = buildGame();
+    stabilizeRun(game);
+    game.combo = 1;
+    game.comboTimer = 0.05;
+    game.orbs = [orbStub()];
+
+    game.update(0.05);
+
+    expect(game.combo).toBe(2);
+    expect(game.comboTimer).toBeCloseTo(game.getComboWindow(2), 5);
+  });
+
+  it("initializes timer on the first orb pickup", () => {
+    const { game } = buildGame();
+    stabilizeRun(game);
+    game.combo = 0;
+    game.comboTimer = 0;
+    game.orbs = [orbStub()];
+
+    game.update(0.1);
+
+    expect(game.combo).toBe(1);
+    expect(game.comboTimer).toBeCloseTo(game.getComboWindow(1), 5);
   });
 });
 
