@@ -830,19 +830,21 @@ input[type="range"]::-moz-range-thumb{
   box-shadow:0 14px 36px rgba(0,0,0,.32),0 0 0 1px rgba(255,255,255,.1);
 }
 .over-final-score{
-  font-size:clamp(70px,8vw,120px);
+  font-size:clamp(80px,9vw,140px);
   line-height:1;
   font-weight:900;
   color:#f5f1ff;
   text-shadow:0 12px 32px rgba(0,0,0,.35),0 0 28px rgba(200,230,255,.6),0 0 44px rgba(255,185,245,.4);
   filter:drop-shadow(0 8px 16px rgba(0,0,0,.24));
 }
-.over-final-score::after{
-  content:"!";
-  color:rgba(255,255,255,.82);
-  margin-left:4px;
-  font-size:.6em;
-  vertical-align:top;
+.over-best-stack{
+  display:flex;
+  flex-direction:column;
+  gap:4px;
+  align-items:center;
+}
+.over-best-label{
+  font-size:12px;
 }
 .over-best-card{
   background:linear-gradient(180deg,rgba(170,220,255,.12),rgba(120,190,255,.06));
@@ -874,6 +876,32 @@ input[type="range"]::-moz-range-thumb{
   color:#c9ffe1;
   text-shadow:0 10px 22px rgba(0,0,0,.32),0 0 24px rgba(180,255,220,.5);
 }
+.over-details{
+  display:grid;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:12px;
+  align-items:start;
+}
+.over-details .score-breakdown{
+  margin:0;
+}
+.over-stats{
+  padding:14px 14px 12px;
+  border-radius:14px;
+  background:rgba(255,255,255,.04);
+  border:1px solid rgba(255,255,255,.08);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.05);
+  display:flex;
+  flex-direction:column;
+  gap:12px;
+}
+.over-stats .section-title{margin-bottom:2px;font-size:14px}
+.over-stats-grid{
+  display:grid;
+  grid-template-columns:repeat(auto-fit,minmax(180px,1fr));
+  gap:10px;
+}
+.over-stats .skill-usage{margin:0}
 .skill-usage{
   margin:10px 0 6px;
   padding:10px 12px 6px;
@@ -962,6 +990,9 @@ input[type="range"]::-moz-range-thumb{
 .score-breakdown-total .score-breakdown-label{font-size:16px}
 .score-breakdown-total .score-breakdown-points{font-size:18px}
 .over-replay-actions{justify-content:center;gap:10px}
+@media (max-width: 860px){
+  .over-details{grid-template-columns:1fr}
+}
 .menu-subtitle{margin-top:-4px}
 .replay-hint{margin-top:10px}
 .achievements-card .achievement-controls{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;margin-top:8px;gap:10px}

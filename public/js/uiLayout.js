@@ -1343,14 +1343,19 @@ function createOverScreen(doc, refs) {
 
   const subtitle = doc.createElement("p");
   subtitle.className = "sub over-subtitle";
-  subtitle.textContent = "Take a breath, then jump back in.";
+  subtitle.textContent = "";
+  subtitle.hidden = true;
 
   const primaryActions = doc.createElement("div");
   primaryActions.className = "row actions-row over-primary-actions";
+  const restartButton = createElement(doc, refs, "button", { id: "restart", text: "Restart" });
+  const menuButton = createElement(doc, refs, "button", { id: "toMenu", text: "Main Menu" });
+  const retrySeedButton = createElement(doc, refs, "button", { id: "retrySeed", text: "Retry Previous Seed" });
+  retrySeedButton.hidden = true;
   primaryActions.append(
-    createElement(doc, refs, "button", { id: "restart", text: "Restart (new seed)" }),
-    createElement(doc, refs, "button", { id: "retrySeed", text: "Retry Previous Seed" }),
-    createElement(doc, refs, "button", { id: "toMenu", text: "Main Menu" })
+    restartButton,
+    menuButton,
+    retrySeedButton
   );
 
   const summary = doc.createElement("div");
@@ -1362,12 +1367,10 @@ function createOverScreen(doc, refs) {
   finalLabel.className = "over-stat-label";
   finalLabel.textContent = "Final score";
   const final = createElement(doc, refs, "span", { id: "final", className: "over-final-score", text: "0" });
-  finalCard.append(finalLabel, final);
-
-  const bestCard = doc.createElement("div");
-  bestCard.className = "over-stat-card over-best-card";
+  const bestStack = doc.createElement("div");
+  bestStack.className = "over-best-stack";
   const bestLabel = doc.createElement("div");
-  bestLabel.className = "over-stat-label";
+  bestLabel.className = "over-stat-label over-best-label";
   bestLabel.textContent = "Personal best";
   const bestValue = createElement(doc, refs, "span", { id: "overPB", className: "over-personal-best", text: "0" });
   const bestBadge = createElement(doc, refs, "div", {
@@ -1375,7 +1378,8 @@ function createOverScreen(doc, refs) {
     className: "over-pb-badge hidden",
     text: "New personal best!"
   });
-  bestCard.append(bestLabel, bestValue, bestBadge);
+  bestStack.append(bestLabel, bestValue, bestBadge);
+  finalCard.append(finalLabel, final, bestStack);
 
   const orbComboCard = doc.createElement("div");
   orbComboCard.className = "over-stat-card";
@@ -1393,13 +1397,14 @@ function createOverScreen(doc, refs) {
   const perfectComboValue = createElement(doc, refs, "span", { id: "overPerfectCombo", className: "over-personal-best", text: "0" });
   perfectComboCard.append(perfectComboLabel, perfectComboValue);
 
-  summary.append(finalCard, bestCard, orbComboCard, perfectComboCard);
+  summary.append(finalCard);
 
   const pbStatus = createElement(doc, refs, "div", {
     id: "overPbStatus",
     className: "over-pb-status",
-    text: "Score again to chase a new personal best."
+    text: ""
   });
+  pbStatus.hidden = true;
 
   const breakdown = doc.createElement("div");
   breakdown.className = "score-breakdown";
@@ -1412,6 +1417,15 @@ function createOverScreen(doc, refs) {
   });
   breakdown.append(breakdownTitle, breakdownList);
 
+  const stats = doc.createElement("div");
+  stats.className = "over-stats";
+  const statsTitle = doc.createElement("div");
+  statsTitle.className = "section-title";
+  statsTitle.textContent = "Stats";
+  const statsGrid = doc.createElement("div");
+  statsGrid.className = "over-stats-grid";
+  statsGrid.append(orbComboCard, perfectComboCard);
+
   const skillUsage = doc.createElement("div");
   skillUsage.className = "skill-usage";
   const skillUsageTitle = doc.createElement("div");
@@ -1422,6 +1436,11 @@ function createOverScreen(doc, refs) {
     className: "skill-usage-list"
   });
   skillUsage.append(skillUsageTitle, skillUsageList);
+  stats.append(statsTitle, statsGrid, skillUsage);
+
+  const details = doc.createElement("div");
+  details.className = "over-details";
+  details.append(breakdown, stats);
 
   const replayStatus = createElement(doc, refs, "div", {
     id: "replayStatus",
@@ -1431,17 +1450,19 @@ function createOverScreen(doc, refs) {
 
   const replayActions = doc.createElement("div");
   replayActions.className = "row actions-row over-replay-actions";
+  const exportMp4Button = createElement(doc, refs, "button", { id: "exportMp4", text: "Export MP4", props: { disabled: true } });
+  exportMp4Button.hidden = true;
   replayActions.append(
     createElement(doc, refs, "button", { id: "watchReplay", text: "Watch Replay" }),
     createElement(doc, refs, "button", { id: "exportGif", text: "Export GIF", props: { disabled: true } }),
-    createElement(doc, refs, "button", { id: "exportMp4", text: "Export MP4", props: { disabled: true } })
+    exportMp4Button
   );
 
   const shortcuts = doc.createElement("div");
   shortcuts.className = "stats";
   shortcuts.innerHTML = 'Shortcuts: <span class="kbd">R</span> restart, <span class="kbd">Esc</span> menu.';
 
-  panel.append(title, subtitle, primaryActions, summary, pbStatus, skillUsage, breakdown, replayActions, replayStatus);
+  panel.append(title, subtitle, primaryActions, summary, pbStatus, details, replayActions, replayStatus);
   screen.append(panel, shortcuts);
   return screen;
 }
