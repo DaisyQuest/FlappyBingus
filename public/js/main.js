@@ -58,6 +58,7 @@ import { applyBustercoinEarnings } from "./bustercoins.js";
 import { ACHIEVEMENTS, normalizeAchievementState, renderAchievementsList, appendAchievementToast } from "./achievements.js";
 import { renderScoreBreakdown } from "./scoreBreakdown.js";
 import { computePersonalBestStatus, updatePersonalBestElements } from "./personalBest.js";
+import { buildGameOverStats, GAME_OVER_STAT_VIEWS } from "./gameOverStats.js";
 import { buildUnlockablesCatalog, getUnlockedIdsByType, UNLOCKABLE_TYPES } from "./unlockables.js";
 import { DEFAULT_CURRENCY_ID, getUserCurrencyBalance } from "./currencySystem.js";
 import {
@@ -176,8 +177,13 @@ const {
   overPbBadge,
   overPbStatus,
   overOrbCombo,
+  overOrbComboLabel,
   overPerfectCombo,
+  overPerfectComboLabel,
+  overStatsMode,
+  overStatsToggle,
   skillUsageStats,
+  skillUsageTitle,
   scoreBreakdown,
   seedInput,
   seedRandomBtn,
@@ -253,15 +259,25 @@ function updatePersonalBestUI(finalScore, userBestScore) {
   );
 }
 
-function updateComboStats({ runStats, achievementsState } = {}) {
-  if (!overOrbCombo || !overPerfectCombo) return;
-  const state = normalizeAchievementState(achievementsState);
-  const runOrb = Math.max(0, Number(runStats?.maxOrbCombo) || 0);
-  const runPerfect = Math.max(0, Number(runStats?.maxPerfectCombo) || 0);
-  const bestOrb = Math.max(state.progress?.maxOrbComboInRun || 0, runOrb);
-  const bestPerfect = Math.max(state.progress?.maxPerfectComboInRun || 0, runPerfect);
-  overOrbCombo.textContent = String(bestOrb);
-  overPerfectCombo.textContent = String(bestPerfect);
+let currentStatsView = GAME_OVER_STAT_VIEWS.run;
+let lastRunStats = null;
+
+function applyStatsLabels(labels) {
+  if (overOrbComboLabel) overOrbComboLabel.textContent = labels.orb;
+  if (overPerfectComboLabel) overPerfectComboLabel.textContent = labels.perfect;
+  if (skillUsageTitle) skillUsageTitle.textContent = labels.skillUsage;
+  if (overStatsMode) overStatsMode.textContent = labels.mode;
+  if (overStatsToggle) overStatsToggle.textContent = labels.toggle;
+}
+
+function updateGameOverStats({ view = currentStatsView, runStats = lastRunStats, achievementsState } = {}) {
+  if (!overOrbCombo || !overPerfectCombo || !skillUsageStats) return;
+  const resolved = buildGameOverStats({ view, runStats, achievementsState });
+  currentStatsView = resolved.view;
+  overOrbCombo.textContent = String(resolved.combo.orb);
+  overPerfectCombo.textContent = String(resolved.combo.perfect);
+  renderSkillUsageStats(skillUsageStats, resolved.skillUsage);
+  applyStatsLabels(resolved.labels);
 }
 
 // ---- Seed cookie ----
@@ -1145,6 +1161,7 @@ function applyAchievementsPayload(payload) {
   if (net.user) net.user.achievements = state;
   renderAchievements({ definitions, state });
   notifyAchievements(payload.unlocked);
+  updateGameOverStats({ achievementsState: state });
 }
 
 function notifyAchievements(unlockedIds = []) {
@@ -1930,6 +1947,11 @@ bindSkillOptionGroup(slowFieldBehaviorOptions, (value) => {
   updateSkillSettings({ ...skillSettings, slowFieldBehavior: value });
 });
 
+overStatsToggle?.addEventListener("click", () => {
+  const nextView = currentStatsView === GAME_OVER_STAT_VIEWS.lifetime ? GAME_OVER_STAT_VIEWS.run : GAME_OVER_STAT_VIEWS.lifetime;
+  updateGameOverStats({ view: nextView, runStats: lastRunStats, achievementsState: net.user?.achievements });
+});
+
 // ---- Menu/game over buttons ----
 // NEW: ensure audio buffers are loaded + music starts ONLY when gameplay begins.
 async function ensureAudioReady() {
@@ -2118,10 +2140,11 @@ async function onGameOver(finalScore) {
   setUIMode(true);
   finalEl.textContent = String(finalScore | 0);
   const runStats = game?.getRunStats ? game.getRunStats() : null;
+  lastRunStats = runStats;
+  currentStatsView = GAME_OVER_STAT_VIEWS.run;
   renderScoreBreakdown(scoreBreakdown, runStats, finalScore);
-  renderSkillUsageStats(skillUsageStats, runStats?.skillUsage);
   updatePersonalBestUI(finalScore, net.user?.bestScore);
-  updateComboStats({ runStats, achievementsState: net.user?.achievements });
+  updateGameOverStats({ view: currentStatsView, runStats, achievementsState: net.user?.achievements });
 
   over.classList.remove("hidden");
 
@@ -2154,7 +2177,7 @@ async function onGameOver(finalScore) {
       renderAchievements();
 
       updatePersonalBestUI(finalScore, net.user.bestScore);
-      updateComboStats({ runStats, achievementsState: net.user.achievements });
+      updateGameOverStats({ runStats, achievementsState: net.user.achievements });
     } else {
       if (optimistic.applied && net.user?.bustercoins !== undefined) {
         // Preserve optimistic balance locally so the menu reflects the run's pickups even if the
@@ -2168,7 +2191,7 @@ async function onGameOver(finalScore) {
 
       // Keep PB display meaningful even if the submission failed.
       updatePersonalBestUI(finalScore, net.user?.bestScore);
-      updateComboStats({ runStats, achievementsState: net.user?.achievements });
+      updateGameOverStats({ runStats, achievementsState: net.user?.achievements });
     }
   }
 

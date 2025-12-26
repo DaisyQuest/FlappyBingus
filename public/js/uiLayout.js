@@ -1369,32 +1369,31 @@ function createOverScreen(doc, refs) {
   const final = createElement(doc, refs, "span", { id: "final", className: "over-final-score", text: "0" });
   const bestStack = doc.createElement("div");
   bestStack.className = "over-best-stack";
+  const bestLine = doc.createElement("div");
+  bestLine.className = "over-best-line";
   const bestLabel = doc.createElement("div");
   bestLabel.className = "over-stat-label over-best-label";
-  bestLabel.textContent = "Personal best";
+  bestLabel.textContent = "Personal Best:";
   const bestValue = createElement(doc, refs, "span", { id: "overPB", className: "over-personal-best", text: "0" });
   const bestBadge = createElement(doc, refs, "div", {
     id: "overPbBadge",
     className: "over-pb-badge hidden",
     text: "New personal best!"
   });
-  bestStack.append(bestLabel, bestValue, bestBadge);
+  bestLine.append(bestLabel, bestValue);
+  bestStack.append(bestLine, bestBadge);
   finalCard.append(finalLabel, final, bestStack);
 
   const orbComboCard = doc.createElement("div");
   orbComboCard.className = "over-stat-card";
-  const orbComboLabel = doc.createElement("div");
-  orbComboLabel.className = "over-stat-label";
-  orbComboLabel.textContent = "Best orb combo";
-  const orbComboValue = createElement(doc, refs, "span", { id: "overOrbCombo", className: "over-personal-best", text: "0" });
+  const orbComboLabel = createElement(doc, refs, "div", { id: "overOrbComboLabel", className: "over-stat-label", text: "Best orb combo (this run)" });
+  const orbComboValue = createElement(doc, refs, "span", { id: "overOrbCombo", className: "over-stat-value", text: "0" });
   orbComboCard.append(orbComboLabel, orbComboValue);
 
   const perfectComboCard = doc.createElement("div");
   perfectComboCard.className = "over-stat-card";
-  const perfectComboLabel = doc.createElement("div");
-  perfectComboLabel.className = "over-stat-label";
-  perfectComboLabel.textContent = "Best perfect combo";
-  const perfectComboValue = createElement(doc, refs, "span", { id: "overPerfectCombo", className: "over-personal-best", text: "0" });
+  const perfectComboLabel = createElement(doc, refs, "div", { id: "overPerfectComboLabel", className: "over-stat-label", text: "Best perfect combo (this run)" });
+  const perfectComboValue = createElement(doc, refs, "span", { id: "overPerfectCombo", className: "over-stat-value", text: "0" });
   perfectComboCard.append(perfectComboLabel, perfectComboValue);
 
   summary.append(finalCard);
@@ -1419,24 +1418,27 @@ function createOverScreen(doc, refs) {
 
   const stats = doc.createElement("div");
   stats.className = "over-stats";
+  const statsHeader = doc.createElement("div");
+  statsHeader.className = "over-stats-header";
   const statsTitle = doc.createElement("div");
   statsTitle.className = "section-title";
   statsTitle.textContent = "Stats";
+  const statsMode = createElement(doc, refs, "div", { id: "overStatsMode", className: "over-stats-mode", text: "Run stats" });
+  const statsToggle = createElement(doc, refs, "button", { id: "overStatsToggle", className: "cta-btn small", text: "Show lifetime stats" });
+  statsHeader.append(statsTitle, statsMode, statsToggle);
   const statsGrid = doc.createElement("div");
   statsGrid.className = "over-stats-grid";
   statsGrid.append(orbComboCard, perfectComboCard);
 
   const skillUsage = doc.createElement("div");
   skillUsage.className = "skill-usage";
-  const skillUsageTitle = doc.createElement("div");
-  skillUsageTitle.className = "section-title";
-  skillUsageTitle.textContent = "Skill usage";
+  const skillUsageTitle = createElement(doc, refs, "div", { id: "skillUsageTitle", className: "section-title", text: "Skill usage (this run)" });
   const skillUsageList = createElement(doc, refs, "div", {
     id: "skillUsageStats",
     className: "skill-usage-list"
   });
   skillUsage.append(skillUsageTitle, skillUsageList);
-  stats.append(statsTitle, statsGrid, skillUsage);
+  stats.append(statsHeader, statsGrid, skillUsage);
 
   const details = doc.createElement("div");
   details.className = "over-details";
