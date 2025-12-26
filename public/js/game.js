@@ -47,6 +47,9 @@ const TRAIL_LIFE_SCALE = 1.45;
 const TRAIL_DISTANCE_SCALE = 1.18;
 const TRAIL_JITTER_SCALE = 0.55;
 const TRAIL_AURA_RATE = 0.42;
+const COMBO_WINDOW_BASE = 10;
+const COMBO_WINDOW_MIN = 4;
+const COMBO_WINDOW_DECAY = 0.35;
 
 export { Pipe, Gate, Orb, Part, FloatText };
 
@@ -102,6 +105,7 @@ export class Game {
     this.combo = 0;
     this.comboBreakFlash = 0;
     this.comboSparkAcc = 0;
+    this.comboTimer = 0;
 
     this.perfectT = 0;
     this.perfectMax = 0;
@@ -358,6 +362,7 @@ export class Game {
     this.combo = 0;
     this.comboBreakFlash = 0;
     this.comboSparkAcc = 0;
+    this.comboTimer = 0;
 
     this.perfectT = 0;
     this.perfectMax = 0;
@@ -588,10 +593,17 @@ export class Game {
     return orbPoints(this.cfg, comboNow);
   }
 
+  getComboWindow(comboCount = this.combo) {
+    const safeCombo = Math.max(0, Math.floor(Number(comboCount) || 0));
+    const decay = Math.max(0, safeCombo - 1) * COMBO_WINDOW_DECAY;
+    return Math.max(COMBO_WINDOW_MIN, COMBO_WINDOW_BASE - decay);
+  }
+
   _breakCombo(x, y) {
     if (this.combo > 0) this.floats.push(new FloatText("COMBO BROKE", x, y, "rgba(255,90,90,.95)"));
     this.combo = 0;
     this.comboBreakFlash = 0.35;
+    this.comboTimer = 0;
   }
 
   _resetPerfectCombo() {
@@ -1521,6 +1533,7 @@ export class Game {
     }
 
     // orb pickup
+    let justPickedOrb = false;
     for (let i = this.orbs.length - 1; i >= 0; i--) {
       const ob = this.orbs[i];
       if (circleCircle(this.player.x, this.player.y, this.player.r, ob.x, ob.y, ob.r)) {
@@ -1529,6 +1542,8 @@ export class Game {
         const maxC = Math.max(1, Number(this.cfg.scoring.orbComboMax) || 30);
         this.combo = Math.min(maxC, this.combo + 1);
         this.bustercoinsEarned = (this.bustercoinsEarned || 0) + 1;
+        this.comboTimer = this.getComboWindow(this.combo);
+        justPickedOrb = true;
 
         // NEW: play boop AFTER combo increments (so pitch rises with combo)
         this._orbPickupSfx();
@@ -1547,6 +1562,19 @@ export class Game {
           this.parts.push(prt);
         }
       }
+    }
+
+    if (this.combo > 0) {
+      if (!justPickedOrb) {
+        this.comboTimer = Math.max(0, this.comboTimer - dt);
+        if (this.comboTimer <= 0) {
+          this.comboTimer = 0;
+          const ui = this._skillUI();
+          this._breakCombo(ui.barX + ui.barW * 0.5, ui.barY - 10);
+        }
+      }
+    } else {
+      this.comboTimer = 0;
     }
 
     // collision (phase = invuln)
