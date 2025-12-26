@@ -103,6 +103,7 @@ import { DEFAULT_TRAILS, getUnlockedTrails, normalizeTrails, sortTrailsForDispla
 import { computePipeColor } from "./pipeColors.js";
 import { hydrateBestRunPayload, maybeUploadBestRun } from "./bestRunRecorder.js";
 import { renderHighscores } from "./highscores.js";
+import { getAuthStatusFromResponse } from "./authResponse.js";
 import {
   DEFAULT_TRAIL_HINT,
   describeTrailLock,
@@ -120,6 +121,8 @@ import {
   getTrailDisplayName,
   createMenuProfileModel
 } from "./menuProfileBindings.js";
+import { getUserHintState } from "./userStatus.js";
+import { OFFLINE_STATUS_TEXT } from "./userStatusCopy.js";
 
 // ---- DOM ----
 const ui = buildGameUI();
@@ -163,6 +166,7 @@ const {
   hsWrap,
   pbText,
   trailText,
+  offlineStatus,
   menuPanel,
   iconText,
   pipeTextureText,
@@ -595,19 +599,15 @@ function setNetUser(nextUser, { syncProfile = true } = {}) {
 }
 
 function setUserHint() {
-  if (!net.online) {
-    userHint.className = "hint bad";
-    userHint.textContent = "Server unreachable. Guest mode enabled (no global highscores).";
-    return;
+  const hint = getUserHintState({ online: net.online, user: net.user });
+  if (userHint) {
+    userHint.className = hint.className;
+    userHint.textContent = hint.text;
   }
-  if (!net.user) {
-    userHint.className = "hint";
-    userHint.textContent = "Enter a username to save progression and appear on the leaderboard.";
-    return;
+  if (offlineStatus) {
+    offlineStatus.textContent = OFFLINE_STATUS_TEXT;
+    offlineStatus.classList.toggle("hidden", net.online);
   }
-  userHint.className = "hint good";
-  const coins = getUserCurrencyBalance(net.user, DEFAULT_CURRENCY_ID);
-  userHint.textContent = `Signed in as ${net.user.username}. Runs: ${net.user.runs} • Total: ${net.user.totalScore} • Bustercoins: ${coins}`;
 }
 
 async function handlePlayHighscore(username) {
@@ -1464,7 +1464,11 @@ trailOptions?.addEventListener("click", async (e) => {
 
   const res = await apiSetTrail(id);
   if (!res || !res.ok) {
-    net.online = Boolean(res?.status && res.status < 500);
+    const authStatus = getAuthStatusFromResponse(res);
+    net.online = authStatus.online;
+    if (authStatus.unauthorized) {
+      setNetUser(null);
+    }
     setUserHint();
     const hint = buildTrailHint({
       online: net.online,
@@ -1538,6 +1542,14 @@ pipeTextureModeOptions?.addEventListener("click", async (e) => {
 
   const res = await apiSetPipeTexture(currentPipeTextureId, currentPipeTextureMode);
   if (!res || !res.ok) {
+    const authStatus = getAuthStatusFromResponse(res);
+    net.online = authStatus.online;
+    if (authStatus.unauthorized) {
+      setNetUser(null);
+    }
+    if (!authStatus.online || authStatus.unauthorized) {
+      setUserHint();
+    }
     currentPipeTextureMode = previous;
     writePipeTextureModeCookie(currentPipeTextureMode);
     renderPipeTextureModeButtons(currentPipeTextureMode);
@@ -1605,6 +1617,14 @@ pipeTextureOptions?.addEventListener("click", async (e) => {
 
   const res = await apiSetPipeTexture(id, currentPipeTextureMode);
   if (!res || !res.ok) {
+    const authStatus = getAuthStatusFromResponse(res);
+    net.online = authStatus.online;
+    if (authStatus.unauthorized) {
+      setNetUser(null);
+    }
+    if (!authStatus.online || authStatus.unauthorized) {
+      setUserHint();
+    }
     applyPipeTextureSelection(previous, net.pipeTextures, unlocked);
     if (pipeTextureHint) {
       pipeTextureHint.className = "hint bad";

@@ -2,6 +2,7 @@
 // FILE: public/js/uiLayout.js
 // =====================
 import { DEFAULT_CONFIG } from "./config.js";
+import { OFFLINE_STATUS_TEXT, SIGNED_OUT_TEXT } from "./userStatusCopy.js";
 
 const HOW_TO_STEPS = [
   'Move with <span class="kbd">W</span><span class="kbd">A</span><span class="kbd">S</span><span class="kbd">D</span>',
@@ -1049,7 +1050,7 @@ function createProfileCard(doc, refs) {
   const btn = createElement(doc, refs, "button", { id: "saveUserBtn", text: "Save" });
   row.append(input, btn);
 
-  const userHint = createElement(doc, refs, "div", { id: "userHint", className: "hint", text: "Not signed in." });
+  const userHint = createElement(doc, refs, "div", { id: "userHint", className: "hint warn", text: SIGNED_OUT_TEXT });
 
   const pills = doc.createElement("div");
   pills.className = "pills-row tight";
@@ -1144,6 +1145,11 @@ function createMenuScreen(doc, refs) {
   const parallax = createMenuParallax(doc, refs);
   const aurora = doc.createElement("div");
   aurora.className = "light-aurora";
+  const offlineStatus = createElement(doc, refs, "div", {
+    id: "offlineStatus",
+    className: "menu-offline-status hidden",
+    text: OFFLINE_STATUS_TEXT
+  });
   const content = doc.createElement("div");
   content.className = "content-layer";
 
@@ -1320,7 +1326,7 @@ function createMenuScreen(doc, refs) {
   });
   updateMenuView();
   content.append(header, menuBody);
-  panel.append(parallax, aurora, content);
+  panel.append(parallax, aurora, offlineStatus, content);
   screen.append(trailOverlay, panel, createShopOverlay(doc, refs), createPurchaseModal(doc, refs));
   return screen;
 }
