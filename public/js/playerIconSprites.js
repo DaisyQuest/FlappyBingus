@@ -146,6 +146,61 @@ function createLavaGradient(ctx, radius, animation = {}, phase = 0) {
   return grad;
 }
 
+function createCapeFlowGradient(ctx, radius, animation = {}, phase = 0) {
+  if (!ctx || typeof ctx.createLinearGradient !== "function") return animation.fallback || DEFAULT_FILL;
+  const palette = {
+    base: "#2b0b0b",
+    ember: "#c94b1b",
+    molten: "#f57c21",
+    flare: "#ffd16a",
+    ash: "#4b140f",
+    ...(animation.palette || {})
+  };
+  const travel = radius * 2.8;
+  const start = -radius * 1.4 + travel * phase;
+  const end = start + travel;
+  const grad = ctx.createLinearGradient(0, start, 0, end);
+  const bands = Math.max(4, Math.floor(animation.bands) || 6);
+  const colors = [palette.base, palette.ash, palette.ember, palette.molten, palette.flare, palette.molten, palette.ember];
+  for (let i = 0; i <= bands; i += 1) {
+    const t = i / bands;
+    const wobble = Math.sin((phase * 1.6 + i * 0.45) * Math.PI * 2) * 0.035;
+    const pos = clamp01(t + wobble);
+    const color = colors[i % colors.length];
+    grad.addColorStop(pos, color);
+  }
+  return grad;
+}
+
+function drawCapeEmbers(ctx, radius, animation = {}, phase = 0) {
+  if (!ctx) return;
+  const palette = {
+    base: "#2b0b0b",
+    ember: "#c94b1b",
+    molten: "#f57c21",
+    flare: "#ffd16a",
+    ...(animation.palette || {})
+  };
+  const density = clamp01(Number(animation.embers) || 0.7);
+  const count = Math.max(6, Math.floor(radius * 0.8 * density));
+  for (let i = 0; i < count; i += 1) {
+    const seed = i * 0.77;
+    const x = Math.sin(seed * 12.3) * radius * 0.6;
+    const flow = (phase + i * 0.13) % 1;
+    const y = flow * radius * 2 - radius;
+    const pulse = 0.5 + 0.5 * Math.sin(seed * 3.1 + phase * Math.PI * 2);
+    const size = radius * (0.06 + 0.05 * pulse);
+    const color = pulse > 0.6 ? palette.flare : (pulse > 0.35 ? palette.molten : palette.ember);
+    const alpha = 0.18 + 0.32 * pulse;
+    ctx.beginPath?.();
+    ctx.arc?.(x, y, size, 0, Math.PI * 2);
+    ctx.fillStyle = color;
+    ctx.globalAlpha = alpha;
+    ctx.fill?.();
+  }
+  ctx.globalAlpha = 1;
+}
+
 function renderIconFrame(ctx, canvas, icon = {}, { animationPhase = 0 } = {}) {
   if (!ctx || !canvas) return;
   const style = icon.style || {};
@@ -163,11 +218,21 @@ function renderIconFrame(ctx, canvas, icon = {}, { animationPhase = 0 } = {}) {
   const outer = canvas.width * 0.46;
   const inner = outer * 0.68;
 
-  const fillStyle = animation?.type === "lava"
+  const isLava = animation?.type === "lava";
+  const isCapeFlow = animation?.type === "cape_flow";
+  const fillStyle = isLava
     ? createLavaGradient(ctx, outer, animation, animationPhase)
-    : fill;
+    : (isCapeFlow ? createCapeFlowGradient(ctx, outer, animation, animationPhase) : fill);
 
   fillCircle(ctx, outer, fillStyle, { color: glow, blur: Math.max(6, canvas.width * 0.12) });
+  if (isCapeFlow && ctx.beginPath && ctx.arc && ctx.clip) {
+    ctx.save?.();
+    ctx.beginPath();
+    ctx.arc(0, 0, outer * 0.96, 0, Math.PI * 2);
+    ctx.clip();
+    drawCapeEmbers(ctx, outer * 0.95, animation, animationPhase);
+    ctx.restore?.();
+  }
   if (ctx.lineWidth !== undefined) {
     ctx.shadowBlur = 0;
     ctx.lineWidth = Math.max(2, canvas.width * 0.06);
@@ -203,7 +268,7 @@ function renderIconFrame(ctx, canvas, icon = {}, { animationPhase = 0 } = {}) {
 
 function maybeStartSpriteAnimation(canvas, icon, renderFrame) {
   const animation = icon?.style?.animation;
-  if (!animation || animation.type !== "lava") return null;
+  if (!animation || (animation.type !== "lava" && animation.type !== "cape_flow")) return null;
   const raf = typeof requestAnimationFrame === "function" ? requestAnimationFrame : null;
   const caf = typeof cancelAnimationFrame === "function" ? cancelAnimationFrame : null;
   if (!raf) return null;
@@ -256,6 +321,8 @@ export const __testables = {
   drawZigZag,
   drawCenterlineGuides,
   createLavaGradient,
+  createCapeFlowGradient,
+  drawCapeEmbers,
   renderIconFrame,
   maybeStartSpriteAnimation
 };
