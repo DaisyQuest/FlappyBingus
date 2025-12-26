@@ -1521,15 +1521,10 @@ export class Game {
       p.update(dt, mul, this.W, this.H);
     }
 
-    // orbs + despawn breaks combo
-    let expired = false;
+    // orbs
     for (let i = this.orbs.length - 1; i >= 0; i--) {
       this.orbs[i].update(dt, this.W, this.H);
-      if (this.orbs[i].dead()) { this.orbs.splice(i, 1); expired = true; }
-    }
-    if (expired) {
-      const ui = this._skillUI();
-      this._breakCombo(ui.barX + ui.barW * 0.5, ui.barY - 10);
+      if (this.orbs[i].dead()) { this.orbs.splice(i, 1); }
     }
 
     // orb pickup
