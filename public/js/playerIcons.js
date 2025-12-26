@@ -58,22 +58,21 @@ export const DEFAULT_PLAYER_ICONS = Object.freeze([
     name: "Fire Cape",
     unlock: { type: "achievement", id: "score_fire_cape_1000", label: "Fire Cape Trial" },
     style: {
-      fill: "#2f0a0a",
+      fill: "#260808",
       core: "#ffb14b",
       rim: "#0d0303",
       glow: "#ffd59a",
       animation: {
-        type: "cape_flow",
+        type: "lava",
         palette: {
-          base: "#2b0b0b",
-          ember: "#c94b1b",
-          molten: "#f57c21",
-          flare: "#ffd16a",
-          ash: "#4b140f"
+          base: "#1b0707",
+          ember: "#a22b12",
+          molten: "#f06a1d",
+          flare: "#ffd27a"
         },
-        speed: 0.06,
-        bands: 6,
-        embers: 0.75
+        speed: 0.045,
+        layers: 4,
+        smoothness: 0.75
       }
     }
   },
@@ -82,22 +81,21 @@ export const DEFAULT_PLAYER_ICONS = Object.freeze([
     name: "Inferno Cape",
     unlock: { type: "achievement", id: "score_inferno_cape_2000", label: "Inferno Challenge" },
     style: {
-      fill: "#160404",
+      fill: "#140505",
       core: "#ff6b2b",
       rim: "#070404",
       glow: "#ffb068",
       animation: {
-        type: "cape_flow",
+        type: "lava",
         palette: {
-          base: "#130404",
-          ember: "#7b1b14",
-          molten: "#f0541e",
-          flare: "#ffad5b",
-          ash: "#3a0d0a"
+          base: "#100404",
+          ember: "#6f150f",
+          molten: "#e95a1a",
+          flare: "#ffb15f"
         },
-        speed: 0.08,
-        bands: 7,
-        embers: 0.9
+        speed: 0.055,
+        layers: 5,
+        smoothness: 0.7
       }
     }
   }

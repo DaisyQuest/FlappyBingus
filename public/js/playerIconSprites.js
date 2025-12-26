@@ -124,14 +124,17 @@ function createLavaGradient(ctx, radius, animation = {}, phase = 0) {
     ...(animation.palette || {})
   };
   const layers = Math.max(1, Math.floor(animation.layers) || 2);
+  const smoothness = clamp01(Number(animation.smoothness) || 0);
+  const layerStep = 0.18 - smoothness * 0.06;
+  const wobbleAmp = 0.06 - smoothness * 0.035;
   const travel = radius * 2.6;
   const start = -radius * 1.3 + travel * phase;
   const end = start + travel;
   const grad = ctx.createLinearGradient(0, start, 0, end);
 
   for (let i = 0; i < layers; i += 1) {
-    const offset = clamp01((phase + i * 0.18) % 1);
-    const wobble = Math.sin((phase + i) * Math.PI * 2) * 0.06;
+    const offset = clamp01((phase + i * layerStep) % 1);
+    const wobble = Math.sin((phase + i) * Math.PI * 2) * wobbleAmp;
     const stops = [
       { pos: 0, color: palette.base },
       { pos: clamp01(0.18 + wobble + offset * 0.08), color: palette.ember },
@@ -223,9 +226,9 @@ function renderIconFrame(ctx, canvas, icon = {}, { animationPhase = 0 } = {}) {
   const fillStyle = isLava
     ? createLavaGradient(ctx, outer, animation, animationPhase)
     : (isCapeFlow ? createCapeFlowGradient(ctx, outer, animation, animationPhase) : fill);
-  const coreFillStyle = isCapeFlow
-    ? createCapeFlowGradient(ctx, inner, animation, (animationPhase + 0.17) % 1)
-    : core;
+  const coreFillStyle = isLava
+    ? createLavaGradient(ctx, inner, animation, (animationPhase + 0.22) % 1)
+    : (isCapeFlow ? createCapeFlowGradient(ctx, inner, animation, (animationPhase + 0.17) % 1) : core);
 
   fillCircle(ctx, outer, fillStyle, { color: glow, blur: Math.max(6, canvas.width * 0.12) });
   if (isCapeFlow && ctx.beginPath && ctx.arc && ctx.clip) {
