@@ -238,12 +238,13 @@ describe("player icon sprites", () => {
       }, { size: 80 });
 
       expect(sprite.__animation?.running).toBe(true);
-      expect(gradients.length).toBeGreaterThan(0);
-      const firstFill = operations.find((op) => op.type === "fill");
-      expect(firstFill?.fillStyle).toBe(gradients[0]);
+      expect(gradients.length).toBeGreaterThanOrEqual(2);
+      const fills = operations.filter((op) => op.type === "fill");
+      expect(fills[0]?.fillStyle).toBe(gradients[0]);
+      expect(fills[1]?.fillStyle).toBe(gradients[1]);
 
       rafCallbacks[0]?.(16);
-      expect(gradients.length).toBeGreaterThan(1);
+      expect(gradients.length).toBeGreaterThan(2);
     } finally {
       global.document = prevDocument;
       global.requestAnimationFrame = prevRaf;
@@ -335,5 +336,17 @@ describe("player icon sprites", () => {
     const grad = __testables.createCapeFlowGradient(ctx, 40, { bands: 6 }, 0.25);
     expect(grad).toBe(gradients[0]);
     expect(gradients[0].stops.length).toBeGreaterThan(4);
+  });
+
+  it("softens lava gradients when smoothness is increased", () => {
+    const ctx = {
+      createLinearGradient: () => ({ stops: [], addColorStop(pos, color) { this.stops.push({ pos, color }); } })
+    };
+
+    const rough = __testables.createLavaGradient(ctx, 40, { layers: 2, smoothness: 0 }, 0.37);
+    const smooth = __testables.createLavaGradient(ctx, 40, { layers: 2, smoothness: 1 }, 0.37);
+    expect(rough.stops.length).toBeGreaterThan(0);
+    expect(smooth.stops.length).toBeGreaterThan(0);
+    expect(rough.stops[1].pos).not.toBeCloseTo(smooth.stops[1].pos, 6);
   });
 });
