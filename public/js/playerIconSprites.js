@@ -223,6 +223,9 @@ function renderIconFrame(ctx, canvas, icon = {}, { animationPhase = 0 } = {}) {
   const fillStyle = isLava
     ? createLavaGradient(ctx, outer, animation, animationPhase)
     : (isCapeFlow ? createCapeFlowGradient(ctx, outer, animation, animationPhase) : fill);
+  const coreFillStyle = isCapeFlow
+    ? createCapeFlowGradient(ctx, inner, animation, (animationPhase + 0.17) % 1)
+    : core;
 
   fillCircle(ctx, outer, fillStyle, { color: glow, blur: Math.max(6, canvas.width * 0.12) });
   if (isCapeFlow && ctx.beginPath && ctx.arc && ctx.clip) {
@@ -241,7 +244,7 @@ function renderIconFrame(ctx, canvas, icon = {}, { animationPhase = 0 } = {}) {
     ctx.arc(0, 0, outer * 0.96, 0, Math.PI * 2);
     ctx.stroke();
   }
-  fillCircle(ctx, inner, core, { color: glow, blur: Math.max(4, canvas.width * 0.08) });
+  fillCircle(ctx, inner, coreFillStyle, { color: glow, blur: Math.max(4, canvas.width * 0.08) });
 
   if (pattern?.type === "zigzag") {
     drawZigZag(ctx, outer * 0.75, {
