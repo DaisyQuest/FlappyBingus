@@ -17,7 +17,20 @@ const baseBody = {
   runStats: { orbsCollected: 1 }
 };
 
-const okRunStats = () => ({ ok: true, stats: { orbsCollected: 1 } });
+const okRunStats = () => ({
+  ok: true,
+  stats: {
+    orbsCollected: 1,
+    abilitiesUsed: null,
+    perfects: null,
+    pipesDodged: null,
+    maxOrbCombo: null,
+    maxPerfectCombo: null,
+    brokenPipes: null,
+    maxBrokenPipesInExplosion: null,
+    skillUsage: null
+  }
+});
 
 describe("normalizeBestRunRequest", () => {
   it("rejects non-object payloads and invalid scores", () => {
@@ -40,7 +53,17 @@ describe("normalizeBestRunRequest", () => {
     expect(res.payload.durationMs).toBeGreaterThan(0);
     expect(res.payload.replayBytes).toBeGreaterThan(0);
     expect(res.payload.replayHash).toMatch(/^[0-9a-f]{64}$/);
-    expect(res.payload.runStats).toEqual({ orbsCollected: 1 });
+    expect(res.payload.runStats).toEqual({
+      orbsCollected: 1,
+      abilitiesUsed: null,
+      perfects: null,
+      pipesDodged: null,
+      maxOrbCombo: null,
+      maxPerfectCombo: null,
+      brokenPipes: null,
+      maxBrokenPipesInExplosion: null,
+      skillUsage: null
+    });
     expect(res.payload.media).toBeNull();
   });
 

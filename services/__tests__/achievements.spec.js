@@ -35,6 +35,10 @@ describe("achievements definitions", () => {
         totalPerfects: 55.2,
         maxOrbsInRun: 33.3,
         totalOrbsCollected: "200",
+        maxOrbComboInRun: 12.6,
+        maxPerfectComboInRun: 9.2,
+        maxPipesDodgedInRun: 400.4,
+        totalPipesDodged: 2500.1,
         totalScore: 5000.9,
         maxBrokenPipesInExplosion: 8.9,
         maxBrokenPipesInRun: -1,
@@ -51,6 +55,10 @@ describe("achievements definitions", () => {
       totalPerfects: 55,
       maxOrbsInRun: 33,
       totalOrbsCollected: 200,
+      maxOrbComboInRun: 12,
+      maxPerfectComboInRun: 9,
+      maxPipesDodgedInRun: 400,
+      totalPipesDodged: 2500,
       totalScore: 5000,
       maxBrokenPipesInExplosion: 8,
       maxBrokenPipesInRun: 0,
@@ -73,6 +81,9 @@ describe("validateRunStats", () => {
         orbsCollected: null,
         abilitiesUsed: null,
         perfects: null,
+        pipesDodged: null,
+        maxOrbCombo: null,
+        maxPerfectCombo: null,
         brokenPipes: null,
         maxBrokenPipesInExplosion: null,
         skillUsage: null
@@ -84,6 +95,9 @@ describe("validateRunStats", () => {
         orbsCollected: 2,
         abilitiesUsed: 1,
         perfects: null,
+        pipesDodged: null,
+        maxOrbCombo: null,
+        maxPerfectCombo: null,
         brokenPipes: null,
         maxBrokenPipesInExplosion: null,
         skillUsage: null
@@ -91,6 +105,9 @@ describe("validateRunStats", () => {
     });
     expect(validateRunStats({ orbsCollected: -1 })).toEqual({ ok: false, error: "invalid_run_stats" });
     expect(validateRunStats({ perfects: "bad" })).toEqual({ ok: false, error: "invalid_run_stats" });
+    expect(validateRunStats({ pipesDodged: -5 })).toEqual({ ok: false, error: "invalid_run_stats" });
+    expect(validateRunStats({ maxOrbCombo: "nope" })).toEqual({ ok: false, error: "invalid_run_stats" });
+    expect(validateRunStats({ maxPerfectCombo: -2 })).toEqual({ ok: false, error: "invalid_run_stats" });
     expect(validateRunStats("bad")).toEqual({ ok: false, error: "invalid_run_stats" });
   });
 
@@ -100,6 +117,9 @@ describe("validateRunStats", () => {
         orbsCollected: 0,
         abilitiesUsed: 0,
         perfects: 1,
+        pipesDodged: 12,
+        maxOrbCombo: 5,
+        maxPerfectCombo: 4,
         brokenPipes: 4,
         maxBrokenPipesInExplosion: 2,
         scoreBreakdown: { orbs: { points: 99 } },
@@ -111,6 +131,9 @@ describe("validateRunStats", () => {
         orbsCollected: 0,
         abilitiesUsed: 0,
         perfects: 1,
+        pipesDodged: 12,
+        maxOrbCombo: 5,
+        maxPerfectCombo: 4,
         brokenPipes: 4,
         maxBrokenPipesInExplosion: 2,
         skillUsage: { dash: 2, phase: 0, teleport: 1, slowField: 0 }
@@ -263,6 +286,25 @@ describe("evaluateRunForAchievements", () => {
     expect(state.unlocked.perfects_total_100).toBe(10);
   });
 
+  it("tracks pipe dodges and combo highs for run-based progress", () => {
+    const { state, unlocked } = evaluateRunForAchievements({
+      previous: { unlocked: {}, progress: DEFAULT_PROGRESS },
+      runStats: { pipesDodged: 520, maxOrbCombo: 20, maxPerfectCombo: 10 },
+      score: 50,
+      now: 55
+    });
+
+    expect(state.progress.totalPipesDodged).toBe(520);
+    expect(state.progress.maxPipesDodgedInRun).toBe(520);
+    expect(state.progress.maxOrbComboInRun).toBe(20);
+    expect(state.progress.maxPerfectComboInRun).toBe(10);
+    expect(unlocked).toEqual(expect.arrayContaining([
+      "pipes_dodged_run_500",
+      "orb_combo_20",
+      "perfect_combo_10"
+    ]));
+  });
+
   it("tracks broken pipe totals and unlocks shatter achievements", () => {
     const first = evaluateRunForAchievements({
       previous: { unlocked: {}, progress: DEFAULT_PROGRESS },
@@ -334,7 +376,16 @@ describe("evaluateRunForAchievements", () => {
     ACHIEVEMENTS.forEach((def) => {
       const req = def.requirement || {};
       const progress = { ...DEFAULT_PROGRESS };
-      const runStats = { orbsCollected: null, abilitiesUsed: null, perfects: null, brokenPipes: null, maxBrokenPipesInExplosion: null };
+      const runStats = {
+        orbsCollected: null,
+        abilitiesUsed: null,
+        perfects: null,
+        pipesDodged: null,
+        maxOrbCombo: null,
+        maxPerfectCombo: null,
+        brokenPipes: null,
+        maxBrokenPipesInExplosion: null
+      };
 
       let score = req.minScore ?? 0;
       let bestScore = req.minScore ?? 0;
@@ -353,6 +404,19 @@ describe("evaluateRunForAchievements", () => {
       if (req.totalPerfects !== undefined) {
         progress.totalPerfects = Math.max(0, req.totalPerfects - 1);
         runStats.perfects = runStats.perfects ?? 1;
+      }
+      if (req.minOrbCombo !== undefined) {
+        runStats.maxOrbCombo = req.minOrbCombo;
+      }
+      if (req.minPerfectCombo !== undefined) {
+        runStats.maxPerfectCombo = req.minPerfectCombo;
+      }
+      if (req.minPipesDodged !== undefined) {
+        runStats.pipesDodged = req.minPipesDodged;
+      }
+      if (req.totalPipesDodged !== undefined) {
+        progress.totalPipesDodged = Math.max(0, req.totalPipesDodged - 1);
+        runStats.pipesDodged = runStats.pipesDodged ?? 1;
       }
 
       if (req.totalScore !== undefined) {

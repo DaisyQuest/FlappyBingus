@@ -171,6 +171,8 @@ export class Game {
       abilitiesUsed: toInt(this.runStats?.abilitiesUsed),
       perfects: toInt(this.runStats?.perfects),
       pipesDodged: toInt(this.runStats?.pipesDodged),
+      maxOrbCombo: toInt(this.runStats?.maxOrbCombo),
+      maxPerfectCombo: toInt(this.runStats?.maxPerfectCombo),
       brokenPipes: toInt(this.runStats?.brokenPipes),
       maxBrokenPipesInExplosion: toInt(this.runStats?.maxBrokenPipesInExplosion),
       totalScore: toInt(this.score),
@@ -190,6 +192,8 @@ export class Game {
       abilitiesUsed: 0,
       perfects: 0,
       pipesDodged: 0,
+      maxOrbCombo: 0,
+      maxPerfectCombo: 0,
       brokenPipes: 0,
       maxBrokenPipesInExplosion: 0,
       skillUsage: {
@@ -235,6 +239,16 @@ export class Game {
   _recordPipeScore(points) {
     this.runStats.pipesDodged = (this.runStats.pipesDodged || 0) + 1;
     this._addScore(points, { bucket: "pipes", count: 1 });
+  }
+
+  _recordOrbCombo(combo = 0) {
+    const safe = Math.max(0, Math.floor(Number(combo) || 0));
+    this.runStats.maxOrbCombo = Math.max(this.runStats.maxOrbCombo || 0, safe);
+  }
+
+  _recordPerfectCombo(combo = 0) {
+    const safe = Math.max(0, Math.floor(Number(combo) || 0));
+    this.runStats.maxPerfectCombo = Math.max(this.runStats.maxPerfectCombo || 0, safe);
   }
 
   _recordBrokenPipe(count = 1) {
@@ -1536,6 +1550,7 @@ export class Game {
 
         const maxC = Math.max(1, Number(this.cfg.scoring.orbComboMax) || 30);
         this.combo = Math.min(maxC, this.combo + 1);
+        this._recordOrbCombo(this.combo);
         this.bustercoinsEarned = (this.bustercoinsEarned || 0) + 1;
         this.comboTimer = this.getComboWindow(this.combo);
         justPickedOrb = true;

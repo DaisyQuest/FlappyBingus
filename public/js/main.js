@@ -175,6 +175,8 @@ const {
   overPB,
   overPbBadge,
   overPbStatus,
+  overOrbCombo,
+  overPerfectCombo,
   skillUsageStats,
   scoreBreakdown,
   seedInput,
@@ -193,6 +195,7 @@ const {
   achievementsFilterScore,
   achievementsFilterPerfects,
   achievementsFilterOrbs,
+  achievementsFilterPipes,
   achievementToasts,
   themeLauncher,
   themeOverlay,
@@ -248,6 +251,17 @@ function updatePersonalBestUI(finalScore, userBestScore) {
     },
     refreshedStatus
   );
+}
+
+function updateComboStats({ runStats, achievementsState } = {}) {
+  if (!overOrbCombo || !overPerfectCombo) return;
+  const state = normalizeAchievementState(achievementsState);
+  const runOrb = Math.max(0, Number(runStats?.maxOrbCombo) || 0);
+  const runPerfect = Math.max(0, Number(runStats?.maxPerfectCombo) || 0);
+  const bestOrb = Math.max(state.progress?.maxOrbComboInRun || 0, runOrb);
+  const bestPerfect = Math.max(state.progress?.maxPerfectComboInRun || 0, runPerfect);
+  overOrbCombo.textContent = String(bestOrb);
+  overPerfectCombo.textContent = String(bestPerfect);
 }
 
 // ---- Seed cookie ----
@@ -1110,6 +1124,7 @@ function renderAchievements(payload = null) {
   if (achievementsFilterScore?.checked) categories.push("score");
   if (achievementsFilterPerfects?.checked) categories.push("perfects");
   if (achievementsFilterOrbs?.checked) categories.push("orbs");
+  if (achievementsFilterPipes?.checked) categories.push("pipes");
   // Always include special achievements so they remain discoverable
   categories.push("other");
   renderAchievementsList(achievementsList, {
@@ -1147,7 +1162,7 @@ achievementsHideCompleted?.addEventListener("change", () => {
   renderAchievements();
 });
 
-[achievementsFilterScore, achievementsFilterPerfects, achievementsFilterOrbs].forEach((input) => {
+[achievementsFilterScore, achievementsFilterPerfects, achievementsFilterOrbs, achievementsFilterPipes].forEach((input) => {
   input?.addEventListener("change", () => renderAchievements());
 });
 
@@ -2106,6 +2121,7 @@ async function onGameOver(finalScore) {
   renderScoreBreakdown(scoreBreakdown, runStats, finalScore);
   renderSkillUsageStats(skillUsageStats, runStats?.skillUsage);
   updatePersonalBestUI(finalScore, net.user?.bestScore);
+  updateComboStats({ runStats, achievementsState: net.user?.achievements });
 
   over.classList.remove("hidden");
 
@@ -2138,6 +2154,7 @@ async function onGameOver(finalScore) {
       renderAchievements();
 
       updatePersonalBestUI(finalScore, net.user.bestScore);
+      updateComboStats({ runStats, achievementsState: net.user.achievements });
     } else {
       if (optimistic.applied && net.user?.bustercoins !== undefined) {
         // Preserve optimistic balance locally so the menu reflects the run's pickups even if the
@@ -2151,6 +2168,7 @@ async function onGameOver(finalScore) {
 
       // Keep PB display meaningful even if the submission failed.
       updatePersonalBestUI(finalScore, net.user?.bestScore);
+      updateComboStats({ runStats, achievementsState: net.user?.achievements });
     }
   }
 

@@ -41,6 +41,10 @@ describe("achievements helpers", () => {
         totalPerfects: "55",
         maxOrbsInRun: 77.7,
         totalOrbsCollected: 1999.8,
+        maxOrbComboInRun: 33.4,
+        maxPerfectComboInRun: 12.1,
+        maxPipesDodgedInRun: 420.9,
+        totalPipesDodged: 5000.8,
         totalScore: 10_000.5,
         maxBrokenPipesInExplosion: 12.9,
         maxBrokenPipesInRun: -4,
@@ -56,6 +60,10 @@ describe("achievements helpers", () => {
       totalPerfects: 55,
       maxOrbsInRun: 77,
       totalOrbsCollected: 1999,
+      maxOrbComboInRun: 33,
+      maxPerfectComboInRun: 12,
+      maxPipesDodgedInRun: 420,
+      totalPipesDodged: 5000,
       totalScore: 10_000,
       maxBrokenPipesInExplosion: 12,
       maxBrokenPipesInRun: 0,
@@ -75,6 +83,10 @@ describe("achievements helpers", () => {
           totalPerfects: 80,
           maxOrbsInRun: 10,
           totalOrbsCollected: 1500,
+          maxOrbComboInRun: 12,
+          maxPerfectComboInRun: 5,
+          maxPipesDodgedInRun: 200,
+          totalPipesDodged: 3500,
           totalScore: 8000,
           maxBrokenPipesInExplosion: 0,
           maxBrokenPipesInRun: 0,
@@ -92,6 +104,17 @@ describe("achievements helpers", () => {
     expect(totalRow?.querySelector(".achievement-status")?.textContent).toContain("Progress: 1500/2000");
     expect(totalRow?.querySelector(".achievement-tag")?.textContent).toBe("Orb Collection");
     expect(totalRow?.querySelector(".achievement-requirement")?.textContent).toContain("Collect 2000 orbs total");
+  });
+
+  it("renders requirement copy for combo and pipe dodge achievements", () => {
+    renderAchievementsList(container, { definitions: ACHIEVEMENTS, state: normalizeAchievementState() });
+    const rows = Array.from(container.querySelectorAll(".achievement-row"));
+    const orbCombo = rows.find((row) => row.textContent.includes("Orb Crescendo"));
+    const perfectCombo = rows.find((row) => row.textContent.includes("Perfect Rhythm"));
+    const pipeDodge = rows.find((row) => row.textContent.includes("Pipe Whisperer"));
+    expect(orbCombo?.querySelector(".achievement-requirement")?.textContent).toContain("orb combo of 20");
+    expect(perfectCombo?.querySelector(".achievement-requirement")?.textContent).toContain("perfect gap combo of 10");
+    expect(pipeDodge?.querySelector(".achievement-requirement")?.textContent).toContain("Dodge 500 pipes");
   });
 
   it("prefers in-game achievement popups over DOM fallbacks", () => {
@@ -161,12 +184,15 @@ describe("achievements helpers", () => {
     expect(classifyAchievement({ requirement: { minScore: 10 } })).toBe("score");
     expect(classifyAchievement({ requirement: { minPerfects: 2 } })).toBe("perfects");
     expect(classifyAchievement({ requirement: { minOrbs: 1 } })).toBe("orbs");
+    expect(classifyAchievement({ requirement: { minPipesDodged: 1 } })).toBe("pipes");
+    expect(classifyAchievement({ requirement: { minBrokenPipesInRun: 1 } })).toBe("pipes");
     expect(classifyAchievement({ requirement: {} })).toBe("other");
 
-    const filters = normalizeFilters({ hideCompleted: "yes", categories: { score: true, perfects: false, bogus: true } });
+    const filters = normalizeFilters({ hideCompleted: "yes", categories: { score: true, perfects: false, pipes: true, bogus: true } });
     expect(filters.hideCompleted).toBe(true);
     expect(filters.categories.has("score")).toBe(true);
     expect(filters.categories.has("perfects")).toBe(false);
+    expect(filters.categories.has("pipes")).toBe(true);
     expect(filters.categories.has("bogus")).toBe(false);
     expect(filters.requestedEmpty).toBe(false);
   });

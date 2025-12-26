@@ -395,6 +395,7 @@ describe("Combo timer logic", () => {
 
     expect(game.combo).toBe(2);
     expect(game.comboTimer).toBeCloseTo(game.getComboWindow(2), 5);
+    expect(game.runStats.maxOrbCombo).toBe(2);
   });
 
   it("counts down combo timer when no pickup happens", () => {

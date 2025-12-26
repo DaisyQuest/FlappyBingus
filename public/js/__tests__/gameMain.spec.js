@@ -200,6 +200,7 @@ describe("Game core loop hooks", () => {
     game.update(0.016);
     const stats = game.getRunStats();
     expect(stats.orbsCollected).toBe(1);
+    expect(stats.maxOrbCombo).toBe(1);
     expect(stats.scoreBreakdown.orbs.points).toBe(game.cfg.scoring.orbBase);
     expect(stats.totalScore).toBe(game.score);
   });
@@ -233,6 +234,8 @@ describe("Game core loop hooks", () => {
     expect(stats.orbsCollected).toBe(0);
     expect(stats.perfects).toBe(0);
     expect(stats.pipesDodged).toBe(0);
+    expect(stats.maxOrbCombo).toBe(0);
+    expect(stats.maxPerfectCombo).toBe(0);
     expect(stats.abilitiesUsed).toBe(0);
     expect(stats.skillUsage).toEqual({ dash: 0, phase: 0, teleport: 0, slowField: 0 });
     expect(stats.scoreBreakdown.orbs.points).toBe(0);
