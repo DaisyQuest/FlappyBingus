@@ -2,6 +2,7 @@ import fs from "node:fs";
 import { describe, it, expect, beforeEach } from "vitest";
 import { JSDOM } from "jsdom";
 import { buildGameUI, formatCooldownSeconds } from "../uiLayout.js";
+import { OFFLINE_STATUS_TEXT, SIGNED_OUT_TEXT } from "../userStatusCopy.js";
 
 const applyStyles = (doc) => {
   if (doc.head.querySelector("style[data-test-style='flappy']")) return;
@@ -433,7 +434,14 @@ describe("uiLayout", () => {
 
     expect(mount.querySelectorAll("#wrap").length).toBe(1);
     expect(second.bindWrap?.classList.contains("bindList")).toBe(true);
-    expect(second.userHint?.textContent).toBe("Not signed in.");
+    expect(second.userHint?.textContent).toBe(SIGNED_OUT_TEXT);
+  });
+
+  it("exposes the offline status banner copy for menu updates", () => {
+    buildGameUI({ document, mount });
+    const offlineStatus = document.getElementById("offlineStatus");
+    expect(offlineStatus).toBeTruthy();
+    expect(offlineStatus?.textContent).toBe(OFFLINE_STATUS_TEXT);
   });
 
   it("updates the title and layout when switching to settings or achievements", () => {
