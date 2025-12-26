@@ -98,7 +98,7 @@ import { buildGameUI } from "./uiLayout.js";
 import { createMenuParallaxController } from "./menuParallax.js";
 import { TrailPreview } from "./trailPreview.js";
 import { normalizeTrailSelection } from "./trailSelectUtils.js";
-import { buildTrailHint } from "./trailHint.js";
+import { buildTrailHint, GUEST_TRAIL_HINT_TEXT } from "./trailHint.js";
 import { DEFAULT_TRAILS, getUnlockedTrails, normalizeTrails, sortTrailsForDisplay } from "./trailProgression.js";
 import { computePipeColor } from "./pipeColors.js";
 import { hydrateBestRunPayload, maybeUploadBestRun } from "./bestRunRecorder.js";
@@ -121,7 +121,7 @@ import {
   getTrailDisplayName,
   createMenuProfileModel
 } from "./menuProfileBindings.js";
-import { getUserHintState } from "./userStatus.js";
+import { buildAuthHints } from "./authHints.js";
 import { OFFLINE_STATUS_TEXT } from "./userStatusCopy.js";
 
 // ---- DOM ----
@@ -599,7 +599,17 @@ function setNetUser(nextUser, { syncProfile = true } = {}) {
 }
 
 function setUserHint() {
-  const hint = getUserHintState({ online: net.online, user: net.user });
+  const best = net.user ? (net.user.bestScore | 0) : readLocalBest();
+  const isRecordHolder = Boolean(net.user?.isRecordHolder);
+  const achievements = net.user?.achievements || net.achievements?.state;
+  const orderedTrails = sortTrailsForDisplay(net.trails, { isRecordHolder });
+  const { userHint: hint, trailHint: authTrailHint } = buildAuthHints({
+    online: net.online,
+    user: net.user,
+    bestScore: best,
+    trails: orderedTrails,
+    achievements
+  });
   if (userHint) {
     userHint.className = hint.className;
     userHint.textContent = hint.text;
@@ -607,6 +617,14 @@ function setUserHint() {
   if (offlineStatus) {
     offlineStatus.textContent = OFFLINE_STATUS_TEXT;
     offlineStatus.classList.toggle("hidden", net.online);
+  }
+  if (trailHint && authTrailHint) {
+    const current = trailHint.textContent || "";
+    const showingGuest = current.includes(GUEST_TRAIL_HINT_TEXT);
+    const shouldShowGuest = authTrailHint.text === GUEST_TRAIL_HINT_TEXT;
+    if (showingGuest !== shouldShowGuest) {
+      setTrailHint(authTrailHint);
+    }
   }
 }
 
@@ -2112,6 +2130,7 @@ async function onGameOver(finalScore) {
       applyAchievementsPayload(res.achievements || { definitions: ACHIEVEMENTS, state: res.user?.achievements });
 
       refreshTrailMenu();
+      setUserHint();
       currentPipeTextureMode = normalizePipeTextureMode(res.user?.pipeTextureMode || currentPipeTextureMode);
       applyPipeTextureSelection(res.user?.selectedPipeTexture || currentPipeTextureId, net.pipeTextures);
       applyIconSelection(res.user?.selectedIcon || currentIconId, playerIcons);

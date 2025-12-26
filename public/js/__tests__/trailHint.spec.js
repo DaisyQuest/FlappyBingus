@@ -1,11 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { buildTrailHint } from "../trailHint.js";
+import { buildTrailHint, GUEST_TRAIL_HINT_TEXT } from "../trailHint.js";
 
 describe("buildTrailHint", () => {
   it("returns a guest hint when no user is present", () => {
     const hint = buildTrailHint({ online: true, user: null, bestScore: 123 });
     expect(hint.className).toBe("hint warn");
-    expect(hint.text.toLowerCase()).toContain("guest mode");
+    expect(hint.text).toBe(GUEST_TRAIL_HINT_TEXT);
   });
 
   it("highlights offline state separately from guest mode", () => {
