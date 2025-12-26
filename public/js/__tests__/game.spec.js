@@ -240,14 +240,25 @@ describe("Game core utilities", () => {
 
     game.perfectAuraIntensity = 0.6;
     game.perfectAuraMode = "gold";
+    game.timeAlive = 0;
     ctx.createRadialGradient.mockClear();
     game._drawPlayer();
     expect(ctx.createRadialGradient).not.toHaveBeenCalled();
+    expect(ctx.arc).toHaveBeenCalled();
+    const [goldX, goldY] = ctx.arc.mock.calls[0];
+    expect(goldX).toBe(30);
+    expect(goldY).not.toBe(40);
 
     game.perfectAuraMode = "rainbow";
+    game.timeAlive = 1;
     ctx.createRadialGradient.mockClear();
+    ctx.arc.mockClear();
     game._drawPlayer();
     expect(ctx.createRadialGradient).toHaveBeenCalled();
+    expect(ctx.arc).toHaveBeenCalled();
+    const [rainbowX, rainbowY] = ctx.arc.mock.calls[0];
+    expect(rainbowX).not.toBe(30);
+    expect(rainbowY).not.toBe(40);
   });
 
   it("handles state transitions and run resets", () => {
