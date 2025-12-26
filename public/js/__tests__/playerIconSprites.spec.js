@@ -310,11 +310,13 @@ describe("player icon sprites", () => {
       }, { size: 90 });
 
       expect(sprite.width).toBe(90);
-      expect(gradients.length).toBeGreaterThan(0);
+      expect(gradients.length).toBeGreaterThan(1);
       expect(operations.some((op) => op.type === "clip")).toBe(true);
       const fills = operations.filter((op) => op.type === "fill");
       expect(fills.length).toBeGreaterThan(1);
-      expect(fills[0].fillStyle).toBe(gradients[0]);
+      const fillStyles = fills.map((fill) => fill.fillStyle);
+      expect(fillStyles).toContain(gradients[0]);
+      expect(fillStyles).toContain(gradients[1]);
     } finally {
       global.document = prevDocument;
     }
