@@ -43,12 +43,13 @@ function createRes() {
   };
 }
 
-function createReq({ method = "GET", url = "/", body, headers = {} } = {}) {
+function createReq({ method = "GET", url = "/", body, headers = {}, socket } = {}) {
   const data = body === undefined ? null : Buffer.from(body);
   return {
     method,
     url,
     headers: { host: "localhost", ...headers },
+    socket,
     [Symbol.asyncIterator]: async function* () {
       if (data) yield data;
     }
@@ -119,19 +120,45 @@ describe("server routes and helpers", () => {
     expect(badJson.status).toBe(400);
     expect(readJson(badJson).error).toBe("invalid_json");
 
-    const success = createRes();
+    const successHttp = createRes();
     await server.route(
       createReq({ method: "POST", url: "/api/register", body: JSON.stringify({ username: "ValidUser" }) }),
-      success
+      successHttp
     );
-    expect(success.status).toBe(200);
-    expect(success.headers["Set-Cookie"]).toMatch(/sugar=ValidUser/);
-    expect(success.headers["Set-Cookie"]).toMatch(/HttpOnly/);
-    expect(success.headers["Set-Cookie"]).toMatch(/Secure/);
-    const savedSettings = readJson(success).user.settings;
+    expect(successHttp.status).toBe(200);
+    expect(successHttp.headers["Set-Cookie"]).toMatch(/sugar=ValidUser/);
+    expect(successHttp.headers["Set-Cookie"]).toMatch(/HttpOnly/);
+    expect(successHttp.headers["Set-Cookie"]).not.toMatch(/Secure/);
+    const savedSettings = readJson(successHttp).user.settings;
     expect(savedSettings.dashBehavior).toBe("ricochet");
     expect(savedSettings.teleportBehavior).toBe("normal");
     expect(savedSettings.invulnBehavior).toBe("short");
+
+    const successForwarded = createRes();
+    await server.route(
+      createReq({
+        method: "POST",
+        url: "/api/register",
+        body: JSON.stringify({ username: "ForwardedUser" }),
+        headers: { "x-forwarded-proto": "https" }
+      }),
+      successForwarded
+    );
+    expect(successForwarded.status).toBe(200);
+    expect(successForwarded.headers["Set-Cookie"]).toMatch(/Secure/);
+
+    const successEncrypted = createRes();
+    await server.route(
+      createReq({
+        method: "POST",
+        url: "/api/register",
+        body: JSON.stringify({ username: "SecureSocketUser" }),
+        socket: { encrypted: true }
+      }),
+      successEncrypted
+    );
+    expect(successEncrypted.status).toBe(200);
+    expect(successEncrypted.headers["Set-Cookie"]).toMatch(/Secure/);
 
     process.env.COOKIE_SECURE = prevSecure;
   });
@@ -405,6 +432,23 @@ describe("server routes and helpers", () => {
 
     expect(success.status).toBe(200);
     expect(readJson(success).user.selectedTrail).toBe("solar");
+  });
+
+  it("requires authentication for trail selection requests", async () => {
+    const { server } = await importServer();
+    const res = createRes();
+
+    await server.route(
+      createReq({
+        method: "POST",
+        url: "/api/cosmetics/trail",
+        body: JSON.stringify({ trailId: "classic" })
+      }),
+      res
+    );
+
+    expect(res.status).toBe(401);
+    expect(readJson(res).error).toBe("unauthorized");
   });
 
   it("validates and persists icon selections", async () => {

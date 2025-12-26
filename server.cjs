@@ -294,6 +294,15 @@ function parseCookies(header) {
   return out;
 }
 
+function isSecureRequest(req) {
+  const forwarded = req.headers["x-forwarded-proto"];
+  if (typeof forwarded === "string") {
+    const proto = forwarded.split(",")[0].trim().toLowerCase();
+    if (proto === "https") return true;
+  }
+  return Boolean(req.socket?.encrypted);
+}
+
 function setCookie(res, name, value, opts = {}) {
   const maxAge = Number.isFinite(opts.maxAge) ? opts.maxAge : 60 * 60 * 24 * 365;
   const parts = [
@@ -954,7 +963,7 @@ async function route(req, res) {
     setCookie(res, USER_COOKIE, u.username, {
       httpOnly: true,
       maxAge: 60 * 60 * 24 * 365,
-      secure: Boolean(process.env.COOKIE_SECURE) // set true in production if behind HTTPS
+      secure: isSecureRequest(req)
     });
 
     sendJson(res, 200, {
