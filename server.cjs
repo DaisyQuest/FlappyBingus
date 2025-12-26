@@ -305,11 +305,12 @@ function isSecureRequest(req) {
 
 function setCookie(res, name, value, opts = {}) {
   const maxAge = Number.isFinite(opts.maxAge) ? opts.maxAge : 60 * 60 * 24 * 365;
+  const sameSite = opts.sameSite ?? "Lax";
   const parts = [
     `${name}=${encodeURIComponent(String(value))}`,
     `Max-Age=${Math.max(0, Math.floor(maxAge))}`,
     "Path=/",
-    "SameSite=Lax"
+    `SameSite=${sameSite}`
   ];
   if (opts.httpOnly) parts.push("HttpOnly");
   if (opts.secure) parts.push("Secure");
@@ -960,10 +961,13 @@ async function route(req, res) {
 
     // Store username in cookie "sugar"
     // httpOnly is OK because the browser doesn't need to read it; the server does.
+    const secureCookie = isSecureRequest(req);
+    const sameSite = secureCookie ? "None" : "Lax";
     setCookie(res, USER_COOKIE, u.username, {
       httpOnly: true,
       maxAge: 60 * 60 * 24 * 365,
-      secure: isSecureRequest(req)
+      secure: secureCookie,
+      sameSite
     });
 
     sendJson(res, 200, {

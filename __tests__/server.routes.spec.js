@@ -102,9 +102,7 @@ afterEach(() => {
 });
 
 describe("server routes and helpers", () => {
-  it("rejects malformed registration payloads and sets secure cookies on success", async () => {
-    const prevSecure = process.env.COOKIE_SECURE;
-    process.env.COOKIE_SECURE = "1";
+  it("rejects malformed registration payloads and sets appropriate cookie flags on success", async () => {
     const { server } = await importServer();
 
     const invalidName = createRes();
@@ -128,6 +126,7 @@ describe("server routes and helpers", () => {
     expect(successHttp.status).toBe(200);
     expect(successHttp.headers["Set-Cookie"]).toMatch(/sugar=ValidUser/);
     expect(successHttp.headers["Set-Cookie"]).toMatch(/HttpOnly/);
+    expect(successHttp.headers["Set-Cookie"]).toMatch(/SameSite=Lax/);
     expect(successHttp.headers["Set-Cookie"]).not.toMatch(/Secure/);
     const savedSettings = readJson(successHttp).user.settings;
     expect(savedSettings.dashBehavior).toBe("ricochet");
@@ -146,6 +145,7 @@ describe("server routes and helpers", () => {
     );
     expect(successForwarded.status).toBe(200);
     expect(successForwarded.headers["Set-Cookie"]).toMatch(/Secure/);
+    expect(successForwarded.headers["Set-Cookie"]).toMatch(/SameSite=None/);
 
     const successEncrypted = createRes();
     await server.route(
@@ -159,8 +159,7 @@ describe("server routes and helpers", () => {
     );
     expect(successEncrypted.status).toBe(200);
     expect(successEncrypted.headers["Set-Cookie"]).toMatch(/Secure/);
-
-    process.env.COOKIE_SECURE = prevSecure;
+    expect(successEncrypted.headers["Set-Cookie"]).toMatch(/SameSite=None/);
   });
 
   it("requires authentication before accepting scores", async () => {
@@ -449,6 +448,35 @@ describe("server routes and helpers", () => {
 
     expect(res.status).toBe(401);
     expect(readJson(res).error).toBe("unauthorized");
+  });
+
+  it("accepts trail selection when the registration cookie is present", async () => {
+    const { server } = await importServer();
+    const registerRes = createRes();
+
+    await server.route(
+      createReq({ method: "POST", url: "/api/register", body: JSON.stringify({ username: "CookiePlayer" }) }),
+      registerRes
+    );
+
+    expect(registerRes.status).toBe(200);
+    const cookieHeader = registerRes.headers["Set-Cookie"];
+    expect(cookieHeader).toMatch(/sugar=CookiePlayer/);
+
+    const cookie = cookieHeader.split(";")[0];
+    const trailRes = createRes();
+    await server.route(
+      createReq({
+        method: "POST",
+        url: "/api/cosmetics/trail",
+        body: JSON.stringify({ trailId: "classic" }),
+        headers: { cookie }
+      }),
+      trailRes
+    );
+
+    expect(trailRes.status).toBe(200);
+    expect(readJson(trailRes).user.selectedTrail).toBe("classic");
   });
 
   it("validates and persists icon selections", async () => {
