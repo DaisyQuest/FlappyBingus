@@ -409,6 +409,20 @@ describe("Combo timer logic", () => {
     expect(game.comboTimer).toBeCloseTo(1.5, 5);
   });
 
+  it("does not break combo when an orb despawns", () => {
+    const { game } = buildGame({ catalysts: { orbs: { enabled: false } } });
+    stabilizeRun(game);
+    game.combo = 2;
+    game.comboTimer = 1;
+    game.orbs = [{ update: vi.fn(), dead: () => true }];
+
+    game.update(0.1);
+
+    expect(game.combo).toBe(2);
+    expect(game.comboTimer).toBeCloseTo(0.9, 5);
+    expect(game.orbs).toHaveLength(0);
+  });
+
   it("breaks combo only after the timer reaches zero", () => {
     const { game } = buildGame({ catalysts: { orbs: { enabled: false } } });
     stabilizeRun(game);
