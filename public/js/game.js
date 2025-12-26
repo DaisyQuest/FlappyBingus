@@ -1740,13 +1740,17 @@ _drawOrb(o) {
     const auraIntensity = clamp(this.perfectAuraIntensity || 0, 0, 1);
     const auraMode = this.perfectAuraMode;
     if (auraIntensity > 0 && auraMode) {
-      const outer = p.r * (1.6 + auraIntensity * 1.0);
+      const auraPulse = 0.08 * Math.sin(this.timeAlive * 12) + 0.04 * Math.sin(this.timeAlive * 22 + 1.4);
+      const outer = p.r * (1.6 + auraIntensity * (1.0 + auraPulse));
       const inner = Math.max(p.r * 0.6, outer * 0.35);
+      const wobble = auraIntensity * p.r * 0.08;
+      const auraX = p.x + Math.sin(this.timeAlive * 18) * wobble;
+      const auraY = p.y + Math.cos(this.timeAlive * 15) * wobble;
       ctx.save();
       ctx.globalAlpha = clamp(0.25 + auraIntensity * 0.65, 0, 1);
       ctx.globalCompositeOperation = "lighter";
       if (auraMode === "rainbow") {
-        const grad = ctx.createRadialGradient(p.x, p.y, inner, p.x, p.y, outer);
+        const grad = ctx.createRadialGradient(auraX, auraY, inner, auraX, auraY, outer);
         grad.addColorStop(0, "rgba(255,255,255,.95)");
         grad.addColorStop(0.25, "rgba(120,220,255,.9)");
         grad.addColorStop(0.45, "rgba(160,255,170,.9)");
@@ -1762,7 +1766,7 @@ _drawOrb(o) {
         ctx.shadowBlur = 20 + auraIntensity * 16;
       }
       ctx.beginPath();
-      ctx.arc(p.x, p.y, outer, 0, Math.PI * 2);
+      ctx.arc(auraX, auraY, outer, 0, Math.PI * 2);
       ctx.fill();
       ctx.restore();
     }
