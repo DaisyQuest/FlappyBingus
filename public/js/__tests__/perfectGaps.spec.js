@@ -111,7 +111,7 @@ describe("resolveGapPerfect", () => {
     expect(game._gapMeta.get(33).perfected).toBe(true);
   });
 
-  it("interpolates perpendicular motion for angled crossings", () => {
+  it("uses the perpendicular travel window to detect perfect alignment", () => {
     const game = makeGame();
     const gate = prepGate({ axis: "x", prev: 10, pos: 50, v: 200, gapCenter: 160, gapHalf: 24, gapId: 44 });
     game._gapMeta.set(44, { perfected: false });
@@ -128,10 +128,51 @@ describe("resolveGapPerfect", () => {
     });
 
     expect(res.awarded).toBe(true);
-    expect(res.perp).toBeCloseTo(160, 5); // interpolated center
+    expect(res.perp).toBeCloseTo(160, 5); // target center lies within perpendicular span
     expect(game.score).toBe(8);
     expect(game.perfectCombo).toBe(1);
     expect(game._perfectNiceSfx).toHaveBeenCalledTimes(1);
+  });
+
+  it("awards perfects when inside the gate thickness even if not at the center line", () => {
+    const game = makeGame();
+    const gate = prepGate({ axis: "x", prev: 40, pos: 60, v: 120, gapCenter: 140, gapHalf: 20, gapId: 71 });
+    game._gapMeta.set(71, { perfected: false });
+
+    const res = resolveGapPerfect({
+      gate,
+      game,
+      playerAxis: 66, // inside thick sweep, beyond the center line
+      prevPerpAxis: 140,
+      currPerpAxis: 140,
+      bonus: 6,
+      windowScale: 0.2
+    });
+
+    expect(res.awarded).toBe(true);
+    expect(game.score).toBe(6);
+    expect(game.perfectCombo).toBe(1);
+  });
+
+  it("does not award perfects when outside the gate thickness even with perfect Y", () => {
+    const game = makeGame();
+    const gate = prepGate({ axis: "x", prev: 40, pos: 60, v: 120, gapCenter: 140, gapHalf: 20, gapId: 72 });
+    game._gapMeta.set(72, { perfected: false });
+
+    const res = resolveGapPerfect({
+      gate,
+      game,
+      playerAxis: 68, // outside the thick sweep
+      prevPerpAxis: 140,
+      currPerpAxis: 140,
+      bonus: 6,
+      windowScale: 0.2
+    });
+
+    expect(res.awarded).toBe(false);
+    expect(res.crossed).toBe(false);
+    expect(game.score).toBe(0);
+    expect(game.perfectCombo).toBe(0);
   });
 
   it("honors minimum window on tiny gaps while still permitting leniency", () => {
