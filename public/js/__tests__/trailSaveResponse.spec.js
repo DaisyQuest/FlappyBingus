@@ -117,4 +117,50 @@ describe("handleTrailSaveResponse", () => {
     expect(setTrailHint).not.toHaveBeenCalled();
     expect(buildTrailHint).not.toHaveBeenCalled();
   });
+
+  it("keeps the current user when auth status is online but not unauthorized", () => {
+    const net = {
+      online: true,
+      user: { username: "PlayerOne", bestScore: 500, bustercoins: 12, achievements: { unlocked: {} } },
+      achievements: { state: { unlocked: {} } },
+      trails: [{ id: "classic" }]
+    };
+    const setNetUser = vi.fn((nextUser) => {
+      net.user = nextUser;
+    });
+    const setUserHint = vi.fn();
+    const setTrailHint = vi.fn();
+    const buildTrailHint = vi.fn(() => ({ className: "hint", text: "Fallback hint" }));
+
+    handleTrailSaveResponse({
+      res: { ok: false, status: 401, error: "csrf_failure" },
+      net,
+      orderedTrails: [{ id: "classic" }],
+      selectedTrailId: "classic",
+      currentTrailId: "classic",
+      currentIconId: "icon",
+      playerIcons: [],
+      setNetUser,
+      setUserHint,
+      setTrailHint,
+      buildTrailHint,
+      normalizeTrails: vi.fn(),
+      syncUnlockablesCatalog: vi.fn(),
+      syncIconCatalog: vi.fn(),
+      syncPipeTextureCatalog: vi.fn(),
+      refreshTrailMenu: vi.fn(),
+      applyIconSelection: vi.fn(),
+      readLocalBest: vi.fn(() => 42),
+      getAuthStatusFromResponse: vi.fn(() => ({ online: true, unauthorized: false }))
+    });
+
+    expect(setNetUser).not.toHaveBeenCalled();
+    expect(net.user?.username).toBe("PlayerOne");
+    expect(setUserHint).toHaveBeenCalledTimes(1);
+    expect(buildTrailHint).toHaveBeenCalledWith(expect.objectContaining({
+      online: true,
+      user: net.user
+    }));
+    expect(setTrailHint).toHaveBeenCalledWith({ className: "hint", text: "Fallback hint" });
+  });
 });

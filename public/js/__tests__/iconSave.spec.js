@@ -22,6 +22,15 @@ describe("icon save response classifier", () => {
     expect(result.message).toMatch(/sign in/i);
   });
 
+  it("treats 401s without explicit auth errors as generic failures", () => {
+    const res = { ok: false, status: 401 };
+    const result = classifyIconSaveResponse(res);
+    expect(result.outcome).toBe("rejected");
+    expect(result.resetUser).toBe(false);
+    expect(result.revert).toBe(true);
+    expect(result.online).toBe(true);
+  });
+
   it("reverts when the server reports a locked icon", () => {
     const res = { ok: false, status: 400, error: "icon_locked" };
     const result = classifyIconSaveResponse(res);

@@ -3,6 +3,7 @@
 // Helpers for interpreting icon save responses from the API so UI layers can
 // present accurate feedback without duplicating status checks.
 // =====================
+import { isUnauthorizedResponse } from "./authResponse.js";
 
 /**
  * Normalizes an icon save response into a UI-friendly outcome.
@@ -24,7 +25,7 @@ export function classifyIconSaveResponse(res) {
     const online = Boolean(res.status && res.status < 500);
     const error = res.error || res.body?.error;
 
-    if (res.status === 401) {
+    if (isUnauthorizedResponse(res)) {
       return {
         outcome: "unauthorized",
         online: false,
