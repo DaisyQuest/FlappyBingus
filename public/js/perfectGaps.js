@@ -1,4 +1,4 @@
-import { clamp, lerp } from "./util.js";
+import { clamp } from "./util.js";
 
 const DEFAULT_LENIENCY = 0.10; // 10% forgiveness on the perfect window
 const MIN_WINDOW = 3;
@@ -49,19 +49,38 @@ export function resolveGapPerfect({
     return { crossed: false, perfect: false, awarded: false, threshold, distance: Infinity };
   }
 
-  const crossed = gate.crossed(playerAxis, { allowCleared: true });
+  const safePlayerAxis = Number(playerAxis);
+  if (!gate.entered || !Number.isFinite(safePlayerAxis)) {
+    return { crossed: false, perfect: false, awarded: false, threshold, distance: Infinity };
+  }
+
+  const gateHalf = (Number(gate.thick) || 0) * 0.5;
+  const minAxis = Math.min(gate.prev, gate.pos) - gateHalf;
+  const maxAxis = Math.max(gate.prev, gate.pos) + gateHalf;
+  const crossed = safePlayerAxis >= minAxis && safePlayerAxis <= maxAxis;
   if (!crossed) return { crossed: false, perfect: false, awarded: false, threshold, distance: Infinity };
 
   gate.cleared = true;
 
-  const denom = gate.pos - gate.prev;
-  const alpha = denom === 0 ? 0 : clamp((playerAxis - gate.prev) / denom, 0, 1);
-  const perp = lerp(prevPerpAxis, currPerpAxis, alpha);
+  const safePrevPerp = Number(prevPerpAxis);
+  const safeCurrPerp = Number(currPerpAxis);
+  if (!Number.isFinite(safePrevPerp) || !Number.isFinite(safeCurrPerp)) {
+    return { crossed: true, perfect: false, awarded: false, threshold, distance: Infinity };
+  }
+
+  const minPerp = Math.min(safePrevPerp, safeCurrPerp);
+  const maxPerp = Math.max(safePrevPerp, safeCurrPerp);
+  const perp =
+    gate.gapCenter >= minPerp && gate.gapCenter <= maxPerp
+      ? gate.gapCenter
+      : Math.abs(safePrevPerp - gate.gapCenter) <= Math.abs(safeCurrPerp - gate.gapCenter)
+        ? safePrevPerp
+        : safeCurrPerp;
   const distance = Math.abs(perp - gate.gapCenter);
   const perfect = distance <= threshold;
 
   if (!perfect) {
-    return { crossed: true, perfect: false, awarded: false, threshold, distance, alpha, perp };
+    return { crossed: true, perfect: false, awarded: false, threshold, distance, perp };
   }
 
   const streak = (game.perfectCombo | 0) + 1;
@@ -91,5 +110,5 @@ export function resolveGapPerfect({
     if (meta) meta.perfected = true;
   }
 
-  return { crossed: true, perfect: true, awarded: true, threshold, distance, streak, points: pts, alpha, perp };
+  return { crossed: true, perfect: true, awarded: true, threshold, distance, streak, points: pts, perp };
 }
