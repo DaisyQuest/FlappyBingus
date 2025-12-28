@@ -63,6 +63,26 @@ describe("player icon helpers", () => {
     expect(honeycomb?.style?.pattern?.type).toBe("honeycomb");
   });
 
+  it("ties Midnight Honeycomb and Lemon Slice to the broken-pipe achievements", () => {
+    const unlocked = getUnlockedPlayerIcons(DEFAULT_PLAYER_ICONS, {
+      achievements: {
+        unlocked: {
+          pipes_broken_total_1000: Date.now(),
+          pipes_broken_run_100: Date.now()
+        }
+      }
+    });
+
+    expect(unlocked).toContain("midnight_honeycomb");
+    expect(unlocked).toContain("lemon_slice");
+
+    const midnight = DEFAULT_PLAYER_ICONS.find((icon) => icon.id === "midnight_honeycomb");
+    const lemon = DEFAULT_PLAYER_ICONS.find((icon) => icon.id === "lemon_slice");
+
+    expect(midnight?.unlock).toEqual({ type: "achievement", id: "pipes_broken_total_1000", label: "Pipe Purger" });
+    expect(lemon?.unlock).toEqual({ type: "achievement", id: "pipes_broken_run_100", label: "Shatterstorm Run" });
+  });
+
   it("defines the Perfect Line Beacon palette as a black core with bright red accents", () => {
     const perfectLine = DEFAULT_PLAYER_ICONS.find((icon) => icon.id === "perfect_ten_liner");
     expect(perfectLine?.style?.fill).toBe("#000000");
