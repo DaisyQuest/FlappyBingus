@@ -40,6 +40,7 @@ describe("achievements definitions", () => {
         maxPipesDodgedInRun: 400.4,
         totalPipesDodged: 2500.1,
         totalScore: 5000.9,
+        maxRunTime: 64.8,
         maxBrokenPipesInExplosion: 8.9,
         maxBrokenPipesInRun: -1,
         totalBrokenPipes: 250.4
@@ -60,6 +61,7 @@ describe("achievements definitions", () => {
       maxPipesDodgedInRun: 400,
       totalPipesDodged: 2500,
       totalScore: 5000,
+      maxRunTime: 64,
       maxBrokenPipesInExplosion: 8,
       maxBrokenPipesInRun: 0,
       totalBrokenPipes: 250,
@@ -86,6 +88,7 @@ describe("validateRunStats", () => {
         maxPerfectCombo: null,
         brokenPipes: null,
         maxBrokenPipesInExplosion: null,
+        runTime: null,
         skillUsage: null
       }
     });
@@ -100,6 +103,7 @@ describe("validateRunStats", () => {
         maxPerfectCombo: null,
         brokenPipes: null,
         maxBrokenPipesInExplosion: null,
+        runTime: null,
         skillUsage: null
       }
     });
@@ -136,6 +140,7 @@ describe("validateRunStats", () => {
         maxPerfectCombo: 4,
         brokenPipes: 4,
         maxBrokenPipesInExplosion: 2,
+        runTime: null,
         skillUsage: { dash: 2, phase: 0, teleport: 1, slowField: 0 }
       }
     });
@@ -384,7 +389,8 @@ describe("evaluateRunForAchievements", () => {
         maxOrbCombo: null,
         maxPerfectCombo: null,
         brokenPipes: null,
-        maxBrokenPipesInExplosion: null
+        maxBrokenPipesInExplosion: null,
+        runTime: null
       };
 
       let score = req.minScore ?? 0;
@@ -433,6 +439,10 @@ describe("evaluateRunForAchievements", () => {
       if (req.totalBrokenPipes !== undefined) {
         progress.totalBrokenPipes = Math.max(0, req.totalBrokenPipes - 1);
         runStats.brokenPipes = runStats.brokenPipes ?? 1;
+      }
+      if (req.minRunTime !== undefined) {
+        runStats.runTime = req.minRunTime;
+        score = Math.max(score, 1);
       }
 
       const previous = { unlocked: {}, progress };

@@ -81,6 +81,36 @@ function drawCenterlineGuides(ctx, radius, {
   ctx.restore?.();
 }
 
+function drawStripeBands(ctx, radius, {
+  colors = ["#111", "#facc15"],
+  stripeWidth = null,
+  angle = 0,
+  glow = null
+} = {}) {
+  if (!ctx) return;
+  const palette = Array.isArray(colors) && colors.length ? colors : ["#111", "#facc15"];
+  const bandWidth = Math.max(2, stripeWidth || radius * 0.32);
+  const span = radius * 2.2;
+  ctx.save?.();
+  if (ctx.beginPath && ctx.arc && ctx.clip) {
+    ctx.beginPath();
+    ctx.arc(0, 0, radius, 0, Math.PI * 2);
+    ctx.clip();
+  }
+  ctx.rotate?.(angle);
+  if (glow) {
+    ctx.shadowColor = glow;
+    ctx.shadowBlur = Math.max(4, bandWidth * 0.35);
+  } else {
+    ctx.shadowBlur = 0;
+  }
+  for (let x = -span, i = 0; x <= span; x += bandWidth, i += 1) {
+    ctx.fillStyle = palette[i % palette.length];
+    ctx.fillRect?.(x, -span, bandWidth, span * 2);
+  }
+  ctx.restore?.();
+}
+
 function makeCanvas(size) {
   const safeSize = Math.max(16, Math.floor(size) || 96);
   const isJsdom = typeof navigator !== "undefined" && /jsdom/i.test(navigator.userAgent || "");
@@ -267,6 +297,14 @@ function renderIconFrame(ctx, canvas, icon = {}, { animationPhase = 0 } = {}) {
       glow: pattern.glow || glow
     });
     canvas.__pattern = { type: "centerline" };
+  } else if (pattern?.type === "stripes") {
+    drawStripeBands(ctx, outer * 0.9, {
+      colors: pattern.colors,
+      stripeWidth: pattern.stripeWidth,
+      angle: Number.isFinite(pattern.angle) ? pattern.angle : Math.PI / 4,
+      glow: pattern.glow || glow
+    });
+    canvas.__pattern = { type: "stripes" };
   }
 
   ctx.restore?.();

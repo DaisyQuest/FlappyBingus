@@ -198,11 +198,13 @@ describe("Game core loop hooks", () => {
     };
     game.orbs.push(orb);
     game.update(0.016);
+    game.timeAlive = 61.3;
     const stats = game.getRunStats();
     expect(stats.orbsCollected).toBe(1);
     expect(stats.maxOrbCombo).toBe(1);
     expect(stats.scoreBreakdown.orbs.points).toBe(game.cfg.scoring.orbBase);
     expect(stats.totalScore).toBe(game.score);
+    expect(stats.runTime).toBe(61);
   });
 
   it("resets per-run score tracking before starting a new game", async () => {

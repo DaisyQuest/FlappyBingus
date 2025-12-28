@@ -110,11 +110,11 @@ const ACHIEVEMENTS = Object.freeze([
   },
   {
     id: "trail_nebula_2350",
-    title: "2350 Nebula Drift",
-    description: "Score 2350 in a single run to bloom the Nebula trail.",
+    title: "2350 Starfall Drift",
+    description: "Score 2350 in a single run to unlock the Starfall Drift trail.",
     requirement: { minScore: 2350 },
     progressKey: "bestScore",
-    reward: "Unlocks Nebula Bloom trail"
+    reward: "Unlocks Starfall Drift trail"
   },
   {
     id: "trail_dragonfire_2600",
@@ -183,6 +183,14 @@ const ACHIEVEMENTS = Object.freeze([
     reward: "Cosmetics coming soon"
   },
   {
+    id: "run_time_60",
+    title: "One-Minute Glide",
+    description: "Stay airborne for a full minute in a single run.",
+    requirement: { minRunTime: 60 },
+    progressKey: "maxRunTime",
+    reward: "Unlocks Lemon Slice trail"
+  },
+  {
     id: "perfects_run_10",
     title: "Perfect Ten",
     description: "Clear 10 perfect gaps in a single run.",
@@ -220,7 +228,7 @@ const ACHIEVEMENTS = Object.freeze([
     description: "Reach a 20-orb combo in a single run.",
     requirement: { minOrbCombo: 20 },
     progressKey: "maxOrbComboInRun",
-    reward: "Cosmetics coming soon"
+    reward: "Unlocks the Bee Stripes icon"
   },
   {
     id: "orb_combo_50",
@@ -268,7 +276,7 @@ const ACHIEVEMENTS = Object.freeze([
     description: "Break 10 pipes in a single explosion.",
     requirement: { minBrokenPipesInExplosion: 10 },
     progressKey: "maxBrokenPipesInExplosion",
-    reward: "Cosmetics coming soon"
+    reward: "Unlocks Honeycomb trail"
   },
   {
     id: "pipes_broken_run_100",
@@ -301,6 +309,7 @@ const DEFAULT_PROGRESS = Object.freeze({
   maxPipesDodgedInRun: 0,
   totalPipesDodged: 0,
   totalScore: 0,
+  maxRunTime: 0,
   maxBrokenPipesInExplosion: 0,
   maxBrokenPipesInRun: 0,
   totalBrokenPipes: 0,
@@ -365,6 +374,7 @@ function validateRunStats(raw) {
         maxPerfectCombo: null,
         brokenPipes: null,
         maxBrokenPipesInExplosion: null,
+        runTime: null,
         skillUsage: null
       }
     };
@@ -379,6 +389,7 @@ function validateRunStats(raw) {
   const maxPerfectCombo = parseNonNegativeInt(raw.maxPerfectCombo);
   const brokenPipes = parseNonNegativeInt(raw.brokenPipes);
   const maxBrokenPipesInExplosion = parseNonNegativeInt(raw.maxBrokenPipesInExplosion);
+  const runTime = parseNonNegativeInt(raw.runTime);
   const skills =
     raw.skillUsage === undefined || raw.skillUsage === null
       ? null
@@ -408,6 +419,9 @@ function validateRunStats(raw) {
   if (raw.maxBrokenPipesInExplosion !== undefined && raw.maxBrokenPipesInExplosion !== null && maxBrokenPipesInExplosion === null) {
     return { ok: false, error: "invalid_run_stats" };
   }
+  if (raw.runTime !== undefined && raw.runTime !== null && runTime === null) {
+    return { ok: false, error: "invalid_run_stats" };
+  }
   if (raw.skillUsage !== undefined && raw.skillUsage !== null && !skills) {
     return { ok: false, error: "invalid_run_stats" };
   }
@@ -423,6 +437,7 @@ function validateRunStats(raw) {
       maxPerfectCombo,
       brokenPipes,
       maxBrokenPipesInExplosion,
+      runTime,
       skillUsage: skills
     }
   };
@@ -445,6 +460,7 @@ function evaluateRunForAchievements({ previous, runStats, score, totalScore, bes
     maxPerfectCombo,
     brokenPipes,
     maxBrokenPipesInExplosion,
+    runTime,
     skillUsage
   } = runStats || {};
   const hasOrbs = orbsCollected !== null && orbsCollected !== undefined;
@@ -461,6 +477,7 @@ function evaluateRunForAchievements({ previous, runStats, score, totalScore, bes
   const safePerfectCombo = clampScoreProgress(maxPerfectCombo ?? 0);
   const safeBrokenPipes = clampScoreProgress(brokenPipes ?? 0);
   const safeBrokenExplosion = clampScoreProgress(maxBrokenPipesInExplosion ?? 0);
+  const safeRunTime = clampScoreProgress(runTime ?? 0);
   const baseTotalScore = totalScore === undefined ? state.progress.totalScore : clampScoreProgress(totalScore);
   const safeSkillTotals = skillUsage ? normalizeSkillTotals(skillUsage) : null;
 
@@ -484,6 +501,9 @@ function evaluateRunForAchievements({ previous, runStats, score, totalScore, bes
   }
   if (hasPerfectCombo) {
     state.progress.maxPerfectComboInRun = Math.max(state.progress.maxPerfectComboInRun, safePerfectCombo);
+  }
+  if (runTime !== null && runTime !== undefined) {
+    state.progress.maxRunTime = Math.max(state.progress.maxRunTime, safeRunTime);
   }
   if (brokenPipes !== null && brokenPipes !== undefined) {
     state.progress.totalBrokenPipes = clampScoreProgress(state.progress.totalBrokenPipes + safeBrokenPipes);
@@ -554,6 +574,10 @@ function evaluateRunForAchievements({ previous, runStats, score, totalScore, bes
       def.requirement?.minPerfectCombo === undefined
         ? true
         : hasPerfectCombo && safePerfectCombo >= def.requirement.minPerfectCombo;
+    const minRunTimeOk =
+      def.requirement?.minRunTime === undefined
+        ? true
+        : runTime !== null && runTime !== undefined && safeRunTime >= def.requirement.minRunTime;
     const minBrokenExplosionOk =
       def.requirement?.minBrokenPipesInExplosion === undefined
         ? true
@@ -583,6 +607,7 @@ function evaluateRunForAchievements({ previous, runStats, score, totalScore, bes
       totalPipesDodgedOk &&
       minOrbComboOk &&
       minPerfectComboOk &&
+      minRunTimeOk &&
       minBrokenExplosionOk &&
       minBrokenRunOk &&
       totalBrokenOk &&

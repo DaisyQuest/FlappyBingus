@@ -132,7 +132,9 @@ const TRAILS = Object.freeze([
   { id: "storm", name: "Stormstrike", minScore: 1750, achievementId: "trail_storm_1750" },
   { id: "magma", name: "Forgefire", minScore: 1950, achievementId: "trail_magma_1950" },
   { id: "plasma", name: "Plasma Arc", minScore: 2150, achievementId: "trail_plasma_2150" },
-  { id: "nebula", name: "Nebula Bloom", minScore: 2350, achievementId: "trail_nebula_2350" },
+  { id: "nebula", name: "Starfall Drift", minScore: 2350, achievementId: "trail_nebula_2350" },
+  { id: "honeycomb", name: "Honeycomb Drift", achievementId: "pipes_broken_explosion_10" },
+  { id: "lemon_slice", name: "Lemon Slice", achievementId: "run_time_60" },
   { id: "dragonfire", name: "Dragonfire", minScore: 2600, achievementId: "trail_dragonfire_2600" },
   { id: "ultraviolet", name: "Ultraviolet Pulse", minScore: 2800, achievementId: "trail_ultraviolet_2800" },
   { id: "world_record", name: "World Record Cherry Blossom", minScore: 3000, achievementId: "trail_world_record_3000", requiresRecordHolder: true }

@@ -87,6 +87,52 @@ describe("player icon sprites", () => {
     expect(calls).toContain("stroke");
   });
 
+  it("paints stripe bands when the pattern requests stripes", () => {
+    const stripeCalls = [];
+    const ctx = {
+      save: () => {},
+      restore: () => {},
+      translate: () => {},
+      beginPath: () => {},
+      arc: () => {},
+      clip: () => {},
+      fill: () => {},
+      stroke: () => {},
+      clearRect: () => {},
+      fillRect: (x, y, w, h) => stripeCalls.push({ x, y, w, h, fillStyle: ctx.fillStyle }),
+      set lineWidth(v) { this._lineWidth = v; },
+      set strokeStyle(v) { this._strokeStyle = v; },
+      set fillStyle(v) { this._fillStyle = v; },
+      get fillStyle() { return this._fillStyle; },
+      set shadowColor(v) { this._shadowColor = v; },
+      set shadowBlur(v) { this._shadowBlur = v; }
+    };
+    const canvas = {
+      width: 80,
+      height: 80,
+      naturalWidth: 80,
+      naturalHeight: 80,
+      complete: true,
+      getContext: () => ctx
+    };
+    global.document = {
+      createElement: (tag) => (tag === "canvas" ? canvas : {})
+    };
+
+    const sprite = createPlayerIconSprite({
+      style: {
+        fill: "#facc15",
+        core: "#111827",
+        pattern: { type: "stripes", colors: ["#0b0b0b", "#facc15"] }
+      }
+    }, { size: 80 });
+
+    expect(sprite.__pattern?.type).toBe("stripes");
+    const bandColors = new Set(stripeCalls.map((call) => call.fillStyle));
+    expect(bandColors.has("#0b0b0b")).toBe(true);
+    expect(bandColors.has("#facc15")).toBe(true);
+  });
+
   it("renders the Perfect Line Beacon crosshair centered and in bright red", () => {
     const operations = [];
     const ctx = {

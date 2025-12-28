@@ -54,6 +54,18 @@ export const DEFAULT_PLAYER_ICONS = Object.freeze([
     }
   },
   {
+    id: "bee_stripes",
+    name: "Bee Stripes",
+    unlock: { type: "achievement", id: "orb_combo_20", label: "Orb Crescendo" },
+    style: {
+      fill: "#facc15",
+      core: "#111827",
+      rim: "#0b0b0b",
+      glow: "#fde68a",
+      pattern: { type: "stripes", colors: ["#0b0b0b", "#facc15"], angle: Math.PI / 4 }
+    }
+  },
+  {
     id: "fire_cape",
     name: "Fire Cape",
     unlock: { type: "achievement", id: "score_fire_cape_1000", label: "Fire Cape Trial" },
