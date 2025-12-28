@@ -78,7 +78,7 @@ const PLAYER_ICONS = Object.freeze([
   {
     id: "midnight_honeycomb",
     name: "Midnight Honeycomb",
-    unlock: { type: "free", label: "Free" },
+    unlock: { type: "achievement", id: "pipes_broken_total_1000", label: "Pipe Purger" },
     style: {
       fill: "#facc15",
       core: "#fde047",
@@ -90,7 +90,7 @@ const PLAYER_ICONS = Object.freeze([
   {
     id: "lemon_slice",
     name: "Lemon Slice",
-    unlock: { type: "free", label: "Free" },
+    unlock: { type: "achievement", id: "pipes_broken_run_100", label: "Shatterstorm Run" },
     style: {
       fill: "#facc15",
       core: "#fef08a",

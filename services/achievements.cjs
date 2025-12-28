@@ -292,7 +292,7 @@ const ACHIEVEMENTS = Object.freeze([
     description: "Break 100 pipes in one run.",
     requirement: { minBrokenPipesInRun: 100 },
     progressKey: "maxBrokenPipesInRun",
-    reward: "Cosmetics coming soon"
+    reward: "Unlocks the Lemon Slice icon"
   },
   {
     id: "pipes_broken_total_1000",
@@ -300,7 +300,7 @@ const ACHIEVEMENTS = Object.freeze([
     description: "Break 1,000 pipes total across all runs.",
     requirement: { totalBrokenPipes: 1_000 },
     progressKey: "totalBrokenPipes",
-    reward: "Cosmetics coming soon"
+    reward: "Unlocks the Midnight Honeycomb icon"
   }
 ]);
 
