@@ -133,6 +133,51 @@ describe("player icon sprites", () => {
     expect(bandColors.has("#facc15")).toBe(true);
   });
 
+  it("draws a honeycomb lattice when requested", () => {
+    const honeyOps = [];
+    const ctx = {
+      save: () => {},
+      restore: () => {},
+      translate: () => {},
+      beginPath: () => honeyOps.push("beginPath"),
+      arc: () => honeyOps.push("arc"),
+      clip: () => {},
+      fill: () => {},
+      stroke: () => honeyOps.push("stroke"),
+      clearRect: () => {},
+      moveTo: () => honeyOps.push("moveTo"),
+      lineTo: () => honeyOps.push("lineTo"),
+      closePath: () => honeyOps.push("closePath"),
+      set lineWidth(v) { this._lineWidth = v; },
+      set strokeStyle(v) { this._strokeStyle = v; },
+      set shadowColor(v) { this._shadowColor = v; },
+      set shadowBlur(v) { this._shadowBlur = v; }
+    };
+    const canvas = {
+      width: 90,
+      height: 90,
+      naturalWidth: 90,
+      naturalHeight: 90,
+      complete: true,
+      getContext: () => ctx
+    };
+    global.document = {
+      createElement: (tag) => (tag === "canvas" ? canvas : {})
+    };
+
+    const sprite = createPlayerIconSprite({
+      style: {
+        fill: "#fbbf24",
+        core: "#fde68a",
+        pattern: { type: "honeycomb", stroke: "#f59e0b" }
+      }
+    }, { size: 90 });
+
+    expect(sprite.__pattern?.type).toBe("honeycomb");
+    expect(honeyOps).toContain("stroke");
+    expect(honeyOps).toContain("lineTo");
+  });
+
   it("renders the Perfect Line Beacon crosshair centered and in bright red", () => {
     const operations = [];
     const ctx = {

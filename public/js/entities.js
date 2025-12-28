@@ -84,6 +84,9 @@ export class Part {
     this.color = color; this.add = add;
     this.drag = 0;
     this.twinkle = false;
+    this.shape = "circle";
+    this.rotation = 0;
+    this.slice = null;
   }
   update(dt) {
     this.life -= dt;
@@ -103,7 +106,38 @@ export class Part {
     if (this.add) ctx.globalCompositeOperation = "lighter";
     ctx.globalAlpha = a;
     const r = Math.max(0.7, this.size * (0.6 + 0.6 * (1 - t)));
-    if (this.twinkle) {
+    if (this.shape === "lemon_slice") {
+      const slice = this.slice || {};
+      const rind = slice.rind || "rgba(255, 247, 195, 0.95)";
+      const pith = slice.pith || "rgba(255, 252, 224, 0.95)";
+      const segment = slice.segment || "rgba(255, 240, 170, 0.9)";
+      const segments = Math.max(4, Math.floor(slice.segments || 6));
+      const inner = r * 0.86;
+      const pulp = r * 0.64;
+      ctx.translate(this.x, this.y);
+      if (this.rotation) ctx.rotate(this.rotation);
+      ctx.fillStyle = rind;
+      ctx.beginPath();
+      ctx.arc(0, 0, r, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = pith;
+      ctx.beginPath();
+      ctx.arc(0, 0, inner, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = this.color || pith;
+      ctx.beginPath();
+      ctx.arc(0, 0, pulp, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.strokeStyle = segment;
+      ctx.lineWidth = Math.max(0.6, r * 0.16);
+      for (let i = 0; i < segments; i++) {
+        const ang = (Math.PI * 2 * i) / segments;
+        ctx.beginPath();
+        ctx.moveTo(0, 0);
+        ctx.lineTo(Math.cos(ang) * inner * 0.92, Math.sin(ang) * inner * 0.92);
+        ctx.stroke();
+      }
+    } else if (this.twinkle) {
       ctx.strokeStyle = this.color;
       ctx.lineWidth = Math.max(0.65, r * 0.35);
       ctx.beginPath(); ctx.moveTo(this.x - r * 1.4, this.y); ctx.lineTo(this.x + r * 1.4, this.y); ctx.stroke();

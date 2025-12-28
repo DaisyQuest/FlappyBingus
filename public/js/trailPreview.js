@@ -496,6 +496,11 @@ export class TrailPreview {
       const color = st.color ? st.color({ i, hue: this.trailHue, rand: this._randRange.bind(this) }) : "rgba(140,220,255,.62)";
 
       const prt = new Part(bx + jx, by + jy, vx, vy, life, size, color, st.add);
+      if (st.particleShape) {
+        prt.shape = st.particleShape;
+        prt.slice = st.sliceStyle || null;
+        prt.rotation = this._randRange(0, Math.PI * 2);
+      }
       prt.drag = st.drag;
       this.parts.push(prt);
     }

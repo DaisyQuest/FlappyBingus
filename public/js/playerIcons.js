@@ -66,6 +66,18 @@ export const DEFAULT_PLAYER_ICONS = Object.freeze([
     }
   },
   {
+    id: "honeycomb",
+    name: "Honeycomb",
+    unlock: { type: "achievement", id: "pipes_broken_explosion_10", label: "Honeycomb Drift" },
+    style: {
+      fill: "#fbbf24",
+      core: "#fde68a",
+      rim: "#3b240a",
+      glow: "#fff1b8",
+      pattern: { type: "honeycomb", stroke: "#f59e0b", glow: "#ffe9a3" }
+    }
+  },
+  {
     id: "fire_cape",
     name: "Fire Cape",
     unlock: { type: "achievement", id: "score_fire_cape_1000", label: "Fire Cape Trial" },

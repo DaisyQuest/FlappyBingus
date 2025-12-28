@@ -84,4 +84,10 @@ describe("trailStyles", () => {
     const storm = trailStyleFor("storm");
     expect(storm.sparkle.add).toBe(false);
   });
+
+  it("marks lemon slice trails with a dedicated particle shape", () => {
+    const lemon = trailStyleFor("lemon_slice");
+    expect(lemon.particleShape).toBe("lemon_slice");
+    expect(lemon.sliceStyle?.segments).toBeGreaterThan(3);
+  });
 });
