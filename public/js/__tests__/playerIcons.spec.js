@@ -91,8 +91,13 @@ describe("player icon helpers", () => {
   it("describes lock reasons for UI strings", () => {
     const purchase = { id: "p", unlock: { type: "purchase", cost: 12 } };
     const score = { id: "s", unlock: { type: "score", minScore: 100 } };
+    const achievement = { id: "a", unlock: { type: "achievement", id: "a1", label: "Perfect Ten" } };
+    const record = { id: "r", unlock: { type: "record" } };
+    expect(describeIconLock(purchase, { unlocked: false })).toContain("Purchase for");
     expect(describeIconLock(purchase, { unlocked: false })).toContain("12");
-    expect(describeIconLock(score, { unlocked: false }).toLowerCase()).toContain("score");
+    expect(describeIconLock(score, { unlocked: false })).toContain("Reach score 100");
+    expect(describeIconLock(achievement, { unlocked: false })).toContain("Perfect Ten");
+    expect(describeIconLock(record, { unlocked: false })).toContain("record holder");
     expect(describeIconLock(DEFAULT_PLAYER_ICONS[0], { unlocked: true })).toBe("Free");
   });
 
