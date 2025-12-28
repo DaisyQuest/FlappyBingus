@@ -261,15 +261,15 @@ export function describeIconLock(icon, { unlocked }) {
   const unlock = icon.unlock || { type: "free" };
   switch (unlock.type) {
     case "score":
-      return `Locked: Score ${unlock.minScore}`;
+      return `Locked: Reach score ${unlock.minScore}`;
     case "achievement":
-      return "Locked: Achievement";
+      return `Locked: Earn the "${unlock.label || "Achievement"}" achievement`;
     case "purchase":
       return unlock.cost
-        ? `Locked: Costs ${formatCurrencyAmount(unlock.cost, unlock.currencyId || DEFAULT_CURRENCY_ID)}`
+        ? `Locked: Purchase for ${formatCurrencyAmount(unlock.cost, unlock.currencyId || DEFAULT_CURRENCY_ID)}`
         : "Locked: Purchase";
     case "record":
-      return "Locked: Record holder";
+      return "Locked: Become the record holder";
     default:
       return "Locked";
   }
