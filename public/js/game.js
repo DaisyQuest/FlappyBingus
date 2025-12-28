@@ -33,7 +33,7 @@ const STATE = Object.freeze({ MENU: 0, PLAY: 1, OVER: 2 });
 import { Pipe, Gate, Orb, Part, FloatText } from "./entities.js";
 import { spawnBurst, spawnCrossfire, spawnOrb, spawnSinglePipe, spawnWall } from "./spawn.js";
 import { dashBounceMax, orbPoints, tickCooldowns } from "./mechanics.js";
-import { buildScorePopupStyle } from "./uiStyles.js";
+import { buildScorePopupStyle, buildComboAuraStyle, COMBO_AURA_THRESHOLDS } from "./uiStyles.js";
 import { computePipeColor } from "./pipeColors.js";
 import {
   DEFAULT_PIPE_TEXTURE_ID,
@@ -1403,11 +1403,13 @@ export class Game {
       const n = this.comboSparkAcc | 0;
       this.comboSparkAcc -= n;
 
-      const ui = this._skillUI();
+      const { scoreX, scoreY, arcRadius, arcWidth } = this._scoreHudLayout();
       for (let i = 0; i < n; i++) {
-        const px = rand(ui.barX, ui.barX + ui.barW);
-        const py = rand(ui.barY - 8, ui.barY + ui.barH + 8);
-        const a = rand(0, Math.PI * 2), sp = rand(20, 90);
+        const a = rand(Math.PI, Math.PI * 2);
+        const r = arcRadius + rand(-arcWidth * 0.4, arcWidth * 0.4);
+        const px = scoreX + Math.cos(a) * r;
+        const py = scoreY + Math.sin(a) * r;
+        const sp = rand(20, 90);
         const prt = new Part(px, py, Math.cos(a) * sp, Math.sin(a) * sp, rand(0.18, 0.35), rand(0.9, 1.7), "rgba(255,255,255,.7)", true);
         prt.drag = 10.5;
         this.parts.push(prt);
@@ -1579,8 +1581,8 @@ export class Game {
         this.comboTimer = Math.max(0, this.comboTimer - dt);
         if (this.comboTimer <= 0) {
           this.comboTimer = 0;
-          const ui = this._skillUI();
-          this._breakCombo(ui.barX + ui.barW * 0.5, ui.barY - 10);
+          const { scoreX, scoreY, arcRadius } = this._scoreHudLayout();
+          this._breakCombo(scoreX, scoreY - arcRadius - 12);
         }
       }
     } else {
@@ -1877,10 +1879,111 @@ _drawOrb(o) {
     const x0 = pad;
     const y0 = this.H - pad - size;
     const totalW = 4 * size + 3 * gap;
-    const barH = 10;
-    const barX = x0;
-    const barY = y0 - 16 - barH;
-    return { x0, y0, size, gap, totalW, barX, barY, barW: totalW, barH };
+    return { x0, y0, size, gap, totalW };
+  }
+
+  _scoreHudLayout() {
+    const scoreX = this.W * 0.5;
+    const scoreY = this.H * 0.95;
+    const bubbleSize = clamp(Math.min(this.W, this.H) * 0.18, 80, 190);
+    const arcRadius = bubbleSize * 0.78;
+    const arcWidth = Math.max(6, bubbleSize * 0.08);
+    return { scoreX, scoreY, bubbleSize, arcRadius, arcWidth };
+  }
+
+  _comboAuraState() {
+    const combo = Math.max(0, this.combo | 0);
+    if (combo <= 0) return null;
+    const comboMax = Math.max(1, Number(this.cfg.scoring.orbComboMax) || 30, COMBO_AURA_THRESHOLDS.flameAt);
+    const comboWindow = this.getComboWindow(combo);
+    const timerRatio = comboWindow > 0 ? clamp(this.comboTimer / comboWindow, 0, 1) : 0;
+    return buildComboAuraStyle({ combo, comboMax, timerRatio });
+  }
+
+  _drawComboGlow(scoreX, scoreY, bubbleSize, aura) {
+    const ctx = this.ctx;
+    const glow = ctx.createRadialGradient(
+      scoreX, scoreY, bubbleSize * 0.25,
+      scoreX, scoreY, bubbleSize * 1.05
+    );
+    glow.addColorStop(0, aura.coreColor);
+    glow.addColorStop(0.6, aura.glowColor);
+    glow.addColorStop(1, "rgba(0,0,0,0)");
+    ctx.save();
+    ctx.globalAlpha = aura.glowAlpha;
+    ctx.fillStyle = glow;
+    ctx.beginPath(); ctx.arc(scoreX, scoreY, bubbleSize * 1.05, 0, Math.PI * 2); ctx.fill();
+    ctx.restore();
+  }
+
+  _drawComboArc(scoreX, scoreY, arcRadius, arcWidth, aura) {
+    const ctx = this.ctx;
+    const arcStart = Math.PI;
+    const arcEnd = Math.PI * 2;
+
+    ctx.save();
+    ctx.lineCap = "round";
+    ctx.lineWidth = arcWidth;
+    ctx.globalAlpha = 0.2 * aura.fade;
+    ctx.strokeStyle = "rgba(255,255,255,.25)";
+    ctx.beginPath(); ctx.arc(scoreX, scoreY, arcRadius, arcStart, arcEnd); ctx.stroke();
+
+    const fillEnd = arcStart + (arcEnd - arcStart) * aura.fill;
+    if (fillEnd > arcStart + 0.01) {
+      ctx.shadowColor = aura.glowColor;
+      ctx.shadowBlur = 12 + 28 * aura.energy;
+      ctx.globalAlpha = aura.ringAlpha;
+      ctx.strokeStyle = aura.ringColor;
+      ctx.beginPath(); ctx.arc(scoreX, scoreY, arcRadius, arcStart, fillEnd); ctx.stroke();
+    }
+
+    ctx.shadowBlur = 0;
+    ctx.globalAlpha = 0.65 * aura.fade;
+    ctx.font = "800 12px system-ui,-apple-system,Segoe UI,Roboto,sans-serif";
+    ctx.textAlign = "center"; ctx.textBaseline = "bottom";
+    ctx.fillStyle = aura.ringColor;
+    ctx.fillText(`COMBO ${aura.combo}`, scoreX, scoreY - arcRadius + arcWidth * 0.3);
+    ctx.restore();
+  }
+
+  _drawComboFlames(scoreX, scoreY, bubbleSize, aura) {
+    const ctx = this.ctx;
+    const flameBaseY = scoreY - bubbleSize * 0.78;
+    const flameSpread = bubbleSize * 0.22;
+    const baseWidth = bubbleSize * 0.12;
+    const heightBase = bubbleSize * 0.3;
+
+    ctx.save();
+    ctx.globalAlpha = aura.flame;
+    ctx.shadowColor = aura.glowColor;
+    ctx.shadowBlur = 18 + 18 * aura.energy;
+    ctx.fillStyle = aura.glowColor;
+    for (let i = -1; i <= 1; i++) {
+      const flicker = 0.85 + 0.15 * Math.sin(this.timeAlive * 6 + i * 1.9);
+      const height = heightBase * (0.8 + 0.35 * Math.abs(i)) * aura.flame * flicker;
+      const width = baseWidth * (1 - 0.15 * Math.abs(i));
+      const x = scoreX + i * flameSpread;
+      const y = flameBaseY;
+      ctx.beginPath();
+      ctx.moveTo(x, y);
+      ctx.quadraticCurveTo(x - width, y - height * 0.6, x, y - height);
+      ctx.quadraticCurveTo(x + width, y - height * 0.6, x, y);
+      ctx.closePath();
+      ctx.fill();
+    }
+    ctx.restore();
+  }
+
+  _drawComboBreakFlash(scoreX, scoreY, arcRadius, arcWidth) {
+    if (this.comboBreakFlash <= 0) return;
+    const ctx = this.ctx;
+    const a = clamp(this.comboBreakFlash / 0.35, 0, 1);
+    ctx.save();
+    ctx.globalAlpha = a * 0.65;
+    ctx.strokeStyle = "rgba(255,90,90,.85)";
+    ctx.lineWidth = Math.max(2, arcWidth * 0.55);
+    ctx.beginPath(); ctx.arc(scoreX, scoreY, arcRadius + arcWidth * 0.2, Math.PI, Math.PI * 2); ctx.stroke();
+    ctx.restore();
   }
 
   _drawHUD() {
@@ -1888,9 +1991,12 @@ _drawOrb(o) {
 
     // score (centered, near bottom)
     ctx.save();
-    const scoreX = this.W * 0.5;
-    const scoreY = this.H * 0.95;
-    const bubbleSize = clamp(Math.min(this.W, this.H) * 0.18, 80, 190);
+    const { scoreX, scoreY, bubbleSize, arcRadius, arcWidth } = this._scoreHudLayout();
+    const aura = this._comboAuraState();
+
+    if (aura) {
+      this._drawComboGlow(scoreX, scoreY, bubbleSize, aura);
+    }
 
     ctx.textAlign = "center"; ctx.textBaseline = "middle";
     ctx.font = `900 ${bubbleSize}px "Baloo 2","Fredoka One",system-ui,-apple-system,Segoe UI,Roboto,sans-serif`;
@@ -1915,7 +2021,13 @@ _drawOrb(o) {
     ctx.strokeText(`${this.score | 0}`, scoreX, scoreY);
 
     this._drawBustercoinCounter(scoreX, scoreY, bubbleSize);
-    
+
+    if (aura) {
+      this._drawComboArc(scoreX, scoreY, arcRadius, arcWidth, aura);
+      if (aura.flame > 0) this._drawComboFlames(scoreX, scoreY, bubbleSize, aura);
+    }
+    this._drawComboBreakFlash(scoreX, scoreY, arcRadius, arcWidth);
+
     // intensity (top-right)
     ctx.textAlign = "right";
     ctx.globalAlpha = 0.70;
@@ -2011,45 +2123,7 @@ _drawOrb(o) {
     const ctx = this.ctx;
     const ui = this._skillUI();
 
-    const comboMax = Math.max(1, Number(this.cfg.scoring.orbComboMax) || 30);
-    const fill = clamp(this.combo / comboMax, 0, 1);
-
-    // combo bar
     ctx.save();
-    ctx.shadowColor = "rgba(0,0,0,.50)";
-    ctx.shadowBlur = 12; ctx.shadowOffsetY = 3;
-
-    ctx.fillStyle = "rgba(255,255,255,.08)";
-    this._roundRect(ui.barX, ui.barY, ui.barW, ui.barH, 999); ctx.fill();
-
-    const fillW = ui.barW * fill;
-    if (fillW > 0.5) {
-      const glowAt = Number(this.cfg.ui.comboBar.glowAt) || 9999;
-      const sparkleAt = Number(this.cfg.ui.comboBar.sparkleAt) || 9999;
-      ctx.shadowBlur = (this.combo >= glowAt) ? 18 : 8;
-      ctx.shadowColor = (this.combo >= glowAt) ? "rgba(255,255,255,.25)" : "rgba(120,210,255,.20)";
-      const g = ctx.createLinearGradient(ui.barX, ui.barY, ui.barX + ui.barW, ui.barY);
-      g.addColorStop(0, "rgba(120,210,255,.70)");
-      g.addColorStop(0.6, (this.combo >= sparkleAt) ? "rgba(255,255,255,.75)" : "rgba(255,255,255,.45)");
-      g.addColorStop(1, "rgba(255,255,255,.22)");
-      ctx.fillStyle = g;
-      this._roundRect(ui.barX, ui.barY, fillW, ui.barH, 999); ctx.fill();
-    }
-
-    ctx.shadowBlur = 0;
-    ctx.globalAlpha = 0.85;
-    ctx.font = "800 12px system-ui,-apple-system,Segoe UI,Roboto,sans-serif";
-    ctx.textAlign = "left"; ctx.textBaseline = "bottom";
-    ctx.fillStyle = "rgba(255,255,255,.70)";
-    ctx.fillText(`COMBO ${this.combo}`, ui.barX, ui.barY - 2);
-
-    if (this.comboBreakFlash > 0) {
-      const a = clamp(this.comboBreakFlash / 0.35, 0, 1);
-      ctx.globalAlpha = a * 0.55;
-      ctx.strokeStyle = "rgba(255,90,90,.85)";
-      ctx.lineWidth = 2;
-      this._roundRect(ui.barX - 2, ui.barY - 2, ui.barW + 4, ui.barH + 4, 999); ctx.stroke();
-    }
 
     // skill slots (fixed order per ACTIONS)
     const binds = this.getBinds();
