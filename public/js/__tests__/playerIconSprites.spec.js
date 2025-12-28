@@ -87,6 +87,78 @@ describe("player icon sprites", () => {
     expect(calls).toContain("stroke");
   });
 
+  it("scrolls zigzag patterns when the animation is enabled", () => {
+    const translations = [];
+    const ctx = {
+      save: () => {},
+      restore: () => {},
+      translate: (x, y) => translations.push({ x, y }),
+      beginPath: () => {},
+      arc: () => {},
+      clip: () => {},
+      fill: () => {},
+      stroke: () => {},
+      clearRect: () => {},
+      lineTo: () => {},
+      moveTo: () => {},
+      set lineWidth(v) { this._lineWidth = v; },
+      set strokeStyle(v) { this._strokeStyle = v; },
+      set shadowColor(v) { this._shadowColor = v; },
+      set shadowBlur(v) { this._shadowBlur = v; },
+      set lineCap(v) { this._lineCap = v; },
+      set lineJoin(v) { this._lineJoin = v; }
+    };
+    const canvas = {
+      width: 90,
+      height: 90,
+      naturalWidth: 90,
+      naturalHeight: 90,
+      complete: true,
+      getContext: () => ctx
+    };
+    const prevDocument = global.document;
+    const prevRaf = global.requestAnimationFrame;
+    const prevCaf = global.cancelAnimationFrame;
+    const rafCallbacks = [];
+    global.document = { createElement: (tag) => (tag === "canvas" ? canvas : {}) };
+    global.requestAnimationFrame = (cb) => {
+      rafCallbacks.push(cb);
+      return rafCallbacks.length;
+    };
+    global.cancelAnimationFrame = vi.fn();
+
+    try {
+      const sprite = createPlayerIconSprite({
+        style: {
+          fill: "#f8fbff",
+          core: "#e0f2fe",
+          rim: "#7dd3fc",
+          glow: "#bae6fd",
+          pattern: { type: "zigzag", stroke: "#7dd3fc", amplitude: 0.2, waves: 7, spacing: 8 },
+          animation: { type: "zigzag_scroll", speed: 1 }
+        }
+      }, { size: 90 });
+
+      expect(sprite.__animation?.running).toBe(true);
+      const initialPatternTranslations = translations.filter((entry) => entry.x < 0);
+      expect(initialPatternTranslations.length).toBeGreaterThan(0);
+
+      rafCallbacks[0]?.(0);
+      rafCallbacks[1]?.(500);
+
+      const patternTranslations = translations.filter((entry) => entry.x < 0);
+      const firstY = patternTranslations.at(-2)?.y;
+      const lastY = patternTranslations.at(-1)?.y;
+      expect(firstY).not.toBeUndefined();
+      expect(lastY).not.toBeUndefined();
+      expect(firstY).not.toBeCloseTo(lastY, 5);
+    } finally {
+      global.document = prevDocument;
+      global.requestAnimationFrame = prevRaf;
+      global.cancelAnimationFrame = prevCaf;
+    }
+  });
+
   it("paints stripe bands when the pattern requests stripes", () => {
     const stripeCalls = [];
     const ctx = {
