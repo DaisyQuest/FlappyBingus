@@ -46,11 +46,19 @@ export const DEFAULT_PLAYER_ICONS = Object.freeze([
     name: "Azure Zigzag",
     unlock: { type: "achievement", id: "no_orbs_100", label: "Orb-Free Century" },
     style: {
-      fill: "#1e3a8a",
-      core: "#38bdf8",
-      rim: "#0b1224",
-      glow: "#60a5fa",
-      pattern: { type: "zigzag", stroke: "#0ea5e9", background: "#082f49" }
+      fill: "#f8fbff",
+      core: "#e0f2fe",
+      rim: "#7dd3fc",
+      glow: "#bae6fd",
+      pattern: {
+        type: "zigzag",
+        stroke: "#7dd3fc",
+        background: "#bae6fd",
+        amplitude: 0.2,
+        waves: 7,
+        spacing: 10
+      },
+      animation: { type: "zigzag_scroll", speed: 0.35 }
     }
   },
   {

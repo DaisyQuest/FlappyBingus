@@ -23,27 +23,44 @@ function drawZigZag(ctx, radius, {
   width = 3,
   amplitude = 0.18,
   waves = 6,
-  glow = null
+  glow = null,
+  spacing = null,
+  phase = 0
 } = {}) {
   if (!ctx) return;
   const amp = Math.max(0.05, Math.min(0.9, amplitude)) * radius;
   const segments = Math.max(2, Math.floor(waves));
   const step = (radius * 2) / segments;
+  const lineGap = Math.max(width * 1.4, spacing || amp * 2.2);
+  const scroll = ((phase % 1) + 1) % 1;
+  const offsetY = scroll * lineGap;
+  const span = radius * 2 + lineGap * 2;
   ctx.save?.();
-  ctx.translate?.(-radius, 0);
+  if (ctx.beginPath && ctx.arc && ctx.clip) {
+    ctx.beginPath();
+    ctx.arc(0, 0, radius, 0, Math.PI * 2);
+    ctx.clip();
+  }
   ctx.lineWidth = width;
   ctx.strokeStyle = stroke;
+  ctx.lineJoin = "miter";
+  ctx.lineCap = "round";
   if (glow) {
     ctx.shadowColor = glow;
     ctx.shadowBlur = Math.max(6, width * 3);
+  } else {
+    ctx.shadowBlur = 0;
   }
-  ctx.beginPath();
-  for (let i = 0; i <= segments; i++) {
-    const x = i * step;
-    const y = (i % 2 === 0 ? -amp : amp);
-    ctx.lineTo(x, y);
+  ctx.translate?.(-radius, -radius - lineGap + offsetY);
+  for (let y = 0; y <= span; y += lineGap) {
+    ctx.beginPath();
+    for (let i = 0; i <= segments; i += 1) {
+      const x = i * step;
+      const zig = i % 2 === 0 ? -amp : amp;
+      ctx.lineTo(x, y + zig);
+    }
+    ctx.stroke();
   }
-  ctx.stroke();
   ctx.restore?.();
 }
 
@@ -379,9 +396,13 @@ function renderIconFrame(ctx, canvas, icon = {}, { animationPhase = 0 } = {}) {
     drawZigZag(ctx, outer * 0.75, {
       stroke: pattern.stroke || rim,
       width: Math.max(2, canvas.width * 0.05),
-      amplitude: 0.22,
-      waves: 6,
-      glow: pattern.background || glow
+      amplitude: Number.isFinite(pattern.amplitude) ? pattern.amplitude : 0.22,
+      waves: Number.isFinite(pattern.waves) ? pattern.waves : 6,
+      spacing: Number.isFinite(pattern.spacing)
+        ? (pattern.spacing <= 1 ? pattern.spacing * outer * 0.75 : pattern.spacing)
+        : null,
+      glow: pattern.background || glow,
+      phase: animation?.type === "zigzag_scroll" ? animationPhase : 0
     });
     canvas.__pattern = { type: "zigzag" };
   } else if (pattern?.type === "centerline") {
@@ -425,7 +446,9 @@ function renderIconFrame(ctx, canvas, icon = {}, { animationPhase = 0 } = {}) {
 
 function maybeStartSpriteAnimation(canvas, icon, renderFrame) {
   const animation = icon?.style?.animation;
-  if (!animation || (animation.type !== "lava" && animation.type !== "cape_flow")) return null;
+  if (!animation || (animation.type !== "lava" && animation.type !== "cape_flow" && animation.type !== "zigzag_scroll")) {
+    return null;
+  }
   const raf = typeof requestAnimationFrame === "function" ? requestAnimationFrame : null;
   const caf = typeof cancelAnimationFrame === "function" ? cancelAnimationFrame : null;
   if (!raf) return null;
