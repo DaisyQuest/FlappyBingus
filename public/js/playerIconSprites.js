@@ -164,6 +164,49 @@ function drawHoneycomb(ctx, radius, {
   ctx.restore?.();
 }
 
+function drawCitrusSlice(ctx, radius, {
+  stroke = "#fff7a8",
+  lineWidth = null,
+  segments = 6,
+  centerRadius = null,
+  glow = null
+} = {}) {
+  if (!ctx) return;
+  const safeSegments = Math.max(3, Math.floor(segments) || 6);
+  const width = Math.max(1, lineWidth || radius * 0.08);
+  const inner = Math.max(2, centerRadius || radius * 0.18);
+  const span = radius * 0.86;
+
+  ctx.save?.();
+  ctx.lineWidth = width;
+  ctx.strokeStyle = stroke;
+  if (glow) {
+    ctx.shadowColor = glow;
+    ctx.shadowBlur = Math.max(4, width * 2.2);
+  } else {
+    ctx.shadowBlur = 0;
+  }
+
+  ctx.beginPath();
+  ctx.arc?.(0, 0, span, 0, Math.PI * 2);
+  ctx.stroke?.();
+
+  for (let i = 0; i < safeSegments; i += 1) {
+    const angle = (Math.PI * 2 * i) / safeSegments;
+    const x = Math.cos(angle) * span;
+    const y = Math.sin(angle) * span;
+    ctx.beginPath();
+    ctx.moveTo?.(0, 0);
+    ctx.lineTo?.(x, y);
+    ctx.stroke?.();
+  }
+
+  ctx.beginPath();
+  ctx.arc?.(0, 0, inner, 0, Math.PI * 2);
+  ctx.stroke?.();
+  ctx.restore?.();
+}
+
 function makeCanvas(size) {
   const safeSize = Math.max(16, Math.floor(size) || 96);
   const isJsdom = typeof navigator !== "undefined" && /jsdom/i.test(navigator.userAgent || "");
@@ -366,6 +409,15 @@ function renderIconFrame(ctx, canvas, icon = {}, { animationPhase = 0 } = {}) {
       glow: pattern.glow || glow
     });
     canvas.__pattern = { type: "honeycomb" };
+  } else if (pattern?.type === "citrus_slice") {
+    drawCitrusSlice(ctx, outer * 0.74, {
+      stroke: pattern.stroke || rim,
+      lineWidth: pattern.lineWidth,
+      segments: pattern.segments,
+      centerRadius: pattern.centerRadius,
+      glow: pattern.glow || glow
+    });
+    canvas.__pattern = { type: "citrus_slice" };
   }
 
   ctx.restore?.();

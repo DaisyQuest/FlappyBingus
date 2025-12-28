@@ -78,6 +78,30 @@ export const DEFAULT_PLAYER_ICONS = Object.freeze([
     }
   },
   {
+    id: "midnight_honeycomb",
+    name: "Midnight Honeycomb",
+    unlock: { type: "free", label: "Free" },
+    style: {
+      fill: "#facc15",
+      core: "#fde047",
+      rim: "#111827",
+      glow: "#fef08a",
+      pattern: { type: "honeycomb", stroke: "#0b0b0b", glow: "#fef3c7" }
+    }
+  },
+  {
+    id: "lemon_slice",
+    name: "Lemon Slice",
+    unlock: { type: "free", label: "Free" },
+    style: {
+      fill: "#facc15",
+      core: "#fef08a",
+      rim: "#a16207",
+      glow: "#fef9c3",
+      pattern: { type: "citrus_slice", stroke: "#fff7a8", segments: 6, glow: "#fef3c7" }
+    }
+  },
+  {
     id: "fire_cape",
     name: "Fire Cape",
     unlock: { type: "achievement", id: "score_fire_cape_1000", label: "Fire Cape Trial" },

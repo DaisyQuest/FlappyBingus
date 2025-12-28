@@ -178,6 +178,50 @@ describe("player icon sprites", () => {
     expect(honeyOps).toContain("lineTo");
   });
 
+  it("sketches citrus slice segments for lemon icons", () => {
+    const citrusOps = [];
+    const ctx = {
+      save: () => {},
+      restore: () => {},
+      translate: () => {},
+      beginPath: () => citrusOps.push("beginPath"),
+      arc: () => citrusOps.push("arc"),
+      clip: () => {},
+      fill: () => {},
+      stroke: () => citrusOps.push("stroke"),
+      clearRect: () => {},
+      moveTo: () => citrusOps.push("moveTo"),
+      lineTo: () => citrusOps.push("lineTo"),
+      set lineWidth(v) { this._lineWidth = v; },
+      set strokeStyle(v) { this._strokeStyle = v; },
+      set shadowColor(v) { this._shadowColor = v; },
+      set shadowBlur(v) { this._shadowBlur = v; }
+    };
+    const canvas = {
+      width: 88,
+      height: 88,
+      naturalWidth: 88,
+      naturalHeight: 88,
+      complete: true,
+      getContext: () => ctx
+    };
+    global.document = {
+      createElement: (tag) => (tag === "canvas" ? canvas : {})
+    };
+
+    const sprite = createPlayerIconSprite({
+      style: {
+        fill: "#facc15",
+        core: "#fef08a",
+        pattern: { type: "citrus_slice", stroke: "#fff7a8", segments: 6 }
+      }
+    }, { size: 88 });
+
+    expect(sprite.__pattern?.type).toBe("citrus_slice");
+    expect(citrusOps).toContain("lineTo");
+    expect(citrusOps).toContain("arc");
+  });
+
   it("renders the Perfect Line Beacon crosshair centered and in bright red", () => {
     const operations = [];
     const ctx = {
