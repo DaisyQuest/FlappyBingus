@@ -4,7 +4,7 @@
 import {
   clamp, lerp, rand, norm2, approach,
   circleRect, circleRectInfo, circleCircle,
-  hexToRgb, lerpC, rgb, shade, hsla
+  hexToRgb, lerpC, rgb, shade, hsla, formatRunDuration
 } from "./util.js";
 import { ACTIONS, humanizeBind } from "./keybinds.js";
 import { resolveGapPerfect, resolvePerfectGapAlignment } from "./perfectGaps.js";
@@ -2044,6 +2044,13 @@ _drawOrb(o) {
       if (aura.flame > 0) this._drawComboFlames(scoreX, scoreY, bubbleSize, aura);
     }
     this._drawComboBreakFlash(scoreX, scoreY, arcRadius, arcWidth);
+
+    // time alive (top-left)
+    ctx.textAlign = "left";
+    ctx.textBaseline = "top";
+    ctx.globalAlpha = 0.72;
+    ctx.font = "800 13px system-ui,-apple-system,Segoe UI,Roboto,sans-serif";
+    ctx.fillText(`Time: ${formatRunDuration(this.timeAlive)}`, 14, 10);
 
     // intensity (top-right)
     ctx.textAlign = "right";

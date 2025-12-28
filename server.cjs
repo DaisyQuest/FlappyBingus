@@ -368,6 +368,8 @@ function ensureUserSchema(u, { recordHolder = false } = {}) {
   u.bestScore = normalizeScore(u.bestScore);
   u.runs = normalizeCount(u.runs);
   u.totalScore = normalizeTotal(u.totalScore);
+  u.longestRun = normalizeTotal(u.longestRun);
+  u.totalTimePlayed = normalizeTotal(u.totalTimePlayed);
   u.bustercoins = normalizeCount(u.bustercoins);
   u.currencies = normalizeCurrencyWallet(u.currencies, { [DEFAULT_CURRENCY_ID]: u.bustercoins });
   u.bustercoins = getCurrencyBalance(u.currencies, DEFAULT_CURRENCY_ID);
@@ -533,6 +535,8 @@ function publicUser(u, { recordHolder = false } = {}) {
     settings: u.settings || structuredClone(DEFAULT_SETTINGS),
     runs: u.runs | 0,
     totalScore: u.totalScore | 0,
+    longestRun: u.longestRun | 0,
+    totalTimePlayed: u.totalTimePlayed | 0,
     bustercoins: getCurrencyBalance(u.currencies, DEFAULT_CURRENCY_ID),
     currencies: normalizeCurrencyWallet(u.currencies, { [DEFAULT_CURRENCY_ID]: u.bustercoins }),
     skillTotals: normalizeSkillTotals(u.skillTotals || DEFAULT_SKILL_TOTALS),
@@ -584,6 +588,8 @@ function buildUserDefaults(username, key) {
     settings: structuredClone(DEFAULT_SETTINGS),
     runs: 0,
     totalScore: 0,
+    longestRun: 0,
+    totalTimePlayed: 0,
     bustercoins: 0,
     currencies: { [DEFAULT_CURRENCY_ID]: 0 },
     skillTotals: structuredClone(DEFAULT_SKILL_TOTALS),

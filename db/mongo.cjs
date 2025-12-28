@@ -217,7 +217,7 @@ class MongoDataStore {
     }
   }
 
-  async recordScore(user, score, { bustercoinsEarned = 0, achievements, unlockables, skillUsage } = {}) {
+  async recordScore(user, score, { bustercoinsEarned = 0, achievements, unlockables, skillUsage, runTime } = {}) {
     await this.ensureConnected();
     if (!user || !user.key) throw new Error("user_key_required");
 
@@ -230,6 +230,9 @@ class MongoDataStore {
       unlockables && typeof unlockables === "object" ? unlockables : null;
     const baseSkillTotals = normalizeSkillTotals(user.skillTotals || DEFAULT_SKILL_TOTALS);
     const runSkillTotals = normalizeSkillTotals(skillUsage);
+    const safeLongestRun = normalizeTotal(user.longestRun);
+    const safeTotalTime = normalizeTotal(user.totalTimePlayed);
+    const safeRunTime = normalizeTotal(runTime);
 
     // Seed values from payload (only used if the doc is missing those fields)
     const safeRuns = normalizeCount(user.runs);
@@ -263,6 +266,8 @@ class MongoDataStore {
             runs: { $add: [{ $ifNull: ["$runs", safeRuns] }, 1] },
             totalScore: { $add: [{ $ifNull: ["$totalScore", safeTotalScore] }, safeScore] },
             bestScore: { $max: [{ $ifNull: ["$bestScore", safeBestScore] }, safeScore] },
+            longestRun: { $max: [{ $ifNull: ["$longestRun", safeLongestRun] }, safeRunTime] },
+            totalTimePlayed: { $add: [{ $ifNull: ["$totalTimePlayed", safeTotalTime] }, safeRunTime] },
             bustercoins: { $add: [{ $ifNull: ["$bustercoins", safeCoins] }, earnedCoins] },
             currencies: {
               $let: {

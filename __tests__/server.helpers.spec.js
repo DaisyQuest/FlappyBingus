@@ -19,6 +19,8 @@ const baseUser = () => ({
   keybinds: {},
   runs: 10,
   totalScore: 42_000,
+  longestRun: 0,
+  totalTimePlayed: 0,
   bustercoins: 120,
   currencies: { bustercoin: 120 }
 });
@@ -117,7 +119,9 @@ describe("server helpers (trails)", () => {
       },
       settings: { dashBehavior: "laser", slowFieldBehavior: "plasma", teleportBehavior: "storm", invulnBehavior: "forever" },
       runs: -10,
-      totalScore: -99
+      totalScore: -99,
+      longestRun: -5,
+      totalTimePlayed: -20
     };
 
     server.ensureUserSchema(u, { recordHolder: false });
@@ -133,6 +137,8 @@ describe("server helpers (trails)", () => {
     });
     expect(u.runs).toBe(0);
     expect(u.totalScore).toBe(0);
+    expect(u.longestRun).toBe(0);
+    expect(u.totalTimePlayed).toBe(0);
     expect(u.bustercoins).toBe(0);
   });
 });

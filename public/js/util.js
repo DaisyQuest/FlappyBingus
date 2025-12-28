@@ -167,6 +167,20 @@ export function hsla(h, s, l, a) {
   return `hsla(${h},${clamp(s, 0, 100)}%,${clamp(l, 0, 100)}%,${clamp(a, 0, 1)})`;
 }
 
+export function formatRunDuration(totalSeconds) {
+  const raw = Number(totalSeconds);
+  if (!Number.isFinite(raw) || raw <= 0) return "0:00";
+  const safeSeconds = Math.floor(raw);
+  const hours = Math.floor(safeSeconds / 3600);
+  const minutes = Math.floor((safeSeconds % 3600) / 60);
+  const seconds = safeSeconds % 60;
+  const paddedSeconds = String(seconds).padStart(2, "0");
+  if (hours > 0) {
+    return `${hours}:${String(minutes).padStart(2, "0")}:${paddedSeconds}`;
+  }
+  return `${minutes}:${paddedSeconds}`;
+}
+
 // Cookie helpers (client-side)
 export function getCookie(name) {
   const needle = name + "=";

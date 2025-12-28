@@ -845,6 +845,24 @@ input[type="range"]::-moz-range-thumb{
   letter-spacing:.6px;
   text-transform:uppercase;
 }
+.over-duration{
+  display:flex;
+  flex-direction:column;
+  gap:2px;
+  align-items:center;
+}
+.over-duration-label{
+  font-size:11px;
+  text-transform:uppercase;
+  letter-spacing:.25px;
+  color:var(--muted);
+}
+.over-duration-value{
+  font-weight:900;
+  font-size:clamp(20px,2.4vw,30px);
+  color:#e6f1ff;
+  text-shadow:0 8px 20px rgba(0,0,0,.3);
+}
 .over-final-score{
   font-size:clamp(80px,9vw,140px);
   line-height:1;

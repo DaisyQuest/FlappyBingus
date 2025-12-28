@@ -60,16 +60,22 @@ describe("game over layout", () => {
     const refs = {};
     const screen = createOverScreen(dom.window.document, refs);
     const finalCard = screen.querySelector(".over-final-card");
+    const duration = screen.querySelector("#overDuration");
     const finalScore = screen.querySelector("#final");
     const personalBest = screen.querySelector("#overPB");
     const badge = screen.querySelector("#overPbBadge");
     const status = screen.querySelector("#overPbStatus");
+    const finalLabel = screen.querySelector(".over-final-label");
 
+    expect(duration?.textContent).toBe("0:00");
     expect(finalScore?.classList.contains("over-final-score")).toBe(true);
     expect(personalBest?.classList.contains("over-personal-best")).toBe(true);
     expect(badge?.classList.contains("hidden")).toBe(true);
     expect(status?.hidden).toBe(true);
     expect(finalCard?.contains(personalBest)).toBe(true);
+    expect(finalCard?.contains(duration)).toBe(true);
+    const nodeDoc = dom.window.Node;
+    expect(duration?.compareDocumentPosition(finalLabel) & nodeDoc.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
   it("renders stats and breakdown side by side", () => {

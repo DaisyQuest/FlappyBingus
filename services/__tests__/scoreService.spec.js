@@ -17,7 +17,16 @@ function buildDeps(overrides = {}) {
     || vi.fn((state) => ({ state: state || { unlocked: {} }, unlocked: [] }));
   const normalizeAchievements = overrides.normalizeAchievements || ((state) => state || { unlocked: {}, progress: {} });
   const validateRunStats =
-    overrides.validateRunStats || (() => ({ ok: true, stats: { orbsCollected: null, abilitiesUsed: null, perfects: null } }));
+    overrides.validateRunStats || (() => ({
+      ok: true,
+      stats: {
+        orbsCollected: null,
+        abilitiesUsed: null,
+        perfects: null,
+        runTime: null,
+        skillUsage: null
+      }
+    }));
   const evaluateAchievements =
     overrides.evaluateAchievements || vi.fn(({ previous }) => ({ state: previous || { unlocked: {}, progress: {} }, unlocked: [] }));
   const buildAchievementsPayload =
@@ -95,7 +104,7 @@ describe("scoreService", () => {
     expect(deps.dataStore.recordScore).toHaveBeenCalledWith(
       user,
       123,
-      expect.objectContaining({ bustercoinsEarned: 0, unlockables: expect.anything() })
+      expect.objectContaining({ bustercoinsEarned: 0, runTime: null, unlockables: expect.anything() })
     );
     expect(deps.ensureUserSchema).toHaveBeenCalledWith(updated, { recordHolder: false });
     expect(deps.listHighscores).toHaveBeenCalled();
@@ -198,7 +207,12 @@ describe("scoreService", () => {
       buildAchievementsPayload,
       validateRunStats: () => ({
         ok: true,
-        stats: { orbsCollected: 0, abilitiesUsed: 0, skillUsage: { dash: 1, phase: 0, teleport: 0, slowField: 0 } }
+        stats: {
+          orbsCollected: 0,
+          abilitiesUsed: 0,
+          runTime: 45,
+          skillUsage: { dash: 1, phase: 0, teleport: 0, slowField: 0 }
+        }
       })
     });
 
@@ -206,7 +220,7 @@ describe("scoreService", () => {
 
     expect(evaluateAchievements).toHaveBeenCalledWith({
       previous: { unlocked: {}, progress: {} },
-      runStats: { orbsCollected: 0, abilitiesUsed: 0, skillUsage: { dash: 1, phase: 0, teleport: 0, slowField: 0 } },
+      runStats: { orbsCollected: 0, abilitiesUsed: 0, runTime: 45, skillUsage: { dash: 1, phase: 0, teleport: 0, slowField: 0 } },
       score: 101,
       totalScore: 50,
       bestScore: undefined
@@ -215,7 +229,7 @@ describe("scoreService", () => {
     expect(recordScore).toHaveBeenCalledWith(
       user,
       101,
-      expect.objectContaining({ skillUsage: { dash: 1, phase: 0, teleport: 0, slowField: 0 } })
+      expect.objectContaining({ runTime: 45, skillUsage: { dash: 1, phase: 0, teleport: 0, slowField: 0 } })
     );
     expect(res.body.achievements).toEqual({ unlocked: ["b"], definitions: ["defs"], state: updated.achievements });
   });

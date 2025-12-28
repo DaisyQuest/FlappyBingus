@@ -154,6 +154,7 @@ describe("uiLayout", () => {
       "bustercoinText",
       "trailPreviewCanvas",
       "final",
+      "overDuration",
       "overPB",
       "overOrbCombo",
       "overOrbComboLabel",

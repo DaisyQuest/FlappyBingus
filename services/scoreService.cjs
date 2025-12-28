@@ -80,7 +80,8 @@ function createScoreService(deps) {
         bustercoinsEarned,
         achievements: achievementEval.state,
         unlockables: unlockEval.state,
-        skillUsage: runStats?.skillUsage
+        skillUsage: runStats?.skillUsage,
+        runTime: runStats?.runTime
       });
       const highscores = await listHighscores();
       const recordHolder = highscores?.[0]?.username === updated.username;

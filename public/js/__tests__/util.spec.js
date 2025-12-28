@@ -18,6 +18,7 @@ import {
   norm2,
   rand,
   rgb,
+  formatRunDuration,
   setCookie,
   setRandSource,
   shade,
@@ -152,5 +153,24 @@ describe("HTML escaping", () => {
     expect(escapeHtml(`<script>alert("x&y")</script>`)).toBe(
       "&lt;script&gt;alert(&quot;x&amp;y&quot;)&lt;/script&gt;"
     );
+  });
+});
+
+describe("run duration formatting", () => {
+  it("formats seconds into minute/second strings", () => {
+    expect(formatRunDuration(0)).toBe("0:00");
+    expect(formatRunDuration(9)).toBe("0:09");
+    expect(formatRunDuration(61)).toBe("1:01");
+    expect(formatRunDuration(3599)).toBe("59:59");
+  });
+
+  it("expands to hours when the duration exceeds an hour", () => {
+    expect(formatRunDuration(3600)).toBe("1:00:00");
+    expect(formatRunDuration(3725)).toBe("1:02:05");
+  });
+
+  it("sanitizes invalid inputs", () => {
+    expect(formatRunDuration("nope")).toBe("0:00");
+    expect(formatRunDuration(-5)).toBe("0:00");
   });
 });
