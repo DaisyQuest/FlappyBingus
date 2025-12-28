@@ -1447,7 +1447,7 @@ function createOverScreen(doc, refs) {
   const skillUsageTitle = createElement(doc, refs, "div", { id: "skillUsageTitle", className: "section-title", text: "Skill usage (this run)" });
   const skillUsageList = createElement(doc, refs, "div", {
     id: "skillUsageStats",
-    className: "skill-usage-list"
+    className: "skill-usage-list two-column"
   });
   skillUsage.append(skillUsageTitle, skillUsageList);
   stats.append(statsHeader, statsGrid, skillUsage);
@@ -1463,7 +1463,7 @@ function createOverScreen(doc, refs) {
   });
   const achievementsList = createElement(doc, refs, "div", {
     id: "overAchievementsList",
-    className: "over-achievements-list"
+    className: "over-achievements-list scrollable"
   });
   achievements.append(achievementsTitle, achievementsList);
   refs.overAchievements = achievements;

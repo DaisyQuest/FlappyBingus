@@ -945,6 +945,12 @@ input[type="range"]::-moz-range-thumb{
   grid-template-columns:repeat(auto-fit,minmax(220px,1fr));
   gap:10px;
 }
+.over-achievements-list.scrollable{
+  max-height:260px;
+  overflow-y:auto;
+  padding-right:4px;
+  overscroll-behavior:contain;
+}
 .over-achievement-item{
   padding:10px 12px;
   border-radius:12px;
@@ -1014,6 +1020,9 @@ input[type="range"]::-moz-range-thumb{
   display:grid;
   grid-template-columns:repeat(auto-fit,minmax(120px,1fr));
   gap:8px;
+}
+.skill-usage-list.two-column{
+  grid-template-columns:repeat(2,minmax(120px,1fr));
 }
 .skill-usage-item{
   display:flex;

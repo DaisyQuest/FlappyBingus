@@ -551,4 +551,16 @@ describe("uiLayout", () => {
     expect(headerBack?.textContent).toBe("←");
     expect(settingsBack?.textContent).toBe("←");
   });
+
+  it("marks game over lists for scrollable achievements and two-column skill usage", () => {
+    buildGameUI({ document, mount });
+
+    const achievementsList = document.querySelector("#overAchievementsList");
+    const skillUsageList = document.querySelector("#skillUsageStats");
+
+    expect(achievementsList).toBeInstanceOf(window.HTMLElement);
+    expect(skillUsageList).toBeInstanceOf(window.HTMLElement);
+    expect(achievementsList?.classList.contains("scrollable")).toBe(true);
+    expect(skillUsageList?.classList.contains("two-column")).toBe(true);
+  });
 });
