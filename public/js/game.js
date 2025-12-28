@@ -107,6 +107,8 @@ export class Game {
     this.comboSparkAcc = 0;
     this.comboTimer = 0;
 
+    this._introTimeOffset = null;
+
     this.perfectT = 0;
     this.perfectMax = 0;
     this.perfectCombo = 0;
@@ -377,6 +379,7 @@ export class Game {
     this.comboBreakFlash = 0;
     this.comboSparkAcc = 0;
     this.comboTimer = 0;
+    this._introTimeOffset = null;
 
     this.perfectT = 0;
     this.perfectMax = 0;
@@ -521,7 +524,15 @@ export class Game {
   }
 
   _difficulty01() {
-    const t = this.timeAlive, s = this.score;
+    const introScore = Math.max(0, Number(this.cfg.pipes.difficulty.introScore) || 0);
+    if (introScore > 0 && this._introTimeOffset == null && this.score >= introScore) {
+      this._introTimeOffset = this.timeAlive;
+    }
+    if (introScore > 0 && this._introTimeOffset == null && this.score < introScore) return 0;
+    const scoreOffset = (introScore > 0 && this._introTimeOffset != null) ? introScore : 0;
+    const timeOffset = this._introTimeOffset ?? 0;
+    const t = Math.max(0, this.timeAlive - timeOffset);
+    const s = Math.max(0, this.score - scoreOffset);
     const tc = Math.max(1e-3, Number(this.cfg.pipes.difficulty.timeToMax) || 38);
     const sc = Math.max(1e-3, Number(this.cfg.pipes.difficulty.scoreToMax) || 120);
     const ts = clamp(Number(this.cfg.pipes.difficulty.timeRampStart) || 0, 0, 1e6);
