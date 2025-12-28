@@ -39,6 +39,31 @@ describe("server player icon catalog", () => {
     expect(unlocked).not.toContain("orb_free_zigzag");
   });
 
+  it("includes the newest icon styles and unlocks in the server catalog", () => {
+    const bee = PLAYER_ICONS.find((icon) => icon.id === "bee_stripes");
+    const honeycomb = PLAYER_ICONS.find((icon) => icon.id === "honeycomb");
+    const midnight = PLAYER_ICONS.find((icon) => icon.id === "midnight_honeycomb");
+    const lemon = PLAYER_ICONS.find((icon) => icon.id === "lemon_slice");
+
+    expect(bee?.unlock).toEqual({ type: "achievement", id: "orb_combo_20", label: "Orb Crescendo" });
+    expect(bee?.style?.pattern?.type).toBe("stripes");
+    expect(honeycomb?.unlock).toEqual({ type: "achievement", id: "pipes_broken_explosion_10", label: "Honeycomb Drift" });
+    expect(honeycomb?.style?.pattern?.type).toBe("honeycomb");
+    expect(midnight?.unlock).toEqual({ type: "free", label: "Free" });
+    expect(midnight?.style?.pattern?.type).toBe("honeycomb");
+    expect(lemon?.unlock).toEqual({ type: "free", label: "Free" });
+    expect(lemon?.style?.pattern?.type).toBe("citrus_slice");
+
+    const unlocked = unlockedIcons(
+      { achievements: { unlocked: { orb_combo_20: Date.now(), pipes_broken_explosion_10: Date.now() } } },
+      { icons: PLAYER_ICONS, recordHolder: false }
+    );
+    expect(unlocked).toContain("bee_stripes");
+    expect(unlocked).toContain("honeycomb");
+    expect(unlocked).toContain("midnight_honeycomb");
+    expect(unlocked).toContain("lemon_slice");
+  });
+
   it("ships the Perfect Line Beacon as a black core with a bright red shell and guides", () => {
     const perfectLine = PLAYER_ICONS.find((icon) => icon.id === "perfect_ten_liner");
     expect(perfectLine?.style?.fill).toBe("#000000");
