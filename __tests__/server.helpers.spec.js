@@ -99,6 +99,7 @@ describe("server helpers (trails)", () => {
       totalPipesDodged: 0,
       totalScore: 0,
       maxRunTime: 0,
+      totalRunTime: 0,
       skillTotals: { dash: 0, phase: 0, teleport: 0, slowField: 0 }
     });
     expect(Object.keys(u.achievements.unlocked || {})).toEqual(expect.arrayContaining(["trail_classic_1"]));

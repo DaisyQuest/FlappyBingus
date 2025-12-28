@@ -48,6 +48,7 @@ describe("achievements helpers", () => {
         totalPipesDodged: 5000.8,
         totalScore: 10_000.5,
         maxRunTime: 64.2,
+        totalRunTime: 602.7,
         maxBrokenPipesInExplosion: 12.9,
         maxBrokenPipesInRun: -4,
         totalBrokenPipes: 501.2
@@ -68,6 +69,7 @@ describe("achievements helpers", () => {
       totalPipesDodged: 5000,
       totalScore: 10_000,
       maxRunTime: 64,
+      totalRunTime: 602,
       maxBrokenPipesInExplosion: 12,
       maxBrokenPipesInRun: 0,
       totalBrokenPipes: 501
@@ -92,6 +94,7 @@ describe("achievements helpers", () => {
           totalPipesDodged: 3500,
           totalScore: 8000,
           maxRunTime: 30,
+          totalRunTime: 240,
           maxBrokenPipesInExplosion: 0,
           maxBrokenPipesInRun: 0,
           totalBrokenPipes: 0
@@ -117,10 +120,12 @@ describe("achievements helpers", () => {
     const perfectCombo = rows.find((row) => row.textContent.includes("Perfect Rhythm"));
     const pipeDodge = rows.find((row) => row.textContent.includes("Pipe Whisperer"));
     const oneMinute = rows.find((row) => row.textContent.includes("One-Minute Glide"));
+    const tenMinute = rows.find((row) => row.textContent.includes("Ten-Minute Soarer"));
     expect(orbCombo?.querySelector(".achievement-requirement")?.textContent).toContain("orb combo of 20");
     expect(perfectCombo?.querySelector(".achievement-requirement")?.textContent).toContain("perfect gap combo of 10");
     expect(pipeDodge?.querySelector(".achievement-requirement")?.textContent).toContain("Dodge 500 pipes");
     expect(oneMinute?.querySelector(".achievement-requirement")?.textContent).toContain("Survive for 60 seconds");
+    expect(tenMinute?.querySelector(".achievement-requirement")?.textContent).toContain("Survive for 600 seconds");
   });
 
   it("prefers in-game achievement popups over DOM fallbacks", () => {
@@ -213,6 +218,7 @@ describe("achievements helpers", () => {
         totalPipesDodged: 9900,
         totalBrokenPipes: 950,
         totalScore: 9900,
+        totalRunTime: 540,
         bestScore: 120
       }
     });
@@ -246,6 +252,7 @@ describe("achievements helpers", () => {
       "orb_combo_20",
       "perfect_combo_10",
       "run_time_60",
+      "total_run_time_600",
       "pipes_broken_explosion_10",
       "pipes_broken_run_100",
       "pipes_broken_total_1000",
@@ -258,6 +265,7 @@ describe("achievements helpers", () => {
     expect(state.progress.totalPerfects).toBe(107);
     expect(state.progress.totalPipesDodged).toBe(10500);
     expect(state.progress.totalBrokenPipes).toBe(1060);
+    expect(state.progress.totalRunTime).toBe(605);
   });
 
   it("unlocks no-orb and no-ability achievements when constraints are met", () => {

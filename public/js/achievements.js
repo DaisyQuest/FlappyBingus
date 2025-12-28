@@ -192,6 +192,14 @@ export const ACHIEVEMENTS = Object.freeze([
     reward: "Unlocks Lemon Slice trail"
   },
   {
+    id: "total_run_time_600",
+    title: "Ten-Minute Soarer",
+    description: "Accumulate 10 minutes of flight time across all runs.",
+    requirement: { totalRunTime: 600 },
+    progressKey: "totalRunTime",
+    reward: "Unlocks the Honeycomb Drift icon"
+  },
+  {
     id: "perfects_run_10",
     title: "Perfect Ten",
     description: "Clear 10 perfect gaps in a single run.",
@@ -313,6 +321,7 @@ const DEFAULT_STATE = Object.freeze({
     totalPipesDodged: 0,
     totalScore: 0,
     maxRunTime: 0,
+    totalRunTime: 0,
     maxBrokenPipesInExplosion: 0,
     maxBrokenPipesInRun: 0,
     totalBrokenPipes: 0
@@ -432,6 +441,7 @@ export function evaluateRunForAchievements({
   }
   if (runTime !== null && runTime !== undefined) {
     state.progress.maxRunTime = Math.max(state.progress.maxRunTime, safeRunTime);
+    state.progress.totalRunTime = clampScore(state.progress.totalRunTime + safeRunTime);
   }
   if (brokenPipes !== null && brokenPipes !== undefined) {
     state.progress.totalBrokenPipes = clampScore(state.progress.totalBrokenPipes + safeBrokenPipes);
@@ -498,6 +508,10 @@ export function evaluateRunForAchievements({
       def.requirement?.minRunTime === undefined
         ? true
         : runTime !== null && runTime !== undefined && safeRunTime >= def.requirement.minRunTime;
+    const totalRunTimeOk =
+      def.requirement?.totalRunTime === undefined
+        ? true
+        : state.progress.totalRunTime >= def.requirement.totalRunTime;
     const minBrokenExplosionOk =
       def.requirement?.minBrokenPipesInExplosion === undefined
         ? true
@@ -528,6 +542,7 @@ export function evaluateRunForAchievements({
       minOrbComboOk &&
       minPerfectComboOk &&
       minRunTimeOk &&
+      totalRunTimeOk &&
       minBrokenExplosionOk &&
       minBrokenRunOk &&
       totalBrokenOk &&
@@ -557,6 +572,7 @@ function progressFor(def, state) {
     req.minPipesDodged ??
     req.totalPipesDodged ??
     req.minRunTime ??
+    req.totalRunTime ??
     req.minBrokenPipesInExplosion ??
     req.minBrokenPipesInRun ??
     req.totalBrokenPipes ??
@@ -595,6 +611,7 @@ function describeRequirement(def) {
   if (req.minPipesDodged !== undefined) return `Dodge ${req.minPipesDodged} pipe${req.minPipesDodged === 1 ? "" : "s"} in one run`;
   if (req.totalPipesDodged !== undefined) return `Dodge ${req.totalPipesDodged} pipe${req.totalPipesDodged === 1 ? "" : "s"} total`;
   if (req.minRunTime !== undefined) return `Survive for ${req.minRunTime} second${req.minRunTime === 1 ? "" : "s"} in one run`;
+  if (req.totalRunTime !== undefined) return `Survive for ${req.totalRunTime} second${req.totalRunTime === 1 ? "" : "s"} total`;
   if (req.minBrokenPipesInExplosion !== undefined) {
     return `Break ${req.minBrokenPipesInExplosion} pipe${req.minBrokenPipesInExplosion === 1 ? "" : "s"} in one explosion`;
   }

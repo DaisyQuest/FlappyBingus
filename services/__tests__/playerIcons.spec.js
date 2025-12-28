@@ -47,7 +47,7 @@ describe("server player icon catalog", () => {
 
     expect(bee?.unlock).toEqual({ type: "achievement", id: "orb_combo_20", label: "Orb Crescendo" });
     expect(bee?.style?.pattern?.type).toBe("stripes");
-    expect(honeycomb?.unlock).toEqual({ type: "achievement", id: "pipes_broken_explosion_10", label: "Honeycomb Drift" });
+    expect(honeycomb?.unlock).toEqual({ type: "achievement", id: "total_run_time_600", label: "Honeycomb Drift" });
     expect(honeycomb?.style?.pattern?.type).toBe("honeycomb");
     expect(midnight?.unlock).toEqual({ type: "free", label: "Free" });
     expect(midnight?.style?.pattern?.type).toBe("honeycomb");
@@ -55,7 +55,7 @@ describe("server player icon catalog", () => {
     expect(lemon?.style?.pattern?.type).toBe("citrus_slice");
 
     const unlocked = unlockedIcons(
-      { achievements: { unlocked: { orb_combo_20: Date.now(), pipes_broken_explosion_10: Date.now() } } },
+      { achievements: { unlocked: { orb_combo_20: Date.now(), total_run_time_600: Date.now() } } },
       { icons: PLAYER_ICONS, recordHolder: false }
     );
     expect(unlocked).toContain("bee_stripes");
