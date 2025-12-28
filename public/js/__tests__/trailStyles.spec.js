@@ -71,9 +71,10 @@ describe("trailStyles", () => {
 
   it("supports aura mixes and additive overrides for moody trails", () => {
     const nebula = trailStyleFor("nebula");
-    expect(nebula.add).toBe(false);
+    expect(nebula.add).toBe(true);
+    expect(nebula.sparkle).toBeTruthy();
     expect(nebula.aura).toBeTruthy();
-    expect(nebula.aura.add).toBe(false);
+    expect(nebula.aura.add).toBe(true);
     expect(nebula.aura.color({ rand: () => 0.3, hue: 210, i: 1 })).toContain("hsla");
 
     const gothic = trailStyleFor("gothic");

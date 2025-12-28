@@ -45,6 +45,15 @@ describe("player icon helpers", () => {
     expect(unlocked).not.toContain("orb_free_zigzag");
   });
 
+  it("unlocks the Bee Stripes icon after the Orb Crescendo achievement", () => {
+    const unlocked = getUnlockedPlayerIcons(DEFAULT_PLAYER_ICONS, {
+      achievements: { unlocked: { orb_combo_20: Date.now() } }
+    });
+    expect(unlocked).toContain("bee_stripes");
+    const bee = DEFAULT_PLAYER_ICONS.find((icon) => icon.id === "bee_stripes");
+    expect(bee?.style?.pattern?.type).toBe("stripes");
+  });
+
   it("defines the Perfect Line Beacon palette as a black core with bright red accents", () => {
     const perfectLine = DEFAULT_PLAYER_ICONS.find((icon) => icon.id === "perfect_ten_liner");
     expect(perfectLine?.style?.fill).toBe("#000000");

@@ -46,6 +46,7 @@ describe("achievements helpers", () => {
         maxPipesDodgedInRun: 420.9,
         totalPipesDodged: 5000.8,
         totalScore: 10_000.5,
+        maxRunTime: 64.2,
         maxBrokenPipesInExplosion: 12.9,
         maxBrokenPipesInRun: -4,
         totalBrokenPipes: 501.2
@@ -65,6 +66,7 @@ describe("achievements helpers", () => {
       maxPipesDodgedInRun: 420,
       totalPipesDodged: 5000,
       totalScore: 10_000,
+      maxRunTime: 64,
       maxBrokenPipesInExplosion: 12,
       maxBrokenPipesInRun: 0,
       totalBrokenPipes: 501
@@ -88,6 +90,7 @@ describe("achievements helpers", () => {
           maxPipesDodgedInRun: 200,
           totalPipesDodged: 3500,
           totalScore: 8000,
+          maxRunTime: 30,
           maxBrokenPipesInExplosion: 0,
           maxBrokenPipesInRun: 0,
           totalBrokenPipes: 0
@@ -112,9 +115,11 @@ describe("achievements helpers", () => {
     const orbCombo = rows.find((row) => row.textContent.includes("Orb Crescendo"));
     const perfectCombo = rows.find((row) => row.textContent.includes("Perfect Rhythm"));
     const pipeDodge = rows.find((row) => row.textContent.includes("Pipe Whisperer"));
+    const oneMinute = rows.find((row) => row.textContent.includes("One-Minute Glide"));
     expect(orbCombo?.querySelector(".achievement-requirement")?.textContent).toContain("orb combo of 20");
     expect(perfectCombo?.querySelector(".achievement-requirement")?.textContent).toContain("perfect gap combo of 10");
     expect(pipeDodge?.querySelector(".achievement-requirement")?.textContent).toContain("Dodge 500 pipes");
+    expect(oneMinute?.querySelector(".achievement-requirement")?.textContent).toContain("Survive for 60 seconds");
   });
 
   it("prefers in-game achievement popups over DOM fallbacks", () => {
@@ -186,6 +191,7 @@ describe("achievements helpers", () => {
     expect(classifyAchievement({ requirement: { minOrbs: 1 } })).toBe("orbs");
     expect(classifyAchievement({ requirement: { minPipesDodged: 1 } })).toBe("pipes");
     expect(classifyAchievement({ requirement: { minBrokenPipesInRun: 1 } })).toBe("pipes");
+    expect(classifyAchievement({ requirement: { minRunTime: 60 } })).toBe("other");
     expect(classifyAchievement({ requirement: {} })).toBe("other");
 
     const filters = normalizeFilters({ hideCompleted: "yes", categories: { score: true, perfects: false, pipes: true, bogus: true } });

@@ -111,11 +111,11 @@ export const ACHIEVEMENTS = Object.freeze([
   },
   {
     id: "trail_nebula_2350",
-    title: "2350 Nebula Drift",
-    description: "Score 2350 in a single run to bloom the Nebula trail.",
+    title: "2350 Starfall Drift",
+    description: "Score 2350 in a single run to unlock the Starfall Drift trail.",
     requirement: { minScore: 2350 },
     progressKey: "bestScore",
-    reward: "Unlocks Nebula Bloom trail"
+    reward: "Unlocks Starfall Drift trail"
   },
   {
     id: "trail_dragonfire_2600",
@@ -184,6 +184,14 @@ export const ACHIEVEMENTS = Object.freeze([
     reward: "Cosmetics coming soon"
   },
   {
+    id: "run_time_60",
+    title: "One-Minute Glide",
+    description: "Stay airborne for a full minute in a single run.",
+    requirement: { minRunTime: 60 },
+    progressKey: "maxRunTime",
+    reward: "Unlocks Lemon Slice trail"
+  },
+  {
     id: "perfects_run_10",
     title: "Perfect Ten",
     description: "Clear 10 perfect gaps in a single run.",
@@ -221,7 +229,7 @@ export const ACHIEVEMENTS = Object.freeze([
     description: "Reach a 20-orb combo in a single run.",
     requirement: { minOrbCombo: 20 },
     progressKey: "maxOrbComboInRun",
-    reward: "Cosmetics coming soon"
+    reward: "Unlocks the Bee Stripes icon"
   },
   {
     id: "orb_combo_50",
@@ -269,7 +277,7 @@ export const ACHIEVEMENTS = Object.freeze([
     description: "Break 10 pipes in a single explosion.",
     requirement: { minBrokenPipesInExplosion: 10 },
     progressKey: "maxBrokenPipesInExplosion",
-    reward: "Cosmetics coming soon"
+    reward: "Unlocks Honeycomb trail"
   },
   {
     id: "pipes_broken_run_100",
@@ -304,6 +312,7 @@ const DEFAULT_STATE = Object.freeze({
     maxPipesDodgedInRun: 0,
     totalPipesDodged: 0,
     totalScore: 0,
+    maxRunTime: 0,
     maxBrokenPipesInExplosion: 0,
     maxBrokenPipesInRun: 0,
     totalBrokenPipes: 0
@@ -372,6 +381,7 @@ function progressFor(def, state) {
     req.minPerfectCombo ??
     req.minPipesDodged ??
     req.totalPipesDodged ??
+    req.minRunTime ??
     req.minBrokenPipesInExplosion ??
     req.minBrokenPipesInRun ??
     req.totalBrokenPipes ??
@@ -409,6 +419,7 @@ function describeRequirement(def) {
   if (req.minPerfectCombo !== undefined) return `Reach a perfect gap combo of ${req.minPerfectCombo} in one run`;
   if (req.minPipesDodged !== undefined) return `Dodge ${req.minPipesDodged} pipe${req.minPipesDodged === 1 ? "" : "s"} in one run`;
   if (req.totalPipesDodged !== undefined) return `Dodge ${req.totalPipesDodged} pipe${req.totalPipesDodged === 1 ? "" : "s"} total`;
+  if (req.minRunTime !== undefined) return `Survive for ${req.minRunTime} second${req.minRunTime === 1 ? "" : "s"} in one run`;
   if (req.minBrokenPipesInExplosion !== undefined) {
     return `Break ${req.minBrokenPipesInExplosion} pipe${req.minBrokenPipesInExplosion === 1 ? "" : "s"} in one explosion`;
   }

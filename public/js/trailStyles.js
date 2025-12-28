@@ -21,6 +21,9 @@ const haloColor = ({ hue, rand: r }) => hsla((hue + r(-12, 12)) % 360, 92, 76, 0
 const cometColor = ({ hue, rand: r }) => hsla((hue + r(-24, 24)) % 360, 100, 70, 0.9);
 const prismColor = ({ hue, i }) => hsla((hue + i * 18) % 360, 100, 70, 0.88);
 const nebulaSmoke = ({ hue, rand: r }) => hsla((hue + r(-30, 30)) % 360, 64, 64, 0.55);
+const starGlow = ({ rand: r, i }) => hsla((52 + r(-18, 18) + i * 2) % 360, 96, 86, 0.9);
+const honeyGlow = ({ rand: r }) => hsla(42 + r(-6, 6), 94, 66, 0.88);
+const lemonGlow = ({ rand: r, i }) => hsla((54 + r(-8, 8) + i * 1.4) % 360, 96, 82, 0.88);
 
 const sparkleDefaults = Object.freeze({
   rate: 40,
@@ -196,15 +199,40 @@ const TRAIL_STYLES = Object.freeze({
     glint: { ...glintDefaults, rate: 48, size: [2.4, 5.0], speed: [70, 180], color: neonColor }
   },
   nebula: {
-    rate: 76,
-    life: [0.3, 0.54],
-    size: [7.6, 13.8],
-    speed: [36, 154],
-    drag: 11.2,
-    add: false,
-    color: paletteColor(["rgba(128,54,210,.78)", "rgba(82,64,170,.78)", "rgba(60,140,200,.78)", "rgba(210,40,140,.78)"]),
-    glint: { ...glintDefaults, rate: 26, size: [2.0, 3.8], speed: [32, 96], color: ({ rand: r }) => hsla((300 + r(-24, 24)) % 360, 86, 86, 0.86) },
-    aura: { rate: 34, size: [8.8, 14.6], life: [0.8, 1.15], color: nebulaSmoke, add: false }
+    rate: 92,
+    life: [0.2, 0.38],
+    size: [6.8, 12.4],
+    speed: [38, 165],
+    drag: 10.4,
+    add: true,
+    color: paletteColor(["rgba(255,244,214,.9)", "rgba(200,228,255,.88)", "rgba(170,200,255,.86)"]),
+    sparkle: { ...sparkleDefaults, rate: 46, size: [1.6, 3.2], color: starGlow },
+    glint: { ...glintDefaults, rate: 36, size: [2.4, 4.6], speed: [40, 130], color: ({ rand: r }) => hsla((210 + r(-22, 22)) % 360, 88, 86, 0.9) },
+    aura: { rate: 18, size: [6.4, 10.8], life: [0.45, 0.7], color: ({ rand: r }) => hsla((210 + r(-18, 18)) % 360, 70, 76, 0.35), add: true }
+  },
+  honeycomb: {
+    rate: 82,
+    life: [0.22, 0.4],
+    size: [4.6, 9.4],
+    speed: [32, 142],
+    drag: 10.6,
+    add: true,
+    color: paletteColor(["rgba(255,193,7,.9)", "rgba(255,166,0,.88)", "rgba(255,224,130,.9)"]),
+    sparkle: { ...sparkleDefaults, rate: 28, size: [1.1, 2.6], color: honeyGlow },
+    glint: { ...glintDefaults, rate: 24, size: [2.0, 3.6], speed: [40, 120], color: ({ rand: r }) => hsla(40 + r(-10, 8), 92, 72, 0.86) },
+    aura: { rate: 14, size: [4.6, 8.2], life: [0.5, 0.75], color: ({ rand: r }) => hsla(46 + r(-8, 8), 86, 62, 0.32) }
+  },
+  lemon_slice: {
+    rate: 90,
+    life: [0.2, 0.36],
+    size: [4.2, 8.8],
+    speed: [36, 150],
+    drag: 10.2,
+    add: true,
+    color: paletteColor(["rgba(255,235,59,.92)", "rgba(255,249,196,.94)", "rgba(255,213,79,.9)"]),
+    sparkle: { ...sparkleDefaults, rate: 38, size: [1.4, 3.0], color: lemonGlow },
+    glint: { ...glintDefaults, rate: 30, size: [2.0, 3.8], speed: [48, 140], color: ({ rand: r }) => hsla(52 + r(-10, 10), 90, 80, 0.88) },
+    aura: { rate: 16, size: [4.8, 8.6], life: [0.5, 0.8], color: ({ rand: r }) => hsla(56 + r(-8, 8), 88, 74, 0.34) }
   },
   dragonfire: {
     rate: 122,

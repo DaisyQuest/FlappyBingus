@@ -175,6 +175,7 @@ export class Game {
       maxPerfectCombo: toInt(this.runStats?.maxPerfectCombo),
       brokenPipes: toInt(this.runStats?.brokenPipes),
       maxBrokenPipesInExplosion: toInt(this.runStats?.maxBrokenPipesInExplosion),
+      runTime: toInt(this.timeAlive),
       totalScore: toInt(this.score),
       skillUsage: skills,
       scoreBreakdown: {
