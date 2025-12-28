@@ -365,6 +365,7 @@ describe("evaluateRunForAchievements", () => {
 
     expect(state.progress.bestScore).toBe(1200);
     expect(unlocked).toEqual(expect.arrayContaining(["trail_miami_950"]));
+    expect(unlocked).not.toEqual(expect.arrayContaining(["run_time_60", "pipes_broken_explosion_10"]));
   });
 
   it("unlocks fire and inferno capes from a single best-score update", () => {

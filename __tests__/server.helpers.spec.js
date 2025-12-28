@@ -103,7 +103,19 @@ describe("server helpers (trails)", () => {
       skillTotals: { dash: 0, phase: 0, teleport: 0, slowField: 0 }
     });
     expect(Object.keys(u.achievements.unlocked || {})).toEqual(expect.arrayContaining(["trail_classic_1"]));
+    expect(Object.keys(u.achievements.unlocked || {})).not.toEqual(expect.arrayContaining(["run_time_60", "pipes_broken_explosion_10"]));
     expect(u.skillTotals).toEqual({ dash: 0, phase: 0, teleport: 0, slowField: 0 });
+  });
+
+  it("requires explicit achievements for non-score trails even with a high best score", () => {
+    const unlocked = server.unlockedTrails(
+      { achievements: { unlocked: {}, progress: {} }, bestScore: 5000 },
+      { recordHolder: false }
+    );
+
+    expect(unlocked).toContain("rainbow");
+    expect(unlocked).not.toContain("lemon_slice");
+    expect(unlocked).not.toContain("honeycomb");
   });
 
   it("normalizes invalid binds/settings and clamps counters", () => {

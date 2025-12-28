@@ -339,8 +339,9 @@ function unlockedTrails({ achievements, bestScore = 0 } = {}, { recordHolder = f
     if (t.alwaysUnlocked) return true;
     if (t.requiresRecordHolder && !recordHolder) return false;
     const required = t.achievementId;
+    const hasScoreRequirement = Number.isFinite(t.minScore);
     if (required && unlockedAchievements[required]) return true;
-    if (required && best >= (t.minScore || 0) && !unlockedAchievements[required]) return true;
+    if (required && hasScoreRequirement && best >= t.minScore && !unlockedAchievements[required]) return true;
     return false;
   }).map((t) => t.id);
 }
@@ -353,7 +354,8 @@ function syncTrailAchievementsState(state, { bestScore = 0, recordHolder = false
   for (const t of TRAILS) {
     if (!t.achievementId) continue;
     if (t.requiresRecordHolder && !recordHolder) continue;
-    const meetsScore = safeBest >= (t.minScore || 0);
+    if (!Number.isFinite(t.minScore)) continue;
+    const meetsScore = safeBest >= t.minScore;
     if (!meetsScore) continue;
     if (!normalized.unlocked[t.achievementId]) {
       normalized.unlocked[t.achievementId] = now;
