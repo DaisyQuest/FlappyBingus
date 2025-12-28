@@ -20,7 +20,7 @@ import {
 
 import {
   escapeHtml, clamp, getCookie, setCookie,
-  setRandSource, createSeededRand, createTapeRandRecorder, createTapeRandPlayer
+  setRandSource, createSeededRand, createTapeRandRecorder, createTapeRandPlayer, formatRunDuration
 } from "./util.js";
 
 import { Game } from "./game.js";
@@ -175,6 +175,7 @@ const {
   pipeTextureText,
   bustercoinText,
   final: finalEl,
+  overDuration,
   overPB,
   overPbBadge,
   overPbStatus,
@@ -2133,6 +2134,7 @@ async function onGameOver(finalScore) {
   setUIMode(true);
   finalEl.textContent = String(finalScore | 0);
   const runStats = game?.getRunStats ? game.getRunStats() : null;
+  if (overDuration) overDuration.textContent = formatRunDuration(runStats?.runTime);
   lastRunStats = runStats;
   currentStatsView = GAME_OVER_STAT_VIEWS.run;
   renderScoreBreakdown(scoreBreakdown, runStats, finalScore);

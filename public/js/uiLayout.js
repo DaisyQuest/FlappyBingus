@@ -1363,6 +1363,18 @@ function createOverScreen(doc, refs) {
 
   const finalCard = doc.createElement("div");
   finalCard.className = "over-stat-card over-final-card";
+  const durationWrap = doc.createElement("div");
+  durationWrap.className = "over-duration";
+  const durationLabel = createElement(doc, refs, "div", {
+    className: "over-stat-label over-duration-label",
+    text: "Run duration"
+  });
+  const durationValue = createElement(doc, refs, "div", {
+    id: "overDuration",
+    className: "over-duration-value",
+    text: "0:00"
+  });
+  durationWrap.append(durationLabel, durationValue);
   const finalLabel = doc.createElement("div");
   finalLabel.className = "over-stat-label over-final-label";
   finalLabel.textContent = "Final score";
@@ -1382,7 +1394,7 @@ function createOverScreen(doc, refs) {
   });
   bestLine.append(bestLabel, bestValue);
   bestStack.append(bestLine, bestBadge);
-  finalCard.append(finalLabel, final, bestStack);
+  finalCard.append(durationWrap, finalLabel, final, bestStack);
 
   const orbComboCard = doc.createElement("div");
   orbComboCard.className = "over-stat-card";

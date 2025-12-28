@@ -164,6 +164,8 @@ describe("MongoDataStore.recordScore", () => {
       runs: 3,
       totalScore: 150,
       bestScore: 60,
+      longestRun: 0,
+      totalTimePlayed: 0,
       createdAt: 100,
       selectedTrail: "classic",
       selectedIcon: "hi_vis_orange",
@@ -208,6 +210,8 @@ describe("MongoDataStore.recordScore", () => {
       runs: 1,
       totalScore: 25,
       bestScore: 25,
+      longestRun: 0,
+      totalTimePlayed: 0,
       createdAt: now,
       updatedAt: now,
       achievements: { unlocked: {}, progress: DEFAULT_PROGRESS },
@@ -241,6 +245,8 @@ describe("MongoDataStore.recordScore", () => {
       runs: 6,
       totalScore: 17,
       bestScore: 8,
+      longestRun: 0,
+      totalTimePlayed: 0,
       bustercoins: 0,
       currencies: { bustercoin: 0 },
       createdAt: 10,
@@ -278,6 +284,8 @@ describe("MongoDataStore.recordScore", () => {
       runs: 1,
       totalScore: 10,
       bestScore: 10,
+      longestRun: 0,
+      totalTimePlayed: 0,
       createdAt: 50,
       selectedTrail: "classic",
       selectedIcon: "hi_vis_orange",
@@ -351,6 +359,30 @@ describe("MongoDataStore.recordScore", () => {
     expect(result.skillTotals).toEqual({ dash: 5, phase: 1, teleport: 2, slowField: 0 });
     expect(result.runs).toBe(2);
     expect(result.totalScore).toBe(15);
+  });
+
+  it("updates longest run and total time played from run stats", async () => {
+    const now = 7_000;
+    vi.spyOn(Date, "now").mockReturnValue(now);
+
+    const store = new MongoDataStore({ uri: "mongodb://test", dbName: "db" });
+    store.ensureConnected = vi.fn();
+    const existing = {
+      key: "timed",
+      username: "timed",
+      runs: 4,
+      totalScore: 100,
+      bestScore: 40,
+      longestRun: 120,
+      totalTimePlayed: 500
+    };
+    const collection = new FakeCollection(existing);
+    store.usersCollection = () => collection;
+
+    const result = await store.recordScore(existing, 10, { runTime: 130 });
+
+    expect(result.longestRun).toBe(130);
+    expect(result.totalTimePlayed).toBe(630);
   });
 
   it("throws when attempting to record a score without a user key", async () => {

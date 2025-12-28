@@ -460,7 +460,8 @@ describe("MongoDataStore mutations and reads", () => {
     const updated = await store.recordScore(user, 50.9, {
       bustercoinsEarned: 3.2,
       achievements: { unlocked: { a: 1 }, progress: { bestScore: 50 } },
-      skillUsage: { dash: 1, phase: 1, teleport: 1, slowField: 1 }
+      skillUsage: { dash: 1, phase: 1, teleport: 1, slowField: 1 },
+      runTime: 90
     });
 
     expect(store.ensureConnected).toHaveBeenCalled();
@@ -472,6 +473,8 @@ describe("MongoDataStore mutations and reads", () => {
     const [, pipeline] = coll.findOneAndUpdate.mock.calls[0];
     const setStage = pipeline[0].$set;
     expect(setStage.bestScore).toBeDefined();
+    expect(setStage.longestRun).toBeDefined();
+    expect(setStage.totalTimePlayed).toBeDefined();
     expect(setStage.skillTotals).toBeDefined();
     expect(updated).toEqual({ key: "k", bestScore: 50, bustercoins: 7, currencies: { bustercoin: 7 }, runs: 2 });
   });

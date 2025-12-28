@@ -21,6 +21,8 @@ const baseUser = () => ({
   },
   runs: 3,
   totalScore: 5000,
+  longestRun: 0,
+  totalTimePlayed: 0,
   bustercoins: 10,
   currencies: { bustercoin: 10 }
 });
