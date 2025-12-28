@@ -54,6 +54,15 @@ describe("player icon helpers", () => {
     expect(bee?.style?.pattern?.type).toBe("stripes");
   });
 
+  it("adds the Honeycomb icon when the drift achievement unlocks", () => {
+    const unlocked = getUnlockedPlayerIcons(DEFAULT_PLAYER_ICONS, {
+      achievements: { unlocked: { pipes_broken_explosion_10: Date.now() } }
+    });
+    expect(unlocked).toContain("honeycomb");
+    const honeycomb = DEFAULT_PLAYER_ICONS.find((icon) => icon.id === "honeycomb");
+    expect(honeycomb?.style?.pattern?.type).toBe("honeycomb");
+  });
+
   it("defines the Perfect Line Beacon palette as a black core with bright red accents", () => {
     const perfectLine = DEFAULT_PLAYER_ICONS.find((icon) => icon.id === "perfect_ten_liner");
     expect(perfectLine?.style?.fill).toBe("#000000");

@@ -111,6 +111,59 @@ function drawStripeBands(ctx, radius, {
   ctx.restore?.();
 }
 
+function drawHoneycomb(ctx, radius, {
+  stroke = "#f59e0b",
+  lineWidth = null,
+  cellSize = null,
+  glow = null
+} = {}) {
+  if (!ctx) return;
+  const hexRadius = Math.max(2, cellSize || radius * 0.22);
+  const width = Math.sqrt(3) * hexRadius;
+  const height = 2 * hexRadius;
+  const yStep = 1.5 * hexRadius;
+  const xStep = width;
+  const maxSpan = radius * 1.15;
+
+  ctx.save?.();
+  if (ctx.beginPath && ctx.arc && ctx.clip) {
+    ctx.beginPath();
+    ctx.arc(0, 0, radius, 0, Math.PI * 2);
+    ctx.clip();
+  }
+  ctx.lineWidth = Math.max(1, lineWidth || radius * 0.08);
+  ctx.strokeStyle = stroke;
+  if (glow) {
+    ctx.shadowColor = glow;
+    ctx.shadowBlur = Math.max(4, ctx.lineWidth * 2.5);
+  } else {
+    ctx.shadowBlur = 0;
+  }
+
+  const drawHex = (cx, cy) => {
+    ctx.beginPath();
+    for (let i = 0; i < 6; i += 1) {
+      const ang = Math.PI / 6 + (Math.PI / 3) * i;
+      const x = cx + Math.cos(ang) * hexRadius;
+      const y = cy + Math.sin(ang) * hexRadius;
+      if (i === 0) ctx.moveTo?.(x, y);
+      else ctx.lineTo?.(x, y);
+    }
+    ctx.closePath?.();
+    ctx.stroke?.();
+  };
+
+  let row = 0;
+  for (let y = -maxSpan; y <= maxSpan; y += yStep, row += 1) {
+    const offset = (row % 2) * (xStep / 2);
+    for (let x = -maxSpan; x <= maxSpan; x += xStep) {
+      drawHex(x + offset, y);
+    }
+  }
+
+  ctx.restore?.();
+}
+
 function makeCanvas(size) {
   const safeSize = Math.max(16, Math.floor(size) || 96);
   const isJsdom = typeof navigator !== "undefined" && /jsdom/i.test(navigator.userAgent || "");
@@ -305,6 +358,14 @@ function renderIconFrame(ctx, canvas, icon = {}, { animationPhase = 0 } = {}) {
       glow: pattern.glow || glow
     });
     canvas.__pattern = { type: "stripes" };
+  } else if (pattern?.type === "honeycomb") {
+    drawHoneycomb(ctx, outer * 0.9, {
+      stroke: pattern.stroke || rim,
+      lineWidth: pattern.lineWidth,
+      cellSize: pattern.cellSize,
+      glow: pattern.glow || glow
+    });
+    canvas.__pattern = { type: "honeycomb" };
   }
 
   ctx.restore?.();
@@ -364,6 +425,7 @@ export const __testables = {
   fillCircle,
   drawZigZag,
   drawCenterlineGuides,
+  drawHoneycomb,
   createLavaGradient,
   createCapeFlowGradient,
   drawCapeEmbers,

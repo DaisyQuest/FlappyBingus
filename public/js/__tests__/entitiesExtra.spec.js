@@ -11,10 +11,11 @@ const makeMockCtx = () => {
     save: () => ops.push("save"),
     restore: () => ops.push("restore"),
     translate: (...args) => ops.push(["translate", ...args]),
-    rotate: () => ops.push("rotate"),
+    rotate: (...args) => ops.push(["rotate", ...args]),
     beginPath: () => ops.push("beginPath"),
     moveTo: (...args) => ops.push(["moveTo", ...args]),
     lineTo: (...args) => ops.push(["lineTo", ...args]),
+    closePath: () => ops.push("closePath"),
     stroke: () => ops.push("stroke"),
     fill: () => ops.push("fill"),
     arc: (...args) => ops.push(["arc", ...args]),
@@ -68,6 +69,19 @@ describe("Part drawing", () => {
     ctx.ops.length = 0;
     p.draw(ctx);
     expect(ctx.ops).toEqual([]); // skipped rendering when dead
+  });
+
+  it("renders lemon slice segments when configured", () => {
+    const ctx = makeMockCtx();
+    const p = new Part(10, 12, 0, 0, 1, 6, "rgba(255,200,0,1)", true);
+    p.shape = "lemon_slice";
+    p.slice = { rind: "rind", pith: "pith", segment: "seg", segments: 6 };
+    p.rotation = Math.PI / 6;
+
+    p.draw(ctx);
+    expect(ctx.ops).toContain("stroke");
+    expect(ctx.ops.some((op) => Array.isArray(op) && op[0] === "lineTo")).toBe(true);
+    expect(ctx.ops.some((op) => Array.isArray(op) && op[0] === "translate")).toBe(true);
   });
 });
 
