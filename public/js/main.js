@@ -55,7 +55,13 @@ import {
 } from "./audio.js";
 import { DEFAULT_AUDIO_SETTINGS, readAudioSettings, writeAudioSettings } from "./audioSettings.js";
 import { applyBustercoinEarnings } from "./bustercoins.js";
-import { ACHIEVEMENTS, normalizeAchievementState, renderAchievementsList, appendAchievementToast } from "./achievements.js";
+import {
+  ACHIEVEMENTS,
+  normalizeAchievementState,
+  renderAchievementsList,
+  appendAchievementToast,
+  evaluateRunForAchievements
+} from "./achievements.js";
 import { renderScoreBreakdown } from "./scoreBreakdown.js";
 import { computePersonalBestStatus, updatePersonalBestElements } from "./personalBest.js";
 import { buildGameOverStats, GAME_OVER_STAT_VIEWS } from "./gameOverStats.js";
@@ -183,6 +189,8 @@ const {
   overOrbComboLabel,
   overPerfectCombo,
   overPerfectComboLabel,
+  overAchievements,
+  overAchievementsList,
   overStatsMode,
   overStatsToggle,
   skillUsageStats,
@@ -264,6 +272,9 @@ function updatePersonalBestUI(finalScore, userBestScore) {
 
 let currentStatsView = GAME_OVER_STAT_VIEWS.run;
 let lastRunStats = null;
+let runAchievementBaseState = null;
+let runAchievementIds = new Set();
+let runAchievementDefs = [];
 
 function applyStatsLabels(labels) {
   if (overOrbComboLabel) overOrbComboLabel.textContent = labels.orb;
@@ -1153,6 +1164,49 @@ function renderAchievements(payload = null) {
   });
 }
 
+function renderRunAchievements() {
+  if (!overAchievements || !overAchievementsList) return;
+  overAchievementsList.innerHTML = "";
+  if (!runAchievementDefs.length) {
+    overAchievements.hidden = true;
+    return;
+  }
+
+  overAchievements.hidden = false;
+  runAchievementDefs.forEach((def) => {
+    const item = document.createElement("div");
+    item.className = "over-achievement-item";
+
+    const title = document.createElement("div");
+    title.className = "over-achievement-title";
+    title.textContent = def.title || "Achievement";
+
+    const desc = document.createElement("div");
+    desc.className = "over-achievement-desc";
+    desc.textContent = def.description || "";
+
+    item.append(title, desc);
+    overAchievementsList.append(item);
+  });
+}
+
+function recordRunAchievements(ids = [], { showPopup = false } = {}) {
+  if (!ids?.length) return;
+  const definitions = net.achievements?.definitions || ACHIEVEMENTS;
+  ids.forEach((id) => {
+    if (runAchievementIds.has(id)) return;
+    const def = definitions.find((entry) => entry.id === id);
+    if (!def) return;
+    runAchievementIds.add(id);
+    runAchievementDefs.push(def);
+    if (showPopup) {
+      appendAchievementToast(game, def);
+      sfxAchievementUnlock();
+    }
+  });
+  renderRunAchievements();
+}
+
 function applyAchievementsPayload(payload) {
   if (!payload) return;
   const definitions = payload.definitions?.length ? payload.definitions : (net.achievements?.definitions || ACHIEVEMENTS);
@@ -1166,13 +1220,34 @@ function applyAchievementsPayload(payload) {
 
 function notifyAchievements(unlockedIds = []) {
   if (!unlockedIds?.length) return;
-  const definitions = net.achievements?.definitions || ACHIEVEMENTS;
-  unlockedIds.forEach((id) => {
-    const def = definitions.find((d) => d.id === id);
-    if (!def) return;
-    appendAchievementToast(game, def);
-    sfxAchievementUnlock();
+  const shouldPopup = game?.state === 1 /* PLAY */ && !tutorial?.active;
+  recordRunAchievements(unlockedIds, { showPopup: shouldPopup });
+}
+
+function resetRunAchievements() {
+  runAchievementIds = new Set();
+  runAchievementDefs = [];
+  const base = net.user?.achievements || net.achievements?.state || null;
+  runAchievementBaseState = normalizeAchievementState(base || {});
+  renderRunAchievements();
+}
+
+function checkRunAchievements() {
+  if (!runAchievementBaseState || game?.state !== 1 /* PLAY */ || tutorial?.active) return;
+  const runStats = game.getRunStats ? game.getRunStats() : null;
+  if (!runStats) return;
+  const { unlocked } = evaluateRunForAchievements({
+    previous: runAchievementBaseState,
+    runStats,
+    score: runStats.totalScore,
+    totalScore: net.user?.totalScore,
+    bestScore: net.user?.bestScore,
+    now: Date.now()
   });
+  if (!unlocked?.length) return;
+  const newIds = unlocked.filter((id) => !runAchievementIds.has(id));
+  if (!newIds.length) return;
+  recordRunAchievements(newIds, { showPopup: true });
 }
 
 achievementsHideCompleted?.addEventListener("change", () => {
@@ -2060,6 +2135,7 @@ function startTutorial() {
   over.classList.add("hidden");
 
   acc = 0;
+  resetRunAchievements();
   tutorial.start();
   musicStartLoop();
   window.focus();
@@ -2113,6 +2189,7 @@ async function startGame({ mode = "new" } = {}) {
   over.classList.add("hidden");
 
   acc = 0;
+  resetRunAchievements();
   game.startRun();
 
   // NEW: start soundtrack ONLY once we're in-game
@@ -2360,6 +2437,7 @@ function frame(ts) {
         }
         if (tutorial?.active) tutorial.afterSimTick(SIM_DT);
       }
+      checkRunAchievements();
       acc -= SIM_DT;
 
       if (game.state === 2 /* OVER */) {

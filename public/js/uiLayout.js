@@ -1454,7 +1454,21 @@ function createOverScreen(doc, refs) {
 
   const details = doc.createElement("div");
   details.className = "over-details";
-  details.append(breakdown, stats);
+  const achievements = doc.createElement("div");
+  achievements.className = "over-achievements";
+  achievements.hidden = true;
+  const achievementsTitle = createElement(doc, refs, "div", {
+    className: "section-title",
+    text: "New achievements"
+  });
+  const achievementsList = createElement(doc, refs, "div", {
+    id: "overAchievementsList",
+    className: "over-achievements-list"
+  });
+  achievements.append(achievementsTitle, achievementsList);
+  refs.overAchievements = achievements;
+
+  details.append(breakdown, stats, achievements);
 
   const replayStatus = createElement(doc, refs, "div", {
     id: "replayStatus",

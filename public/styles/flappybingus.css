@@ -925,6 +925,45 @@ input[type="range"]::-moz-range-thumb{
   gap:12px;
   align-items:start;
 }
+.over-achievements{
+  grid-column:1 / -1;
+  padding:14px 14px 12px;
+  border-radius:14px;
+  background:rgba(255,255,255,.05);
+  border:1px solid rgba(255,255,255,.1);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.05);
+  display:flex;
+  flex-direction:column;
+  gap:10px;
+}
+.over-achievements .section-title{
+  margin-bottom:0;
+  font-size:14px;
+}
+.over-achievements-list{
+  display:grid;
+  grid-template-columns:repeat(auto-fit,minmax(220px,1fr));
+  gap:10px;
+}
+.over-achievement-item{
+  padding:10px 12px;
+  border-radius:12px;
+  border:1px solid rgba(255,255,255,.12);
+  background:linear-gradient(180deg,rgba(255,255,255,.08),rgba(255,255,255,.04));
+  box-shadow:0 8px 18px rgba(0,0,0,.22);
+  display:flex;
+  flex-direction:column;
+  gap:4px;
+}
+.over-achievement-title{
+  font-weight:900;
+  letter-spacing:.2px;
+}
+.over-achievement-desc{
+  color:var(--muted);
+  font-size:12.5px;
+  line-height:1.35;
+}
 .over-details .score-breakdown{
   margin:0;
 }

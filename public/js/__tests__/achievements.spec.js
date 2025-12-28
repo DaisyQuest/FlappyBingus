@@ -4,6 +4,7 @@ import {
   ACHIEVEMENTS,
   normalizeAchievementState,
   renderAchievementsList,
+  evaluateRunForAchievements,
   appendAchievementToast,
   __testables
 } from "../achievements.js";
@@ -201,5 +202,112 @@ describe("achievements helpers", () => {
     expect(filters.categories.has("pipes")).toBe(true);
     expect(filters.categories.has("bogus")).toBe(false);
     expect(filters.requestedEmpty).toBe(false);
+  });
+
+  it("evaluates run stats against run and total achievement requirements", () => {
+    const previous = normalizeAchievementState({
+      unlocked: {},
+      progress: {
+        totalOrbsCollected: 1900,
+        totalPerfects: 95,
+        totalPipesDodged: 9900,
+        totalBrokenPipes: 950,
+        totalScore: 9900,
+        bestScore: 120
+      }
+    });
+    const runStats = {
+      orbsCollected: 120,
+      abilitiesUsed: 1,
+      perfects: 12,
+      pipesDodged: 600,
+      maxOrbCombo: 25,
+      maxPerfectCombo: 12,
+      brokenPipes: 110,
+      maxBrokenPipesInExplosion: 12,
+      runTime: 65
+    };
+    const { unlocked, state } = evaluateRunForAchievements({
+      previous,
+      runStats,
+      score: 150,
+      totalScore: 9900,
+      bestScore: 120,
+      now: 12345
+    });
+
+    expect(unlocked).toEqual(expect.arrayContaining([
+      "orbs_run_100",
+      "orbs_total_2000",
+      "perfects_run_10",
+      "perfects_total_100",
+      "pipes_dodged_run_500",
+      "pipes_dodged_total_10000",
+      "orb_combo_20",
+      "perfect_combo_10",
+      "run_time_60",
+      "pipes_broken_explosion_10",
+      "pipes_broken_run_100",
+      "pipes_broken_total_1000",
+      "total_score_10000"
+    ]));
+    expect(unlocked).not.toContain("no_orbs_100");
+    expect(unlocked).not.toContain("no_abilities_100");
+    expect(state.progress.totalScore).toBe(10050);
+    expect(state.progress.totalOrbsCollected).toBe(2020);
+    expect(state.progress.totalPerfects).toBe(107);
+    expect(state.progress.totalPipesDodged).toBe(10500);
+    expect(state.progress.totalBrokenPipes).toBe(1060);
+  });
+
+  it("unlocks no-orb and no-ability achievements when constraints are met", () => {
+    const previous = normalizeAchievementState({
+      unlocked: {},
+      progress: {
+        maxScoreNoOrbs: 40,
+        maxScoreNoAbilities: 60
+      }
+    });
+    const runStats = {
+      orbsCollected: 0,
+      abilitiesUsed: 0,
+      perfects: 0,
+      pipesDodged: 0,
+      maxOrbCombo: 0,
+      maxPerfectCombo: 0,
+      brokenPipes: 0,
+      maxBrokenPipesInExplosion: 0,
+      runTime: 10
+    };
+    const { unlocked, state } = evaluateRunForAchievements({
+      previous,
+      runStats,
+      score: 120,
+      totalScore: 0,
+      bestScore: 80,
+      now: 999
+    });
+
+    expect(unlocked).toEqual(expect.arrayContaining(["no_orbs_100", "no_abilities_100"]));
+    expect(unlocked).not.toContain("orbs_run_100");
+    expect(state.progress.maxScoreNoOrbs).toBe(120);
+    expect(state.progress.maxScoreNoAbilities).toBe(120);
+  });
+
+  it("uses the best score for score-only achievements", () => {
+    const previous = normalizeAchievementState({
+      unlocked: {},
+      progress: { bestScore: 90 }
+    });
+    const { unlocked } = evaluateRunForAchievements({
+      previous,
+      runStats: null,
+      score: 50,
+      totalScore: 200,
+      bestScore: 150,
+      now: 111
+    });
+
+    expect(unlocked).toContain("trail_ember_100");
   });
 });

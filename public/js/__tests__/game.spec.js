@@ -699,9 +699,9 @@ describe("Skill usage", () => {
     game.player.y = 30;
     const popup = game.showAchievementPopup({ title: "Test Unlock" });
     expect(game.floats.at(-1)).toBe(popup);
-    expect(popup?.size).toBeGreaterThanOrEqual(32);
-    expect(popup?.life).toBeCloseTo(1.4);
-    expect(popup?.txt).toContain("Test Unlock");
+    expect(popup?.size).toBeGreaterThanOrEqual(36);
+    expect(popup?.life).toBeCloseTo(1.5);
+    expect(popup?.txt).toBe("Achievement unlocked");
   });
 });
 
