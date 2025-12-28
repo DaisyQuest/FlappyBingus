@@ -945,18 +945,29 @@ export class Game {
     const anchor = typeof this._scorePopupAnchor === "function"
       ? this._scorePopupAnchor()
       : { x: this.W * 0.5, y: this.H * 0.35 };
-    const title = def.title || "Achievement unlocked";
     const color = "rgba(175,225,255,.96)";
-    const popup = new FloatText(`🏆 ${title}`, anchor.x, anchor.y, color, {
-      wobble: 6,
-      size: 32,
-      strokeWidth: 4.6,
+    const subtitle = def.title || def.description || "";
+    if (subtitle) {
+      const sub = new FloatText(subtitle, anchor.x, anchor.y + 24, "rgba(220,245,255,.92)", {
+        wobble: 3.5,
+        size: 18,
+        strokeWidth: 2.8,
+        glowColor: "rgba(120,210,255,.85)"
+      });
+      sub.life = sub.max = 1.2;
+      this.floats.push(sub);
+    }
+
+    const popup = new FloatText("Achievement unlocked", anchor.x, anchor.y, color, {
+      wobble: 8,
+      size: 38,
+      strokeWidth: 5.6,
       glowColor: "rgba(130,210,255,.95)",
-      palette: ["#dff4ff", "#b8e4ff", "#ffe6ff"],
-      shimmer: 0.4,
+      palette: ["#f7fbff", "#dff4ff", "#ffe6ff"],
+      shimmer: 0.55,
       sparkle: true
     });
-    popup.life = popup.max = 1.4;
+    popup.life = popup.max = 1.5;
     this.floats.push(popup);
     return popup;
   }

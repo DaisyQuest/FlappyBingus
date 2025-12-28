@@ -35,6 +35,7 @@ describe("uiLayout", () => {
     expect(ui.trailLauncher?.querySelector(".trail-swatch")).toBeNull();
     expect(ui.menu?.id).toBe("menu");
     expect(ui.over?.id).toBe("over");
+    expect(ui.overAchievements?.hidden).toBe(true);
     expect(ui.start?.textContent).toContain("Start");
     const readyCard = mount.querySelector(".panel-main .info-card");
     const readyFields = readyCard?.querySelectorAll(".field");
@@ -160,6 +161,8 @@ describe("uiLayout", () => {
       "overOrbComboLabel",
       "overPerfectCombo",
       "overPerfectComboLabel",
+      "overAchievements",
+      "overAchievementsList",
       "overStatsMode",
       "overStatsToggle",
       "skillUsageStats",
