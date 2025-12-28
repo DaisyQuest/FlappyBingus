@@ -52,6 +52,54 @@ const PLAYER_ICONS = Object.freeze([
     }
   },
   {
+    id: "bee_stripes",
+    name: "Bee Stripes",
+    unlock: { type: "achievement", id: "orb_combo_20", label: "Orb Crescendo" },
+    style: {
+      fill: "#facc15",
+      core: "#111827",
+      rim: "#0b0b0b",
+      glow: "#fde68a",
+      pattern: { type: "stripes", colors: ["#0b0b0b", "#facc15"], angle: Math.PI / 4 }
+    }
+  },
+  {
+    id: "honeycomb",
+    name: "Honeycomb",
+    unlock: { type: "achievement", id: "pipes_broken_explosion_10", label: "Honeycomb Drift" },
+    style: {
+      fill: "#fbbf24",
+      core: "#fde68a",
+      rim: "#3b240a",
+      glow: "#fff1b8",
+      pattern: { type: "honeycomb", stroke: "#f59e0b", glow: "#ffe9a3" }
+    }
+  },
+  {
+    id: "midnight_honeycomb",
+    name: "Midnight Honeycomb",
+    unlock: { type: "free", label: "Free" },
+    style: {
+      fill: "#facc15",
+      core: "#fde047",
+      rim: "#111827",
+      glow: "#fef08a",
+      pattern: { type: "honeycomb", stroke: "#0b0b0b", glow: "#fef3c7" }
+    }
+  },
+  {
+    id: "lemon_slice",
+    name: "Lemon Slice",
+    unlock: { type: "free", label: "Free" },
+    style: {
+      fill: "#facc15",
+      core: "#fef08a",
+      rim: "#a16207",
+      glow: "#fef9c3",
+      pattern: { type: "citrus_slice", stroke: "#fff7a8", segments: 6, glow: "#fef3c7" }
+    }
+  },
+  {
     id: "fire_cape",
     name: "Fire Cape",
     unlock: { type: "achievement", id: "score_fire_cape_1000", label: "Fire Cape Trial" },
