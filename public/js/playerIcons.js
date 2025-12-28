@@ -68,7 +68,7 @@ export const DEFAULT_PLAYER_ICONS = Object.freeze([
   {
     id: "honeycomb",
     name: "Honeycomb",
-    unlock: { type: "achievement", id: "pipes_broken_explosion_10", label: "Honeycomb Drift" },
+    unlock: { type: "achievement", id: "total_run_time_600", label: "Honeycomb Drift" },
     style: {
       fill: "#fbbf24",
       core: "#fde68a",

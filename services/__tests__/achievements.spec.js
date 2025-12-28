@@ -19,7 +19,8 @@ describe("achievements definitions", () => {
       "score_fire_cape_1000",
       "score_inferno_cape_2000",
       "no_orbs_100",
-      "total_score_10000"
+      "total_score_10000",
+      "total_run_time_600"
     ]));
     expect(ids.length).toBeGreaterThan(10);
   });
@@ -41,6 +42,7 @@ describe("achievements definitions", () => {
         totalPipesDodged: 2500.1,
         totalScore: 5000.9,
         maxRunTime: 64.8,
+        totalRunTime: 601.2,
         maxBrokenPipesInExplosion: 8.9,
         maxBrokenPipesInRun: -1,
         totalBrokenPipes: 250.4
@@ -62,6 +64,7 @@ describe("achievements definitions", () => {
       totalPipesDodged: 2500,
       totalScore: 5000,
       maxRunTime: 64,
+      totalRunTime: 601,
       maxBrokenPipesInExplosion: 8,
       maxBrokenPipesInRun: 0,
       totalBrokenPipes: 250,
@@ -252,7 +255,7 @@ describe("evaluateRunForAchievements", () => {
   it("tracks cumulative totals and per-run bests for perfects and orbs", () => {
     const first = evaluateRunForAchievements({
       previous: { unlocked: {}, progress: { ...DEFAULT_PROGRESS, totalScore: 9000 } },
-      runStats: { orbsCollected: 50, abilitiesUsed: 1, perfects: 9 },
+      runStats: { orbsCollected: 50, abilitiesUsed: 1, perfects: 9, runTime: 120 },
       score: 1200,
       totalScore: 9000,
       now: 42
@@ -261,6 +264,7 @@ describe("evaluateRunForAchievements", () => {
     expect(first.state.progress.totalOrbsCollected).toBe(50);
     expect(first.state.progress.totalPerfects).toBe(9);
     expect(first.state.progress.maxPerfectsInRun).toBe(9);
+    expect(first.state.progress.totalRunTime).toBe(120);
     expect(first.unlocked).toContain("total_score_10000");
 
     const second = evaluateRunForAchievements({
@@ -443,6 +447,10 @@ describe("evaluateRunForAchievements", () => {
       if (req.minRunTime !== undefined) {
         runStats.runTime = req.minRunTime;
         score = Math.max(score, 1);
+      }
+      if (req.totalRunTime !== undefined) {
+        progress.totalRunTime = Math.max(0, req.totalRunTime - 1);
+        runStats.runTime = runStats.runTime ?? 1;
       }
 
       const previous = { unlocked: {}, progress };

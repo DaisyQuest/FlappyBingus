@@ -56,7 +56,7 @@ describe("player icon helpers", () => {
 
   it("adds the Honeycomb icon when the drift achievement unlocks", () => {
     const unlocked = getUnlockedPlayerIcons(DEFAULT_PLAYER_ICONS, {
-      achievements: { unlocked: { pipes_broken_explosion_10: Date.now() } }
+      achievements: { unlocked: { total_run_time_600: Date.now() } }
     });
     expect(unlocked).toContain("honeycomb");
     const honeycomb = DEFAULT_PLAYER_ICONS.find((icon) => icon.id === "honeycomb");
