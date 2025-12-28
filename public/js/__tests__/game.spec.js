@@ -322,6 +322,8 @@ describe("Game core utilities", () => {
 
     game.timeAlive = 5000;
     game.score = 5000;
+    game._difficulty01();
+    game.timeAlive = 10000;
     const diff = game._difficulty01();
     expect(diff).toBeGreaterThan(0.9);
     const dSpy = vi.spyOn(game, "_difficulty01").mockReturnValue(0.5);
@@ -1546,7 +1548,13 @@ describe("Game loop", () => {
     game.score = 0;
     expect(game._difficulty01()).toBe(0);
     game.timeAlive = 20;
-    game.score = 20;
+    game.score = 99;
+    expect(game._difficulty01()).toBe(0);
+    game.timeAlive = 30;
+    game.score = 100;
+    expect(game._difficulty01()).toBe(0);
+    game.timeAlive = 50;
+    game.score = 120;
     expect(game._difficulty01()).toBeGreaterThan(0);
 
     game.W = Number.NaN; game.H = 100;
@@ -1626,5 +1634,28 @@ describe("Game loop", () => {
     window.visualViewport = originalViewport;
     global.document = originalDocument;
     global.OffscreenCanvas = originalOffscreen;
+  });
+
+  it("ramps difficulty immediately when intro score is disabled", () => {
+    const { game } = buildGame({
+      pipes: {
+        difficulty: {
+          introScore: 0,
+          timeToMax: 1,
+          scoreToMax: 1,
+          mixTime: 0,
+          mixScore: 1,
+          timeRampStart: 0,
+          scoreRampStart: 0,
+          earlyCurvePower: 1
+        }
+      }
+    });
+
+    game.timeAlive = 0;
+    game.score = 0;
+    expect(game._difficulty01()).toBe(0);
+    game.score = 1;
+    expect(game._difficulty01()).toBeGreaterThan(0);
   });
 });

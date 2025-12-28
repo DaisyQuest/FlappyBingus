@@ -13,7 +13,8 @@ export const DEFAULT_CONFIG = {
       mixScore: 0.45,
       scoreRampStart: 400,
       timeRampStart: 28,
-      earlyCurvePower: 1.35
+      earlyCurvePower: 1.35,
+      introScore: 100
     },
     spawnInterval: { start: 0.78, end: 0.23, min: 0.18, max: 0.90 },
     speed: { start: 240, end: 560 },
