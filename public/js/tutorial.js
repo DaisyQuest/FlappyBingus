@@ -1465,7 +1465,7 @@ _stepOrbs(dt) {
         title: "Orbs + Combo Points",
         body:
           "Pick up orbs to score points.\n" +
-          "First orb = 5 points, then 6, then 7… (the combo bar shows your streak).\n" +
+          "First orb = 5 points, then 6, then 7… (the combo arc shows your streak).\n" +
           "Walls will also start coming — dodge them while you collect orbs.",
         objective: `Collect 5 orbs in a row. (Current combo: ${this.game.combo}/5)`,
         hotkey: { label: "W • A • S • D", hint: "Keep moving while you gather orbs" }

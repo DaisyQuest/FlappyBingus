@@ -34,6 +34,7 @@ const mockCtx = () => {
     createLinearGradient: vi.fn(() => gradient),
     beginPath: vi.fn(),
     arc: vi.fn(),
+    quadraticCurveTo: vi.fn(),
     fill: vi.fn(),
     stroke: vi.fn(),
     strokeRect: vi.fn(),
@@ -476,6 +477,24 @@ describe("Combo timer logic", () => {
 
     expect(game.combo).toBe(1);
     expect(game.comboTimer).toBeCloseTo(game.getComboWindow(1), 5);
+  });
+
+  it("builds combo aura state with timer ratio and flame cues", () => {
+    const { game } = buildGame();
+    const window = game.getComboWindow(12);
+    game.combo = 12;
+    game.comboTimer = window * 0.25;
+
+    const aura = game._comboAuraState();
+    expect(aura).not.toBeNull();
+    expect(aura?.timerRatio).toBeCloseTo(0.25, 5);
+    expect(aura?.fade).toBeGreaterThan(0);
+    expect(aura?.fill).toBeGreaterThan(0);
+
+    game.combo = 35;
+    game.comboTimer = game.getComboWindow(35);
+    const flaming = game._comboAuraState();
+    expect(flaming?.flame).toBeGreaterThan(0);
   });
 });
 
