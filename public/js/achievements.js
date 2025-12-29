@@ -70,14 +70,6 @@ export const ACHIEVEMENTS = Object.freeze([
     reward: "Unlocks Aurora trail"
   },
   {
-    id: "trail_rainbow_1350",
-    title: "1350 Spectrum Sprint",
-    description: "Score 1350 in one run to reveal the Prismatic Ribbon.",
-    requirement: { minScore: 1350 },
-    progressKey: "bestScore",
-    reward: "Unlocks Prismatic Ribbon trail"
-  },
-  {
     id: "trail_solar_1550",
     title: "1550 Solar Ascent",
     description: "Score 1550 in a single run to ride the Solar Flare.",
@@ -192,6 +184,14 @@ export const ACHIEVEMENTS = Object.freeze([
     reward: "Unlocks Lemon Slice trail"
   },
   {
+    id: "play_10_games",
+    title: "Ten-Run Warmup",
+    description: "Play 10 games to earn a full-spectrum trail.",
+    requirement: { totalRuns: 10 },
+    progressKey: "totalRuns",
+    reward: "Unlocks Prismatic Ribbon trail"
+  },
+  {
     id: "total_run_time_600",
     title: "Ten-Minute Soarer",
     description: "Accumulate 10 minutes of flight time across all runs.",
@@ -221,7 +221,7 @@ export const ACHIEVEMENTS = Object.freeze([
     description: "Pick up 100 orbs in a single run.",
     requirement: { minOrbs: 100 },
     progressKey: "maxOrbsInRun",
-    reward: "Cosmetics coming soon"
+    reward: "Unlocks the Rainbow Stripes icon"
   },
   {
     id: "orbs_total_2000",
@@ -322,6 +322,7 @@ const DEFAULT_STATE = Object.freeze({
     totalScore: 0,
     maxRunTime: 0,
     totalRunTime: 0,
+    totalRuns: 0,
     maxBrokenPipesInExplosion: 0,
     maxBrokenPipesInRun: 0,
     totalBrokenPipes: 0
@@ -380,6 +381,7 @@ export function evaluateRunForAchievements({
   runStats,
   score,
   totalScore,
+  totalRuns,
   bestScore,
   now = Date.now()
 } = {}) {
@@ -417,10 +419,12 @@ export function evaluateRunForAchievements({
   const safeBrokenExplosion = clampScore(maxBrokenPipesInExplosion ?? 0);
   const safeRunTime = clampScore(runTime ?? 0);
   const baseTotalScore = totalScore === undefined ? state.progress.totalScore : clampScore(totalScore);
+  const baseTotalRuns = totalRuns === undefined ? state.progress.totalRuns : clampScore(totalRuns);
 
   const bestScoreProgress = Math.max(safeScore, baseBestScore, state.progress.bestScore || 0);
   state.progress.bestScore = bestScoreProgress;
   state.progress.totalScore = clampScore(baseTotalScore + safeScore);
+  state.progress.totalRuns = clampScore(baseTotalRuns + 1);
   if (hasOrbs) {
     state.progress.totalOrbsCollected = clampScore(state.progress.totalOrbsCollected + safeOrbs);
     state.progress.maxOrbsInRun = Math.max(state.progress.maxOrbsInRun, safeOrbs);
@@ -512,6 +516,10 @@ export function evaluateRunForAchievements({
       def.requirement?.totalRunTime === undefined
         ? true
         : state.progress.totalRunTime >= def.requirement.totalRunTime;
+    const totalRunsOk =
+      def.requirement?.totalRuns === undefined
+        ? true
+        : state.progress.totalRuns >= def.requirement.totalRuns;
     const minBrokenExplosionOk =
       def.requirement?.minBrokenPipesInExplosion === undefined
         ? true
@@ -543,6 +551,7 @@ export function evaluateRunForAchievements({
       minPerfectComboOk &&
       minRunTimeOk &&
       totalRunTimeOk &&
+      totalRunsOk &&
       minBrokenExplosionOk &&
       minBrokenRunOk &&
       totalBrokenOk &&
@@ -573,6 +582,7 @@ function progressFor(def, state) {
     req.totalPipesDodged ??
     req.minRunTime ??
     req.totalRunTime ??
+    req.totalRuns ??
     req.minBrokenPipesInExplosion ??
     req.minBrokenPipesInRun ??
     req.totalBrokenPipes ??
@@ -612,6 +622,7 @@ function describeRequirement(def) {
   if (req.totalPipesDodged !== undefined) return `Dodge ${req.totalPipesDodged} pipe${req.totalPipesDodged === 1 ? "" : "s"} total`;
   if (req.minRunTime !== undefined) return `Survive for ${req.minRunTime} second${req.minRunTime === 1 ? "" : "s"} in one run`;
   if (req.totalRunTime !== undefined) return `Survive for ${req.totalRunTime} second${req.totalRunTime === 1 ? "" : "s"} total`;
+  if (req.totalRuns !== undefined) return `Play ${req.totalRuns} game${req.totalRuns === 1 ? "" : "s"} total`;
   if (req.minBrokenPipesInExplosion !== undefined) {
     return `Break ${req.minBrokenPipesInExplosion} pipe${req.minBrokenPipesInExplosion === 1 ? "" : "s"} in one explosion`;
   }

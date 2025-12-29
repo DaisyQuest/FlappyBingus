@@ -69,14 +69,6 @@ const ACHIEVEMENTS = Object.freeze([
     reward: "Unlocks Aurora trail"
   },
   {
-    id: "trail_rainbow_1350",
-    title: "1350 Spectrum Sprint",
-    description: "Score 1350 in one run to reveal the Prismatic Ribbon.",
-    requirement: { minScore: 1350 },
-    progressKey: "bestScore",
-    reward: "Unlocks Prismatic Ribbon trail"
-  },
-  {
     id: "trail_solar_1550",
     title: "1550 Solar Ascent",
     description: "Score 1550 in a single run to ride the Solar Flare.",
@@ -191,6 +183,14 @@ const ACHIEVEMENTS = Object.freeze([
     reward: "Unlocks Lemon Slice trail"
   },
   {
+    id: "play_10_games",
+    title: "Ten-Run Warmup",
+    description: "Play 10 games to earn a full-spectrum trail.",
+    requirement: { totalRuns: 10 },
+    progressKey: "totalRuns",
+    reward: "Unlocks Prismatic Ribbon trail"
+  },
+  {
     id: "total_run_time_600",
     title: "Ten-Minute Soarer",
     description: "Accumulate 10 minutes of flight time across all runs.",
@@ -220,7 +220,7 @@ const ACHIEVEMENTS = Object.freeze([
     description: "Pick up 100 orbs in a single run.",
     requirement: { minOrbs: 100 },
     progressKey: "maxOrbsInRun",
-    reward: "Cosmetics coming soon"
+    reward: "Unlocks the Rainbow Stripes icon"
   },
   {
     id: "orbs_total_2000",
@@ -319,6 +319,7 @@ const DEFAULT_PROGRESS = Object.freeze({
   totalScore: 0,
   maxRunTime: 0,
   totalRunTime: 0,
+  totalRuns: 0,
   maxBrokenPipesInExplosion: 0,
   maxBrokenPipesInRun: 0,
   totalBrokenPipes: 0,
@@ -452,7 +453,7 @@ function validateRunStats(raw) {
   };
 }
 
-function evaluateRunForAchievements({ previous, runStats, score, totalScore, bestScore, now = Date.now() } = {}) {
+function evaluateRunForAchievements({ previous, runStats, score, totalScore, totalRuns, bestScore, now = Date.now() } = {}) {
   const state = normalizeAchievementState(previous);
   const unlocked = [];
 
@@ -488,11 +489,13 @@ function evaluateRunForAchievements({ previous, runStats, score, totalScore, bes
   const safeBrokenExplosion = clampScoreProgress(maxBrokenPipesInExplosion ?? 0);
   const safeRunTime = clampScoreProgress(runTime ?? 0);
   const baseTotalScore = totalScore === undefined ? state.progress.totalScore : clampScoreProgress(totalScore);
+  const baseTotalRuns = totalRuns === undefined ? state.progress.totalRuns : clampScoreProgress(totalRuns);
   const safeSkillTotals = skillUsage ? normalizeSkillTotals(skillUsage) : null;
 
   const bestScoreProgress = Math.max(safeScore, baseBestScore, state.progress.bestScore || 0);
   state.progress.bestScore = bestScoreProgress;
   state.progress.totalScore = clampScoreProgress(baseTotalScore + safeScore);
+  state.progress.totalRuns = clampScoreProgress(baseTotalRuns + 1);
   if (hasOrbs) {
     state.progress.totalOrbsCollected = clampScoreProgress(state.progress.totalOrbsCollected + safeOrbs);
     state.progress.maxOrbsInRun = Math.max(state.progress.maxOrbsInRun, safeOrbs);
@@ -592,6 +595,10 @@ function evaluateRunForAchievements({ previous, runStats, score, totalScore, bes
       def.requirement?.totalRunTime === undefined
         ? true
         : state.progress.totalRunTime >= def.requirement.totalRunTime;
+    const totalRunsOk =
+      def.requirement?.totalRuns === undefined
+        ? true
+        : state.progress.totalRuns >= def.requirement.totalRuns;
     const minBrokenExplosionOk =
       def.requirement?.minBrokenPipesInExplosion === undefined
         ? true
@@ -623,6 +630,7 @@ function evaluateRunForAchievements({ previous, runStats, score, totalScore, bes
       minPerfectComboOk &&
       minRunTimeOk &&
       totalRunTimeOk &&
+      totalRunsOk &&
       minBrokenExplosionOk &&
       minBrokenRunOk &&
       totalBrokenOk &&

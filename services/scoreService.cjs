@@ -62,6 +62,7 @@ function createScoreService(deps) {
       runStats,
       score,
       totalScore: user.totalScore,
+      totalRuns: user.runs,
       bestScore: user.bestScore
     });
     const unlockEval = syncUnlockablesState(
