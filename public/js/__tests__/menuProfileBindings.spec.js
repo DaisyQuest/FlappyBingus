@@ -1,57 +1,72 @@
 import { describe, expect, it } from "vitest";
-import { syncMenuProfileBindings } from "../menuProfileBindings.js";
+import {
+  createMenuProfileModel,
+  getIconDisplayName,
+  getPipeTextureDisplayName,
+  getTrailDisplayName,
+  syncMenuProfileBindings
+} from "../menuProfileBindings.js";
 
-function createRefs() {
-  return {
-    usernameInput: { value: "" },
-    pbText: { textContent: "" },
-    bustercoinText: { textContent: "" },
-    trailText: { textContent: "" },
-    iconText: { textContent: "" },
-    pipeTextureText: { textContent: "" }
-  };
-}
+describe("menuProfileBindings", () => {
+  it("resolves display names with fallbacks", () => {
+    const icons = [{ id: "alpha", name: "Alpha Icon" }];
+    const trails = [{ id: "classic", name: "Classic Trail" }];
+    const textures = [{ id: "basic", name: "Basic Pipe" }];
 
-describe("menu profile bindings", () => {
-  it("uses fallback usernames when the user is missing", () => {
-    const refs = createRefs();
-    const result = syncMenuProfileBindings({
-      refs,
-      user: null,
-      trails: [{ id: "classic", name: "Classic" }],
-      icons: [{ id: "icon", name: "Icon" }],
-      pipeTextures: [{ id: "basic", name: "Basic" }],
-      fallbackUsername: "PlayerOne",
-      bestScoreFallback: 42
-    });
-
-    expect(refs.usernameInput.value).toBe("PlayerOne");
-    expect(result.username).toBe("PlayerOne");
-    expect(refs.pbText.textContent).toBe("42");
+    expect(getIconDisplayName("alpha", icons)).toBe("Alpha Icon");
+    expect(getIconDisplayName("", icons)).toBe("hi_vis_orange");
+    expect(getTrailDisplayName("classic", trails)).toBe("Classic Trail");
+    expect(getTrailDisplayName("", trails)).toBe("");
+    expect(getPipeTextureDisplayName("basic", textures)).toBe("Basic Pipe");
+    expect(getPipeTextureDisplayName("", textures)).toBe("basic");
   });
 
-  it("prefers user data over fallbacks", () => {
-    const refs = createRefs();
+  it("syncs menu bindings with fallbacks and user data", () => {
+    const refs = {
+      usernameInput: { value: "" },
+      pbText: { textContent: "" },
+      bustercoinText: { textContent: "" },
+      trailText: { textContent: "" },
+      iconText: { textContent: "" },
+      pipeTextureText: { textContent: "" }
+    };
+
     const result = syncMenuProfileBindings({
       refs,
-      user: {
-        username: "RealUser",
-        bestScore: 100,
-        selectedTrail: "classic",
-        selectedIcon: "icon",
-        selectedPipeTexture: "basic",
-        currencies: { bustercoin: 5 }
-      },
-      trails: [{ id: "classic", name: "Classic" }],
-      icons: [{ id: "icon", name: "Icon" }],
-      pipeTextures: [{ id: "basic", name: "Basic" }],
-      fallbackUsername: "Fallback",
-      bestScoreFallback: 0
+      user: { username: "pilot", bestScore: 42, selectedTrail: "aurora", selectedIcon: "alpha", selectedPipeTexture: "glass" },
+      trails: [{ id: "aurora", name: "Aurora Trail" }],
+      icons: [{ id: "alpha", name: "Alpha Icon" }],
+      pipeTextures: [{ id: "glass", name: "Glass Pipe" }],
+      bestScoreFallback: 12
     });
 
-    expect(refs.usernameInput.value).toBe("RealUser");
-    expect(result.username).toBe("RealUser");
-    expect(refs.pbText.textContent).toBe("100");
-    expect(refs.bustercoinText.textContent).toBe("5");
+    expect(result.username).toBe("pilot");
+    expect(result.bestScore).toBe(42);
+    expect(refs.usernameInput.value).toBe("pilot");
+    expect(refs.pbText.textContent).toBe("42");
+    expect(refs.trailText.textContent).toBe("Aurora Trail");
+    expect(refs.iconText.textContent).toBe("Alpha Icon");
+    expect(refs.pipeTextureText.textContent).toBe("Glass Pipe");
+  });
+
+  it("updates model state when catalogs or user records change", () => {
+    const refs = { usernameInput: { value: "" }, pbText: { textContent: "" } };
+    const model = createMenuProfileModel({ refs, fallbackUsername: "guest", bestScoreFallback: 3 });
+
+    const initial = model.sync();
+    expect(initial.username).toBe("guest");
+    expect(initial.bestScore).toBe(3);
+
+    const updatedUser = model.updateUser({ username: "ace", bestScore: 99 });
+    expect(updatedUser.username).toBe("ace");
+    expect(updatedUser.bestScore).toBe(99);
+
+    const updatedCatalogs = model.updateCatalogs({
+      trails: [{ id: "ember", name: "Ember Trail" }],
+      icons: [{ id: "spark", name: "Spark Icon" }],
+      pipeTextures: [{ id: "metal", name: "Metal Pipe" }]
+    });
+    expect(updatedCatalogs.trailId).toBe("classic");
+    expect(model.getModel().trails).toHaveLength(1);
   });
 });

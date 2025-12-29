@@ -1,5 +1,25 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { JSDOM } from "jsdom";
+
+const previewInstances = [];
+
+vi.mock("../trailPreview.js", () => ({
+  TrailPreview: class {
+    constructor({ canvas, anchor }) {
+      this.canvas = canvas;
+      this.anchor = anchor;
+      this.setPlayerImage = vi.fn();
+      this.setTrail = vi.fn();
+      this.step = vi.fn();
+      previewInstances.push(this);
+    }
+  }
+}));
+
+vi.mock("../playerIconSprites.js", () => ({
+  createPlayerIconSprite: vi.fn((icon) => ({ ...icon, mocked: true }))
+}));
+
 import { IconTrailPreviewer } from "../iconTrailPreviewer.js";
 
 function makeSwatch(document) {
@@ -65,5 +85,38 @@ describe("IconTrailPreviewer", () => {
     const groups = Array.from(previewer.previews.values()).map((p) => p.group);
     expect(groups).toContain("launcher");
     expect(groups).not.toContain("options");
+  });
+
+  it("updates previews when icons or trails change", () => {
+    const previewer = new IconTrailPreviewer({ requestFrame: null, cancelFrame: null, now: () => 0 });
+    const swatch = makeSwatch(document);
+    const preview = previewer.attach(swatch, { icon: { id: "alpha" }, trailId: "classic" });
+
+    previewer.attach(swatch, { icon: { id: "beta" }, trailId: "ember" });
+
+    expect(preview.setPlayerImage).toHaveBeenCalled();
+    expect(preview.setTrail).toHaveBeenCalledWith("ember");
+  });
+
+  it("stops ticking when no previews remain", () => {
+    let rafCallback = null;
+    const raf = vi.fn((cb) => { rafCallback = cb; return 1; });
+    const previewer = new IconTrailPreviewer({ requestFrame: raf, cancelFrame: null, now: () => 0 });
+
+    previewer.running = true;
+    previewer._tick();
+    expect(previewer.running).toBe(false);
+
+    previewer.attach(makeSwatch(document), { icon: { id: "gamma" } });
+    previewer.running = true;
+    rafCallback?.(10);
+    expect(previewer.previews.size).toBe(1);
+  });
+
+  it("does not start when no RAF is available", () => {
+    const previewer = new IconTrailPreviewer({ requestFrame: null, cancelFrame: null, now: () => 0 });
+    previewer.attach(makeSwatch(document), { icon: { id: "delta" } });
+    previewer.start();
+    expect(previewer.running).toBe(false);
   });
 });

@@ -140,6 +140,77 @@ describe("TrailPreview", () => {
     expect(preview.player.h).not.toBe(beforeH);
   });
 
+  it("skips animation when no canvas context is available", () => {
+    const canvas = { getContext: () => { throw new Error("boom"); } };
+    const preview = new TrailPreview({
+      canvas,
+      playerImg: {},
+      requestFrame: () => 1,
+      cancelFrame: () => {},
+      now: () => 0
+    });
+
+    expect(preview.ctx).toBeNull();
+    preview.start();
+    expect(preview.running).toBe(false);
+  });
+
+  it("computes margins around obstruction elements", () => {
+    const { canvas } = makeCanvas({ left: 0, top: 0, width: 400, height: 200 });
+    const obstruction = {
+      getBoundingClientRect: () => ({ left: 100, top: 20, right: 300, bottom: 180 })
+    };
+    const preview = new TrailPreview({
+      canvas,
+      playerImg: {},
+      requestFrame: null,
+      cancelFrame: null,
+      now: () => 0,
+      obstructionElement: obstruction,
+      obstructionPadding: { x: 0.05, y: 0.05 }
+    });
+
+    preview._measureObstruction();
+    const margins = preview._computeMargins();
+
+    expect(margins.x).toBeGreaterThan(0);
+    expect(margins.y).toBeGreaterThan(0);
+  });
+
+  it("selects a wander target within computed bounds", () => {
+    const { canvas } = makeCanvas();
+    const preview = new TrailPreview({
+      canvas,
+      playerImg: {},
+      requestFrame: null,
+      cancelFrame: null,
+      now: () => 0
+    });
+    preview._rand = () => 0.5;
+
+    const target = preview._pickWanderTarget(0.2, 0.25, 0.9, 0.1);
+    expect(target.x).toBeLessThanOrEqual(0.8);
+    expect(target.y).toBeGreaterThanOrEqual(0.25);
+  });
+
+  it("resets trail simulation state when switching trails", () => {
+    const { canvas } = makeCanvas();
+    const preview = new TrailPreview({
+      canvas,
+      playerImg: {},
+      requestFrame: null,
+      cancelFrame: null,
+      now: () => 0
+    });
+    preview.trailAcc = 0;
+    preview.trailId = "classic";
+
+    preview.setTrail("ember");
+    expect(preview.trailId).toBe("ember");
+    expect(preview.trailAcc).toBe(1);
+    expect(preview.parts).toHaveLength(0);
+  });
+
   it("binds animation frame callbacks to the global context to avoid illegal invocations", () => {
     const { canvas } = makeCanvas();
     const cancel = vi.fn(function (id) {
