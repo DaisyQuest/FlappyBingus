@@ -8,7 +8,7 @@ import { isUnauthorizedResponse } from "./authResponse.js";
 /**
  * Normalizes an icon save response into a UI-friendly outcome.
  * @param {object|null} res - Response returned by apiSetIcon (may be null on network failure)
- * @returns {{ outcome: string, online: boolean, revert: boolean, resetUser: boolean, message: string }}
+ * @returns {{ outcome: string, online: boolean, revert: boolean, resetUser: boolean, needsReauth: boolean, message: string }}
  */
 export function classifyIconSaveResponse(res) {
   if (!res) {
@@ -17,6 +17,7 @@ export function classifyIconSaveResponse(res) {
       online: false,
       revert: false,
       resetUser: false,
+      needsReauth: false,
       message: "Server unavailable. Icon equipped locally."
     };
   }
@@ -30,7 +31,8 @@ export function classifyIconSaveResponse(res) {
         outcome: "unauthorized",
         online: false,
         revert: true,
-        resetUser: true,
+        resetUser: false,
+        needsReauth: true,
         message: "Sign in to save your icon."
       };
     }
@@ -41,6 +43,7 @@ export function classifyIconSaveResponse(res) {
         online,
         revert: true,
         resetUser: false,
+        needsReauth: false,
         message: "That icon is locked."
       };
     }
@@ -51,6 +54,7 @@ export function classifyIconSaveResponse(res) {
         online: false,
         revert: false,
         resetUser: false,
+        needsReauth: false,
         message: "Icon equipped locally; server will sync when available."
       };
     }
@@ -60,6 +64,7 @@ export function classifyIconSaveResponse(res) {
       online,
       revert: true,
       resetUser: false,
+      needsReauth: false,
       message: "Could not save icon."
     };
   }
@@ -69,6 +74,7 @@ export function classifyIconSaveResponse(res) {
     online: true,
     revert: false,
     resetUser: false,
+    needsReauth: false,
     message: "Icon saved."
   };
 }

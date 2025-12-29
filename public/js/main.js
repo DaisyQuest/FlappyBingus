@@ -19,8 +19,13 @@ import {
 } from "./api.js";
 
 import {
-  escapeHtml, clamp, getCookie, setCookie,
-  setRandSource, createSeededRand, createTapeRandRecorder, createTapeRandPlayer, formatRunDuration
+  escapeHtml,
+  clamp,
+  setRandSource,
+  createSeededRand,
+  createTapeRandRecorder,
+  createTapeRandPlayer,
+  formatRunDuration
 } from "./util.js";
 
 import { Game } from "./game.js";
@@ -130,10 +135,30 @@ import {
   createMenuProfileModel
 } from "./menuProfileBindings.js";
 import { buildAuthHints } from "./authHints.js";
-import { OFFLINE_STATUS_TEXT } from "./userStatusCopy.js";
+import { OFFLINE_STATUS_TEXT, SIGNED_OUT_TEXT } from "./userStatusCopy.js";
 import { applyNetUserUpdate } from "./netUser.js";
 import { handleTrailSaveResponse } from "./trailSaveResponse.js";
+import { readSessionUsername } from "./session.js";
+import { recoverUserFromUsername } from "./sessionRecovery.js";
+import { shouldAttemptReauth } from "./userHintRecovery.js";
+import {
+  genRandomSeed,
+  readIconCookie,
+  readLocalBest,
+  readPipeTextureCookie,
+  readPipeTextureModeCookie,
+  readSeed,
+  readSettingsCookie,
+  writeIconCookie,
+  writeLocalBest,
+  writePipeTextureCookie,
+  writePipeTextureModeCookie,
+  writeSeed,
+  writeSettingsCookie
+} from "./preferences.js";
+
 import { handleMenuEscape } from "./menuEscapeHandler.js";
+
 
 // ---- DOM ----
 const ui = buildGameUI();
@@ -246,15 +271,6 @@ const {
 } = ui;
 
 // ---- Local best fallback cookie (legacy support) ----
-const LOCAL_BEST_COOKIE = "chocolate_chip";
-function readLocalBest() {
-  const raw = getCookie(LOCAL_BEST_COOKIE);
-  const n = Number.parseInt(raw, 10);
-  return (Number.isFinite(n) && n >= 0) ? Math.min(n, 1e9) : 0;
-}
-function writeLocalBest(v) {
-  setCookie(LOCAL_BEST_COOKIE, String(Math.max(0, Math.min(1e9, v | 0))), 3650);
-}
 function updatePersonalBestUI(finalScore, userBestScore) {
   if (!overPB) return;
   const personalBestStatus = computePersonalBestStatus(finalScore, userBestScore, readLocalBest());
@@ -294,69 +310,6 @@ function updateGameOverStats({ view = currentStatsView, runStats = lastRunStats,
   overPerfectCombo.textContent = String(resolved.combo.perfect);
   renderSkillUsageStats(skillUsageStats, resolved.skillUsage);
   applyStatsLabels(resolved.labels);
-}
-
-// ---- Seed cookie ----
-const SEED_COOKIE = "sesame_seed";
-function readSeed() {
-  const raw = getCookie(SEED_COOKIE);
-  try { return raw ? decodeURIComponent(raw) : ""; } catch { return raw || ""; }
-}
-function writeSeed(s) {
-  setCookie(SEED_COOKIE, String(s ?? ""), 3650);
-}
-function genRandomSeed() {
-  const u = new Uint32Array(2);
-  crypto.getRandomValues(u);
-  return `${u[0].toString(16)}-${u[1].toString(16)}`;
-}
-
-const SETTINGS_COOKIE = "bingus_settings";
-function readSettingsCookie() {
-  const raw = getCookie(SETTINGS_COOKIE);
-  if (!raw) return null;
-  try {
-    const parsed = JSON.parse(raw);
-    return normalizeSkillSettings(parsed);
-  } catch {
-    return null;
-  }
-}
-function writeSettingsCookie(settings) {
-  try {
-    setCookie(SETTINGS_COOKIE, JSON.stringify(normalizeSkillSettings(settings || {})), 3650);
-  } catch {
-    // ignore cookie errors
-  }
-}
-
-const ICON_COOKIE = "bingus_icon";
-function readIconCookie() {
-  const raw = getCookie(ICON_COOKIE);
-  return raw && typeof raw === "string" ? raw : null;
-}
-function writeIconCookie(id) {
-  if (!id) return;
-  setCookie(ICON_COOKIE, String(id), 3650);
-}
-
-const PIPE_TEXTURE_COOKIE = "bingus_pipe_texture";
-const PIPE_TEXTURE_MODE_COOKIE = "bingus_pipe_texture_mode";
-function readPipeTextureCookie() {
-  const raw = getCookie(PIPE_TEXTURE_COOKIE);
-  return raw && typeof raw === "string" ? raw : null;
-}
-function writePipeTextureCookie(id) {
-  if (!id) return;
-  setCookie(PIPE_TEXTURE_COOKIE, String(id), 3650);
-}
-function readPipeTextureModeCookie() {
-  const raw = getCookie(PIPE_TEXTURE_MODE_COOKIE);
-  return raw && typeof raw === "string" ? raw : null;
-}
-function writePipeTextureModeCookie(mode) {
-  const normalized = normalizePipeTextureMode(mode);
-  setCookie(PIPE_TEXTURE_MODE_COOKIE, normalized, 3650);
 }
 
 let menuParallaxControl = null;
@@ -620,6 +573,7 @@ function refreshBootUI() {
 
 // ---- Menu rendering (highscores, cosmetics, binds) ----
 function syncMenuProfileBindingsFromState({
+  fallbackUsername = readSessionUsername() || "",
   fallbackTrailId = currentTrailId,
   fallbackIconId = currentIconId,
   fallbackPipeTextureId = currentPipeTextureId,
@@ -630,6 +584,7 @@ function syncMenuProfileBindingsFromState({
     trails: net.trails,
     icons: playerIcons,
     pipeTextures: net.pipeTextures,
+    fallbackUsername,
     fallbackTrailId,
     fallbackIconId,
     fallbackPipeTextureId,
@@ -640,6 +595,8 @@ function syncMenuProfileBindingsFromState({
 function setNetUser(nextUser, { syncProfile = true } = {}) {
   applyNetUserUpdate({ net, syncMenuProfileBindingsFromState }, nextUser, { syncProfile });
 }
+
+let reauthInProgress = false;
 
 function setUserHint() {
   const best = net.user ? (net.user.bestScore | 0) : readLocalBest();
@@ -656,6 +613,20 @@ function setUserHint() {
   if (userHint) {
     userHint.className = hint.className;
     userHint.textContent = hint.text;
+  }
+  if (shouldAttemptReauth({
+    hintText: hint.text,
+    username: usernameInput?.value?.trim(),
+    inFlight: reauthInProgress
+  })) {
+    reauthInProgress = true;
+    ensureLoggedInForSave()
+      .then((recovered) => {
+        if (recovered) setUserHint();
+      })
+      .finally(() => {
+        reauthInProgress = false;
+      });
   }
   if (offlineStatus) {
     offlineStatus.textContent = OFFLINE_STATUS_TEXT;
@@ -1314,11 +1285,13 @@ async function updateSkillSettings(next, { persist = true } = {}) {
 }
 
 // ---- Server refresh ----
-async function refreshProfileAndHighscores() {
+async function refreshProfileAndHighscores({ keepUserOnFailure = false } = {}) {
   const me = await apiGetMe();
   if (!me?.ok) {
     net.online = false;
-    setNetUser(null);
+    if (!keepUserOnFailure) {
+      setNetUser(null);
+    }
     syncIconCatalog(net.icons || playerIcons);
     net.achievements = { definitions: ACHIEVEMENTS, state: normalizeAchievementState() };
   } else {
@@ -1360,6 +1333,31 @@ async function refreshProfileAndHighscores() {
   renderAchievements();
   renderBindUI();
   refreshBootUI();
+}
+
+async function recoverSession() {
+  await refreshProfileAndHighscores({ keepUserOnFailure: true });
+  return Boolean(net.user);
+}
+
+async function ensureLoggedInForSave() {
+  if (net.user) return true;
+  const username = usernameInput?.value?.trim();
+  if (!username) return false;
+  const recovered = await recoverUserFromUsername({
+    username,
+    register: apiRegister,
+    onSuccess: (res) => {
+      net.online = true;
+      setNetUser(res.user);
+      net.trails = normalizeTrails(res.trails || net.trails);
+      syncUnlockablesCatalog({ trails: net.trails });
+      syncIconCatalog(res.icons || net.icons);
+      syncPipeTextureCatalog(res.pipeTextures || net.pipeTextures);
+      applyAchievementsPayload(res.achievements || { definitions: ACHIEVEMENTS, state: res.user?.achievements });
+    }
+  });
+  return recovered && Boolean(net.user);
 }
 
 // ---- Registration ----
@@ -1593,10 +1591,10 @@ trailOptions?.addEventListener("click", async (e) => {
     text: net.user ? "Saving trail choice…" : "Equipped (guest mode)."
   }, { persist: Boolean(net.user) });
 
-  if (!net.user) return;
+  if (!net.user && !(await ensureLoggedInForSave())) return;
 
   const res = await apiSetTrail(id);
-  handleTrailSaveResponse({
+  await handleTrailSaveResponse({
     res,
     net,
     orderedTrails: ordered,
@@ -1615,7 +1613,8 @@ trailOptions?.addEventListener("click", async (e) => {
     refreshTrailMenu,
     applyIconSelection,
     readLocalBest,
-    getAuthStatusFromResponse
+    getAuthStatusFromResponse,
+    recoverSession
   });
 });
 
@@ -1669,16 +1668,16 @@ pipeTextureModeOptions?.addEventListener("click", async (e) => {
   syncPipeTextureSwatch(currentPipeTextureId, net.pipeTextures);
   renderPipeTextureMenuOptions(currentPipeTextureId, computeUnlockedPipeTextureSet(net.pipeTextures), net.pipeTextures);
 
-  if (!net.user) return;
+  if (!net.user && !(await ensureLoggedInForSave())) return;
 
   const res = await apiSetPipeTexture(currentPipeTextureId, currentPipeTextureMode);
   if (!res || !res.ok) {
     const authStatus = getAuthStatusFromResponse(res);
     net.online = authStatus.online;
     if (authStatus.unauthorized) {
-      setNetUser(null);
+      await recoverSession();
     }
-    if (!authStatus.online || authStatus.unauthorized) {
+    if (!authStatus.online || !net.user) {
       setUserHint();
     }
     currentPipeTextureMode = previous;
@@ -1744,16 +1743,16 @@ pipeTextureOptions?.addEventListener("click", async (e) => {
     pipeTextureHint.textContent = net.user ? "Saving pipe texture…" : "Equipped (guest mode).";
   }
 
-  if (!net.user) return;
+  if (!net.user && !(await ensureLoggedInForSave())) return;
 
   const res = await apiSetPipeTexture(id, currentPipeTextureMode);
   if (!res || !res.ok) {
     const authStatus = getAuthStatusFromResponse(res);
     net.online = authStatus.online;
     if (authStatus.unauthorized) {
-      setNetUser(null);
+      await recoverSession();
     }
-    if (!authStatus.online || authStatus.unauthorized) {
+    if (!authStatus.online || !net.user) {
       setUserHint();
     }
     applyPipeTextureSelection(previous, net.pipeTextures, unlocked);
@@ -1832,14 +1831,14 @@ iconOptions?.addEventListener("click", async (e) => {
     iconHint.textContent = net.user ? "Saving icon choice…" : "Equipped (guest mode).";
   }
 
-  if (!net.user) return;
+  if (!net.user && !(await ensureLoggedInForSave())) return;
 
   const res = await apiSetIcon(id);
   const outcome = classifyIconSaveResponse(res);
   net.online = outcome.online;
 
-  if (outcome.resetUser) {
-    setNetUser(null);
+  if (outcome.needsReauth) {
+    await recoverSession();
   }
 
   if (outcome.outcome === "saved" && res) {
@@ -1853,7 +1852,7 @@ iconOptions?.addEventListener("click", async (e) => {
     applyIconSelection(previous, playerIcons);
   }
 
-  if (!outcome.online || outcome.resetUser) {
+  if (!outcome.online || !net.user) {
     setUserHint();
   }
 

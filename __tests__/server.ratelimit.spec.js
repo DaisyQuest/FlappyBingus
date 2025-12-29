@@ -90,6 +90,11 @@ async function importServer(overrides = {}) {
   return { server, mockDataStore };
 }
 
+function buildSessionCookie(server, username) {
+  const token = server.__testables.signSessionToken({ sub: username });
+  return `bingus_session=${token}`;
+}
+
 describe("server rate limiting", () => {
   beforeEach(() => {
     vi.useFakeTimers();
@@ -98,7 +103,7 @@ describe("server rate limiting", () => {
   it("returns 429 once the request budget for a route is exhausted", async () => {
     const { server } = await importServer();
     const reqFactory = () =>
-      createReq({ url: "/api/me", headers: { cookie: "sugar=RateLimited" } });
+      createReq({ url: "/api/me", headers: { cookie: buildSessionCookie(server, "RateLimited") } });
 
     const first = createRes();
     await server.route(reqFactory(), first);

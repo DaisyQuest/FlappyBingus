@@ -9,6 +9,7 @@ const fs = require("node:fs/promises");
 const fssync = require("node:fs");
 const path = require("node:path");
 const { URL } = require("node:url");
+const crypto = require("node:crypto");
 
 const { MongoDataStore, resolveMongoConfig } = require("./db/mongo.cjs");
 const { createScoreService, clampScoreDefault } = require("./services/scoreService.cjs");
@@ -96,8 +97,12 @@ function _setDataStoreForTests(mock) {
   });
 }
 
-// Cookie that holds username (per requirements)
+// Cookie that holds username (legacy)
 const USER_COOKIE = "sugar";
+const SESSION_COOKIE = "bingus_session";
+const SESSION_TTL_S = 60 * 60 * 24 * 30;
+const SESSION_REFRESH_WINDOW_S = 60 * 60 * 24 * 7;
+let SESSION_SECRET = process.env.SESSION_SECRET || crypto.randomBytes(32).toString("hex");
 
 // Default skill keybinds (requested defaults):
 // Q = Invulnerability (phase)
@@ -316,7 +321,14 @@ function setCookie(res, name, value, opts = {}) {
   ];
   if (opts.httpOnly) parts.push("HttpOnly");
   if (opts.secure) parts.push("Secure");
-  res.setHeader("Set-Cookie", parts.join("; "));
+  const serialized = parts.join("; ");
+  const prev = typeof res.getHeader === "function" ? res.getHeader("Set-Cookie") : res.headers?.["Set-Cookie"];
+  let next = serialized;
+  if (prev) {
+    if (Array.isArray(prev)) next = [...prev, serialized];
+    else next = [prev, serialized];
+  }
+  res.setHeader("Set-Cookie", next);
 }
 
 function normalizeUsername(input) {
@@ -561,17 +573,143 @@ async function isRecordHolder(username) {
   return Boolean(top && top.username === username);
 }
 
-async function getUserFromReq(req, { withRecordHolder = false } = {}) {
+async function getUserFromReq(req, { withRecordHolder = false, res } = {}) {
+  return getUserFromReqWithSession(req, { withRecordHolder, res });
+}
+
+function base64UrlEncode(input) {
+  const buf = Buffer.isBuffer(input) ? input : Buffer.from(String(input));
+  return buf.toString("base64").replaceAll("=", "").replaceAll("+", "-").replaceAll("/", "_");
+}
+
+function base64UrlDecode(input) {
+  const normalized = String(input).replaceAll("-", "+").replaceAll("_", "/");
+  const pad = normalized.length % 4 === 0 ? "" : "=".repeat(4 - (normalized.length % 4));
+  return Buffer.from(normalized + pad, "base64").toString("utf8");
+}
+
+function signSessionToken(payload, { nowMs: nowMsOverride = nowMs(), secret = SESSION_SECRET } = {}) {
+  if (!payload?.sub) return null;
+  const iat = Math.floor(nowMsOverride / 1000);
+  const exp = payload.exp ?? (iat + SESSION_TTL_S);
+  const header = base64UrlEncode(JSON.stringify({ alg: "HS256", typ: "JWT" }));
+  const body = base64UrlEncode(JSON.stringify({ ...payload, iat, exp }));
+  const signingInput = `${header}.${body}`;
+  const sig = crypto.createHmac("sha256", secret).update(signingInput).digest();
+  return `${signingInput}.${base64UrlEncode(sig)}`;
+}
+
+function verifySessionToken(token, { nowMs: nowMsOverride = nowMs(), secret = SESSION_SECRET } = {}) {
+  if (!token || typeof token !== "string") return { ok: false, error: "missing" };
+  const parts = token.split(".");
+  if (parts.length !== 3) return { ok: false, error: "invalid" };
+  const [header, payload, signature] = parts;
+  let headerJson;
+  let payloadJson;
+  try {
+    headerJson = JSON.parse(base64UrlDecode(header));
+    payloadJson = JSON.parse(base64UrlDecode(payload));
+  } catch {
+    return { ok: false, error: "invalid" };
+  }
+  if (headerJson?.alg !== "HS256") return { ok: false, error: "invalid" };
+  if (!payloadJson?.sub || typeof payloadJson.sub !== "string") return { ok: false, error: "invalid" };
+  const signingInput = `${header}.${payload}`;
+  const expected = crypto.createHmac("sha256", secret).update(signingInput).digest();
+  const provided = Buffer.from(signature.replaceAll("-", "+").replaceAll("_", "/"), "base64");
+  if (provided.length !== expected.length || !crypto.timingSafeEqual(provided, expected)) {
+    return { ok: false, error: "invalid" };
+  }
+  const nowSeconds = Math.floor(nowMsOverride / 1000);
+  if (!Number.isFinite(payloadJson.exp) || payloadJson.exp <= nowSeconds) {
+    return { ok: false, error: "expired" };
+  }
+  return {
+    ok: true,
+    username: payloadJson.sub,
+    exp: payloadJson.exp,
+    iat: payloadJson.iat || null
+  };
+}
+
+function setSessionCookie(res, req, username, { maxAge = SESSION_TTL_S } = {}) {
+  if (!username) return;
+  const secureCookie = isSecureRequest(req);
+  const sameSite = secureCookie ? "None" : "Lax";
+  const token = signSessionToken({ sub: username });
+  if (!token) return;
+  setCookie(res, SESSION_COOKIE, token, {
+    httpOnly: true,
+    maxAge,
+    secure: secureCookie,
+    sameSite
+  });
+}
+
+function clearSessionCookie(res, req) {
+  const secureCookie = isSecureRequest(req);
+  const sameSite = secureCookie ? "None" : "Lax";
+  setCookie(res, SESSION_COOKIE, "", {
+    httpOnly: true,
+    maxAge: 0,
+    secure: secureCookie,
+    sameSite
+  });
+}
+
+async function getUserFromReqWithSession(req, { withRecordHolder = false, res } = {}) {
   const cookies = parseCookies(req.headers.cookie);
-  const raw = cookies[USER_COOKIE];
-  if (!raw) return null;
-  const key = keyForUsername(raw);
+  const authHeader = typeof req.headers.authorization === "string" ? req.headers.authorization.trim() : "";
+  const bearerToken = authHeader.toLowerCase().startsWith("bearer ")
+    ? authHeader.slice(7).trim()
+    : null;
+  const sessionToken = bearerToken || cookies[SESSION_COOKIE];
+  let session = verifySessionToken(sessionToken);
+  if (!session.ok && bearerToken) {
+    const cookieToken = cookies[SESSION_COOKIE];
+    if (cookieToken) session = verifySessionToken(cookieToken);
+  }
+  let username = session.ok ? session.username : null;
+  let upgradedLegacy = false;
+
+  if (!username && session.error === "missing") {
+    const raw = cookies[USER_COOKIE];
+    if (raw) {
+      const normalized = normalizeUsername(raw);
+      if (normalized) {
+        username = normalized;
+        upgradedLegacy = true;
+      }
+    }
+  }
+
+  if (!username) {
+    if (res && session.error && session.error !== "missing") {
+      clearSessionCookie(res, req);
+    }
+    return null;
+  }
+
+  const key = keyForUsername(username);
   const u = await dataStore.getUserByKey(key);
   if (!u) return null;
   const recordHolder = withRecordHolder ? await isRecordHolder(u.username) : false;
   ensureUserSchema(u, { recordHolder });
   if (withRecordHolder) u.isRecordHolder = recordHolder;
+  if (res) {
+    const nowSeconds = Math.floor(nowMs() / 1000);
+    const shouldRefresh =
+      session.ok && Number.isFinite(session.exp) && session.exp - nowSeconds <= SESSION_REFRESH_WINDOW_S;
+    if (upgradedLegacy || shouldRefresh) {
+      setSessionCookie(res, req, u.username);
+    }
+  }
   return u;
+}
+
+function buildSessionPayload(username) {
+  const token = signSessionToken({ sub: username });
+  return token ? { sessionToken: token } : {};
 }
 
 function buildUserDefaults(username, key) {
@@ -938,7 +1076,7 @@ async function route(req, res) {
   if (pathname === "/api/me" && req.method === "GET") {
     if (rateLimit(req, res, "/api/me")) return;
     if (!(await ensureDatabase(res))) return;
-    const u = await getUserFromReq(req, { withRecordHolder: true });
+    const u = await getUserFromReq(req, { withRecordHolder: true, res });
     const recordHolder = Boolean(u?.isRecordHolder);
     sendJson(res, 200, {
       ok: true,
@@ -946,7 +1084,8 @@ async function route(req, res) {
       icons: ICONS,
       trails: TRAILS,
       pipeTextures: PIPE_TEXTURES,
-      achievements: buildAchievementsPayload(u)
+      achievements: buildAchievementsPayload(u),
+      ...buildSessionPayload(u.username)
     });
     return;
   }
@@ -969,16 +1108,8 @@ async function route(req, res) {
     ensureUserSchema(u, { recordHolder });
     if (u) u.isRecordHolder = recordHolder;
 
-    // Store username in cookie "sugar"
-    // httpOnly is OK because the browser doesn't need to read it; the server does.
-    const secureCookie = isSecureRequest(req);
-    const sameSite = secureCookie ? "None" : "Lax";
-    setCookie(res, USER_COOKIE, u.username, {
-      httpOnly: true,
-      maxAge: 60 * 60 * 24 * 365,
-      secure: secureCookie,
-      sameSite
-    });
+    // Store session cookie for authenticated requests.
+    setSessionCookie(res, req, u.username);
 
     sendJson(res, 200, {
       ok: true,
@@ -986,7 +1117,8 @@ async function route(req, res) {
       icons: ICONS,
       trails: TRAILS,
       pipeTextures: PIPE_TEXTURES,
-      achievements: buildAchievementsPayload(u)
+      achievements: buildAchievementsPayload(u),
+      ...buildSessionPayload(u.username)
     });
     return;
   }
@@ -995,7 +1127,7 @@ async function route(req, res) {
   if (pathname === "/api/score" && req.method === "POST") {
     if (rateLimit(req, res, "/api/score")) return;
     if (!(await ensureDatabase(res))) return;
-    const u = await getUserFromReq(req, { withRecordHolder: true });
+    const u = await getUserFromReq(req, { withRecordHolder: true, res });
 
     let body;
     try {
@@ -1049,7 +1181,7 @@ async function route(req, res) {
   if (pathname === "/api/run/best" && req.method === "POST") {
     if (rateLimit(req, res, "/api/run/best")) return;
     if (!(await ensureDatabase(res))) return;
-    const u = await getUserFromReq(req, { withRecordHolder: true });
+    const u = await getUserFromReq(req, { withRecordHolder: true, res });
     if (!u) return unauthorized(res);
 
     let body;
@@ -1089,7 +1221,7 @@ async function route(req, res) {
   if (pathname === "/api/cosmetics/trail" && req.method === "POST") {
     if (rateLimit(req, res, "/api/cosmetics/trail")) return;
     if (!(await ensureDatabase(res))) return;
-    const u = await getUserFromReq(req, { withRecordHolder: true });
+    const u = await getUserFromReq(req, { withRecordHolder: true, res });
     if (!u) return unauthorized(res);
 
     let body;
@@ -1123,7 +1255,7 @@ async function route(req, res) {
   if (pathname === "/api/cosmetics/icon" && req.method === "POST") {
     if (rateLimit(req, res, "/api/cosmetics/icon")) return;
     if (!(await ensureDatabase(res))) return;
-    const u = await getUserFromReq(req, { withRecordHolder: true });
+    const u = await getUserFromReq(req, { withRecordHolder: true, res });
     if (!u) return unauthorized(res);
 
     let body;
@@ -1158,7 +1290,7 @@ async function route(req, res) {
   if (pathname === "/api/cosmetics/pipe_texture" && req.method === "POST") {
     if (rateLimit(req, res, "/api/cosmetics/pipe_texture")) return;
     if (!(await ensureDatabase(res))) return;
-    const u = await getUserFromReq(req, { withRecordHolder: true });
+    const u = await getUserFromReq(req, { withRecordHolder: true, res });
     if (!u) return unauthorized(res);
 
     let body;
@@ -1200,7 +1332,7 @@ async function route(req, res) {
   if (pathname === "/api/shop/purchase" && req.method === "POST") {
     if (rateLimit(req, res, "/api/shop/purchase")) return;
     if (!(await ensureDatabase(res))) return;
-    const u = await getUserFromReq(req, { withRecordHolder: true });
+    const u = await getUserFromReq(req, { withRecordHolder: true, res });
     if (!u) return unauthorized(res);
 
     let body;
@@ -1258,7 +1390,7 @@ async function route(req, res) {
   if (pathname === "/api/binds" && req.method === "POST") {
     if (rateLimit(req, res, "/api/binds")) return;
     if (!(await ensureDatabase(res))) return;
-    const u = await getUserFromReq(req, { withRecordHolder: true });
+    const u = await getUserFromReq(req, { withRecordHolder: true, res });
     if (!u) return unauthorized(res);
 
     let body;
@@ -1287,7 +1419,7 @@ async function route(req, res) {
   if (pathname === "/api/settings" && req.method === "POST") {
     if (rateLimit(req, res, "/api/settings")) return;
     if (!(await ensureDatabase(res))) return;
-    const u = await getUserFromReq(req, { withRecordHolder: true });
+    const u = await getUserFromReq(req, { withRecordHolder: true, res });
     if (!u) return unauthorized(res);
 
     let body;
@@ -1470,5 +1602,15 @@ module.exports = {
   getOrCreateUser,
   _setDataStoreForTests,
   route,
-  startServer
+  startServer,
+  __testables: {
+    signSessionToken,
+    verifySessionToken,
+    base64UrlEncode,
+    base64UrlDecode,
+    buildSessionPayload,
+    _setSessionSecretForTests(secret) {
+      SESSION_SECRET = secret;
+    }
+  }
 };

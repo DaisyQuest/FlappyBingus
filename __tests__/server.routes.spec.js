@@ -94,6 +94,22 @@ async function importServer(overrides = {}) {
   return { server, mockDataStore };
 }
 
+function getCookieHeader(res, name) {
+  const header = res.headers["Set-Cookie"];
+  const values = Array.isArray(header) ? header : header ? [header] : [];
+  return values.find((value) => value.startsWith(`${name}=`)) || "";
+}
+
+function buildSessionCookie(server, username, { nowMs, exp } = {}) {
+  const token = server.__testables.signSessionToken({ sub: username, exp }, { nowMs });
+  return `bingus_session=${token}`;
+}
+
+function buildAuthHeader(server, username) {
+  const token = server.__testables.signSessionToken({ sub: username });
+  return `Bearer ${token}`;
+}
+
 function readJson(res) {
   return JSON.parse(res.body || "{}");
 }
@@ -126,14 +142,18 @@ describe("server routes and helpers", () => {
       successHttp
     );
     expect(successHttp.status).toBe(200);
-    expect(successHttp.headers["Set-Cookie"]).toMatch(/sugar=ValidUser/);
-    expect(successHttp.headers["Set-Cookie"]).toMatch(/HttpOnly/);
-    expect(successHttp.headers["Set-Cookie"]).toMatch(/SameSite=Lax/);
-    expect(successHttp.headers["Set-Cookie"]).not.toMatch(/Secure/);
+    const sessionCookie = getCookieHeader(successHttp, "bingus_session");
+    expect(sessionCookie).toMatch(/bingus_session=/);
+    expect(sessionCookie).toMatch(/HttpOnly/);
+    expect(sessionCookie).toMatch(/SameSite=Lax/);
+    expect(sessionCookie).not.toMatch(/Secure/);
+    const token = sessionCookie.split(";")[0].split("=")[1];
+    expect(server.__testables.verifySessionToken(token).ok).toBe(true);
     const savedSettings = readJson(successHttp).user.settings;
     expect(savedSettings.dashBehavior).toBe("ricochet");
     expect(savedSettings.teleportBehavior).toBe("normal");
     expect(savedSettings.invulnBehavior).toBe("short");
+    expect(readJson(successHttp).sessionToken).toMatch(/^\S+\.\S+\.\S+$/);
 
     const successForwarded = createRes();
     await server.route(
@@ -146,8 +166,9 @@ describe("server routes and helpers", () => {
       successForwarded
     );
     expect(successForwarded.status).toBe(200);
-    expect(successForwarded.headers["Set-Cookie"]).toMatch(/Secure/);
-    expect(successForwarded.headers["Set-Cookie"]).toMatch(/SameSite=None/);
+    const forwardedCookie = getCookieHeader(successForwarded, "bingus_session");
+    expect(forwardedCookie).toMatch(/Secure/);
+    expect(forwardedCookie).toMatch(/SameSite=None/);
 
     const successEncrypted = createRes();
     await server.route(
@@ -160,8 +181,9 @@ describe("server routes and helpers", () => {
       successEncrypted
     );
     expect(successEncrypted.status).toBe(200);
-    expect(successEncrypted.headers["Set-Cookie"]).toMatch(/Secure/);
-    expect(successEncrypted.headers["Set-Cookie"]).toMatch(/SameSite=None/);
+    const encryptedCookie = getCookieHeader(successEncrypted, "bingus_session");
+    expect(encryptedCookie).toMatch(/Secure/);
+    expect(encryptedCookie).toMatch(/SameSite=None/);
   });
 
   it("requires authentication before accepting scores", async () => {
@@ -177,6 +199,81 @@ describe("server routes and helpers", () => {
     expect(readJson(res).error).toBe("unauthorized");
   });
 
+  it("accepts bearer session tokens when cookies are unavailable", async () => {
+    const { server } = await importServer();
+    const res = createRes();
+
+    await server.route(
+      createReq({
+        method: "POST",
+        url: "/api/score",
+        body: JSON.stringify({ score: 50 }),
+        headers: { authorization: buildAuthHeader(server, "PlayerOne") }
+      }),
+      res
+    );
+
+    expect(res.status).toBe(200);
+    expect(readJson(res).ok).toBe(true);
+  });
+
+  it("clears invalid session cookies and denies access", async () => {
+    const { server } = await importServer();
+    const res = createRes();
+
+    await server.route(
+      createReq({
+        method: "POST",
+        url: "/api/score",
+        body: JSON.stringify({ score: 50 }),
+        headers: { cookie: "bingus_session=not-a-token" }
+      }),
+      res
+    );
+
+    expect(res.status).toBe(401);
+    const cleared = getCookieHeader(res, "bingus_session");
+    expect(cleared).toMatch(/Max-Age=0/);
+  });
+
+  it("upgrades legacy username cookies to session cookies", async () => {
+    const { server } = await importServer();
+    const res = createRes();
+
+    await server.route(
+      createReq({
+        method: "GET",
+        url: "/api/me",
+        headers: { cookie: "sugar=PlayerOne" }
+      }),
+      res
+    );
+
+    expect(res.status).toBe(200);
+    const sessionCookie = getCookieHeader(res, "bingus_session");
+    expect(sessionCookie).toMatch(/bingus_session=/);
+  });
+
+  it("refreshes near-expiry session cookies", async () => {
+    const { server } = await importServer();
+    const nowMs = Date.now();
+    const exp = Math.floor(nowMs / 1000) + 60;
+    const res = createRes();
+
+    await server.route(
+      createReq({
+        method: "GET",
+        url: "/api/me",
+        headers: { cookie: buildSessionCookie(server, "PlayerOne", { nowMs, exp }) }
+      }),
+      res
+    );
+
+    expect(res.status).toBe(200);
+    const refreshed = getCookieHeader(res, "bingus_session");
+    expect(refreshed).toMatch(/bingus_session=/);
+  });
+
   it("persists score submissions with earned bustercoins and clamps negative values", async () => {
     const { server, mockDataStore } = await importServer();
     const res = createRes();
@@ -187,7 +284,7 @@ describe("server routes and helpers", () => {
         method: "POST",
         url: "/api/score",
         body: JSON.stringify({ score: 50, bustercoinsEarned: 3 }),
-        headers: { cookie: "sugar=PlayerOne" }
+        headers: { cookie: buildSessionCookie(server, "PlayerOne") }
       }),
       res
     );
@@ -208,7 +305,7 @@ describe("server routes and helpers", () => {
         method: "POST",
         url: "/api/score",
         body: JSON.stringify({ score: 10, bustercoinsEarned: -5 }),
-        headers: { cookie: "sugar=PlayerOne" }
+        headers: { cookie: buildSessionCookie(server, "PlayerOne") }
       }),
       negative
     );
@@ -231,7 +328,7 @@ describe("server routes and helpers", () => {
           runStats: { abilitiesUsed: 1 },
           media: { dataUrl: "data:video/webm;base64,AAA", mimeType: "video/webm" }
         }),
-        headers: { cookie: "sugar=PlayerOne" }
+        headers: { cookie: buildSessionCookie(server, "PlayerOne") }
       }),
       res
     );
@@ -260,7 +357,7 @@ describe("server routes and helpers", () => {
           replay: { ticks: [{ move: { dx: 0, dy: 0 }, cursor: { x: 0, y: 0, has: false } }], rngTape: [] },
           runStats: {}
         }),
-        headers: { cookie: "sugar=PlayerOne" }
+        headers: { cookie: buildSessionCookie(server, "PlayerOne") }
       }),
       res
     );
@@ -280,7 +377,7 @@ describe("server routes and helpers", () => {
         method: "POST",
         url: "/api/run/best",
         body: `{"score":5,"replayJson":"${largeReplay}","ticksLength":1,"rngTapeLength":0}`,
-        headers: { cookie: "sugar=PlayerOne" }
+        headers: { cookie: buildSessionCookie(server, "PlayerOne") }
       }),
       res
     );
@@ -332,7 +429,10 @@ describe("server routes and helpers", () => {
     });
     const res = createRes();
 
-    await server.route(createReq({ method: "GET", url: "/api/me", headers: { cookie: "sugar=PlayerOne" } }), res);
+    await server.route(
+      createReq({ method: "GET", url: "/api/me", headers: { cookie: buildSessionCookie(server, "PlayerOne") } }),
+      res
+    );
 
     expect(res.status).toBe(200);
     expect(readJson(res).user.settings).toEqual({
@@ -343,6 +443,7 @@ describe("server routes and helpers", () => {
     });
     expect(readJson(res).icons?.length).toBeGreaterThan(0);
     expect(readJson(res).pipeTextures?.length).toBeGreaterThan(0);
+    expect(readJson(res).sessionToken).toMatch(/^\S+\.\S+\.\S+$/);
   });
 
   it("includes achievement payload on /api/me responses", async () => {
@@ -354,7 +455,10 @@ describe("server routes and helpers", () => {
     });
     const res = createRes();
 
-    await server.route(createReq({ method: "GET", url: "/api/me", headers: { cookie: "sugar=PlayerOne" } }), res);
+    await server.route(
+      createReq({ method: "GET", url: "/api/me", headers: { cookie: buildSessionCookie(server, "PlayerOne") } }),
+      res
+    );
 
     const payload = readJson(res);
     expect(payload.achievements.definitions.some((a) => a.id === "no_orbs_100")).toBe(true);
@@ -375,7 +479,10 @@ describe("server routes and helpers", () => {
     });
     const res = createRes();
 
-    await server.route(createReq({ method: "GET", url: "/api/me", headers: { cookie: "sugar=champ" } }), res);
+    await server.route(
+      createReq({ method: "GET", url: "/api/me", headers: { cookie: buildSessionCookie(server, "champ") } }),
+      res
+    );
     const payload = readJson(res);
 
     expect(res.status).toBe(200);
@@ -397,7 +504,7 @@ describe("server routes and helpers", () => {
         method: "POST",
         url: "/api/cosmetics/trail",
         body: JSON.stringify({ trailId: "missing" }),
-        headers: { cookie: "sugar=PlayerOne" }
+        headers: { cookie: buildSessionCookie(server, "PlayerOne") }
       }),
       invalidTrail
     );
@@ -410,7 +517,7 @@ describe("server routes and helpers", () => {
         method: "POST",
         url: "/api/cosmetics/trail",
         body: JSON.stringify({ trailId: "ember" }),
-        headers: { cookie: "sugar=PlayerOne" }
+        headers: { cookie: buildSessionCookie(server, "PlayerOne") }
       }),
       locked
     );
@@ -426,7 +533,7 @@ describe("server routes and helpers", () => {
         method: "POST",
         url: "/api/cosmetics/trail",
         body: JSON.stringify({ trailId: "solar" }),
-        headers: { cookie: "sugar=PlayerOne" }
+        headers: { cookie: buildSessionCookie(server, "PlayerOne") }
       }),
       success
     );
@@ -462,8 +569,8 @@ describe("server routes and helpers", () => {
     );
 
     expect(registerRes.status).toBe(200);
-    const cookieHeader = registerRes.headers["Set-Cookie"];
-    expect(cookieHeader).toMatch(/sugar=CookiePlayer/);
+    const cookieHeader = getCookieHeader(registerRes, "bingus_session");
+    expect(cookieHeader).toMatch(/bingus_session=.+/);
 
     const cookie = cookieHeader.split(";")[0];
     const trailRes = createRes();
@@ -493,7 +600,7 @@ describe("server routes and helpers", () => {
         method: "POST",
         url: "/api/cosmetics/icon",
         body: JSON.stringify({ iconId: "missing" }),
-        headers: { cookie: "sugar=PlayerOne" }
+        headers: { cookie: buildSessionCookie(server, "PlayerOne") }
       }),
       invalid
     );
@@ -507,7 +614,7 @@ describe("server routes and helpers", () => {
         method: "POST",
         url: "/api/cosmetics/icon",
         body: JSON.stringify({ iconId: "hi_vis_red" }),
-        headers: { cookie: "sugar=PlayerOne" }
+        headers: { cookie: buildSessionCookie(server, "PlayerOne") }
       }),
       success
     );
@@ -529,7 +636,7 @@ describe("server routes and helpers", () => {
         method: "POST",
         url: "/api/cosmetics/pipe_texture",
         body: JSON.stringify({ textureId: "missing" }),
-        headers: { cookie: "sugar=PlayerOne" }
+        headers: { cookie: buildSessionCookie(server, "PlayerOne") }
       }),
       invalid
     );
@@ -542,7 +649,7 @@ describe("server routes and helpers", () => {
         method: "POST",
         url: "/api/cosmetics/pipe_texture",
         body: JSON.stringify({ textureId: "digital", mode: "HIGH" }),
-        headers: { cookie: "sugar=PlayerOne" }
+        headers: { cookie: buildSessionCookie(server, "PlayerOne") }
       }),
       locked
     );
@@ -562,7 +669,7 @@ describe("server routes and helpers", () => {
         method: "POST",
         url: "/api/cosmetics/pipe_texture",
         body: JSON.stringify({ textureId: "digital", mode: "HIGH" }),
-        headers: { cookie: "sugar=PlayerOne" }
+        headers: { cookie: buildSessionCookie(server, "PlayerOne") }
       }),
       success
     );
@@ -582,7 +689,7 @@ describe("server routes and helpers", () => {
         method: "POST",
         url: "/api/shop/purchase",
         body: JSON.stringify({ id: "ultradisco", type: "pipe_texture" }),
-        headers: { cookie: "sugar=PlayerOne" }
+        headers: { cookie: buildSessionCookie(server, "PlayerOne") }
       }),
       insufficient
     );
@@ -604,7 +711,7 @@ describe("server routes and helpers", () => {
         method: "POST",
         url: "/api/shop/purchase",
         body: JSON.stringify({ id: "ultradisco", type: "pipe_texture" }),
-        headers: { cookie: "sugar=PlayerOne" }
+        headers: { cookie: buildSessionCookie(server, "PlayerOne") }
       }),
       success
     );
@@ -629,7 +736,7 @@ describe("server routes and helpers", () => {
             slowField: { type: "key", code: "KeyE" }
           }
         }),
-        headers: { cookie: "sugar=PlayerOne" }
+        headers: { cookie: buildSessionCookie(server, "PlayerOne") }
       }),
       duplicate
     );
@@ -649,7 +756,7 @@ describe("server routes and helpers", () => {
             slowField: { type: "key", code: "KeyE" }
           }
         }),
-        headers: { cookie: "sugar=PlayerOne" }
+        headers: { cookie: buildSessionCookie(server, "PlayerOne") }
       }),
       valid
     );
@@ -667,7 +774,7 @@ describe("server routes and helpers", () => {
         method: "POST",
         url: "/api/settings",
         body: JSON.stringify({ settings: { dashBehavior: "laser" } }),
-        headers: { cookie: "sugar=PlayerOne" }
+        headers: { cookie: buildSessionCookie(server, "PlayerOne") }
       }),
       invalid
     );
@@ -687,7 +794,7 @@ describe("server routes and helpers", () => {
             invulnBehavior: "long"
           }
         }),
-        headers: { cookie: "sugar=PlayerOne" }
+        headers: { cookie: buildSessionCookie(server, "PlayerOne") }
       }),
       valid
     );

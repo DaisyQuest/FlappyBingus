@@ -26,12 +26,13 @@ export function syncMenuProfileBindings({
   trails = [],
   icons = [],
   pipeTextures = [],
+  fallbackUsername = "",
   fallbackTrailId = "classic",
   fallbackIconId = DEFAULT_PLAYER_ICON_ID,
   fallbackPipeTextureId = DEFAULT_PIPE_TEXTURE_ID,
   bestScoreFallback = 0
 } = {}) {
-  const username = user?.username || "";
+  const username = user?.username || fallbackUsername || "";
   if (refs.usernameInput) refs.usernameInput.value = username;
 
   const bestScore = Number.isFinite(user?.bestScore) ? user.bestScore : bestScoreFallback;
@@ -65,6 +66,7 @@ export function createMenuProfileModel({
   trails = [],
   icons = [],
   pipeTextures = [],
+  fallbackUsername = "",
   fallbackTrailId = "classic",
   fallbackIconId = DEFAULT_PLAYER_ICON_ID,
   fallbackPipeTextureId = DEFAULT_PIPE_TEXTURE_ID,
@@ -76,6 +78,7 @@ export function createMenuProfileModel({
     trails,
     icons,
     pipeTextures,
+    fallbackUsername,
     fallbackTrailId,
     fallbackIconId,
     fallbackPipeTextureId,
