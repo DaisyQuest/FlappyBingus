@@ -8,29 +8,29 @@ describe("trailProgression helpers", () => {
     expect(result[0].id).toBe("classic");
   });
 
-  it("merges server trails with defaults to keep newly added entries", () => {
+  it("preserves server ordering and appends missing defaults", () => {
     const result = normalizeTrails([
       { id: "classic", name: "Classic Remix", minScore: 10 },
       { id: "ember", name: "Ember Core" }
     ]);
 
     expect(result).toHaveLength(DEFAULT_TRAILS.length);
-    expect(result.find((trail) => trail.id === "classic")?.name).toBe("Classic Remix");
-    expect(result.find((trail) => trail.id === "classic")?.minScore).toBe(10);
+    expect(result[0]).toMatchObject({ id: "classic", name: "Classic Remix", minScore: 10 });
+    expect(result[1]).toMatchObject({ id: "ember", name: "Ember Core" });
     expect(result.find((trail) => trail.id === "rainbow")?.name).toBe("Prismatic Ribbon");
   });
 
-  it("appends extra trails supplied by the server after defaults", () => {
+  it("appends missing defaults after custom server trails", () => {
     const result = normalizeTrails([
-      { id: "classic", name: "Classic" },
       { id: "custom_glow", name: "Custom Glow", minScore: 42 }
     ]);
 
     expect(result).toHaveLength(DEFAULT_TRAILS.length + 1);
-    expect(result[result.length - 1]).toMatchObject({ id: "custom_glow", name: "Custom Glow", minScore: 42 });
+    expect(result[0]).toMatchObject({ id: "custom_glow", name: "Custom Glow", minScore: 42 });
+    expect(result[result.length - 1].id).toBe("world_record");
   });
 
-  it("falls back to defaults when no valid trail ids are provided", () => {
+  it("filters invalid entries and falls back when none remain", () => {
     const result = normalizeTrails([{ id: "" }, null, { name: "No id" }]);
     expect(result).toHaveLength(DEFAULT_TRAILS.length);
     expect(result[0].id).toBe("classic");
