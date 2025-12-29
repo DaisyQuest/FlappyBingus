@@ -106,7 +106,24 @@ export class Part {
     if (this.add) ctx.globalCompositeOperation = "lighter";
     ctx.globalAlpha = a;
     const r = Math.max(0.7, this.size * (0.6 + 0.6 * (1 - t)));
-    if (this.shape === "lemon_slice") {
+    if (this.shape === "star") {
+      const inner = r * 0.5;
+      const points = 10;
+      ctx.translate(this.x, this.y);
+      if (this.rotation) ctx.rotate(this.rotation);
+      ctx.fillStyle = this.color;
+      ctx.beginPath();
+      for (let i = 0; i < points; i++) {
+        const ang = -Math.PI / 2 + (Math.PI * 2 * i) / points;
+        const radius = (i % 2 === 0) ? r : inner;
+        const x = Math.cos(ang) * radius;
+        const y = Math.sin(ang) * radius;
+        if (i === 0) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
+      }
+      ctx.closePath();
+      ctx.fill();
+    } else if (this.shape === "lemon_slice") {
       const slice = this.slice || {};
       const rind = slice.rind || "rgba(255, 247, 195, 0.95)";
       const pith = slice.pith || "rgba(255, 252, 224, 0.95)";

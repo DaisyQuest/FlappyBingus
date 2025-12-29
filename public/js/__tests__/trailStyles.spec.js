@@ -74,6 +74,10 @@ describe("trailStyles", () => {
     expect(nebula.add).toBe(true);
     expect(nebula.sparkle).toBeTruthy();
     expect(nebula.aura).toBeTruthy();
+    expect(nebula.particleShape).toBe("star");
+    expect(nebula.sparkle.particleShape).toBe("star");
+    expect(nebula.glint.particleShape).toBe("star");
+    expect(nebula.aura.particleShape).toBe("star");
     expect(nebula.aura.add).toBe(true);
     expect(nebula.aura.color({ rand: () => 0.3, hue: 210, i: 1 })).toContain("hsla");
 
