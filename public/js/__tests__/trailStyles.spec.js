@@ -94,4 +94,12 @@ describe("trailStyles", () => {
     expect(lemon.particleShape).toBe("lemon_slice");
     expect(lemon.sliceStyle?.segments).toBeGreaterThan(3);
   });
+
+  it("uses honeycomb hexagons with a matching outline style", () => {
+    const honey = trailStyleFor("honeycomb");
+    expect(honey.particleShape).toBe("hexagon");
+    expect(honey.hexStyle?.stroke).toContain("rgba");
+    expect(honey.sparkle.particleShape).toBe("hexagon");
+    expect(honey.glint.particleShape).toBe("hexagon");
+  });
 });

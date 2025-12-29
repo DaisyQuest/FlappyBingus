@@ -97,6 +97,23 @@ describe("Part drawing", () => {
     expect(ctx.ops.some((op) => Array.isArray(op) && op[0] === "lineTo")).toBe(true);
     expect(ctx.ops.some((op) => Array.isArray(op) && op[0] === "translate")).toBe(true);
   });
+
+  it("renders honeycomb hexagons with fills and outlines", () => {
+    const ctx = makeMockCtx();
+    const p = new Part(12, 14, 0, 0, 1, 6, "#fbbf24", true);
+    p.shape = "hexagon";
+    p.fillColor = "rgba(255, 224, 130, 0.4)";
+    p.strokeColor = "rgba(245, 158, 11, 0.9)";
+    p.lineWidth = 1.6;
+    p.rotation = Math.PI / 6;
+
+    p.draw(ctx);
+
+    expect(ctx.ops).toContain("fill");
+    expect(ctx.ops).toContain("stroke");
+    expect(ctx.ops).toContain("closePath");
+    expect(ctx.ops.some((op) => Array.isArray(op) && op[0] === "lineTo")).toBe(true);
+  });
 });
 
 describe("FloatText visuals", () => {

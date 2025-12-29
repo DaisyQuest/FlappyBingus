@@ -1233,6 +1233,38 @@ describe("Player movement and trail emission", () => {
     }
   });
 
+  it("assigns hexagon styling when the trail requests honeycomb shapes", () => {
+    setRandSource(() => 0.5);
+    const { game } = buildGame();
+    game.player.x = 80; game.player.y = 80;
+    game.player.vx = 150; game.player.vy = 0;
+    game.getTrailId = () => "custom";
+    const style = {
+      rate: 1,
+      life: [1, 1],
+      size: [2, 2],
+      speed: [10, 10],
+      drag: 0,
+      add: false,
+      particleShape: "hexagon",
+      hexStyle: { stroke: "stroke", fill: "fill", lineWidth: 2 },
+      glint: { rate: Number.MIN_VALUE },
+      sparkle: { rate: Number.MIN_VALUE },
+      aura: { rate: 0 }
+    };
+    vi.spyOn(game, "_trailStyle").mockReturnValue(style);
+
+    const prev = game.parts.length;
+    game._emitTrail(1);
+
+    const produced = game.parts.slice(prev);
+    const hex = produced.find((p) => p.shape === "hexagon");
+    expect(hex).toBeTruthy();
+    expect(hex?.strokeColor).toBe("stroke");
+    expect(hex?.fillColor).toBe("fill");
+    expect(hex?.lineWidth).toBe(2);
+  });
+
   it("emits an aura and lengthened particles for a mesmerizing trail cloud", () => {
     setRandSource(() => 0.5);
     const { game } = buildGame();
