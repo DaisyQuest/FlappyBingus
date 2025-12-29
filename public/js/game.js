@@ -1271,10 +1271,15 @@ export class Game {
     const auraDistanceScale = aura.distanceScale ?? distanceScale;
     const auraSizeScale = aura.sizeScale ?? 1.08;
     const jitterScale = st.jitterScale ?? TRAIL_JITTER_SCALE;
-    const applyShape = (prt, shape, sliceStyle) => {
+    const applyShape = (prt, shape, sliceStyle, hexStyle) => {
       if (!shape) return;
       prt.shape = shape;
       if (shape === "lemon_slice") prt.slice = sliceStyle || null;
+      if (shape === "hexagon") {
+        prt.strokeColor = hexStyle?.stroke ?? prt.color;
+        prt.fillColor = hexStyle?.fill ?? prt.color;
+        prt.lineWidth = hexStyle?.lineWidth ?? prt.lineWidth;
+      }
       prt.rotation = rand(0, Math.PI * 2);
     };
 
@@ -1318,7 +1323,7 @@ export class Game {
       const color = st.color ? st.color({ i, hue: this.trailHue, rand }) : "rgba(140,220,255,.62)";
 
       const prt = new Part(bx + jx, by + jy, vx, vy, life, size, color, st.add);
-      applyShape(prt, st.particleShape, st.sliceStyle);
+      applyShape(prt, st.particleShape, st.sliceStyle, st.hexStyle);
       prt.drag = st.drag;
       this.parts.push(prt);
     }
@@ -1343,7 +1348,7 @@ export class Game {
       const prt = new Part(px, py, vx, vy, life, size, color, aura.add ?? st.add);
       prt.drag = aura.drag ?? st.drag ?? 10.5;
       prt.twinkle = aura.twinkle ?? true;
-      applyShape(prt, aura.particleShape);
+      applyShape(prt, aura.particleShape, null, aura.hexStyle);
       this.parts.push(prt);
     }
 
@@ -1365,7 +1370,7 @@ export class Game {
       const prt = new Part(px, py, vx, vy, life, size, color, glint.add !== false);
       prt.drag = glint.drag ?? st.drag ?? 11.2;
       prt.twinkle = true;
-      applyShape(prt, glint.particleShape);
+      applyShape(prt, glint.particleShape, null, glint.hexStyle);
       this.parts.push(prt);
     }
 
@@ -1387,7 +1392,7 @@ export class Game {
       const prt = new Part(px, py, vx, vy, life, size, color, sparkle.add !== false);
       prt.drag = sparkle.drag ?? 12.5;
       prt.twinkle = true;
-      applyShape(prt, sparkle.particleShape);
+      applyShape(prt, sparkle.particleShape, null, sparkle.hexStyle);
       this.parts.push(prt);
     }
   }

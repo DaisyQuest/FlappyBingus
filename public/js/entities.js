@@ -87,6 +87,9 @@ export class Part {
     this.shape = "circle";
     this.rotation = 0;
     this.slice = null;
+    this.strokeColor = null;
+    this.fillColor = null;
+    this.lineWidth = null;
   }
   update(dt) {
     this.life -= dt;
@@ -152,6 +155,30 @@ export class Part {
         ctx.beginPath();
         ctx.moveTo(0, 0);
         ctx.lineTo(Math.cos(ang) * inner * 0.92, Math.sin(ang) * inner * 0.92);
+        ctx.stroke();
+      }
+    } else if (this.shape === "hexagon") {
+      const fill = this.fillColor ?? this.color;
+      const stroke = this.strokeColor ?? this.color;
+      const lineWidth = this.lineWidth ?? Math.max(1, r * 0.18);
+      ctx.translate(this.x, this.y);
+      if (this.rotation) ctx.rotate(this.rotation);
+      ctx.beginPath();
+      for (let i = 0; i < 6; i++) {
+        const ang = Math.PI / 6 + (Math.PI * 2 * i) / 6;
+        const x = Math.cos(ang) * r;
+        const y = Math.sin(ang) * r;
+        if (i === 0) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
+      }
+      ctx.closePath();
+      if (fill) {
+        ctx.fillStyle = fill;
+        ctx.fill();
+      }
+      if (stroke && lineWidth > 0) {
+        ctx.strokeStyle = stroke;
+        ctx.lineWidth = lineWidth;
         ctx.stroke();
       }
     } else if (this.twinkle) {

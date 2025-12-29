@@ -419,6 +419,51 @@ describe("TrailPreview", () => {
     styleSpy.mockRestore();
   });
 
+  it("adds honeycomb hexagon styling to preview particles", () => {
+    const { canvas } = makeCanvas();
+    const preview = new TrailPreview({
+      canvas,
+      playerImg: {},
+      requestFrame: null,
+      cancelFrame: null,
+      now: () => 0
+    });
+    preview.player.x = 60;
+    preview.player.y = 60;
+    preview.player.vx = 90;
+    preview.player.vy = 0;
+    preview.player.phase = 0;
+    preview._rand = () => 0.5;
+
+    const style = {
+      rate: 2,
+      life: [1, 1],
+      size: [2, 2],
+      speed: [10, 10],
+      drag: 0,
+      add: false,
+      particleShape: "hexagon",
+      hexStyle: { stroke: "stroke", fill: "fill", lineWidth: 2 },
+      glint: { rate: Number.MIN_VALUE },
+      sparkle: { rate: Number.MIN_VALUE },
+      aura: { rate: 0 }
+    };
+
+    const styleSpy = vi.spyOn(trailStyles, "trailStyleFor").mockReturnValue(style);
+
+    const prev = preview.parts.length;
+    preview._emitTrail(1);
+
+    const produced = preview.parts.slice(prev);
+    const hex = produced.find((p) => p.shape === "hexagon");
+    expect(hex).toBeTruthy();
+    expect(hex?.strokeColor).toBe("stroke");
+    expect(hex?.fillColor).toBe("fill");
+    expect(hex?.lineWidth).toBe(2);
+
+    styleSpy.mockRestore();
+  });
+
   it("scales secondary effects with flow so bright particles do not overpower color", () => {
     const { canvas } = makeCanvas();
     const preview = new TrailPreview({

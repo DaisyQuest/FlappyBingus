@@ -24,6 +24,11 @@ const nebulaSmoke = ({ hue, rand: r }) => hsla((hue + r(-30, 30)) % 360, 64, 64,
 const starGlow = ({ rand: r, i }) => hsla((52 + r(-18, 18) + i * 2) % 360, 96, 86, 0.9);
 const honeyGlow = ({ rand: r }) => hsla(42 + r(-6, 6), 94, 66, 0.88);
 const lemonGlow = ({ rand: r, i }) => hsla((54 + r(-8, 8) + i * 1.4) % 360, 96, 82, 0.88);
+const honeyHexStyle = Object.freeze({
+  stroke: "rgba(245, 158, 11, 0.9)",
+  fill: "rgba(255, 224, 130, 0.4)",
+  lineWidth: 1.5
+});
 
 const sparkleDefaults = Object.freeze({
   rate: 40,
@@ -233,8 +238,25 @@ const TRAIL_STYLES = Object.freeze({
     drag: 10.6,
     add: true,
     color: paletteColor(["rgba(255,193,7,.9)", "rgba(255,166,0,.88)", "rgba(255,224,130,.9)"]),
-    sparkle: { ...sparkleDefaults, rate: 28, size: [1.1, 2.6], color: honeyGlow },
-    glint: { ...glintDefaults, rate: 24, size: [2.0, 3.6], speed: [40, 120], color: ({ rand: r }) => hsla(40 + r(-10, 8), 92, 72, 0.86) },
+    particleShape: "hexagon",
+    hexStyle: honeyHexStyle,
+    glint: {
+      ...glintDefaults,
+      rate: 24,
+      size: [2.0, 3.6],
+      speed: [40, 120],
+      color: ({ rand: r }) => hsla(40 + r(-10, 8), 92, 72, 0.86),
+      particleShape: "hexagon",
+      hexStyle: honeyHexStyle
+    },
+    sparkle: {
+      ...sparkleDefaults,
+      rate: 28,
+      size: [1.1, 2.6],
+      color: honeyGlow,
+      particleShape: "hexagon",
+      hexStyle: honeyHexStyle
+    },
     aura: { rate: 14, size: [4.6, 8.2], life: [0.5, 0.75], color: ({ rand: r }) => hsla(46 + r(-8, 8), 86, 62, 0.32) }
   },
   lemon_slice: {
