@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { shouldAttemptReauth } from "../userHintRecovery.js";
+import { shouldAttemptReauth, shouldAttemptReauthForGuestHint } from "../userHintRecovery.js";
+import { GUEST_TRAIL_HINT_TEXT } from "../trailHint.js";
 import { SIGNED_OUT_TEXT } from "../userStatusCopy.js";
 
 describe("user hint recovery", () => {
@@ -17,5 +18,21 @@ describe("user hint recovery", () => {
 
   it("returns true when signed out with a username", () => {
     expect(shouldAttemptReauth({ hintText: SIGNED_OUT_TEXT, username: "PlayerOne", inFlight: false })).toBe(true);
+  });
+
+  it("returns true when the guest trail hint is shown with a username", () => {
+    expect(shouldAttemptReauthForGuestHint({
+      hintText: GUEST_TRAIL_HINT_TEXT,
+      username: "PlayerOne",
+      inFlight: false
+    })).toBe(true);
+  });
+
+  it("returns false when the guest trail hint is shown without a username", () => {
+    expect(shouldAttemptReauthForGuestHint({
+      hintText: GUEST_TRAIL_HINT_TEXT,
+      username: "",
+      inFlight: false
+    })).toBe(false);
   });
 });

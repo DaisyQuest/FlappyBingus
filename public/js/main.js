@@ -140,7 +140,7 @@ import { applyNetUserUpdate } from "./netUser.js";
 import { handleTrailSaveResponse } from "./trailSaveResponse.js";
 import { readSessionUsername } from "./session.js";
 import { recoverUserFromUsername } from "./sessionRecovery.js";
-import { shouldAttemptReauth } from "./userHintRecovery.js";
+import { shouldAttemptReauth, shouldAttemptReauthForGuestHint } from "./userHintRecovery.js";
 import {
   genRandomSeed,
   readIconCookie,
@@ -614,11 +614,18 @@ function setUserHint() {
     userHint.className = hint.className;
     userHint.textContent = hint.text;
   }
-  if (shouldAttemptReauth({
+  const username = usernameInput?.value?.trim();
+  const shouldReauth = shouldAttemptReauth({
     hintText: hint.text,
-    username: usernameInput?.value?.trim(),
+    username,
     inFlight: reauthInProgress
-  })) {
+  }) || shouldAttemptReauthForGuestHint({
+    hintText: authTrailHint?.text,
+    username,
+    inFlight: reauthInProgress
+  });
+
+  if (shouldReauth) {
     reauthInProgress = true;
     ensureLoggedInForSave()
       .then((recovered) => {
