@@ -79,4 +79,106 @@ describe("Input cursor mapping", () => {
     expect(input.cursor.y).toBeCloseTo(50);
     expect(input.cursor.has).toBe(true);
   });
+
+  it("ignores pointerdown events originating from UI controls", () => {
+    const button = document.createElement("button");
+    getBinds.mockReturnValue({ teleport: { type: "mouse", button: 2 } });
+
+    input.install();
+    listeners.pointerdown({
+      button: 2,
+      clientX: 20,
+      clientY: 30,
+      target: button,
+      preventDefault: vi.fn()
+    });
+
+    expect(onAction).not.toHaveBeenCalled();
+  });
+
+  it("treats contenteditable and panel children as UI elements", () => {
+    const editable = document.createElement("div");
+    editable.isContentEditable = true;
+    const panel = document.createElement("div");
+    panel.className = "panel";
+    const panelChild = document.createElement("span");
+    panel.append(panelChild);
+    document.body.append(panel);
+
+    expect(input._isUiTarget(editable)).toBe(true);
+    expect(input._isUiTarget(panelChild)).toBe(true);
+    expect(input._isUiTarget(document.createElement("canvas"))).toBe(false);
+  });
+
+  it("prevents scrolling for movement keys and dispatches bound actions", () => {
+    getBinds.mockReturnValue({ dash: { type: "key", code: "Space" } });
+    input.install();
+
+    const preventDefault = vi.fn();
+    listeners.keydown({
+      code: "KeyW",
+      repeat: false,
+      target: canvas,
+      preventDefault
+    });
+
+    expect(preventDefault).toHaveBeenCalled();
+    expect(input.keys.KeyW).toBe(true);
+
+    const dashPrevent = vi.fn();
+    listeners.keydown({
+      code: "Space",
+      repeat: false,
+      target: canvas,
+      preventDefault: dashPrevent
+    });
+
+    expect(dashPrevent).toHaveBeenCalled();
+    expect(onAction).toHaveBeenCalledWith("dash", expect.objectContaining({ type: "key", code: "Space" }));
+
+    listeners.keydown({
+      code: "Space",
+      repeat: true,
+      target: canvas,
+      preventDefault: vi.fn()
+    });
+
+    expect(onAction).toHaveBeenCalledTimes(1);
+  });
+
+  it("ignores keyboard events when focus is inside a typing field", () => {
+    const inputEl = document.createElement("input");
+    document.body.append(inputEl);
+    inputEl.focus();
+
+    input.install();
+    listeners.keydown({
+      code: "KeyA",
+      repeat: false,
+      target: inputEl,
+      preventDefault: vi.fn()
+    });
+    listeners.keyup({
+      code: "KeyA",
+      repeat: false,
+      target: inputEl
+    });
+
+    expect(input.keys.KeyA).not.toBe(true);
+  });
+
+  it("clears key state on keyup and resets keys between sessions", () => {
+    document.activeElement?.blur?.();
+    input.keys.KeyD = true;
+    input.install();
+
+    listeners.keyup({
+      code: "KeyD",
+      target: canvas
+    });
+
+    expect(input.keys.KeyD).toBe(false);
+    input.reset();
+    expect(Object.keys(input.keys)).toHaveLength(0);
+  });
 });
