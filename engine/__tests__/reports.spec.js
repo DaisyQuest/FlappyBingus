@@ -34,4 +34,11 @@ describe("reports", () => {
     expect(md).toContain("Seed: `2`");
     expect(md).toContain("Ticks: `2`");
   });
+
+  it("handles missing snapshots gracefully", () => {
+    const summary = summarizeRun({ scenario: "empty", seed: 0, snapshots: [] });
+    expect(summary.ticks).toBe(0);
+    expect(summary.time).toBe(0);
+    expect(summary.events).toBe(0);
+  });
 });

@@ -20,4 +20,18 @@ describe("pipeTextures service helpers", () => {
     expect(normalized.length).toBe(PIPE_TEXTURES.length);
     expect(normalized[0].unlock).toBeTruthy();
   });
+
+  it("filters invalid entries and deduplicates ids", () => {
+    const normalized = normalizePipeTextures([
+      null,
+      { id: " custom ", name: "" },
+      { id: "custom", name: "Duplicate" },
+      { id: "", name: "Missing" }
+    ]);
+
+    expect(normalized).toHaveLength(1);
+    expect(normalized[0].id).toBe("custom");
+    expect(normalized[0].name).toBe("custom");
+    expect(normalized[0].unlock).toBeTruthy();
+  });
 });

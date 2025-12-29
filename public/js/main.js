@@ -140,7 +140,13 @@ import { applyNetUserUpdate } from "./netUser.js";
 import { handleTrailSaveResponse } from "./trailSaveResponse.js";
 import { readSessionUsername } from "./session.js";
 import { recoverUserFromUsername } from "./sessionRecovery.js";
-import { shouldAttemptReauth } from "./userHintRecovery.js";
+import {
+  resolveReauthUsername,
+  shouldTriggerGuestSave,
+  shouldUpdateTrailHint,
+  shouldAttemptReauth,
+  shouldAttemptReauthForGuestHint
+} from "./userHintRecovery.js";
 import {
   genRandomSeed,
   readIconCookie,
@@ -597,6 +603,7 @@ function setNetUser(nextUser, { syncProfile = true } = {}) {
 }
 
 let reauthInProgress = false;
+let guestSaveTriggered = false;
 
 function setUserHint() {
   const best = net.user ? (net.user.bestScore | 0) : readLocalBest();
@@ -614,11 +621,21 @@ function setUserHint() {
     userHint.className = hint.className;
     userHint.textContent = hint.text;
   }
-  if (shouldAttemptReauth({
+  const username = resolveReauthUsername({
+    inputValue: usernameInput?.value,
+    sessionUsername: readSessionUsername()
+  });
+  const shouldReauth = shouldAttemptReauth({
     hintText: hint.text,
-    username: usernameInput?.value?.trim(),
+    username,
     inFlight: reauthInProgress
-  })) {
+  }) || shouldAttemptReauthForGuestHint({
+    hintText: authTrailHint?.text,
+    username,
+    inFlight: reauthInProgress
+  });
+
+  if (shouldReauth) {
     reauthInProgress = true;
     ensureLoggedInForSave()
       .then((recovered) => {
@@ -632,14 +649,13 @@ function setUserHint() {
     offlineStatus.textContent = OFFLINE_STATUS_TEXT;
     offlineStatus.classList.toggle("hidden", net.online);
   }
-  if (trailHint && authTrailHint) {
-    const current = trailHint.textContent || "";
-    const showingGuest = current.includes(GUEST_TRAIL_HINT_TEXT);
-    const shouldShowGuest = authTrailHint.text === GUEST_TRAIL_HINT_TEXT;
-    if (showingGuest !== shouldShowGuest) {
+  if (trailHint && authTrailHint?.text) {
+    const current = trailHint.textContent;
+    if (shouldUpdateTrailHint({ currentText: current, nextText: authTrailHint.text })) {
       setTrailHint(authTrailHint);
     }
   }
+  syncMenuProfileBindingsFromState();
 }
 
 async function handlePlayHighscore(username) {
@@ -887,6 +903,18 @@ function applyTrailSelection(id, trails = net.trails) {
 
 function setTrailHint(hint, { persist = true } = {}) {
   if (trailHint) {
+    const current = trailHint.textContent;
+    const nextText = hint?.text;
+    if (shouldTriggerGuestSave({
+      currentText: current,
+      nextText,
+      alreadyTriggered: guestSaveTriggered
+    })) {
+      guestSaveTriggered = true;
+      saveUserBtn?.click?.();
+    } else if (nextText !== GUEST_TRAIL_HINT_TEXT) {
+      guestSaveTriggered = false;
+    }
     trailHint.className = hint.className || "hint";
     trailHint.textContent = hint.text || DEFAULT_TRAIL_HINT;
   }
@@ -1343,7 +1371,10 @@ async function recoverSession() {
 
 async function ensureLoggedInForSave() {
   if (net.user) return true;
-  const username = usernameInput?.value?.trim();
+  const username = resolveReauthUsername({
+    inputValue: usernameInput?.value,
+    sessionUsername: readSessionUsername()
+  });
   if (!username) return false;
   const recovered = await recoverUserFromUsername({
     username,
