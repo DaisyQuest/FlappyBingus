@@ -5,7 +5,7 @@ import { clamp } from "./util.js";
 import { getUnlockedTrails } from "./trailProgression.js";
 
 export const GUEST_TRAIL_HINT_TEXT =
-  "Guest mode: unlocks are based on your local best cookie. Register to save progression globally.";
+  "Guest mode: register or sign in to track progression and unlocks.";
 
 function coerceScore(v) {
   const n = Number.parseInt(v, 10);
@@ -27,7 +27,7 @@ export function buildTrailHint({ online, user, bestScore, trails, achievements }
   if (!online) {
     return {
       className: "hint bad",
-      text: `Offline: using your local best (${best}) to determine unlocks. Reconnect to sync cosmetic trails.`
+      text: "Offline: reconnect to sync cosmetic trails and unlock progression."
     };
   }
 

@@ -12,7 +12,7 @@ describe("buildTrailHint", () => {
     const hint = buildTrailHint({ online: false, user: { username: "pilot" }, bestScore: 456 });
     expect(hint.className).toBe("hint bad");
     expect(hint.text).toContain("Offline");
-    expect(hint.text).toContain("456");
+    expect(hint.text).not.toContain("456");
   });
 
   it("encourages progress when locked trails remain", () => {

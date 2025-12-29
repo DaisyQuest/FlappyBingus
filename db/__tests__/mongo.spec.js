@@ -8,6 +8,17 @@ const applyMongoMock = () => {
   const id = req.resolve("mongodb");
   req.cache[id] = {
     exports: {
+      ObjectId: class FakeObjectId {
+        constructor(id) {
+          this.id = id || "generated-object-id";
+        }
+        toHexString() {
+          return this.id;
+        }
+        static isValid(value) {
+          return typeof value === "string" && value.length === 24;
+        }
+      },
       MongoClient: class FakeMongoClient {
         constructor(uri, opts) {
           this.uri = uri;
@@ -36,6 +47,8 @@ const makeCollection = (overrides = {}) => ({
     limit: vi.fn().mockReturnThis(),
     toArray: vi.fn(async () => [])
   })),
+  replaceOne: vi.fn(async () => ({})),
+  insertOne: vi.fn(async () => ({ insertedId: "inserted" })),
   ...overrides
 });
 
@@ -50,7 +63,8 @@ beforeEach(() => {
     error: null,
     db: {
       command: vi.fn(async () => ({})),
-      collection: vi.fn(() => makeCollection())
+      collection: vi.fn(() => makeCollection()),
+      listCollections: vi.fn(() => ({ toArray: vi.fn(async () => []) }))
     }
   };
 });
@@ -146,6 +160,29 @@ describe("config helpers", () => {
 
     process.env.MONGODB_URI = prevUri;
     process.env.MONGODB_DB = prevDb;
+  });
+
+  it("serializes ObjectId and Date values for admin output", async () => {
+    const { serializeDocument, parseDocumentId } = await loadModule();
+    const now = new Date("2024-01-01T00:00:00.000Z");
+    const doc = {
+      _id: parseDocumentId("a".repeat(24)),
+      nested: { createdAt: now },
+      list: [{ _id: parseDocumentId("b".repeat(24)) }]
+    };
+    const serialized = serializeDocument(doc);
+    expect(serialized._id).toBe("a".repeat(24));
+    expect(serialized.nested.createdAt).toBe("2024-01-01T00:00:00.000Z");
+    expect(serialized.list[0]._id).toBe("b".repeat(24));
+  });
+
+  it("parses ObjectId-like strings for admin document lookups", async () => {
+    const { parseDocumentId } = await loadModule();
+    const hexId = "a".repeat(24);
+    const parsed = parseDocumentId(hexId);
+    expect(parsed.toHexString()).toBe(hexId);
+    const passthrough = parseDocumentId("custom-id");
+    expect(passthrough).toBe("custom-id");
   });
 });
 
@@ -513,6 +550,71 @@ describe("MongoDataStore mutations and reads", () => {
     store.ensureConnected = vi.fn();
     store.usersCollection = () => makeCollection({ findOneAndUpdate: vi.fn(async () => ({ value: null })) });
     await expect(store.recordScore({ key: "k" }, 10)).rejects.toThrow("record_score_failed");
+  });
+});
+
+describe("MongoDataStore admin helpers", () => {
+  it("lists collections by name", async () => {
+    const { MongoDataStore } = await loadModule();
+    const store = new MongoDataStore({ uri: "mongodb://ok", dbName: "db" });
+    store.ensureConnected = vi.fn();
+    store.db = {
+      listCollections: vi.fn(() => ({ toArray: vi.fn(async () => [{ name: "users" }, { name: "runs" }]) }))
+    };
+
+    const names = await store.listCollections();
+
+    expect(names).toEqual(["users", "runs"]);
+  });
+
+  it("lists documents with a limit cap", async () => {
+    const { MongoDataStore } = await loadModule();
+    const collection = makeCollection({
+      find: vi.fn(() => ({
+        limit: vi.fn().mockReturnThis(),
+        toArray: vi.fn(async () => [{ _id: "id-1" }])
+      }))
+    });
+    const store = new MongoDataStore({ uri: "mongodb://ok", dbName: "db" });
+    store.ensureConnected = vi.fn();
+    store.db = { collection: vi.fn(() => collection) };
+
+    const docs = await store.listDocuments("users", 2);
+
+    expect(collection.find).toHaveBeenCalledWith({});
+    expect(docs).toEqual([{ _id: "id-1" }]);
+  });
+
+  it("replaces documents without allowing _id mutation", async () => {
+    const { MongoDataStore } = await loadModule();
+    const collection = makeCollection({
+      replaceOne: vi.fn(async () => ({})),
+      findOne: vi.fn(async (query) => ({ ...query, name: "updated" }))
+    });
+    const store = new MongoDataStore({ uri: "mongodb://ok", dbName: "db" });
+    store.ensureConnected = vi.fn();
+    store.db = { collection: vi.fn(() => collection) };
+
+    const result = await store.replaceDocument("users", "abc123", { _id: "ignore", name: "updated" });
+
+    expect(collection.replaceOne).toHaveBeenCalled();
+    expect(result.name).toBe("updated");
+  });
+
+  it("inserts documents and returns the stored record", async () => {
+    const { MongoDataStore } = await loadModule();
+    const collection = makeCollection({
+      insertOne: vi.fn(async () => ({ insertedId: "new-id" })),
+      findOne: vi.fn(async () => ({ _id: "new-id", name: "created" }))
+    });
+    const store = new MongoDataStore({ uri: "mongodb://ok", dbName: "db" });
+    store.ensureConnected = vi.fn();
+    store.db = { collection: vi.fn(() => collection) };
+
+    const result = await store.insertDocument("users", { name: "created" });
+
+    expect(collection.insertOne).toHaveBeenCalled();
+    expect(result.name).toBe("created");
   });
 });
 

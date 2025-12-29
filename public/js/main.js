@@ -383,7 +383,7 @@ const menuProfileModel = createMenuProfileModel({
   fallbackTrailId: currentTrailId,
   fallbackIconId: currentIconId,
   fallbackPipeTextureId: currentPipeTextureId,
-  bestScoreFallback: readLocalBest()
+  bestScoreFallback: 0
 });
 
 // assets
@@ -584,7 +584,7 @@ function syncMenuProfileBindingsFromState({
   fallbackTrailId = currentTrailId,
   fallbackIconId = currentIconId,
   fallbackPipeTextureId = currentPipeTextureId,
-  bestScoreFallback = net.user ? (net.user.bestScore | 0) : readLocalBest()
+  bestScoreFallback = net.user ? (net.user.bestScore | 0) : 0
 } = {}) {
   return menuProfileModel.sync({
     user: net.user,
@@ -607,7 +607,7 @@ let reauthInProgress = false;
 let guestSaveTriggered = false;
 
 function setUserHint() {
-  const best = net.user ? (net.user.bestScore | 0) : readLocalBest();
+  const best = net.user ? (net.user.bestScore | 0) : 0;
   const isRecordHolder = Boolean(net.user?.isRecordHolder);
   const achievements = net.user?.achievements || net.achievements?.state;
   const orderedTrails = sortTrailsForDisplay(net.trails, { isRecordHolder });
@@ -716,7 +716,7 @@ function syncUnlockablesCatalog({
 }
 
 function syncIconCatalog(nextIcons = null) {
-  const normalized = normalizePlayerIcons(nextIcons || playerIcons);
+  const normalized = normalizePlayerIcons(nextIcons || playerIcons, { allowEmpty: true });
   playerIcons = normalized;
   net.icons = normalized.map((i) => ({ ...i }));
   clearIconSpriteCache();
@@ -729,7 +729,7 @@ function syncIconCatalog(nextIcons = null) {
 }
 
 function syncPipeTextureCatalog(nextTextures = null) {
-  const normalized = normalizePipeTextures(nextTextures || net.pipeTextures);
+  const normalized = normalizePipeTextures(nextTextures || net.pipeTextures, { allowEmpty: true });
   net.pipeTextures = normalized.map((t) => ({ ...t }));
   syncUnlockablesCatalog({ pipeTextures: net.pipeTextures });
   syncMenuProfileBindingsFromState();
@@ -743,7 +743,7 @@ function getOwnedUnlockables(user = net.user) {
 }
 
 function computeUnlockedIconSet(icons = playerIcons) {
-  const best = net.user ? (net.user.bestScore | 0) : readLocalBest();
+  const best = net.user ? (net.user.bestScore | 0) : 0;
   const achievements = net.user?.achievements || net.achievements?.state;
   const owned = getOwnedUnlockables(net.user);
   const isRecordHolder = Boolean(net.user?.isRecordHolder);
@@ -764,7 +764,7 @@ function computeUnlockedTrailSet(trails = net.trails) {
 }
 
 function computeUnlockedPipeTextureSet(textures = net.pipeTextures) {
-  const best = net.user ? (net.user.bestScore | 0) : readLocalBest();
+  const best = net.user ? (net.user.bestScore | 0) : 0;
   const achievements = net.user?.achievements || net.achievements?.state;
   const owned = getOwnedUnlockables(net.user);
   const isRecordHolder = Boolean(net.user?.isRecordHolder);
@@ -934,7 +934,7 @@ function pauseTrailPreview() {
 }
 
 function refreshTrailMenu(selectedId = currentTrailId) {
-  const best = (net.user ? (net.user.bestScore | 0) : readLocalBest());
+  const best = net.user ? (net.user.bestScore | 0) : 0;
   const isRecordHolder = Boolean(net.user?.isRecordHolder);
   const achievements = net.user?.achievements || net.achievements?.state;
   const orderedTrails = sortTrailsForDisplay(net.trails, { isRecordHolder });
@@ -1000,7 +1000,7 @@ function refreshPipeTextureMenu(selectedId = currentPipeTextureId) {
 function buildPurchaseContext() {
   return {
     achievements: net.user?.achievements || net.achievements?.state,
-    bestScore: net.user ? (net.user.bestScore | 0) : readLocalBest(),
+    bestScore: net.user ? (net.user.bestScore | 0) : 0,
     ownedIds: getOwnedUnlockables(net.user),
     recordHolder: Boolean(net.user?.isRecordHolder)
   };
@@ -1120,7 +1120,7 @@ async function confirmPendingPurchase() {
 
   net.online = true;
   if (res.user) setNetUser(res.user);
-  if (res.trails) net.trails = normalizeTrails(res.trails);
+  if (res.trails) net.trails = normalizeTrails(res.trails, { allowEmpty: true });
   if (res.icons) syncIconCatalog(res.icons);
   if (res.pipeTextures) syncPipeTextureCatalog(res.pipeTextures);
   syncUnlockablesCatalog({ trails: net.trails });
@@ -1327,7 +1327,7 @@ async function refreshProfileAndHighscores({ keepUserOnFailure = false } = {}) {
   } else {
     net.online = true;
     setNetUser(me.user || null);
-    net.trails = normalizeTrails(me.trails || net.trails);
+    net.trails = normalizeTrails(me.trails ?? net.trails, { allowEmpty: true });
     syncUnlockablesCatalog({ trails: net.trails });
     syncIconCatalog(me.icons || net.icons);
     syncPipeTextureCatalog(me.pipeTextures || net.pipeTextures);
@@ -1383,7 +1383,7 @@ async function ensureLoggedInForSave() {
     onSuccess: (res) => {
       net.online = true;
       setNetUser(res.user);
-      net.trails = normalizeTrails(res.trails || net.trails);
+      net.trails = normalizeTrails(res.trails ?? net.trails, { allowEmpty: true });
       syncUnlockablesCatalog({ trails: net.trails });
       syncIconCatalog(res.icons || net.icons);
       syncPipeTextureCatalog(res.pipeTextures || net.pipeTextures);
@@ -1416,7 +1416,7 @@ saveUserBtn.addEventListener("click", async () => {
   if (res.ok) {
     net.online = true;
     setNetUser(res.user);
-    net.trails = normalizeTrails(res.trails || net.trails);
+    net.trails = normalizeTrails(res.trails ?? net.trails, { allowEmpty: true });
     syncUnlockablesCatalog({ trails: net.trails });
     syncUnlockablesCatalog({ trails: net.trails });
     syncIconCatalog(res.icons || net.icons);
@@ -1586,7 +1586,7 @@ trailOptions?.addEventListener("click", async (e) => {
   const id = btn.dataset.trailId;
   const ordered = sortTrailsForDisplay(net.trails, { isRecordHolder: Boolean(net.user?.isRecordHolder) });
   const unlocked = computeUnlockedTrailSet(ordered);
-  const best = net.user ? (net.user.bestScore | 0) : readLocalBest();
+  const best = net.user ? (net.user.bestScore | 0) : 0;
   const targetTrail = ordered.find((t) => t.id === id) || { id, name: id };
 
   if (!unlocked.has(id)) {
@@ -1645,7 +1645,6 @@ trailOptions?.addEventListener("click", async (e) => {
     syncPipeTextureCatalog,
     refreshTrailMenu,
     applyIconSelection,
-    readLocalBest,
     getAuthStatusFromResponse,
     recoverSession
   });
@@ -1656,7 +1655,7 @@ trailOptions?.addEventListener("mouseover", (e) => {
   if (!btn) return;
   const id = btn.dataset.trailId;
   const trail = net.trails.find((item) => item.id === id) || { id, name: btn.dataset.trailName || id };
-  const best = net.user ? (net.user.bestScore | 0) : readLocalBest();
+  const best = net.user ? (net.user.bestScore | 0) : 0;
   const unlocked = computeUnlockedTrailSet(net.trails).has(id);
   const lockText = btn.dataset.statusText
     || describeTrailLock(trail, { unlocked, bestScore: best, isRecordHolder: Boolean(net.user?.isRecordHolder) });
@@ -1879,7 +1878,7 @@ iconOptions?.addEventListener("click", async (e) => {
 
   if (outcome.outcome === "saved" && res) {
     setNetUser(res.user);
-    net.trails = normalizeTrails(res.trails || net.trails);
+    net.trails = normalizeTrails(res.trails ?? net.trails, { allowEmpty: true });
     syncUnlockablesCatalog({ trails: net.trails });
     syncIconCatalog(res.icons || net.icons);
     syncPipeTextureCatalog(res.pipeTextures || net.pipeTextures);
@@ -2301,7 +2300,7 @@ async function onGameOver(finalScore) {
     if (res && res.ok && res.user) {
       net.online = true;
       setNetUser(res.user);
-      net.trails = normalizeTrails(res.trails || net.trails);
+      net.trails = normalizeTrails(res.trails ?? net.trails, { allowEmpty: true });
       syncUnlockablesCatalog({ trails: net.trails });
       syncIconCatalog(res.icons || net.icons);
       syncPipeTextureCatalog(res.pipeTextures || net.pipeTextures);
