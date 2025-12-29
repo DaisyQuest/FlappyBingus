@@ -100,9 +100,10 @@ describe("server helpers (trails)", () => {
       totalScore: 0,
       maxRunTime: 0,
       totalRunTime: 0,
+      totalRuns: u.runs,
       skillTotals: { dash: 0, phase: 0, teleport: 0, slowField: 0 }
     });
-    expect(Object.keys(u.achievements.unlocked || {})).toEqual(expect.arrayContaining(["trail_classic_1"]));
+    expect(Object.keys(u.achievements.unlocked || {})).toEqual(expect.arrayContaining(["trail_classic_1", "play_10_games"]));
     expect(Object.keys(u.achievements.unlocked || {})).not.toEqual(expect.arrayContaining(["run_time_60", "pipes_broken_explosion_10"]));
     expect(u.skillTotals).toEqual({ dash: 0, phase: 0, teleport: 0, slowField: 0 });
   });
@@ -113,7 +114,7 @@ describe("server helpers (trails)", () => {
       { recordHolder: false }
     );
 
-    expect(unlocked).toContain("rainbow");
+    expect(unlocked).not.toContain("rainbow");
     expect(unlocked).not.toContain("lemon_slice");
     expect(unlocked).not.toContain("honeycomb");
   });

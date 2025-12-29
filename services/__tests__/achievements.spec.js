@@ -16,6 +16,7 @@ describe("achievements definitions", () => {
       "trail_classic_1",
       "trail_miami_950",
       "trail_world_record_3000",
+      "play_10_games",
       "score_fire_cape_1000",
       "score_inferno_cape_2000",
       "no_orbs_100",
@@ -43,6 +44,7 @@ describe("achievements definitions", () => {
         totalScore: 5000.9,
         maxRunTime: 64.8,
         totalRunTime: 601.2,
+        totalRuns: 12.7,
         maxBrokenPipesInExplosion: 8.9,
         maxBrokenPipesInRun: -1,
         totalBrokenPipes: 250.4
@@ -65,6 +67,7 @@ describe("achievements definitions", () => {
       totalScore: 5000,
       maxRunTime: 64,
       totalRunTime: 601,
+      totalRuns: 12,
       maxBrokenPipesInExplosion: 8,
       maxBrokenPipesInRun: 0,
       totalBrokenPipes: 250,
@@ -295,6 +298,19 @@ describe("evaluateRunForAchievements", () => {
     expect(state.unlocked.perfects_total_100).toBe(10);
   });
 
+  it("unlocks the run-count achievement after ten games", () => {
+    const { state, unlocked } = evaluateRunForAchievements({
+      previous: { unlocked: {}, progress: DEFAULT_PROGRESS },
+      runStats: null,
+      score: 0,
+      totalRuns: 9,
+      now: 44
+    });
+
+    expect(state.progress.totalRuns).toBe(10);
+    expect(unlocked).toContain("play_10_games");
+  });
+
   it("tracks pipe dodges and combo highs for run-based progress", () => {
     const { state, unlocked } = evaluateRunForAchievements({
       previous: { unlocked: {}, progress: DEFAULT_PROGRESS },
@@ -401,6 +417,7 @@ describe("evaluateRunForAchievements", () => {
       let score = req.minScore ?? 0;
       let bestScore = req.minScore ?? 0;
       let totalScore = progress.totalScore;
+      let totalRuns = progress.totalRuns;
 
       if (req.maxOrbs !== undefined) runStats.orbsCollected = req.maxOrbs;
       if (req.minOrbs !== undefined) runStats.orbsCollected = req.minOrbs;
@@ -453,6 +470,9 @@ describe("evaluateRunForAchievements", () => {
         progress.totalRunTime = Math.max(0, req.totalRunTime - 1);
         runStats.runTime = runStats.runTime ?? 1;
       }
+      if (req.totalRuns !== undefined) {
+        totalRuns = Math.max(0, req.totalRuns - 1);
+      }
 
       const previous = { unlocked: {}, progress };
       const { state, unlocked } = evaluateRunForAchievements({
@@ -461,6 +481,7 @@ describe("evaluateRunForAchievements", () => {
         score,
         bestScore,
         totalScore,
+        totalRuns,
         now
       });
 

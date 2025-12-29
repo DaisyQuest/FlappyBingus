@@ -1214,6 +1214,7 @@ function checkRunAchievements() {
     runStats,
     score: runStats.totalScore,
     totalScore: net.user?.totalScore,
+    totalRuns: net.user?.runs,
     bestScore: net.user?.bestScore,
     now: Date.now()
   });
