@@ -1,6 +1,6 @@
 "use strict";
 
-const { MongoClient } = require("mongodb");
+const { MongoClient, ObjectId } = require("mongodb");
 const { DEFAULT_SKILL_TOTALS, SKILL_IDS, normalizeSkillTotals } = require("../services/skillConsts.cjs");
 
 const MAX_SCORE = 1_000_000_000;
@@ -29,6 +29,29 @@ const DEFAULT_ACHIEVEMENTS_STATE = Object.freeze({
     skillTotals: DEFAULT_SKILL_TOTALS
   })
 });
+
+function isPlainObject(value) {
+  return Boolean(value && typeof value === "object" && !Array.isArray(value));
+}
+
+function parseDocumentId(id) {
+  if (id instanceof ObjectId) return id;
+  if (typeof id !== "string") return id;
+  if (ObjectId.isValid(id)) return new ObjectId(id);
+  return id;
+}
+
+function serializeDocument(value) {
+  if (value instanceof ObjectId) return value.toHexString();
+  if (value instanceof Date) return value.toISOString();
+  if (Array.isArray(value)) return value.map((item) => serializeDocument(item));
+  if (!isPlainObject(value)) return value;
+  const out = {};
+  for (const [key, entry] of Object.entries(value)) {
+    out[key] = serializeDocument(entry);
+  }
+  return out;
+}
 
 function maskConnectionString(uri) {
   if (!uri) return "";
@@ -174,6 +197,44 @@ class MongoDataStore {
   bestRunsCollection() {
     if (!this.db) throw new Error("db_not_connected");
     return this.db.collection("best_runs");
+  }
+
+  async listCollections() {
+    await this.ensureConnected();
+    const collections = await this.db.listCollections().toArray();
+    return collections.map((col) => col.name);
+  }
+
+  async listDocuments(collectionName, limit = 25) {
+    await this.ensureConnected();
+    const collection = this.db.collection(collectionName);
+    const capped = Number.isFinite(limit) ? Math.max(1, Math.floor(limit)) : 25;
+    return await collection.find({}).limit(capped).toArray();
+  }
+
+  async getDocumentById(collectionName, id) {
+    await this.ensureConnected();
+    const collection = this.db.collection(collectionName);
+    return await collection.findOne({ _id: parseDocumentId(id) });
+  }
+
+  async replaceDocument(collectionName, id, doc) {
+    await this.ensureConnected();
+    const collection = this.db.collection(collectionName);
+    const parsedId = parseDocumentId(id);
+    const payload = isPlainObject(doc) ? { ...doc } : {};
+    delete payload._id;
+    await collection.replaceOne({ _id: parsedId }, { ...payload, _id: parsedId }, { upsert: false });
+    return await collection.findOne({ _id: parsedId });
+  }
+
+  async insertDocument(collectionName, doc) {
+    await this.ensureConnected();
+    const collection = this.db.collection(collectionName);
+    const payload = isPlainObject(doc) ? { ...doc } : {};
+    if (payload._id) payload._id = parseDocumentId(payload._id);
+    const result = await collection.insertOne(payload);
+    return await collection.findOne({ _id: result.insertedId });
   }
 
   async getUserByKey(key) {
@@ -491,4 +552,10 @@ class MongoDataStore {
   }
 }
 
-module.exports = { MongoDataStore, resolveMongoConfig, maskConnectionString };
+module.exports = {
+  MongoDataStore,
+  resolveMongoConfig,
+  maskConnectionString,
+  parseDocumentId,
+  serializeDocument
+};

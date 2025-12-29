@@ -11,11 +11,17 @@ const path = require("node:path");
 const { URL } = require("node:url");
 const crypto = require("node:crypto");
 
-const { MongoDataStore, resolveMongoConfig } = require("./db/mongo.cjs");
+const { MongoDataStore, resolveMongoConfig, serializeDocument } = require("./db/mongo.cjs");
 const { createScoreService, clampScoreDefault } = require("./services/scoreService.cjs");
 const { buildTrailPreviewCatalog } = require("./services/trailCatalog.cjs");
 const { renderTrailPreviewPage, wantsPreviewHtml } = require("./services/trailPreviewPage.cjs");
 const { renderUnlockablesPage, wantsUnlockablesHtml } = require("./services/unlockablesPage.cjs");
+const {
+  applyUnlockableMenuConfig,
+  createServerConfigStore,
+  DEFAULT_RATE_LIMIT_CONFIG,
+  DEFAULT_SERVER_CONFIG
+} = require("./services/serverConfig.cjs");
 const {
   ACHIEVEMENTS,
   normalizeAchievementState,
@@ -58,6 +64,9 @@ const PORT = Number(process.env.PORT || 3000);
 const PUBLIC_DIR = process.env.PUBLIC_DIR
   ? path.resolve(process.env.PUBLIC_DIR)
   : path.join(process.cwd(), "public");
+const GAME_CONFIG_PATH = process.env.GAME_CONFIG_PATH
+  ? path.resolve(process.env.GAME_CONFIG_PATH)
+  : path.join(PUBLIC_DIR, "FLAPPY_BINGUS_CONFIG.json");
 
 const START_TIME = Date.now();
 
@@ -97,11 +106,13 @@ function _setDataStoreForTests(mock) {
   });
 }
 
+function _setConfigStoreForTests(mock) {
+  serverConfigStore = mock;
+}
+
 // Cookie that holds username (legacy)
 const USER_COOKIE = "sugar";
 const SESSION_COOKIE = "bingus_session";
-const SESSION_TTL_S = 60 * 60 * 24 * 30;
-const SESSION_REFRESH_WINDOW_S = 60 * 60 * 24 * 7;
 let SESSION_SECRET = process.env.SESSION_SECRET || crypto.randomBytes(32).toString("hex");
 
 // Default skill keybinds (requested defaults):
@@ -149,27 +160,54 @@ const ICONS = normalizePlayerIcons(PLAYER_ICONS);
 const PIPE_TEXTURES = normalizePipeTextures(PIPE_TEXTURE_DEFS);
 const UNLOCKABLES = buildUnlockablesCatalog({ trails: TRAILS, icons: ICONS, pipeTextures: PIPE_TEXTURES });
 
+const SERVER_CONFIG_PATH = process.env.SERVER_CONFIG_PATH;
+const SERVER_CONFIG_RELOAD_MS = Number(process.env.SERVER_CONFIG_RELOAD_MS || 15_000);
+let serverConfigStore = createServerConfigStore({
+  configPath: SERVER_CONFIG_PATH,
+  reloadIntervalMs: SERVER_CONFIG_RELOAD_MS
+});
+
 // --------- Domain helpers ----------
 function nowMs() {
   return Date.now();
 }
 
-// --------- Helpers ----------
-const RATE_LIMIT_CONFIG = Object.freeze({
-  default: { limit: 120, windowMs: 60_000 },
-  "/api/me": { limit: 60, windowMs: 60_000 },
-  "/api/register": { limit: 20, windowMs: 60_000 },
-  "/api/score": { limit: 30, windowMs: 60_000 },
-  "/api/cosmetics/trail": { limit: 30, windowMs: 60_000 },
-  "/api/cosmetics/icon": { limit: 30, windowMs: 60_000 },
-  "/api/cosmetics/pipe_texture": { limit: 30, windowMs: 60_000 },
-  "/api/shop/purchase": { limit: 30, windowMs: 60_000 },
-  "/api/binds": { limit: 30, windowMs: 60_000 },
-  "/api/settings": { limit: 30, windowMs: 60_000 },
-  "/api/highscores": { limit: 90, windowMs: 60_000 },
-  "/api/run/best": { limit: 10, windowMs: 60_000 }
-});
+function getServerConfig() {
+  return serverConfigStore?.getConfig?.() || structuredClone(DEFAULT_SERVER_CONFIG);
+}
 
+function getSessionConfig() {
+  const cfg = getServerConfig();
+  return cfg.session || DEFAULT_SERVER_CONFIG.session;
+}
+
+function getRateLimitConfig(pathname) {
+  const cfg = getServerConfig();
+  const rateLimits = cfg.rateLimits || DEFAULT_RATE_LIMIT_CONFIG;
+  return rateLimits[pathname] || rateLimits.default || DEFAULT_RATE_LIMIT_CONFIG.default;
+}
+
+function getVisibleCatalog() {
+  return applyUnlockableMenuConfig(
+    {
+      trails: TRAILS,
+      icons: ICONS,
+      pipeTextures: PIPE_TEXTURES,
+      unlockables: UNLOCKABLES.unlockables
+    },
+    getServerConfig()
+  );
+}
+
+function serializeAdminDoc(doc) {
+  return serializeDocument(doc);
+}
+
+function isValidCollectionName(name) {
+  return typeof name === "string" && /^[a-zA-Z0-9_.-]+$/.test(name);
+}
+
+// --------- Helpers ----------
 const _rateLimitState = new Map();
 let _lastRateLimitSweep = nowMs();
 const RATE_LIMIT_SWEEP_INTERVAL_MS = 5 * 60_000;
@@ -215,7 +253,7 @@ function respondRateLimited(res, retryAfterMs) {
 }
 
 function rateLimit(req, res, name) {
-  const cfg = { ...RATE_LIMIT_CONFIG.default, ...(RATE_LIMIT_CONFIG[name] || {}) };
+  const cfg = getRateLimitConfig(name);
   const key = `${name}:${getClientAddress(req)}`;
   const result = takeRateLimitToken(key, cfg);
   if (!result.limited) return false;
@@ -461,6 +499,16 @@ function normalizeTotal(v) {
   return Math.max(0, Math.floor(n));
 }
 
+async function readJsonFile(filePath) {
+  const raw = await fs.readFile(filePath, "utf8");
+  return JSON.parse(raw);
+}
+
+async function writeJsonFile(filePath, payload) {
+  const serialized = JSON.stringify(payload, null, 2);
+  await fs.writeFile(filePath, serialized);
+}
+
 function mergeKeybinds(base, inc) {
   const out = {};
   const src = inc && typeof inc === "object" ? inc : {};
@@ -594,8 +642,9 @@ function base64UrlDecode(input) {
 
 function signSessionToken(payload, { nowMs: nowMsOverride = nowMs(), secret = SESSION_SECRET } = {}) {
   if (!payload?.sub) return null;
+  const sessionConfig = getSessionConfig();
   const iat = Math.floor(nowMsOverride / 1000);
-  const exp = payload.exp ?? (iat + SESSION_TTL_S);
+  const exp = payload.exp ?? (iat + sessionConfig.ttlSeconds);
   const header = base64UrlEncode(JSON.stringify({ alg: "HS256", typ: "JWT" }));
   const body = base64UrlEncode(JSON.stringify({ ...payload, iat, exp }));
   const signingInput = `${header}.${body}`;
@@ -636,15 +685,17 @@ function verifySessionToken(token, { nowMs: nowMsOverride = nowMs(), secret = SE
   };
 }
 
-function setSessionCookie(res, req, username, { maxAge = SESSION_TTL_S } = {}) {
+function setSessionCookie(res, req, username, { maxAge } = {}) {
   if (!username) return;
+  const sessionConfig = getSessionConfig();
+  const resolvedMaxAge = Number.isFinite(maxAge) ? maxAge : sessionConfig.ttlSeconds;
   const secureCookie = isSecureRequest(req);
   const sameSite = secureCookie ? "None" : "Lax";
   const token = signSessionToken({ sub: username });
   if (!token) return;
   setCookie(res, SESSION_COOKIE, token, {
     httpOnly: true,
-    maxAge,
+    maxAge: resolvedMaxAge,
     secure: secureCookie,
     sameSite
   });
@@ -702,8 +753,9 @@ async function getUserFromReqWithSession(req, { withRecordHolder = false, res } 
   if (withRecordHolder) u.isRecordHolder = recordHolder;
   if (res) {
     const nowSeconds = Math.floor(nowMs() / 1000);
+    const sessionConfig = getSessionConfig();
     const shouldRefresh =
-      session.ok && Number.isFinite(session.exp) && session.exp - nowSeconds <= SESSION_REFRESH_WINDOW_S;
+      session.ok && Number.isFinite(session.exp) && session.exp - nowSeconds <= sessionConfig.refreshWindowSeconds;
     if (upgradedLegacy || shouldRefresh) {
       setSessionCookie(res, req, u.username);
     }
@@ -1059,6 +1111,11 @@ function safeDecodePath(p) {
 async function route(req, res) {
   const url = new URL(req.url, `http://${req.headers.host || "localhost"}`);
   const pathname = url.pathname;
+  try {
+    await serverConfigStore?.maybeReload?.();
+  } catch (err) {
+    console.warn("[bingus] config reload failed:", err);
+  }
 
   // CORS preflight (not strictly required for same-origin game, but fine)
   if (req.method === "OPTIONS") {
@@ -1082,12 +1139,13 @@ async function route(req, res) {
     if (!(await ensureDatabase(res))) return;
     const u = await getUserFromReq(req, { withRecordHolder: true, res });
     const recordHolder = Boolean(u?.isRecordHolder);
+    const catalog = getVisibleCatalog();
     sendJson(res, 200, {
       ok: true,
       user: publicUser(u, { recordHolder }),
-      icons: ICONS,
-      trails: TRAILS,
-      pipeTextures: PIPE_TEXTURES,
+      icons: catalog.icons,
+      trails: catalog.trails,
+      pipeTextures: catalog.pipeTextures,
       achievements: buildAchievementsPayload(u),
       ...buildSessionPayload(u.username)
     });
@@ -1115,12 +1173,13 @@ async function route(req, res) {
     // Store session cookie for authenticated requests.
     setSessionCookie(res, req, u.username);
 
+    const catalog = getVisibleCatalog();
     sendJson(res, 200, {
       ok: true,
       user: publicUser(u, { recordHolder }),
-      icons: ICONS,
-      trails: TRAILS,
-      pipeTextures: PIPE_TEXTURES,
+      icons: catalog.icons,
+      trails: catalog.trails,
+      pipeTextures: catalog.pipeTextures,
       achievements: buildAchievementsPayload(u),
       ...buildSessionPayload(u.username)
     });
@@ -1147,7 +1206,13 @@ async function route(req, res) {
       body.runStats
     );
     if (status >= 200 && status < 300 && responseBody) {
-      sendJson(res, status, responseBody);
+      const catalog = getVisibleCatalog();
+      sendJson(res, status, {
+        ...responseBody,
+        trails: catalog.trails,
+        icons: catalog.icons,
+        pipeTextures: catalog.pipeTextures
+      });
     } else {
       if (status === 401) return unauthorized(res);
       if (status === 400) return badRequest(res, error || "invalid_score");
@@ -1244,13 +1309,14 @@ async function route(req, res) {
 
     const updated = await dataStore.setTrail(u.key, trailId);
     ensureUserSchema(updated, { recordHolder });
+    const catalog = getVisibleCatalog();
 
     sendJson(res, 200, {
       ok: true,
       user: publicUser(updated, { recordHolder }),
-      trails: TRAILS,
-      icons: ICONS,
-      pipeTextures: PIPE_TEXTURES
+      trails: catalog.trails,
+      icons: catalog.icons,
+      pipeTextures: catalog.pipeTextures
     });
     return;
   }
@@ -1279,13 +1345,14 @@ async function route(req, res) {
 
     const updated = await dataStore.setIcon(u.key, iconId);
     ensureUserSchema(updated, { recordHolder });
+    const catalog = getVisibleCatalog();
 
     sendJson(res, 200, {
       ok: true,
       user: publicUser(updated, { recordHolder }),
-      trails: TRAILS,
-      icons: ICONS,
-      pipeTextures: PIPE_TEXTURES
+      trails: catalog.trails,
+      icons: catalog.icons,
+      pipeTextures: catalog.pipeTextures
     });
     return;
   }
@@ -1321,13 +1388,14 @@ async function route(req, res) {
 
     const updated = await dataStore.setPipeTexture(u.key, textureId, mode);
     ensureUserSchema(updated, { recordHolder });
+    const catalog = getVisibleCatalog();
 
     sendJson(res, 200, {
       ok: true,
       user: publicUser(updated, { recordHolder }),
-      trails: TRAILS,
-      icons: ICONS,
-      pipeTextures: PIPE_TEXTURES
+      trails: catalog.trails,
+      icons: catalog.icons,
+      pipeTextures: catalog.pipeTextures
     });
     return;
   }
@@ -1379,13 +1447,14 @@ async function route(req, res) {
       unlockables: nextUnlockables
     });
     ensureUserSchema(updated, { recordHolder });
+    const catalog = getVisibleCatalog();
 
     sendJson(res, 200, {
       ok: true,
       user: publicUser(updated, { recordHolder }),
-      trails: TRAILS,
-      icons: ICONS,
-      pipeTextures: PIPE_TEXTURES
+      trails: catalog.trails,
+      icons: catalog.icons,
+      pipeTextures: catalog.pipeTextures
     });
     return;
   }
@@ -1409,13 +1478,14 @@ async function route(req, res) {
     const updated = await dataStore.setKeybinds(u.key, binds);
     const recordHolder = Boolean(u?.isRecordHolder);
     ensureUserSchema(updated, { recordHolder });
+    const catalog = getVisibleCatalog();
 
     sendJson(res, 200, {
       ok: true,
       user: publicUser(updated, { recordHolder }),
-      trails: TRAILS,
-      icons: ICONS,
-      pipeTextures: PIPE_TEXTURES
+      trails: catalog.trails,
+      icons: catalog.icons,
+      pipeTextures: catalog.pipeTextures
     });
     return;
   }
@@ -1438,14 +1508,139 @@ async function route(req, res) {
     const updated = await dataStore.setSettings(u.key, settings);
     const recordHolder = Boolean(u?.isRecordHolder);
     ensureUserSchema(updated, { recordHolder });
+    const catalog = getVisibleCatalog();
 
     sendJson(res, 200, {
       ok: true,
       user: publicUser(updated, { recordHolder }),
+      trails: catalog.trails,
+      icons: catalog.icons,
+      pipeTextures: catalog.pipeTextures
+    });
+    return;
+  }
+
+  if (pathname === "/api/admin/config") {
+    if (req.method === "GET") {
+      const config = getServerConfig();
+      sendJson(res, 200, { ok: true, config, meta: serverConfigStore.getMeta() });
+      return;
+    }
+    if (req.method === "PUT") {
+      let body;
+      try {
+        body = await readJsonBody(req);
+      } catch {
+        return badRequest(res, "invalid_json");
+      }
+      const nextConfig = body?.config ?? body;
+      const saved = await serverConfigStore.save(nextConfig);
+      sendJson(res, 200, { ok: true, config: saved, meta: serverConfigStore.getMeta() });
+      return;
+    }
+  }
+
+  if (pathname === "/api/admin/game-config") {
+    if (req.method === "GET") {
+      try {
+        const config = await readJsonFile(GAME_CONFIG_PATH);
+        sendJson(res, 200, { ok: true, config, path: GAME_CONFIG_PATH });
+      } catch (err) {
+        sendJson(res, 500, { ok: false, error: "game_config_read_failed", detail: err?.message || String(err) });
+      }
+      return;
+    }
+    if (req.method === "PUT") {
+      let body;
+      try {
+        body = await readJsonBody(req);
+      } catch {
+        return badRequest(res, "invalid_json");
+      }
+      try {
+        const payload = body?.config ?? body;
+        await writeJsonFile(GAME_CONFIG_PATH, payload);
+        sendJson(res, 200, { ok: true, config: payload, path: GAME_CONFIG_PATH });
+      } catch (err) {
+        sendJson(res, 500, { ok: false, error: "game_config_write_failed", detail: err?.message || String(err) });
+      }
+      return;
+    }
+  }
+
+  if (pathname === "/api/admin/unlockables" && req.method === "GET") {
+    sendJson(res, 200, {
+      ok: true,
+      unlockables: UNLOCKABLES.unlockables,
       trails: TRAILS,
       icons: ICONS,
       pipeTextures: PIPE_TEXTURES
     });
+    return;
+  }
+
+  if (pathname === "/api/admin/collections" && req.method === "GET") {
+    if (!(await ensureDatabase(res))) return;
+    const collections = await dataStore.listCollections();
+    sendJson(res, 200, { ok: true, collections });
+    return;
+  }
+
+  if (pathname.startsWith("/api/admin/collections/")) {
+    const parts = pathname.replace("/api/admin/collections/", "").split("/").filter(Boolean);
+    const [collectionName, docId] = parts;
+    if (!isValidCollectionName(collectionName)) return badRequest(res, "invalid_collection");
+    if (!(await ensureDatabase(res))) return;
+
+    if (!docId && req.method === "GET") {
+      const limit = Number(url.searchParams.get("limit") || 25);
+      const docs = await dataStore.listDocuments(collectionName, limit);
+      sendJson(res, 200, { ok: true, documents: docs.map(serializeAdminDoc) });
+      return;
+    }
+
+    if (!docId && req.method === "POST") {
+      let body;
+      try {
+        body = await readJsonBody(req);
+      } catch {
+        return badRequest(res, "invalid_json");
+      }
+      const payload = body?.document ?? body;
+      const created = await dataStore.insertDocument(collectionName, payload);
+      sendJson(res, 201, { ok: true, document: serializeAdminDoc(created) });
+      return;
+    }
+
+    if (docId && req.method === "GET") {
+      const doc = await dataStore.getDocumentById(collectionName, docId);
+      if (!doc) return sendJson(res, 404, { ok: false, error: "document_not_found" });
+      sendJson(res, 200, { ok: true, document: serializeAdminDoc(doc) });
+      return;
+    }
+
+    if (docId && req.method === "PUT") {
+      let body;
+      try {
+        body = await readJsonBody(req);
+      } catch {
+        return badRequest(res, "invalid_json");
+      }
+      const payload = body?.document ?? body;
+      const updated = await dataStore.replaceDocument(collectionName, docId, payload);
+      if (!updated) return sendJson(res, 404, { ok: false, error: "document_not_found" });
+      sendJson(res, 200, { ok: true, document: serializeAdminDoc(updated) });
+      return;
+    }
+  }
+
+  if (pathname === "/bigflappin" && req.method === "GET") {
+    try {
+      const html = await fs.readFile(path.join(PUBLIC_DIR, "bigflappin", "index.html"), "utf8");
+      sendHtml(res, 200, html);
+    } catch (err) {
+      sendJson(res, 404, { ok: false, error: "admin_not_found", detail: err?.message || String(err) });
+    }
     return;
   }
 
@@ -1473,22 +1668,23 @@ async function route(req, res) {
   }
 
   if (pathname === "/unlockables" && req.method === "GET") {
-    const catalog = {
+    const catalog = getVisibleCatalog();
+    const payload = {
       ok: true,
-      count: UNLOCKABLES.unlockables.length,
+      count: catalog.unlockables.length,
       generatedAt: new Date().toISOString(),
-      unlockables: UNLOCKABLES.unlockables,
-      icons: ICONS,
-      pipeTextures: PIPE_TEXTURES
+      unlockables: catalog.unlockables,
+      icons: catalog.icons,
+      pipeTextures: catalog.pipeTextures
     };
     const wantsHtml = wantsUnlockablesHtml({
       formatParam: url.searchParams.get("format"),
       acceptHeader: req.headers.accept
     });
     if (wantsHtml) {
-      sendHtml(res, 200, renderUnlockablesPage(catalog));
+      sendHtml(res, 200, renderUnlockablesPage(payload));
     } else {
-      sendJson(res, 200, catalog);
+      sendJson(res, 200, payload);
     }
     return;
   }
@@ -1567,6 +1763,11 @@ async function startServer() {
     console.warn(`[bingus] PUBLIC_DIR missing: ${PUBLIC_DIR}`);
   }
   try {
+    await serverConfigStore.load();
+  } catch (err) {
+    console.error("[bingus] server config load failed:", err);
+  }
+  try {
     await dataStore.ensureConnected();
     const st = dataStore.getStatus();
     console.log(`[bingus] database ready at ${st.uri} (db ${st.dbName})`);
@@ -1605,6 +1806,7 @@ module.exports = {
   keyForUsername,
   getOrCreateUser,
   _setDataStoreForTests,
+  _setConfigStoreForTests,
   route,
   startServer,
   __testables: {

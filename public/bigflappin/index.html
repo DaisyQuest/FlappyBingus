@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Flappy Bingus Admin</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="stylesheet" href="/bigflappin/admin.css" />
+</head>
+<body>
+  <header class="admin-header">
+    <div class="admin-brand">
+      <span class="brand-dot"></span>
+      <div>
+        <div class="brand-title">Flappy Bingus Admin</div>
+        <div class="brand-subtitle">Server configuration, unlockables, and database tools</div>
+      </div>
+    </div>
+    <div class="admin-status" id="adminStatus">
+      <span class="status-dot"></span>
+      <span id="adminStatusText">Loading config…</span>
+    </div>
+  </header>
+
+  <div class="admin-shell">
+    <nav class="admin-nav" id="adminNav"></nav>
+    <main class="admin-main" id="adminMain">
+      <section class="panel loading" id="adminLoading">
+        <h2>Loading tools…</h2>
+        <p>Please wait while the admin suite boots.</p>
+      </section>
+    </main>
+  </div>
+
+  <footer class="admin-footer">
+    <span>Flappy Bingus Admin Suite</span>
+    <span id="adminMeta"></span>
+  </footer>
+
+  <script type="module" src="/bigflappin/admin.js"></script>
+</body>
+</html>
