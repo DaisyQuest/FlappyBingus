@@ -248,21 +248,26 @@ describe("Game core utilities", () => {
     const { game } = buildGame();
     game.W = 400;
     game.H = 200;
-    game._syncThreeCamera();
+    game._syncWorldCamera();
 
-    const near = game._projectWorldPoint({ x: 200, y: 100, z: 10 });
-    const far = game._projectWorldPoint({ x: 200, y: 100, z: 300 });
+    const base = game._projectWorldPoint({ x: 120, y: 90, z: 0 });
+    const far = game._projectWorldPoint({ x: 120, y: 90, z: 300 });
+    const centerX = game.W * 0.5;
+    const horizonY = game._perspective?.horizonY ?? game.H * 0.5;
 
-    expect(near.x).toBeGreaterThan(0);
-    expect(near.y).toBeGreaterThan(0);
-    expect(near.scale).toBeGreaterThan(far.scale);
+    expect(base.scale).toBeCloseTo(1, 4);
+    expect(base.x).toBeCloseTo(120, 4);
+    expect(base.y).toBeCloseTo(90, 4);
+    expect(far.scale).toBeLessThan(base.scale);
+    expect(Math.abs(far.x - centerX)).toBeLessThan(Math.abs(base.x - centerX));
+    expect(Math.abs(far.y - horizonY)).toBeLessThan(Math.abs(base.y - horizonY));
   });
 
   it("projects rectangles around their centers with scaled dimensions", () => {
     const { game } = buildGame();
     game.W = 300;
     game.H = 150;
-    game._syncThreeCamera();
+    game._syncWorldCamera();
 
     const projected = game._projectWorldRect({ x: 50, y: 40, w: 60, h: 20, z: 120 });
 
@@ -270,6 +275,49 @@ describe("Game core utilities", () => {
     expect(projected.h).toBeGreaterThan(0);
     expect(projected.x).toBeLessThan(projected.w + 300);
     expect(projected.scale).toBeGreaterThan(0);
+  });
+
+  it("syncs world camera depth from ratios or absolute overrides", () => {
+    const { game } = buildGame();
+    game.W = 500;
+    game.H = 300;
+
+    game.worldCamera.depth = 0.5;
+    game._syncWorldCamera();
+    expect(game._perspective?.maxDepth).toBeCloseTo(150);
+
+    game.worldCamera.depth = 600;
+    game._syncWorldCamera();
+    expect(game._perspective?.maxDepth).toBe(600);
+  });
+
+  it("clamps horizon inputs and derives projections without pre-sync", () => {
+    const { game } = buildGame();
+    game.W = 200;
+    game.H = 100;
+    game.worldCamera.horizon = 2;
+    game.worldCamera.tilt = 0.5;
+    game._perspective = null;
+
+    const projected = game._projectWorldPoint({ x: 20, y: 20, z: 40 });
+
+    expect(projected.scale).toBeLessThan(1);
+    expect(game._perspective?.horizonY).toBeCloseTo(90);
+  });
+
+  it("increases depth for farther pipes and orbs based on x-position", () => {
+    const { game } = buildGame();
+    game.W = 400;
+    game.H = 200;
+    game._syncWorldCamera();
+
+    const nearPipe = game._pipeDepth({ x: 40, y: 0, w: 20, h: 40 });
+    const farPipe = game._pipeDepth({ x: 360, y: 0, w: 20, h: 40 });
+    const nearOrb = game._orbDepth({ x: 30, y: 0, r: 10 });
+    const farOrb = game._orbDepth({ x: 360, y: 0, r: 10 });
+
+    expect(farPipe).toBeGreaterThan(nearPipe);
+    expect(farOrb).toBeGreaterThan(nearOrb);
   });
 
   it("toggles audio and guards SFX triggers", async () => {
@@ -343,10 +391,11 @@ describe("Game core utilities", () => {
     expect(ctx.createRadialGradient).not.toHaveBeenCalled();
     expect(ctx.arc).toHaveBeenCalled();
     const [goldX, goldY] = ctx.arc.mock.calls[0];
-    const depth = game.worldCamera?.depth ?? 1;
-    const projected = game._projectWorldPoint({ x: 30, y: 40, z: depth * 0.12 });
+    const depth = game._perspective?.maxDepth ?? 1;
+    const projected = game._projectWorldPoint({ x: 30, y: 40, z: depth * 0.08 });
+    const goldWobble = game.perfectAuraIntensity * (game.player.r * projected.scale) * 0.08;
     expect(goldX).toBeCloseTo(projected.x);
-    expect(goldY).toBeCloseTo(projected.y);
+    expect(goldY).toBeCloseTo(projected.y + goldWobble);
 
     game.perfectAuraMode = "rainbow";
     game.timeAlive = 1;

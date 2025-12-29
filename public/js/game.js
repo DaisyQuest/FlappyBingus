@@ -42,7 +42,6 @@ import {
   normalizePipeTextureMode
 } from "./pipeTextures.js";
 import { trailStyleFor } from "./trailStyles.js";
-import { PerspectiveCamera, Vector3 } from "../vendor/three.module.js";
 
 const TRAIL_LIFE_SCALE = 1.45;
 const TRAIL_DISTANCE_SCALE = 1.18;
@@ -71,11 +70,13 @@ export class Game {
     this.state = STATE.MENU;
 
     this.W = 1; this.H = 1; this.DPR = 1;
-    this.worldCamera = { tilt: 0.12, depth: 480 };
-    this._threeCamera = new PerspectiveCamera(45, 1, 1, 4000);
-    this._threeVec = new Vector3();
-    this._threeOffset = new Vector3();
-    this._syncThreeCamera();
+    this.worldCamera = {
+      horizon: 0.36,
+      tilt: 0.06,
+      depth: 0.9,
+      focalLength: 0
+    };
+    this._perspective = null;
 
     // Offscreen background (dots + vignette) to avoid repainting thousands of primitives per frame
     this.bgCanvas = null;
@@ -365,34 +366,31 @@ export class Game {
 
     this._computePlayerSize();
     this._initBackground();
-    this._syncThreeCamera();
+    this._syncWorldCamera();
   }
 
-  _syncThreeCamera() {
-    if (!this._threeCamera) return;
-    const depth = this.worldCamera?.depth ?? 480;
-    this._threeCamera.fov = 45;
-    this._threeCamera.aspect = Math.max(0.1, this.W / Math.max(1, this.H));
-    this._threeCamera.near = 1;
-    this._threeCamera.far = 4000;
-    this._threeCamera.position.set(0, 0, depth);
-    this._threeCamera.lookAt(0, 0, 0);
-    this._threeCamera.updateProjectionMatrix();
+  _syncWorldCamera() {
+    const minDim = Math.max(1, Math.min(this.W, this.H));
+    const camera = this.worldCamera || {};
+    const depthSetting = Number.isFinite(camera.depth) ? camera.depth : 0.9;
+    const maxDepth = depthSetting > 1 ? depthSetting : depthSetting * minDim;
+    const focalSetting = Number.isFinite(camera.focalLength) ? camera.focalLength : 0;
+    const focalLength = focalSetting > 0 ? focalSetting : Math.max(200, minDim * 1.1);
+    const horizonBase = Number.isFinite(camera.horizon) ? camera.horizon : 0.36;
+    const tilt = Number.isFinite(camera.tilt) ? camera.tilt : 0;
+    const horizonY = clamp(horizonBase + tilt, 0.1, 0.9) * this.H;
+
+    this._perspective = { maxDepth, focalLength, horizonY, minDim };
   }
 
   _projectWorldPoint({ x, y, z }) {
-    const cam = this._threeCamera;
-    if (!cam) return { x, y, scale: 1 };
-    const cx = x - this.W * 0.5;
-    const cy = (y - this.H * 0.5) * -1;
-    const cz = -z;
-    this._threeVec.set(cx, cy, cz).project(cam);
-    const screenX = (this._threeVec.x + 1) * 0.5 * this.W;
-    const screenY = (1 - (this._threeVec.y + 1) * 0.5) * this.H;
-
-    this._threeOffset.set(cx + 1, cy, cz).project(cam);
-    const offsetX = (this._threeOffset.x + 1) * 0.5 * this.W;
-    const scale = Math.max(0.001, Math.abs(offsetX - screenX));
+    if (!this._perspective) this._syncWorldCamera();
+    const { focalLength, horizonY } = this._perspective || { focalLength: 1, horizonY: this.H * 0.5 };
+    const depth = Math.max(0, z || 0);
+    const scale = clamp(focalLength / (focalLength + depth), 0.05, 4);
+    const cx = this.W * 0.5;
+    const screenX = cx + (x - cx) * scale;
+    const screenY = horizonY + (y - horizonY) * scale;
     return { x: screenX, y: screenY, scale };
   }
 
@@ -410,17 +408,19 @@ export class Game {
   }
 
   _pipeDepth(p) {
-    const base = Math.min(this.W, this.H) * 0.22;
-    const depth = this.worldCamera?.depth ?? 1;
+    if (!this._perspective) this._syncWorldCamera();
+    const base = Math.min(this.W, this.H) * 0.08;
+    const depth = this._perspective?.maxDepth ?? 1;
     const t = clamp(p.x / Math.max(1, this.W), 0, 1);
-    return base + (1 - t) * (depth * 0.35);
+    return base + t * (depth * 0.25);
   }
 
   _orbDepth(o) {
-    const base = Math.min(this.W, this.H) * 0.18;
-    const depth = this.worldCamera?.depth ?? 1;
+    if (!this._perspective) this._syncWorldCamera();
+    const base = Math.min(this.W, this.H) * 0.06;
+    const depth = this._perspective?.maxDepth ?? 1;
     const t = clamp(o.x / Math.max(1, this.W), 0, 1);
-    return base + (1 - t) * (depth * 0.25);
+    return base + t * (depth * 0.2);
   }
 
   _drawPipe3D(p, base) {
@@ -1907,8 +1907,9 @@ _drawOrb(o, ctx = this.ctx) {
 
   _drawPlayer(ctx = this.ctx) {
     const p = this.player;
-    const depth = this.worldCamera?.depth ?? 1;
-    const playerDepth = depth * 0.12;
+    if (!this._perspective) this._syncWorldCamera();
+    const depth = this._perspective?.maxDepth ?? 1;
+    const playerDepth = depth * 0.08;
     const projected = this._projectWorldPoint({ x: p.x, y: p.y, z: playerDepth });
     const px = projected.x;
     const py = projected.y;
