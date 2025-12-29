@@ -167,6 +167,18 @@ let serverConfigStore = createServerConfigStore({
   reloadIntervalMs: SERVER_CONFIG_RELOAD_MS
 });
 
+function createServerConfigPersistence(store) {
+  return {
+    load: async () => {
+      const doc = await store.getServerConfig();
+      return doc?.config ?? null;
+    },
+    save: async (config) => {
+      await store.saveServerConfig(config);
+    }
+  };
+}
+
 // --------- Domain helpers ----------
 function nowMs() {
   return Date.now();
@@ -1763,16 +1775,17 @@ async function startServer() {
     console.warn(`[bingus] PUBLIC_DIR missing: ${PUBLIC_DIR}`);
   }
   try {
-    await serverConfigStore.load();
-  } catch (err) {
-    console.error("[bingus] server config load failed:", err);
-  }
-  try {
     await dataStore.ensureConnected();
     const st = dataStore.getStatus();
     console.log(`[bingus] database ready at ${st.uri} (db ${st.dbName})`);
+    serverConfigStore.setPersistence(createServerConfigPersistence(dataStore));
   } catch (err) {
     console.error("[bingus] database connection failed at startup:", err);
+  }
+  try {
+    await serverConfigStore.load();
+  } catch (err) {
+    console.error("[bingus] server config load failed:", err);
   }
 
   const server = http.createServer((req, res) => {

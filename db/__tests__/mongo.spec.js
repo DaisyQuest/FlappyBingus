@@ -279,6 +279,30 @@ describe("MongoDataStore mutations and reads", () => {
     expect(coll.findOneAndUpdate).toHaveBeenCalledTimes(3);
   });
 
+  it("loads and saves server config documents", async () => {
+    const { MongoDataStore } = await loadModule();
+    const doc = { _id: "active", config: { session: { ttlSeconds: 12 } }, updatedAt: 123 };
+    const coll = makeCollection({
+      findOne: vi.fn(async () => doc),
+      replaceOne: vi.fn(async () => ({}))
+    });
+    const store = new MongoDataStore({ uri: "mongodb://ok", dbName: "db" });
+    store.ensureConnected = vi.fn();
+    store.db = { collection: vi.fn(() => coll) };
+
+    const loaded = await store.getServerConfig();
+    const saved = await store.saveServerConfig({ session: { ttlSeconds: 99 } });
+
+    expect(loaded).toEqual(doc);
+    expect(coll.findOne).toHaveBeenCalledWith({ _id: "active" });
+    expect(coll.replaceOne).toHaveBeenCalledWith(
+      { _id: "active" },
+      expect.objectContaining({ _id: "active", config: { session: { ttlSeconds: 99 } }, updatedAt: expect.any(Number) }),
+      { upsert: true }
+    );
+    expect(saved.config.session.ttlSeconds).toBe(99);
+  });
+
   it("returns top highscores with sane limits and coercion", async () => {
     const { MongoDataStore } = await loadModule();
     const docs = [
