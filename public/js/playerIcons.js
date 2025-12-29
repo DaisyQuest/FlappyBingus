@@ -103,10 +103,17 @@ export const DEFAULT_PLAYER_ICONS = Object.freeze([
     unlock: { type: "achievement", id: "pipes_broken_run_100", label: "Shatterstorm Run" },
     style: {
       fill: "#facc15",
-      core: "#fef08a",
-      rim: "#a16207",
+      core: "#fef3c7",
+      rim: "#b45309",
       glow: "#fef9c3",
-      pattern: { type: "citrus_slice", stroke: "#fff7a8", segments: 6, glow: "#fef3c7" }
+      pattern: {
+        type: "citrus_slice",
+        stroke: "#f59e0b",
+        rindStroke: "#f59e0b",
+        segmentStroke: "#d97706",
+        segments: 8,
+        glow: "#fde68a"
+      }
     }
   },
   {

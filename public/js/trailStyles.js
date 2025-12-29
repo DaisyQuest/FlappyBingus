@@ -266,13 +266,13 @@ const TRAIL_STYLES = Object.freeze({
     speed: [36, 150],
     drag: 10.2,
     add: true,
-    color: paletteColor(["rgba(255,235,59,.92)", "rgba(255,249,196,.94)", "rgba(255,213,79,.9)"]),
+    color: paletteColor(["rgba(255,235,59,.92)", "rgba(255,248,190,.94)", "rgba(255,210,64,.92)"]),
     particleShape: "lemon_slice",
     sliceStyle: {
-      rind: "rgba(255, 247, 195, 0.95)",
-      pith: "rgba(255, 252, 224, 0.95)",
-      segment: "rgba(255, 240, 170, 0.9)",
-      segments: 6
+      rind: "rgba(255, 228, 122, 0.98)",
+      pith: "rgba(255, 251, 214, 0.96)",
+      segment: "rgba(255, 196, 54, 0.94)",
+      segments: 8
     },
     sparkle: { ...sparkleDefaults, rate: 38, size: [1.4, 3.0], color: lemonGlow },
     glint: { ...glintDefaults, rate: 30, size: [2.0, 3.8], speed: [48, 140], color: ({ rand: r }) => hsla(52 + r(-10, 10), 90, 80, 0.88) },
