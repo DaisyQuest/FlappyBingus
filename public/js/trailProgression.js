@@ -26,7 +26,28 @@ export const DEFAULT_TRAILS = Object.freeze([
 ]);
 
 export function normalizeTrails(list) {
-  return Array.isArray(list) && list.length ? list : DEFAULT_TRAILS.map((t) => ({ ...t }));
+  const raw = Array.isArray(list) ? list : [];
+  const normalized = raw
+    .filter((trail) => trail && typeof trail === "object")
+    .map((trail) => ({
+      ...trail,
+      id: String(trail.id || "").trim()
+    }))
+    .filter((trail) => trail.id);
+
+  if (!normalized.length) return DEFAULT_TRAILS.map((t) => ({ ...t }));
+
+  const defaultIds = new Set(DEFAULT_TRAILS.map((t) => t.id));
+  const overrides = new Map(normalized.map((trail) => [trail.id, trail]));
+
+  const mergedDefaults = DEFAULT_TRAILS.map((trail) => {
+    const override = overrides.get(trail.id);
+    return override ? { ...trail, ...override, id: trail.id } : { ...trail };
+  });
+
+  const extras = normalized.filter((trail) => !defaultIds.has(trail.id));
+
+  return mergedDefaults.concat(extras);
 }
 
 export function getUnlockedTrails(trails, achievements, { isRecordHolder = false } = {}) {
