@@ -24,6 +24,11 @@ const DEFAULT_SERVER_CONFIG = Object.freeze({
     ttlSeconds: 60 * 60 * 24 * 30,
     refreshWindowSeconds: 60 * 60 * 24 * 7
   }),
+  replayViewer: Object.freeze({
+    watermark: Object.freeze({
+      enabled: true
+    })
+  }),
   rateLimits: DEFAULT_RATE_LIMIT_CONFIG,
   unlockableMenus: Object.freeze({
     trail: Object.freeze({ mode: "all", ids: Object.freeze([]) }),
@@ -54,6 +59,16 @@ function normalizeMenuConfig(entry, fallback) {
   return { mode, ids };
 }
 
+function normalizeReplayViewerConfig(entry, fallback) {
+  if (!isPlainObject(entry)) return fallback;
+  const watermark = isPlainObject(entry.watermark) ? entry.watermark : {};
+  return {
+    watermark: {
+      enabled: watermark.enabled === false ? false : watermark.enabled === true ? true : fallback.watermark.enabled
+    }
+  };
+}
+
 function normalizeServerConfig(raw) {
   const base = clone(DEFAULT_SERVER_CONFIG);
   if (!isPlainObject(raw)) return base;
@@ -77,6 +92,8 @@ function normalizeServerConfig(raw) {
     }
   }
   base.rateLimits = normalizedRateLimits;
+
+  base.replayViewer = normalizeReplayViewerConfig(raw.replayViewer, base.replayViewer);
 
   const menus = isPlainObject(raw.unlockableMenus) ? raw.unlockableMenus : {};
   base.unlockableMenus = {

@@ -405,6 +405,36 @@ describe("server routes and helpers", () => {
     expect(mockDataStore.getBestRunByUsername).toHaveBeenCalledWith("PlayerOne");
   });
 
+  it("serves the replay viewer page with watermark enabled", async () => {
+    const { server } = await importServer();
+    server._setConfigStoreForTests({
+      getConfig: () => ({ replayViewer: { watermark: { enabled: true } } })
+    });
+    const res = createRes();
+
+    await server.route(createReq({ method: "GET", url: "/replay?username=PlayerOne" }), res);
+
+    expect(res.status).toBe(200);
+    expect(res.headers["Content-Type"]).toContain("text/html");
+    expect(res.body).toContain("Replay Viewer");
+    expect(res.body).toContain("PlayerOne");
+    expect(res.body).toContain("https://flappybing.us");
+  });
+
+  it("serves the replay viewer page without watermark when disabled", async () => {
+    const { server } = await importServer();
+    server._setConfigStoreForTests({
+      getConfig: () => ({ replayViewer: { watermark: { enabled: false } } })
+    });
+    const res = createRes();
+
+    await server.route(createReq({ method: "GET", url: "/replay?username=PlayerOne" }), res);
+
+    expect(res.status).toBe(200);
+    expect(res.body).toContain("Replay Viewer");
+    expect(res.body).not.toContain("https://flappybing.us");
+  });
+
   it("returns 404 when no stored best run exists", async () => {
     const { server } = await importServer();
     const res = createRes();

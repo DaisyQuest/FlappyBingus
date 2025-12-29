@@ -16,6 +16,7 @@ const { createScoreService, clampScoreDefault } = require("./services/scoreServi
 const { buildTrailPreviewCatalog } = require("./services/trailCatalog.cjs");
 const { renderTrailPreviewPage, wantsPreviewHtml } = require("./services/trailPreviewPage.cjs");
 const { renderUnlockablesPage, wantsUnlockablesHtml } = require("./services/unlockablesPage.cjs");
+const { renderReplayViewerPage } = require("./services/replayViewerPage.cjs");
 const {
   applyUnlockableMenuConfig,
   createServerConfigStore,
@@ -1680,6 +1681,14 @@ async function route(req, res) {
     } else {
       sendJson(res, 200, catalog);
     }
+    return;
+  }
+
+  if (pathname === "/replay" && req.method === "GET") {
+    const username = url.searchParams.get("username") || "";
+    const cfg = getServerConfig();
+    const watermarkEnabled = cfg?.replayViewer?.watermark?.enabled !== false;
+    sendHtml(res, 200, renderReplayViewerPage({ username, watermarkEnabled }));
     return;
   }
 

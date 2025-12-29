@@ -36,18 +36,21 @@ describe("server config normalization", () => {
     const normalized = normalizeServerConfig(null);
     expect(normalized.session.ttlSeconds).toBe(DEFAULT_SERVER_CONFIG.session.ttlSeconds);
     expect(normalized.rateLimits.default.limit).toBe(DEFAULT_SERVER_CONFIG.rateLimits.default.limit);
+    expect(normalized.replayViewer.watermark.enabled).toBe(DEFAULT_SERVER_CONFIG.replayViewer.watermark.enabled);
   });
 
   it("merges custom session and rate limits", () => {
     const normalized = normalizeServerConfig({
       session: { ttlSeconds: 10 },
       rateLimits: { "/api/me": { limit: 5, windowMs: 1000 }, "/custom": { limit: 2, windowMs: 500 } },
-      unlockableMenus: { trail: { mode: "allowlist", ids: ["ember"] } }
+      unlockableMenus: { trail: { mode: "allowlist", ids: ["ember"] } },
+      replayViewer: { watermark: { enabled: false } }
     });
     expect(normalized.session.ttlSeconds).toBe(10);
     expect(normalized.rateLimits["/api/me"].limit).toBe(5);
     expect(normalized.rateLimits["/custom"].limit).toBe(2);
     expect(normalized.unlockableMenus.trail.mode).toBe("allowlist");
+    expect(normalized.replayViewer.watermark.enabled).toBe(false);
   });
 });
 
