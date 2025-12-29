@@ -42,6 +42,7 @@ import {
   normalizePipeTextureMode
 } from "./pipeTextures.js";
 import { trailStyleFor } from "./trailStyles.js";
+import { PerspectiveCamera, Vector3 } from "../vendor/three.module.js";
 
 const TRAIL_LIFE_SCALE = 1.45;
 const TRAIL_DISTANCE_SCALE = 1.18;
@@ -54,8 +55,10 @@ const COMBO_WINDOW_DECAY = 0.35;
 export { Pipe, Gate, Orb, Part, FloatText };
 
 export class Game {
-  constructor({ canvas, ctx, config, playerImg, input, getTrailId, getBinds, getPipeTexture, onGameOver }) {
+  constructor({ canvas, worldCanvas, ctx, config, playerImg, input, getTrailId, getBinds, getPipeTexture, onGameOver }) {
     this.canvas = canvas;
+    this.worldCanvas = worldCanvas || canvas;
+    this.worldCtx = this.worldCanvas?.getContext?.("2d", { alpha: false }) || ctx;
     this.ctx = ctx;
     this.cfg = config;
     this.playerImg = playerImg;
@@ -68,6 +71,11 @@ export class Game {
     this.state = STATE.MENU;
 
     this.W = 1; this.H = 1; this.DPR = 1;
+    this.worldCamera = { tilt: 0.12, depth: 480 };
+    this._threeCamera = new PerspectiveCamera(45, 1, 1, 4000);
+    this._threeVec = new Vector3();
+    this._threeOffset = new Vector3();
+    this._syncThreeCamera();
 
     // Offscreen background (dots + vignette) to avoid repainting thousands of primitives per frame
     this.bgCanvas = null;
@@ -332,6 +340,20 @@ export class Game {
       this.ctx.imageSmoothingQuality = this.skillSettings?.highPerformance ? "high" : "medium";
     }
 
+    if (this.worldCanvas) {
+      this.worldCanvas.style.width = cssW + "px";
+      this.worldCanvas.style.height = cssH + "px";
+      this.worldCanvas.width = Math.floor(cssW * dpr);
+      this.worldCanvas.height = Math.floor(cssH * dpr);
+    }
+    if (this.worldCtx && this.worldCtx !== this.ctx) {
+      this.worldCtx.setTransform(dpr / norm, 0, 0, dpr / norm, 0, 0);
+      this.worldCtx.imageSmoothingEnabled = true;
+      if ("imageSmoothingQuality" in this.worldCtx) {
+        this.worldCtx.imageSmoothingQuality = this.skillSettings?.highPerformance ? "high" : "medium";
+      }
+    }
+
     this.DPR = dpr / norm;
     this.W = logicalW;
     this.H = logicalH;
@@ -343,6 +365,76 @@ export class Game {
 
     this._computePlayerSize();
     this._initBackground();
+    this._syncThreeCamera();
+  }
+
+  _syncThreeCamera() {
+    if (!this._threeCamera) return;
+    const depth = this.worldCamera?.depth ?? 480;
+    this._threeCamera.fov = 45;
+    this._threeCamera.aspect = Math.max(0.1, this.W / Math.max(1, this.H));
+    this._threeCamera.near = 1;
+    this._threeCamera.far = 4000;
+    this._threeCamera.position.set(0, 0, depth);
+    this._threeCamera.lookAt(0, 0, 0);
+    this._threeCamera.updateProjectionMatrix();
+  }
+
+  _projectWorldPoint({ x, y, z }) {
+    const cam = this._threeCamera;
+    if (!cam) return { x, y, scale: 1 };
+    const cx = x - this.W * 0.5;
+    const cy = (y - this.H * 0.5) * -1;
+    const cz = -z;
+    this._threeVec.set(cx, cy, cz).project(cam);
+    const screenX = (this._threeVec.x + 1) * 0.5 * this.W;
+    const screenY = (1 - (this._threeVec.y + 1) * 0.5) * this.H;
+
+    this._threeOffset.set(cx + 1, cy, cz).project(cam);
+    const offsetX = (this._threeOffset.x + 1) * 0.5 * this.W;
+    const scale = Math.max(0.001, Math.abs(offsetX - screenX));
+    return { x: screenX, y: screenY, scale };
+  }
+
+  _projectWorldRect({ x, y, w, h, z }) {
+    const centerX = x + w * 0.5;
+    const centerY = y + h * 0.5;
+    const projected = this._projectWorldPoint({ x: centerX, y: centerY, z });
+    return {
+      x: projected.x - (w * projected.scale) * 0.5,
+      y: projected.y - (h * projected.scale) * 0.5,
+      w: w * projected.scale,
+      h: h * projected.scale,
+      scale: projected.scale
+    };
+  }
+
+  _pipeDepth(p) {
+    const base = Math.min(this.W, this.H) * 0.22;
+    const depth = this.worldCamera?.depth ?? 1;
+    const t = clamp(p.x / Math.max(1, this.W), 0, 1);
+    return base + (1 - t) * (depth * 0.35);
+  }
+
+  _orbDepth(o) {
+    const base = Math.min(this.W, this.H) * 0.18;
+    const depth = this.worldCamera?.depth ?? 1;
+    const t = clamp(o.x / Math.max(1, this.W), 0, 1);
+    return base + (1 - t) * (depth * 0.25);
+  }
+
+  _drawPipe3D(p, base) {
+    const depth = this._pipeDepth(p);
+    const projected = this._projectWorldRect({ x: p.x, y: p.y, w: p.w, h: p.h, z: depth });
+    const shadow = { ...p, x: projected.x, y: projected.y, w: projected.w, h: projected.h };
+    this._drawPipe(shadow, base, this.worldCtx);
+  }
+
+  _drawOrb3D(o) {
+    const depth = this._orbDepth(o);
+    const projected = this._projectWorldPoint({ x: o.x, y: o.y, z: depth });
+    const proxy = { ...o, x: projected.x, y: projected.y, r: o.r * projected.scale };
+    this._drawOrb(proxy, this.worldCtx);
   }
 
   setStateMenu() {
@@ -1685,15 +1777,18 @@ export class Game {
 
   render() {
     /* v8 ignore start -- rendering paths are visual-only */
-    const ctx = this.ctx;
+    const worldCtx = this.worldCtx || this.ctx;
+    const hudCtx = this.ctx;
+
+    hudCtx.clearRect(0, 0, this.W, this.H);
 
     // background (cached offscreen)
     if (this.bgDirty) this._refreshBackgroundLayer();
     if (this.bgCanvas) {
-      ctx.drawImage(this.bgCanvas, 0, 0, this.W, this.H);
+      worldCtx.drawImage(this.bgCanvas, 0, 0, this.W, this.H);
     } else {
-      ctx.fillStyle = "#07101a";
-      ctx.fillRect(0, 0, this.W, this.H);
+      worldCtx.fillStyle = "#07101a";
+      worldCtx.fillRect(0, 0, this.W, this.H);
     }
 
     // world
@@ -1701,27 +1796,27 @@ export class Game {
     const visPad = Math.max(32, Math.min(this.W, this.H) * 0.12);
     for (const p of this.pipes) {
       if (!this._isVisibleRect(p.x, p.y, p.w, p.h, visPad)) continue;
-      this._drawPipe(p, pc);
+      this._drawPipe3D(p, pc);
     }
 
     for (const o of this.orbs) {
       if (!this._isVisibleRect(o.x - o.r, o.y - o.r, o.r * 2, o.r * 2, 28)) continue;
-      this._drawOrb(o);
+      this._drawOrb3D(o);
     }
 
     for (const p of this.parts) {
       const s = Math.max(1, p.size || 1);
       if (!this._isVisibleRect(p.x - s * 2, p.y - s * 2, s * 4, s * 4, visPad)) continue;
-      p.draw(ctx);
+      p.draw(worldCtx);
     }
 
     for (const t of this.floats) {
       const fh = Math.max(8, t.size || 18);
       if (!this._isVisibleRect(t.x - fh, t.y - fh, fh * 2, fh * 2, visPad)) continue;
-      t.draw(ctx);
+      t.draw(worldCtx);
     }
 
-    this._drawPlayer();
+    this._drawPlayer(worldCtx);
 
     if (this.state === STATE.PLAY) {
       this._drawHUD();
@@ -1741,17 +1836,16 @@ export class Game {
     ctx.closePath();
   }
 
-  _drawPipe(p, base) {
+  _drawPipe(p, base, ctx = this.ctx) {
     const selection = this.getPipeTexture ? this.getPipeTexture() : null;
     const textureId = typeof selection === "string"
       ? selection
       : (selection?.id || DEFAULT_PIPE_TEXTURE_ID);
     const mode = normalizePipeTextureMode(selection?.mode || DEFAULT_PIPE_TEXTURE_MODE);
-    drawPipeTexture(this.ctx, p, base, { textureId, mode, time: this.timeAlive });
+    drawPipeTexture(ctx, p, base, { textureId, mode, time: this.timeAlive });
   }
 
-_drawOrb(o) {
-  const ctx = this.ctx;
+_drawOrb(o, ctx = this.ctx) {
 
   // t: 1 = just spawned, 0 = expiring
   const t = clamp(o.life / o.max, 0, 1);
@@ -1811,9 +1905,16 @@ _drawOrb(o) {
 
 
 
-  _drawPlayer() {
-    const ctx = this.ctx;
+  _drawPlayer(ctx = this.ctx) {
     const p = this.player;
+    const depth = this.worldCamera?.depth ?? 1;
+    const playerDepth = depth * 0.12;
+    const projected = this._projectWorldPoint({ x: p.x, y: p.y, z: playerDepth });
+    const px = projected.x;
+    const py = projected.y;
+    const pr = p.r * projected.scale;
+    const pw = p.w * projected.scale;
+    const ph = p.h * projected.scale;
 
     ctx.save();
     if (this.skillSettings?.highPerformance) {
@@ -1823,7 +1924,7 @@ _drawOrb(o) {
       ctx.shadowOffsetY = 4;
       ctx.fillStyle = "rgba(0,0,0,.18)";
       ctx.beginPath();
-      ctx.arc(p.x, p.y + p.r * 0.35, p.r * 0.65, 0, Math.PI * 2);
+      ctx.arc(px, py + pr * 0.35, pr * 0.65, 0, Math.PI * 2);
       ctx.fill();
       ctx.restore();
     }
@@ -1834,11 +1935,11 @@ _drawOrb(o) {
     const auraMode = this.perfectAuraMode;
     if (auraIntensity > 0 && auraMode) {
       const auraPulse = 0.08 * Math.sin(this.timeAlive * 12) + 0.04 * Math.sin(this.timeAlive * 22 + 1.4);
-      const outer = p.r * (1.6 + auraIntensity * (1.0 + auraPulse));
-      const inner = Math.max(p.r * 0.6, outer * 0.35);
-      const wobble = auraIntensity * p.r * 0.08;
-      const auraX = p.x + Math.sin(this.timeAlive * 18) * wobble;
-      const auraY = p.y + Math.cos(this.timeAlive * 15) * wobble;
+      const outer = pr * (1.6 + auraIntensity * (1.0 + auraPulse));
+      const inner = Math.max(pr * 0.6, outer * 0.35);
+      const wobble = auraIntensity * pr * 0.08;
+      const auraX = px + Math.sin(this.timeAlive * 18) * wobble;
+      const auraY = py + Math.cos(this.timeAlive * 15) * wobble;
       ctx.save();
       ctx.globalAlpha = clamp(0.25 + auraIntensity * 0.65, 0, 1);
       ctx.globalCompositeOperation = "lighter";
@@ -1868,12 +1969,12 @@ _drawOrb(o) {
     const ih = this.playerImg?.naturalHeight || this.playerImg?.height || 0;
     const ready = this.playerImg?.complete !== false;
     if (ready && iw > 0 && ih > 0) {
-      ctx.drawImage(this.playerImg, p.x - p.w * 0.5, p.y - p.h * 0.5, p.w, p.h);
+      ctx.drawImage(this.playerImg, px - pw * 0.5, py - ph * 0.5, pw, ph);
     } else {
       ctx.fillStyle = "rgba(120,210,255,.92)";
-      ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2); ctx.fill();
+      ctx.beginPath(); ctx.arc(px, py, pr, 0, Math.PI * 2); ctx.fill();
       ctx.fillStyle = "rgba(0,0,0,.55)";
-      ctx.beginPath(); ctx.arc(p.x, p.y, Math.max(2, p.r * 0.18), 0, Math.PI * 2); ctx.fill();
+      ctx.beginPath(); ctx.arc(px, py, Math.max(2, pr * 0.18), 0, Math.PI * 2); ctx.fill();
     }
 
     if (p.dashImpactFlash > 0) {
@@ -1881,7 +1982,7 @@ _drawOrb(o) {
       ctx.save();
       ctx.globalAlpha = a * 0.55;
       ctx.fillStyle = "rgba(255,200,120,.90)";
-      ctx.beginPath(); ctx.arc(p.x, p.y, p.r * 1.15, 0, Math.PI * 2); ctx.fill();
+      ctx.beginPath(); ctx.arc(px, py, pr * 1.15, 0, Math.PI * 2); ctx.fill();
       ctx.restore();
     }
 
@@ -1891,12 +1992,12 @@ _drawOrb(o) {
       ctx.globalAlpha = 0.85;
       ctx.strokeStyle = "rgba(160,220,255,.95)";
       ctx.lineWidth = 2.4;
-      ctx.beginPath(); ctx.arc(p.x, p.y, p.r * 1.28, 0, Math.PI * 2); ctx.stroke();
+      ctx.beginPath(); ctx.arc(px, py, pr * 1.28, 0, Math.PI * 2); ctx.stroke();
 
       ctx.globalAlpha = 0.45;
       ctx.strokeStyle = "rgba(255,255,255,.85)";
       ctx.lineWidth = 1.3;
-      ctx.beginPath(); ctx.arc(p.x, p.y, p.r * 1.06, -Math.PI * 0.15, Math.PI * 0.15); ctx.stroke();
+      ctx.beginPath(); ctx.arc(px, py, pr * 1.06, -Math.PI * 0.15, Math.PI * 0.15); ctx.stroke();
     }
 
     ctx.restore();

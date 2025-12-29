@@ -1537,14 +1537,15 @@ export function buildGameUI({ document = window.document, mount } = {}) {
   }
 
   const wrap = createElement(doc, refs, "div", { id: "wrap" });
-  const canvas = createElement(doc, refs, "canvas", { id: "c" });
+  const worldCanvas = createElement(doc, refs, "canvas", { id: "worldCanvas", className: "world-canvas" });
+  const canvas = createElement(doc, refs, "canvas", { id: "c", className: "hud-canvas" });
 
   const achievementToasts = createElement(doc, refs, "div", {
     id: "achievementToasts",
     className: "achievement-toasts"
   });
 
-  wrap.append(canvas, createMenuScreen(doc, refs), createOverScreen(doc, refs), achievementToasts);
+  wrap.append(worldCanvas, canvas, createMenuScreen(doc, refs), createOverScreen(doc, refs), achievementToasts);
   target.append(wrap);
 
   return {
@@ -1552,6 +1553,7 @@ export function buildGameUI({ document = window.document, mount } = {}) {
     root: wrap,
     menu: refs.menu || wrap.querySelector("#menu"),
     over: refs.over || wrap.querySelector("#over"),
+    worldCanvas,
     canvas
   };
 }

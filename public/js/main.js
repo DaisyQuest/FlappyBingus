@@ -172,6 +172,7 @@ const ui = buildGameUI();
 
 const {
   canvas,
+  worldCanvas,
   menu,
   over,
   start: startBtn,
@@ -405,7 +406,7 @@ menuParallaxControl = createMenuParallaxController({
 });
 
 // ---- Input + Game ----
-const ctx = canvas.getContext("2d", { alpha: false });
+const ctx = canvas.getContext("2d", { alpha: true });
 
 // Deterministic sim clock
 const SIM_DT = 1 / 120;
@@ -516,6 +517,7 @@ input.install();
 
 let game = new Game({
   canvas,
+  worldCanvas,
   ctx,
   config: null,
   playerImg,

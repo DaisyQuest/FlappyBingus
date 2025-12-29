@@ -30,6 +30,9 @@ describe("uiLayout", () => {
 
     expect(mount.querySelectorAll("#wrap").length).toBe(1);
     expect(ui.canvas).toBeInstanceOf(window.HTMLCanvasElement);
+    expect(ui.worldCanvas).toBeInstanceOf(window.HTMLCanvasElement);
+    expect(ui.worldCanvas?.classList.contains("world-canvas")).toBe(true);
+    expect(ui.canvas?.classList.contains("hud-canvas")).toBe(true);
     expect(ui.trailPreviewCanvas).toBeInstanceOf(window.HTMLCanvasElement);
     expect(ui.trailLauncher).toBeInstanceOf(window.HTMLElement);
     expect(ui.trailLauncher?.querySelector(".trail-swatch")).toBeNull();

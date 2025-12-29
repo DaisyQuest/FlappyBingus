@@ -107,6 +107,26 @@ const buildGameWith = (GameClass, configOverrides = {}, moveRef = { dx: 0, dy: 0
 const buildGame = (configOverrides = {}, moveRef = { dx: 0, dy: 0 }) =>
   buildGameWith(Game, configOverrides, moveRef);
 
+const buildGameWithWorldCanvas = (configOverrides = {}, moveRef = { dx: 0, dy: 0 }) => {
+  const { onGameOver, ...cfgOverrides } = configOverrides || {};
+  const ctx = mockCtx();
+  const worldCtx = mockCtx();
+  const canvas = makeCanvas(ctx);
+  const worldCanvas = makeCanvas(worldCtx);
+  const config = cloneConfig(cfgOverrides);
+  const playerImg = { naturalWidth: 64, naturalHeight: 32 };
+  const input = makeInput(moveRef);
+  const binds = { getTrailId: () => "classic", getBinds: () => ({}) };
+  return {
+    game: new Game({ canvas, worldCanvas, ctx, config, playerImg, input, onGameOver, ...binds }),
+    ctx,
+    canvas,
+    worldCtx,
+    worldCanvas,
+    input,
+    moveRef
+  };
+};
 
 const pipeStub = (opts = {}) => {
   const { x = 1000, y = 1000, w = 10, h = 10, vx = 0, vy = 0, off = false } = opts;
@@ -191,14 +211,17 @@ describe("Game core utilities", () => {
   });
 
   it("supersamples the canvas when high performance mode is enabled", () => {
-    const { game, canvas, ctx } = buildGame();
+    const { game, canvas, worldCanvas, worldCtx, ctx } = buildGameWithWorldCanvas();
     window.devicePixelRatio = 1;
     game.setSkillSettings({ ...DEFAULT_SKILL_SETTINGS, highPerformance: true });
     game.resizeToWindow();
 
     expect(canvas.width).toBe(640);
     expect(canvas.height).toBe(400);
+    expect(worldCanvas.width).toBe(640);
+    expect(worldCanvas.height).toBe(400);
     expect(ctx.imageSmoothingQuality).toBe("high");
+    expect(worldCtx.imageSmoothingQuality).toBe("high");
   });
 
   it("adds a drop shadow for the player when high performance is enabled", () => {
@@ -219,6 +242,34 @@ describe("Game core utilities", () => {
     game._drawPlayer();
 
     expect(ctx.shadowOffsetY).toBe(0);
+  });
+
+  it("projects world points with perspective and returns scale factors", () => {
+    const { game } = buildGame();
+    game.W = 400;
+    game.H = 200;
+    game._syncThreeCamera();
+
+    const near = game._projectWorldPoint({ x: 200, y: 100, z: 10 });
+    const far = game._projectWorldPoint({ x: 200, y: 100, z: 300 });
+
+    expect(near.x).toBeGreaterThan(0);
+    expect(near.y).toBeGreaterThan(0);
+    expect(near.scale).toBeGreaterThan(far.scale);
+  });
+
+  it("projects rectangles around their centers with scaled dimensions", () => {
+    const { game } = buildGame();
+    game.W = 300;
+    game.H = 150;
+    game._syncThreeCamera();
+
+    const projected = game._projectWorldRect({ x: 50, y: 40, w: 60, h: 20, z: 120 });
+
+    expect(projected.w).toBeGreaterThan(0);
+    expect(projected.h).toBeGreaterThan(0);
+    expect(projected.x).toBeLessThan(projected.w + 300);
+    expect(projected.scale).toBeGreaterThan(0);
   });
 
   it("toggles audio and guards SFX triggers", async () => {
@@ -292,8 +343,10 @@ describe("Game core utilities", () => {
     expect(ctx.createRadialGradient).not.toHaveBeenCalled();
     expect(ctx.arc).toHaveBeenCalled();
     const [goldX, goldY] = ctx.arc.mock.calls[0];
-    expect(goldX).toBe(30);
-    expect(goldY).not.toBe(40);
+    const depth = game.worldCamera?.depth ?? 1;
+    const projected = game._projectWorldPoint({ x: 30, y: 40, z: depth * 0.12 });
+    expect(goldX).toBeCloseTo(projected.x);
+    expect(goldY).toBeCloseTo(projected.y);
 
     game.perfectAuraMode = "rainbow";
     game.timeAlive = 1;
@@ -303,8 +356,11 @@ describe("Game core utilities", () => {
     expect(ctx.createRadialGradient).toHaveBeenCalled();
     expect(ctx.arc).toHaveBeenCalled();
     const [rainbowX, rainbowY] = ctx.arc.mock.calls[0];
-    expect(rainbowX).not.toBe(30);
-    expect(rainbowY).not.toBe(40);
+    const wobble = game.perfectAuraIntensity * (game.player.r * projected.scale) * 0.08;
+    const expectedX = projected.x + Math.sin(game.timeAlive * 18) * wobble;
+    const expectedY = projected.y + Math.cos(game.timeAlive * 15) * wobble;
+    expect(rainbowX).toBeCloseTo(expectedX);
+    expect(rainbowY).toBeCloseTo(expectedY);
   });
 
   it("handles state transitions and run resets", () => {
