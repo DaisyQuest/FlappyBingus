@@ -58,6 +58,21 @@ describe("game config store", () => {
     expect(raw).toEqual({});
   });
 
+  it("ignores undefined persistence results and loads from disk", async () => {
+    const dir = await fs.mkdtemp(path.join(os.tmpdir(), "bingus-game-config-"));
+    const configPath = path.join(dir, "game.json");
+    await fs.writeFile(configPath, JSON.stringify({ pipes: { speed: 11 } }));
+    const persistence = {
+      load: vi.fn(async () => undefined)
+    };
+    const store = createGameConfigStore({ configPath, persistence });
+
+    const loaded = await store.load();
+
+    expect(persistence.load).toHaveBeenCalled();
+    expect(loaded.pipes.speed).toBe(11);
+  });
+
   it("returns an empty config when the file is missing", async () => {
     const dir = await fs.mkdtemp(path.join(os.tmpdir(), "bingus-game-config-"));
     const configPath = path.join(dir, "missing.json");

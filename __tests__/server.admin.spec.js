@@ -112,6 +112,51 @@ describe("admin routes", () => {
     expect(gameConfigStore.save).toHaveBeenCalledWith({ scoring: { pipeDodge: 2 } });
   });
 
+  it("persists player config changes via the game config store", async () => {
+    const { server, gameConfigStore } = await importServer();
+
+    const putRes = createRes();
+    await server.route(
+      createReq({
+        method: "PUT",
+        url: "/api/admin/game-config",
+        body: JSON.stringify({ player: { maxSpeed: 420, accel: 900 } })
+      }),
+      putRes
+    );
+    expect(putRes.status).toBe(200);
+    expect(gameConfigStore.save).toHaveBeenCalledWith({ player: { maxSpeed: 420, accel: 900 } });
+  });
+
+  it("persists unlockable menu updates through the server config store", async () => {
+    const { server, configStore } = await importServer();
+
+    const putRes = createRes();
+    await server.route(
+      createReq({
+        method: "PUT",
+        url: "/api/admin/config",
+        body: JSON.stringify({
+          unlockableMenus: {
+            trail: { mode: "allowlist", ids: ["ember"] },
+            player_texture: { mode: "all", ids: [] },
+            pipe_texture: { mode: "allowlist", ids: ["pipe-a"] }
+          }
+        })
+      }),
+      putRes
+    );
+    expect(putRes.status).toBe(200);
+    expect(configStore.save).toHaveBeenCalledWith(
+      expect.objectContaining({
+        unlockableMenus: expect.objectContaining({
+          trail: expect.objectContaining({ mode: "allowlist", ids: ["ember"] }),
+          pipe_texture: expect.objectContaining({ mode: "allowlist", ids: ["pipe-a"] })
+        })
+      })
+    );
+  });
+
   it("returns errors when game config persistence fails", async () => {
     const { server } = await importServer({
       gameConfigStoreOverrides: {
