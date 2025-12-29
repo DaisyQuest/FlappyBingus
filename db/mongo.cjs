@@ -199,6 +199,16 @@ class MongoDataStore {
     return this.db.collection("best_runs");
   }
 
+  serverConfigCollection() {
+    if (!this.db) throw new Error("db_not_connected");
+    return this.db.collection("server_config");
+  }
+
+  gameConfigCollection() {
+    if (!this.db) throw new Error("db_not_connected");
+    return this.db.collection("game_config");
+  }
+
   async listCollections() {
     await this.ensureConnected();
     const collections = await this.db.listCollections().toArray();
@@ -216,6 +226,30 @@ class MongoDataStore {
     await this.ensureConnected();
     const collection = this.db.collection(collectionName);
     return await collection.findOne({ _id: parseDocumentId(id) });
+  }
+
+  async getServerConfig() {
+    await this.ensureConnected();
+    return await this.serverConfigCollection().findOne({ _id: "active" });
+  }
+
+  async saveServerConfig(config) {
+    await this.ensureConnected();
+    const payload = { _id: "active", config, updatedAt: Date.now() };
+    await this.serverConfigCollection().replaceOne({ _id: "active" }, payload, { upsert: true });
+    return payload;
+  }
+
+  async getGameConfig() {
+    await this.ensureConnected();
+    return await this.gameConfigCollection().findOne({ _id: "active" });
+  }
+
+  async saveGameConfig(config) {
+    await this.ensureConnected();
+    const payload = { _id: "active", config, updatedAt: Date.now() };
+    await this.gameConfigCollection().replaceOne({ _id: "active" }, payload, { upsert: true });
+    return payload;
   }
 
   async replaceDocument(collectionName, id, doc) {

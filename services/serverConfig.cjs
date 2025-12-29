@@ -124,12 +124,30 @@ function resolveConfigPath(customPath) {
   return path.join(process.cwd(), "server-config.json");
 }
 
-function createServerConfigStore({ configPath, reloadIntervalMs = 15_000, fsApi = fs, now = Date.now } = {}) {
+function createServerConfigStore({ configPath, reloadIntervalMs = 15_000, fsApi = fs, now = Date.now, persistence = null } = {}) {
   const resolvedPath = resolveConfigPath(configPath);
   let current = clone(DEFAULT_SERVER_CONFIG);
   let lastChecked = 0;
   let lastLoadedAt = 0;
   let lastMtimeMs = null;
+  let lastPersistedAt = null;
+  let persistenceAdapter = persistence;
+
+  function setPersistence(nextPersistence) {
+    persistenceAdapter = nextPersistence;
+  }
+
+  async function writeToDisk(config) {
+    const payload = JSON.stringify(config, null, 2);
+    await fsApi.writeFile(resolvedPath, payload);
+    lastLoadedAt = now();
+    try {
+      const stat = await fsApi.stat(resolvedPath);
+      lastMtimeMs = stat.mtimeMs;
+    } catch {
+      lastMtimeMs = null;
+    }
+  }
 
   async function readFromDisk() {
     const raw = await fsApi.readFile(resolvedPath, "utf8");
@@ -140,6 +158,16 @@ function createServerConfigStore({ configPath, reloadIntervalMs = 15_000, fsApi 
   }
 
   async function load() {
+    if (persistenceAdapter?.load) {
+      const persisted = await persistenceAdapter.load();
+      if (persisted) {
+        current = normalizeServerConfig(persisted);
+        lastLoadedAt = now();
+        lastPersistedAt = lastLoadedAt;
+        await writeToDisk(current);
+        return current;
+      }
+    }
     try {
       const stat = await fsApi.stat(resolvedPath);
       lastMtimeMs = stat.mtimeMs;
@@ -176,26 +204,24 @@ function createServerConfigStore({ configPath, reloadIntervalMs = 15_000, fsApi 
   }
 
   async function save(nextConfig) {
-    current = normalizeServerConfig(nextConfig);
-    const payload = JSON.stringify(current, null, 2);
-    await fsApi.writeFile(resolvedPath, payload);
-    lastLoadedAt = now();
-    try {
-      const stat = await fsApi.stat(resolvedPath);
-      lastMtimeMs = stat.mtimeMs;
-    } catch {
-      lastMtimeMs = null;
+    const normalized = normalizeServerConfig(nextConfig);
+    if (persistenceAdapter?.save) {
+      await persistenceAdapter.save(normalized);
+      lastPersistedAt = now();
     }
+    current = normalized;
+    await writeToDisk(current);
     return current;
   }
 
   return {
     configPath: resolvedPath,
     getConfig: () => current,
-    getMeta: () => ({ lastLoadedAt, lastCheckedAt: lastChecked, lastMtimeMs }),
+    getMeta: () => ({ lastLoadedAt, lastCheckedAt: lastChecked, lastMtimeMs, lastPersistedAt }),
     load,
     save,
-    maybeReload
+    maybeReload,
+    setPersistence
   };
 }
 

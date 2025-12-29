@@ -22,6 +22,7 @@ const {
   DEFAULT_RATE_LIMIT_CONFIG,
   DEFAULT_SERVER_CONFIG
 } = require("./services/serverConfig.cjs");
+const { createGameConfigStore } = require("./services/gameConfigStore.cjs");
 const {
   ACHIEVEMENTS,
   normalizeAchievementState,
@@ -110,6 +111,10 @@ function _setConfigStoreForTests(mock) {
   serverConfigStore = mock;
 }
 
+function _setGameConfigStoreForTests(mock) {
+  gameConfigStore = mock;
+}
+
 // Cookie that holds username (legacy)
 const USER_COOKIE = "sugar";
 const SESSION_COOKIE = "bingus_session";
@@ -166,6 +171,31 @@ let serverConfigStore = createServerConfigStore({
   configPath: SERVER_CONFIG_PATH,
   reloadIntervalMs: SERVER_CONFIG_RELOAD_MS
 });
+let gameConfigStore = createGameConfigStore({ configPath: GAME_CONFIG_PATH });
+
+function createServerConfigPersistence(store) {
+  return {
+    load: async () => {
+      const doc = await store.getServerConfig();
+      return doc?.config ?? null;
+    },
+    save: async (config) => {
+      await store.saveServerConfig(config);
+    }
+  };
+}
+
+function createGameConfigPersistence(store) {
+  return {
+    load: async () => {
+      const doc = await store.getGameConfig();
+      return doc?.config ?? null;
+    },
+    save: async (config) => {
+      await store.saveGameConfig(config);
+    }
+  };
+}
 
 // --------- Domain helpers ----------
 function nowMs() {
@@ -497,16 +527,6 @@ function normalizeTotal(v) {
   const n = Number(v);
   if (!Number.isFinite(n)) return 0;
   return Math.max(0, Math.floor(n));
-}
-
-async function readJsonFile(filePath) {
-  const raw = await fs.readFile(filePath, "utf8");
-  return JSON.parse(raw);
-}
-
-async function writeJsonFile(filePath, payload) {
-  const serialized = JSON.stringify(payload, null, 2);
-  await fs.writeFile(filePath, serialized);
 }
 
 function mergeKeybinds(base, inc) {
@@ -1542,12 +1562,8 @@ async function route(req, res) {
 
   if (pathname === "/api/admin/game-config") {
     if (req.method === "GET") {
-      try {
-        const config = await readJsonFile(GAME_CONFIG_PATH);
-        sendJson(res, 200, { ok: true, config, path: GAME_CONFIG_PATH });
-      } catch (err) {
-        sendJson(res, 500, { ok: false, error: "game_config_read_failed", detail: err?.message || String(err) });
-      }
+      const config = gameConfigStore.getConfig();
+      sendJson(res, 200, { ok: true, config, path: GAME_CONFIG_PATH, meta: gameConfigStore.getMeta() });
       return;
     }
     if (req.method === "PUT") {
@@ -1559,8 +1575,8 @@ async function route(req, res) {
       }
       try {
         const payload = body?.config ?? body;
-        await writeJsonFile(GAME_CONFIG_PATH, payload);
-        sendJson(res, 200, { ok: true, config: payload, path: GAME_CONFIG_PATH });
+        const saved = await gameConfigStore.save(payload);
+        sendJson(res, 200, { ok: true, config: saved, path: GAME_CONFIG_PATH, meta: gameConfigStore.getMeta() });
       } catch (err) {
         sendJson(res, 500, { ok: false, error: "game_config_write_failed", detail: err?.message || String(err) });
       }
@@ -1763,16 +1779,23 @@ async function startServer() {
     console.warn(`[bingus] PUBLIC_DIR missing: ${PUBLIC_DIR}`);
   }
   try {
+    await dataStore.ensureConnected();
+    const st = dataStore.getStatus();
+    console.log(`[bingus] database ready at ${st.uri} (db ${st.dbName})`);
+    serverConfigStore.setPersistence(createServerConfigPersistence(dataStore));
+    gameConfigStore.setPersistence(createGameConfigPersistence(dataStore));
+  } catch (err) {
+    console.error("[bingus] database connection failed at startup:", err);
+  }
+  try {
     await serverConfigStore.load();
   } catch (err) {
     console.error("[bingus] server config load failed:", err);
   }
   try {
-    await dataStore.ensureConnected();
-    const st = dataStore.getStatus();
-    console.log(`[bingus] database ready at ${st.uri} (db ${st.dbName})`);
+    await gameConfigStore.load();
   } catch (err) {
-    console.error("[bingus] database connection failed at startup:", err);
+    console.error("[bingus] game config load failed:", err);
   }
 
   const server = http.createServer((req, res) => {
@@ -1807,6 +1830,7 @@ module.exports = {
   getOrCreateUser,
   _setDataStoreForTests,
   _setConfigStoreForTests,
+  _setGameConfigStoreForTests,
   route,
   startServer,
   __testables: {

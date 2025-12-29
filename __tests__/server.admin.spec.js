@@ -1,9 +1,6 @@
 "use strict";
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { promises as fs } from "node:fs";
-import path from "node:path";
-import os from "node:os";
 
 function createRes() {
   return {
@@ -39,7 +36,7 @@ function readJson(res) {
   return JSON.parse(res.body || "{}");
 }
 
-async function importServer({ dataStoreOverrides = {}, configStoreOverrides = {}, gameConfigPath } = {}) {
+async function importServer({ dataStoreOverrides = {}, configStoreOverrides = {}, gameConfigStoreOverrides = {}, gameConfigPath } = {}) {
   vi.resetModules();
   if (gameConfigPath) process.env.GAME_CONFIG_PATH = gameConfigPath;
   const server = await import("../server.cjs");
@@ -62,7 +59,14 @@ async function importServer({ dataStoreOverrides = {}, configStoreOverrides = {}
     ...configStoreOverrides
   };
   server._setConfigStoreForTests(configStore);
-  return { server, mockDataStore, configStore };
+  const gameConfigStore = {
+    getConfig: vi.fn(() => ({ pipes: { speed: 5 } })),
+    getMeta: vi.fn(() => ({ lastLoadedAt: 456 })),
+    save: vi.fn(async (config) => config),
+    ...gameConfigStoreOverrides
+  };
+  server._setGameConfigStoreForTests(gameConfigStore);
+  return { server, mockDataStore, configStore, gameConfigStore };
 }
 
 beforeEach(() => {
@@ -92,12 +96,8 @@ describe("admin routes", () => {
     expect(configStore.save).toHaveBeenCalled();
   });
 
-  it("reads and writes game config files", async () => {
-    const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), "bingus-game-"));
-    const gameConfigPath = path.join(tempDir, "game.json");
-    await fs.writeFile(gameConfigPath, JSON.stringify({ pipes: { speed: 5 } }));
-
-    const { server } = await importServer({ gameConfigPath });
+  it("reads and writes game config via the store", async () => {
+    const { server, gameConfigStore } = await importServer();
     const getRes = createRes();
     await server.route(createReq({ method: "GET", url: "/api/admin/game-config" }), getRes);
     expect(getRes.status).toBe(200);
@@ -109,8 +109,70 @@ describe("admin routes", () => {
       putRes
     );
     expect(putRes.status).toBe(200);
-    const updated = JSON.parse(await fs.readFile(gameConfigPath, "utf8"));
-    expect(updated.scoring.pipeDodge).toBe(2);
+    expect(gameConfigStore.save).toHaveBeenCalledWith({ scoring: { pipeDodge: 2 } });
+  });
+
+  it("persists player config changes via the game config store", async () => {
+    const { server, gameConfigStore } = await importServer();
+
+    const putRes = createRes();
+    await server.route(
+      createReq({
+        method: "PUT",
+        url: "/api/admin/game-config",
+        body: JSON.stringify({ player: { maxSpeed: 420, accel: 900 } })
+      }),
+      putRes
+    );
+    expect(putRes.status).toBe(200);
+    expect(gameConfigStore.save).toHaveBeenCalledWith({ player: { maxSpeed: 420, accel: 900 } });
+  });
+
+  it("persists unlockable menu updates through the server config store", async () => {
+    const { server, configStore } = await importServer();
+
+    const putRes = createRes();
+    await server.route(
+      createReq({
+        method: "PUT",
+        url: "/api/admin/config",
+        body: JSON.stringify({
+          unlockableMenus: {
+            trail: { mode: "allowlist", ids: ["ember"] },
+            player_texture: { mode: "all", ids: [] },
+            pipe_texture: { mode: "allowlist", ids: ["pipe-a"] }
+          }
+        })
+      }),
+      putRes
+    );
+    expect(putRes.status).toBe(200);
+    expect(configStore.save).toHaveBeenCalledWith(
+      expect.objectContaining({
+        unlockableMenus: expect.objectContaining({
+          trail: expect.objectContaining({ mode: "allowlist", ids: ["ember"] }),
+          pipe_texture: expect.objectContaining({ mode: "allowlist", ids: ["pipe-a"] })
+        })
+      })
+    );
+  });
+
+  it("returns errors when game config persistence fails", async () => {
+    const { server } = await importServer({
+      gameConfigStoreOverrides: {
+        save: vi.fn(async () => {
+          throw new Error("boom");
+        })
+      }
+    });
+
+    const putRes = createRes();
+    await server.route(
+      createReq({ method: "PUT", url: "/api/admin/game-config", body: JSON.stringify({ scoring: { pipeDodge: 2 } }) }),
+      putRes
+    );
+    expect(putRes.status).toBe(500);
+    expect(readJson(putRes).error).toBe("game_config_write_failed");
   });
 
   it("lists, creates, and updates documents", async () => {

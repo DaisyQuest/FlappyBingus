@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { promises as fs } from "node:fs";
 import path from "node:path";
 import os from "node:os";
@@ -76,6 +76,38 @@ describe("unlockable menu filtering", () => {
 });
 
 describe("config store", () => {
+  it("prefers persisted config and syncs it to disk", async () => {
+    const dir = await fs.mkdtemp(path.join(os.tmpdir(), "bingus-config-"));
+    const configPath = path.join(dir, "server-config.json");
+    const persistence = {
+      load: vi.fn(async () => ({ session: { ttlSeconds: 33 } }))
+    };
+    const store = createServerConfigStore({ configPath, reloadIntervalMs: 0, persistence });
+
+    const loaded = await store.load();
+
+    expect(persistence.load).toHaveBeenCalled();
+    expect(loaded.session.ttlSeconds).toBe(33);
+    const raw = JSON.parse(await fs.readFile(configPath, "utf8"));
+    expect(raw.session.ttlSeconds).toBe(33);
+    expect(store.getMeta().lastPersistedAt).toBeTypeOf("number");
+  });
+
+  it("falls back to disk when persisted config is unavailable", async () => {
+    const dir = await fs.mkdtemp(path.join(os.tmpdir(), "bingus-config-"));
+    const configPath = path.join(dir, "server-config.json");
+    await fs.writeFile(configPath, JSON.stringify({ session: { ttlSeconds: 44 } }));
+    const persistence = {
+      load: vi.fn(async () => null)
+    };
+    const store = createServerConfigStore({ configPath, reloadIntervalMs: 0, persistence });
+
+    const loaded = await store.load();
+
+    expect(persistence.load).toHaveBeenCalled();
+    expect(loaded.session.ttlSeconds).toBe(44);
+  });
+
   it("loads defaults when config file is missing", async () => {
     const dir = await fs.mkdtemp(path.join(os.tmpdir(), "bingus-config-"));
     const configPath = path.join(dir, "server-config.json");
@@ -97,5 +129,26 @@ describe("config store", () => {
     await fs.writeFile(configPath, JSON.stringify({ session: { ttlSeconds: 17 } }));
     const reloaded = await store.maybeReload();
     expect(reloaded.session.ttlSeconds).toBe(17);
+  });
+
+  it("persists updates through the adapter and writes to disk", async () => {
+    const dir = await fs.mkdtemp(path.join(os.tmpdir(), "bingus-config-"));
+    const configPath = path.join(dir, "server-config.json");
+    const persistence = {
+      save: vi.fn(async () => undefined)
+    };
+    const store = createServerConfigStore({ configPath, reloadIntervalMs: 0, persistence });
+
+    const saved = await store.save({ session: { ttlSeconds: 77 } });
+
+    expect(persistence.save).toHaveBeenCalledWith(
+      expect.objectContaining({
+        session: expect.objectContaining({ ttlSeconds: 77 })
+      })
+    );
+    const raw = JSON.parse(await fs.readFile(configPath, "utf8"));
+    expect(raw.session.ttlSeconds).toBe(77);
+    expect(saved.session.ttlSeconds).toBe(77);
+    expect(store.getMeta().lastPersistedAt).toBeTypeOf("number");
   });
 });
