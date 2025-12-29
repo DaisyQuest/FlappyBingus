@@ -1271,6 +1271,12 @@ export class Game {
     const auraDistanceScale = aura.distanceScale ?? distanceScale;
     const auraSizeScale = aura.sizeScale ?? 1.08;
     const jitterScale = st.jitterScale ?? TRAIL_JITTER_SCALE;
+    const applyShape = (prt, shape, sliceStyle) => {
+      if (!shape) return;
+      prt.shape = shape;
+      if (shape === "lemon_slice") prt.slice = sliceStyle || null;
+      prt.rotation = rand(0, Math.PI * 2);
+    };
 
     this.trailHue = (this.trailHue + dt * (st.hueRate || 220)) % 360;
     this.trailAcc += dt * st.rate;
@@ -1312,11 +1318,7 @@ export class Game {
       const color = st.color ? st.color({ i, hue: this.trailHue, rand }) : "rgba(140,220,255,.62)";
 
       const prt = new Part(bx + jx, by + jy, vx, vy, life, size, color, st.add);
-      if (st.particleShape) {
-        prt.shape = st.particleShape;
-        prt.slice = st.sliceStyle || null;
-        prt.rotation = rand(0, Math.PI * 2);
-      }
+      applyShape(prt, st.particleShape, st.sliceStyle);
       prt.drag = st.drag;
       this.parts.push(prt);
     }
@@ -1341,6 +1343,7 @@ export class Game {
       const prt = new Part(px, py, vx, vy, life, size, color, aura.add ?? st.add);
       prt.drag = aura.drag ?? st.drag ?? 10.5;
       prt.twinkle = aura.twinkle ?? true;
+      applyShape(prt, aura.particleShape);
       this.parts.push(prt);
     }
 
@@ -1362,6 +1365,7 @@ export class Game {
       const prt = new Part(px, py, vx, vy, life, size, color, glint.add !== false);
       prt.drag = glint.drag ?? st.drag ?? 11.2;
       prt.twinkle = true;
+      applyShape(prt, glint.particleShape);
       this.parts.push(prt);
     }
 
@@ -1383,6 +1387,7 @@ export class Game {
       const prt = new Part(px, py, vx, vy, life, size, color, sparkle.add !== false);
       prt.drag = sparkle.drag ?? 12.5;
       prt.twinkle = true;
+      applyShape(prt, sparkle.particleShape);
       this.parts.push(prt);
     }
   }

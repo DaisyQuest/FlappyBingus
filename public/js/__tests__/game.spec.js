@@ -1200,6 +1200,39 @@ describe("Player movement and trail emission", () => {
     expect(game.trailSparkAcc).toBeLessThan(1);
   });
 
+  it("applies per-effect particle shapes when configured", () => {
+    setRandSource(() => 0.5);
+    const { game } = buildGame();
+    game.player.x = 80; game.player.y = 80;
+    game.player.vx = 150; game.player.vy = 0;
+    game.getTrailId = () => "custom";
+    const style = {
+      rate: 1,
+      life: [1, 1],
+      size: [2, 2],
+      speed: [10, 10],
+      drag: 0,
+      add: false,
+      particleShape: "star",
+      glint: { rate: 1, life: [1, 1], size: [1, 1], speed: [1, 1], particleShape: "star" },
+      sparkle: { rate: 1, life: [1, 1], size: [1, 1], speed: [1, 1], particleShape: "star" },
+      aura: { rate: 1, life: [1, 1], size: [1, 1], speed: [1, 1], orbit: [1, 1], particleShape: "star" }
+    };
+    vi.spyOn(game, "_trailStyle").mockReturnValue(style);
+
+    try {
+      const prev = game.parts.length;
+      game._emitTrail(1);
+
+      const produced = game.parts.slice(prev);
+      expect(produced).toHaveLength(4);
+      expect(produced.every((p) => p.shape === "star")).toBe(true);
+      expect(produced.every((p) => p.rotation !== 0)).toBe(true);
+    } finally {
+      setRandSource();
+    }
+  });
+
   it("emits an aura and lengthened particles for a mesmerizing trail cloud", () => {
     setRandSource(() => 0.5);
     const { game } = buildGame();

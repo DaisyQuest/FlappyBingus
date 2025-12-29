@@ -378,6 +378,47 @@ describe("TrailPreview", () => {
     styleSpy.mockRestore();
   });
 
+  it("applies per-effect particle shapes when configured", () => {
+    const { canvas } = makeCanvas();
+    const preview = new TrailPreview({
+      canvas,
+      playerImg: {},
+      requestFrame: null,
+      cancelFrame: null,
+      now: () => 0
+    });
+    preview.player.x = 60;
+    preview.player.y = 60;
+    preview.player.vx = 90;
+    preview.player.vy = 0;
+    preview.player.phase = 0;
+    preview._rand = () => 0.5;
+
+    const style = {
+      rate: 2,
+      life: [1, 1],
+      size: [2, 2],
+      speed: [10, 10],
+      drag: 0,
+      add: false,
+      particleShape: "star",
+      glint: { rate: 2, life: [1, 1], size: [1, 1], speed: [1, 1], particleShape: "star" },
+      sparkle: { rate: 2, life: [1, 1], size: [1, 1], speed: [1, 1], particleShape: "star" },
+      aura: { rate: 2, life: [1, 1], size: [1, 1], speed: [1, 1], orbit: [1, 1], particleShape: "star" }
+    };
+
+    const styleSpy = vi.spyOn(trailStyles, "trailStyleFor").mockReturnValue(style);
+
+    preview._emitTrail(1);
+
+    const produced = preview.parts.slice(-4);
+    expect(produced).toHaveLength(4);
+    expect(produced.every((p) => p.shape === "star")).toBe(true);
+    expect(produced.every((p) => p.rotation !== 0)).toBe(true);
+
+    styleSpy.mockRestore();
+  });
+
   it("scales secondary effects with flow so bright particles do not overpower color", () => {
     const { canvas } = makeCanvas();
     const preview = new TrailPreview({

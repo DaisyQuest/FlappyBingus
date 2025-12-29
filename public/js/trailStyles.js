@@ -206,9 +206,24 @@ const TRAIL_STYLES = Object.freeze({
     drag: 10.4,
     add: true,
     color: paletteColor(["rgba(255,244,214,.9)", "rgba(200,228,255,.88)", "rgba(170,200,255,.86)"]),
-    sparkle: { ...sparkleDefaults, rate: 46, size: [1.6, 3.2], color: starGlow },
-    glint: { ...glintDefaults, rate: 36, size: [2.4, 4.6], speed: [40, 130], color: ({ rand: r }) => hsla((210 + r(-22, 22)) % 360, 88, 86, 0.9) },
-    aura: { rate: 18, size: [6.4, 10.8], life: [0.45, 0.7], color: ({ rand: r }) => hsla((210 + r(-18, 18)) % 360, 70, 76, 0.35), add: true }
+    particleShape: "star",
+    sparkle: { ...sparkleDefaults, rate: 46, size: [1.6, 3.2], color: starGlow, particleShape: "star" },
+    glint: {
+      ...glintDefaults,
+      rate: 36,
+      size: [2.4, 4.6],
+      speed: [40, 130],
+      color: ({ rand: r }) => hsla((210 + r(-22, 22)) % 360, 88, 86, 0.9),
+      particleShape: "star"
+    },
+    aura: {
+      rate: 18,
+      size: [6.4, 10.8],
+      life: [0.45, 0.7],
+      color: ({ rand: r }) => hsla((210 + r(-18, 18)) % 360, 70, 76, 0.35),
+      add: true,
+      particleShape: "star"
+    }
   },
   honeycomb: {
     rate: 82,

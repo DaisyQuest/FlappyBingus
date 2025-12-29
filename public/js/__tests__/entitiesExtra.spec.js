@@ -83,6 +83,20 @@ describe("Part drawing", () => {
     expect(ctx.ops.some((op) => Array.isArray(op) && op[0] === "lineTo")).toBe(true);
     expect(ctx.ops.some((op) => Array.isArray(op) && op[0] === "translate")).toBe(true);
   });
+
+  it("renders classic five-point stars when configured", () => {
+    const ctx = makeMockCtx();
+    const p = new Part(8, 9, 0, 0, 1, 5, "#ff0", false);
+    p.shape = "star";
+    p.rotation = Math.PI / 4;
+
+    p.draw(ctx);
+
+    expect(ctx.ops).toContain("fill");
+    expect(ctx.ops).toContain("closePath");
+    expect(ctx.ops.some((op) => Array.isArray(op) && op[0] === "lineTo")).toBe(true);
+    expect(ctx.ops.some((op) => Array.isArray(op) && op[0] === "translate")).toBe(true);
+  });
 });
 
 describe("FloatText visuals", () => {
