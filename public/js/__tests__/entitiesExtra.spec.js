@@ -15,6 +15,8 @@ const makeMockCtx = () => {
     beginPath: () => ops.push("beginPath"),
     moveTo: (...args) => ops.push(["moveTo", ...args]),
     lineTo: (...args) => ops.push(["lineTo", ...args]),
+    quadraticCurveTo: (...args) => ops.push(["quadraticCurveTo", ...args]),
+    bezierCurveTo: (...args) => ops.push(["bezierCurveTo", ...args]),
     closePath: () => ops.push("closePath"),
     stroke: () => ops.push("stroke"),
     fill: () => ops.push("fill"),
@@ -113,6 +115,24 @@ describe("Part drawing", () => {
     expect(ctx.ops).toContain("stroke");
     expect(ctx.ops).toContain("closePath");
     expect(ctx.ops.some((op) => Array.isArray(op) && op[0] === "lineTo")).toBe(true);
+  });
+
+  it("renders petals and leaves with curved segments", () => {
+    const ctx = makeMockCtx();
+    const petal = new Part(6, 8, 0, 0, 1, 4, "#f9a8d4", false);
+    petal.shape = "petal";
+    petal.rotation = Math.PI / 7;
+    petal.draw(ctx);
+
+    const leaf = new Part(10, 14, 0, 0, 1, 5, "#86efac", false);
+    leaf.shape = "leaf";
+    leaf.rotation = Math.PI / 5;
+    leaf.draw(ctx);
+
+    expect(ctx.ops).toContain("fill");
+    expect(ctx.ops).toContain("closePath");
+    expect(ctx.ops.some((op) => Array.isArray(op) && op[0] === "quadraticCurveTo")).toBe(true);
+    expect(ctx.ops.some((op) => Array.isArray(op) && op[0] === "bezierCurveTo")).toBe(true);
   });
 });
 

@@ -157,6 +157,9 @@ import {
   writeSettingsCookie
 } from "./preferences.js";
 
+import { handleMenuEscape } from "./menuEscapeHandler.js";
+
+
 // ---- DOM ----
 const ui = buildGameUI();
 
@@ -2079,12 +2082,27 @@ retrySeedBtn?.addEventListener("click", async () => {
 toMenuBtn.addEventListener("click", () => toMenu());
 
 window.addEventListener("keydown", (e) => {
-  if (e.code === "Escape" && trailOverlay && !trailOverlay.classList.contains("hidden")) {
-    e.preventDefault();
-    toggleTrailMenu(trailOverlay, false);
-    if (lastTrailHint) setTrailHint(lastTrailHint, { persist: false });
-    return;
-  }
+  const handledOverlayEscape = handleMenuEscape(e, {
+    trailOverlay,
+    iconOverlay,
+    pipeTextureOverlay,
+    closeTrailMenu: () => {
+      toggleTrailMenu(trailOverlay, false);
+      if (lastTrailHint) setTrailHint(lastTrailHint, { persist: false });
+    },
+    closeIconMenu: () => {
+      toggleIconMenu(iconOverlay, false);
+      resetIconHint(iconHint);
+    },
+    closePipeTextureMenu: () => {
+      togglePipeTextureMenu(pipeTextureOverlay, false);
+      if (pipeTextureHint) {
+        pipeTextureHint.className = "hint";
+        pipeTextureHint.textContent = DEFAULT_PIPE_TEXTURE_HINT;
+      }
+    }
+  });
+  if (handledOverlayEscape) return;
   if (e.code === "Enter" && !startBtn.disabled && !menu.classList.contains("hidden")) {
     e.preventDefault();
     // user gesture: ok to start audio

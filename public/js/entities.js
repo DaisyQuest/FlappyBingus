@@ -134,6 +134,7 @@ export class Part {
       const segments = Math.max(4, Math.floor(slice.segments || 6));
       const inner = r * 0.82;
       const pulp = r * 0.64;
+      const gap = Math.min(0.22, Math.max(0.06, slice.segmentGap ?? 0.12));
       ctx.translate(this.x, this.y);
       if (this.rotation) ctx.rotate(this.rotation);
       ctx.fillStyle = rind;
@@ -148,15 +149,46 @@ export class Part {
       ctx.beginPath();
       ctx.arc(0, 0, pulp, 0, Math.PI * 2);
       ctx.fill();
+      ctx.fillStyle = segment;
+      for (let i = 0; i < segments; i++) {
+        const step = (Math.PI * 2) / segments;
+        const start = i * step + step * gap;
+        const end = (i + 1) * step - step * gap;
+        ctx.beginPath();
+        ctx.moveTo(0, 0);
+        ctx.arc(0, 0, pulp, start, end);
+        ctx.closePath();
+        ctx.fill();
+      }
       ctx.strokeStyle = segment;
-      ctx.lineWidth = Math.max(0.6, r * 0.12);
+      ctx.lineWidth = Math.max(0.7, r * 0.14);
       for (let i = 0; i < segments; i++) {
         const ang = (Math.PI * 2 * i) / segments;
         ctx.beginPath();
         ctx.moveTo(0, 0);
-        ctx.lineTo(Math.cos(ang) * inner * 0.92, Math.sin(ang) * inner * 0.92);
+        ctx.lineTo(Math.cos(ang) * inner * 0.94, Math.sin(ang) * inner * 0.94);
         ctx.stroke();
       }
+    } else if (this.shape === "petal") {
+      ctx.translate(this.x, this.y);
+      if (this.rotation) ctx.rotate(this.rotation);
+      ctx.fillStyle = this.color;
+      ctx.beginPath();
+      ctx.moveTo(0, -r);
+      ctx.quadraticCurveTo(r * 0.85, -r * 0.15, 0, r);
+      ctx.quadraticCurveTo(-r * 0.85, -r * 0.15, 0, -r);
+      ctx.closePath();
+      ctx.fill();
+    } else if (this.shape === "leaf") {
+      ctx.translate(this.x, this.y);
+      if (this.rotation) ctx.rotate(this.rotation);
+      ctx.fillStyle = this.color;
+      ctx.beginPath();
+      ctx.moveTo(0, -r);
+      ctx.bezierCurveTo(r * 0.9, -r * 0.2, r * 0.6, r * 0.9, 0, r);
+      ctx.bezierCurveTo(-r * 0.6, r * 0.9, -r * 0.9, -r * 0.2, 0, -r);
+      ctx.closePath();
+      ctx.fill();
     } else if (this.shape === "hexagon") {
       const fill = this.fillColor ?? this.color;
       const stroke = this.strokeColor ?? this.color;

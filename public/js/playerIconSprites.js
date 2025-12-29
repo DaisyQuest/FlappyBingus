@@ -357,6 +357,79 @@ function drawCapeEmbers(ctx, radius, animation = {}, phase = 0) {
   ctx.globalAlpha = 1;
 }
 
+function drawCobblestone(ctx, radius, options = {}) {
+  if (!ctx) return;
+  const base = options.base || "#2b0b0b";
+  const highlight = options.highlight || "#f57c21";
+  const stroke = options.stroke || "#150505";
+  const glow = options.glow || null;
+  const lineWidth = Number.isFinite(options.lineWidth) ? options.lineWidth : Math.max(1, radius * 0.06);
+  const rawStoneSize = Number.isFinite(options.stoneSize) ? options.stoneSize : 0.2;
+  const stoneSize = rawStoneSize <= 1 ? rawStoneSize * radius : rawStoneSize;
+  const rawGap = Number.isFinite(options.gap) ? options.gap : stoneSize * 0.18;
+  const gap = rawGap <= 1 ? rawGap * radius : rawGap;
+  const rowStep = stoneSize + gap;
+  const maxRadius = radius * 0.94;
+
+  ctx.save?.();
+  ctx.lineWidth = lineWidth;
+  ctx.strokeStyle = stroke;
+  if (glow) {
+    ctx.shadowColor = glow;
+    ctx.shadowBlur = Math.max(2, radius * 0.08);
+  } else {
+    ctx.shadowBlur = 0;
+  }
+
+  let rowIndex = 0;
+  for (let y = -radius + rowStep * 0.6; y <= radius - rowStep * 0.6; y += rowStep * 0.86) {
+    const offset = (rowIndex % 2) * rowStep * 0.45;
+    let colIndex = 0;
+    for (let x = -radius + rowStep * 0.6 + offset; x <= radius - rowStep * 0.6; x += rowStep) {
+      const seed = rowIndex * 12.37 + colIndex * 5.79;
+      const jitterX = Math.sin(seed * 0.9) * stoneSize * 0.08;
+      const jitterY = Math.cos(seed * 1.1) * stoneSize * 0.08;
+      const w = stoneSize * (0.75 + 0.2 * Math.sin(seed));
+      const h = stoneSize * (0.7 + 0.2 * Math.cos(seed * 0.7));
+      const cx = x + jitterX;
+      const cy = y + jitterY;
+      if (Math.hypot(cx, cy) > maxRadius) {
+        colIndex += 1;
+        continue;
+      }
+
+      ctx.beginPath?.();
+      ctx.moveTo?.(cx - w * 0.5, cy - h * 0.5);
+      ctx.lineTo?.(cx + w * 0.5, cy - h * 0.5);
+      ctx.lineTo?.(cx + w * 0.55, cy + h * 0.1);
+      ctx.lineTo?.(cx + w * 0.2, cy + h * 0.55);
+      ctx.lineTo?.(cx - w * 0.45, cy + h * 0.45);
+      ctx.closePath?.();
+      ctx.globalAlpha = 0.45;
+      ctx.fillStyle = base;
+      ctx.fill?.();
+      ctx.globalAlpha = 0.6;
+      ctx.stroke?.();
+
+      ctx.beginPath?.();
+      ctx.moveTo?.(cx - w * 0.4, cy - h * 0.42);
+      ctx.lineTo?.(cx + w * 0.15, cy - h * 0.45);
+      ctx.lineTo?.(cx + w * 0.3, cy - h * 0.1);
+      ctx.lineTo?.(cx - w * 0.1, cy + h * 0.05);
+      ctx.closePath?.();
+      ctx.globalAlpha = 0.35;
+      ctx.fillStyle = highlight;
+      ctx.fill?.();
+
+      colIndex += 1;
+    }
+    rowIndex += 1;
+  }
+
+  ctx.globalAlpha = 1;
+  ctx.restore?.();
+}
+
 function renderIconFrame(ctx, canvas, icon = {}, { animationPhase = 0 } = {}) {
   if (!ctx || !canvas) return;
   const style = icon.style || {};
@@ -452,6 +525,17 @@ function renderIconFrame(ctx, canvas, icon = {}, { animationPhase = 0 } = {}) {
       segmentWidth: pattern.segmentWidth
     });
     canvas.__pattern = { type: "citrus_slice" };
+  } else if (pattern?.type === "cobblestone") {
+    drawCobblestone(ctx, outer * 0.88, {
+      base: pattern.base || fill,
+      highlight: pattern.highlight || core,
+      stroke: pattern.stroke || rim,
+      glow: pattern.glow || glow,
+      lineWidth: pattern.lineWidth,
+      stoneSize: pattern.stoneSize,
+      gap: pattern.gap
+    });
+    canvas.__pattern = { type: "cobblestone" };
   }
 
   ctx.restore?.();
@@ -517,6 +601,7 @@ export const __testables = {
   createLavaGradient,
   createCapeFlowGradient,
   drawCapeEmbers,
+  drawCobblestone,
   renderIconFrame,
   maybeStartSpriteAnimation
 };
