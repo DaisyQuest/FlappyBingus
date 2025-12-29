@@ -702,8 +702,8 @@ async function handlePlayHighscore(username) {
       return;
     }
 
-    await playReplay({ captureMode: "none", run: playbackRun });
-    if (replayStatus) {
+    const played = await replayManager.play({ captureMode: "none", run: playbackRun });
+    if (played && replayStatus) {
       replayStatus.className = "hint good";
       replayStatus.textContent = `Playing ${username}'s best run… done.`;
     }
