@@ -140,7 +140,11 @@ import { applyNetUserUpdate } from "./netUser.js";
 import { handleTrailSaveResponse } from "./trailSaveResponse.js";
 import { readSessionUsername } from "./session.js";
 import { recoverUserFromUsername } from "./sessionRecovery.js";
-import { shouldAttemptReauth, shouldAttemptReauthForGuestHint } from "./userHintRecovery.js";
+import {
+  resolveReauthUsername,
+  shouldAttemptReauth,
+  shouldAttemptReauthForGuestHint
+} from "./userHintRecovery.js";
 import {
   genRandomSeed,
   readIconCookie,
@@ -614,7 +618,10 @@ function setUserHint() {
     userHint.className = hint.className;
     userHint.textContent = hint.text;
   }
-  const username = usernameInput?.value?.trim();
+  const username = resolveReauthUsername({
+    inputValue: usernameInput?.value,
+    sessionUsername: readSessionUsername()
+  });
   const shouldReauth = shouldAttemptReauth({
     hintText: hint.text,
     username,
@@ -1349,7 +1356,10 @@ async function recoverSession() {
 
 async function ensureLoggedInForSave() {
   if (net.user) return true;
-  const username = usernameInput?.value?.trim();
+  const username = resolveReauthUsername({
+    inputValue: usernameInput?.value,
+    sessionUsername: readSessionUsername()
+  });
   if (!username) return false;
   const recovered = await recoverUserFromUsername({
     username,

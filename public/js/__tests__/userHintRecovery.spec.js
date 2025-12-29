@@ -1,15 +1,35 @@
 import { describe, expect, it } from "vitest";
-import { shouldAttemptReauth, shouldAttemptReauthForGuestHint } from "../userHintRecovery.js";
+import {
+  resolveReauthUsername,
+  shouldAttemptReauth,
+  shouldAttemptReauthForGuestHint
+} from "../userHintRecovery.js";
 import { GUEST_TRAIL_HINT_TEXT } from "../trailHint.js";
 import { SIGNED_OUT_TEXT } from "../userStatusCopy.js";
 
 describe("user hint recovery", () => {
+  it("prefers the input username when resolving reauth", () => {
+    expect(resolveReauthUsername({ inputValue: "  PlayerOne  ", sessionUsername: "SessionUser" })).toBe("PlayerOne");
+  });
+
+  it("falls back to the session username when the input is empty", () => {
+    expect(resolveReauthUsername({ inputValue: " ", sessionUsername: "SessionUser" })).toBe("SessionUser");
+  });
+
+  it("returns an empty username when no valid values exist", () => {
+    expect(resolveReauthUsername({ inputValue: null, sessionUsername: undefined })).toBe("");
+  });
+
   it("returns false when reauth is in flight", () => {
     expect(shouldAttemptReauth({ hintText: SIGNED_OUT_TEXT, username: "PlayerOne", inFlight: true })).toBe(false);
   });
 
   it("returns false when the username is missing", () => {
     expect(shouldAttemptReauth({ hintText: SIGNED_OUT_TEXT, username: "", inFlight: false })).toBe(false);
+  });
+
+  it("returns false when the username is only whitespace", () => {
+    expect(shouldAttemptReauth({ hintText: SIGNED_OUT_TEXT, username: "   ", inFlight: false })).toBe(false);
   });
 
   it("returns false for non-signed-out hints", () => {
@@ -26,6 +46,14 @@ describe("user hint recovery", () => {
       username: "PlayerOne",
       inFlight: false
     })).toBe(true);
+  });
+
+  it("returns false when guest reauth is in flight", () => {
+    expect(shouldAttemptReauthForGuestHint({
+      hintText: GUEST_TRAIL_HINT_TEXT,
+      username: "PlayerOne",
+      inFlight: true
+    })).toBe(false);
   });
 
   it("returns false when the guest trail hint is shown without a username", () => {
