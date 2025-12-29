@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   resolveReauthUsername,
+  shouldTriggerGuestSave,
   shouldUpdateTrailHint,
   shouldAttemptReauth,
   shouldAttemptReauthForGuestHint
@@ -35,6 +36,46 @@ describe("user hint recovery", () => {
 
   it("updates trail hints when the text changes", () => {
     expect(shouldUpdateTrailHint({ currentText: "Old", nextText: "New" })).toBe(true);
+  });
+
+  it("triggers guest save when the guest hint is newly shown", () => {
+    expect(shouldTriggerGuestSave({
+      currentText: "Old",
+      nextText: GUEST_TRAIL_HINT_TEXT,
+      alreadyTriggered: false
+    })).toBe(true);
+  });
+
+  it("does not trigger guest save when already triggered", () => {
+    expect(shouldTriggerGuestSave({
+      currentText: "Old",
+      nextText: GUEST_TRAIL_HINT_TEXT,
+      alreadyTriggered: true
+    })).toBe(false);
+  });
+
+  it("does not trigger guest save for non-guest text", () => {
+    expect(shouldTriggerGuestSave({
+      currentText: "Old",
+      nextText: "Other",
+      alreadyTriggered: false
+    })).toBe(false);
+  });
+
+  it("does not trigger guest save when next text is empty", () => {
+    expect(shouldTriggerGuestSave({
+      currentText: "Old",
+      nextText: "",
+      alreadyTriggered: false
+    })).toBe(false);
+  });
+
+  it("does not trigger guest save when guest text is unchanged", () => {
+    expect(shouldTriggerGuestSave({
+      currentText: GUEST_TRAIL_HINT_TEXT,
+      nextText: GUEST_TRAIL_HINT_TEXT,
+      alreadyTriggered: false
+    })).toBe(false);
   });
 
   it("returns false when reauth is in flight", () => {

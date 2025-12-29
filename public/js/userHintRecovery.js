@@ -21,6 +21,13 @@ export function shouldUpdateTrailHint({ currentText, nextText } = {}) {
   return currentText !== nextText;
 }
 
+export function shouldTriggerGuestSave({ currentText, nextText, alreadyTriggered } = {}) {
+  if (alreadyTriggered) return false;
+  if (!nextText) return false;
+  if (nextText !== GUEST_TRAIL_HINT_TEXT) return false;
+  return shouldUpdateTrailHint({ currentText, nextText });
+}
+
 function shouldAttemptReauthForHint({ hintText, username, inFlight, matchText } = {}) {
   if (inFlight) return false;
   if (!normalizeUsername(username)) return false;

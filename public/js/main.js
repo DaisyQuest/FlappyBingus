@@ -142,6 +142,7 @@ import { readSessionUsername } from "./session.js";
 import { recoverUserFromUsername } from "./sessionRecovery.js";
 import {
   resolveReauthUsername,
+  shouldTriggerGuestSave,
   shouldUpdateTrailHint,
   shouldAttemptReauth,
   shouldAttemptReauthForGuestHint
@@ -602,6 +603,7 @@ function setNetUser(nextUser, { syncProfile = true } = {}) {
 }
 
 let reauthInProgress = false;
+let guestSaveTriggered = false;
 
 function setUserHint() {
   const best = net.user ? (net.user.bestScore | 0) : readLocalBest();
@@ -649,6 +651,16 @@ function setUserHint() {
   }
   if (trailHint && authTrailHint?.text) {
     const current = trailHint.textContent;
+    if (shouldTriggerGuestSave({
+      currentText: current,
+      nextText: authTrailHint.text,
+      alreadyTriggered: guestSaveTriggered
+    })) {
+      guestSaveTriggered = true;
+      saveUserBtn?.click?.();
+    } else if (authTrailHint.text !== GUEST_TRAIL_HINT_TEXT) {
+      guestSaveTriggered = false;
+    }
     if (shouldUpdateTrailHint({ currentText: current, nextText: authTrailHint.text })) {
       setTrailHint(authTrailHint);
     }
