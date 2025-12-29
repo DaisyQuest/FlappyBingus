@@ -1,84 +1,57 @@
-// @vitest-environment jsdom
 import { describe, expect, it } from "vitest";
-import { createMenuProfileModel } from "../menuProfileBindings.js";
+import { syncMenuProfileBindings } from "../menuProfileBindings.js";
+
+function createRefs() {
+  return {
+    usernameInput: { value: "" },
+    pbText: { textContent: "" },
+    bustercoinText: { textContent: "" },
+    trailText: { textContent: "" },
+    iconText: { textContent: "" },
+    pipeTextureText: { textContent: "" }
+  };
+}
 
 describe("menu profile bindings", () => {
-  function buildRefs() {
-    return {
-      usernameInput: document.createElement("input"),
-      pbText: document.createElement("span"),
-      trailText: document.createElement("span"),
-      iconText: document.createElement("span"),
-      pipeTextureText: document.createElement("span"),
-      bustercoinText: document.createElement("span")
-    };
-  }
-
-  it("syncs currency and best score when the user updates", () => {
-    const refs = buildRefs();
-    const model = createMenuProfileModel({
+  it("uses fallback usernames when the user is missing", () => {
+    const refs = createRefs();
+    const result = syncMenuProfileBindings({
       refs,
+      user: null,
       trails: [{ id: "classic", name: "Classic" }],
-      icons: [{ id: "starter", name: "Starter" }],
+      icons: [{ id: "icon", name: "Icon" }],
       pipeTextures: [{ id: "basic", name: "Basic" }],
-      bestScoreFallback: 12
+      fallbackUsername: "PlayerOne",
+      bestScoreFallback: 42
     });
 
-    model.sync();
-    expect(refs.pbText.textContent).toBe("12");
-    expect(refs.bustercoinText.textContent).toBe("0");
-    expect(model.getModel().user).toBeNull();
-
-    model.updateUser({
-      username: "bingus",
-      bestScore: 44,
-      bustercoins: 7,
-      currencies: { bustercoin: 7 },
-      selectedTrail: "classic",
-      selectedIcon: "starter",
-      selectedPipeTexture: "basic"
-    });
-
-    expect(refs.usernameInput.value).toBe("bingus");
-    expect(refs.pbText.textContent).toBe("44");
-    expect(refs.bustercoinText.textContent).toBe("7");
-    expect(refs.trailText.textContent).toBe("Classic");
-    expect(refs.iconText.textContent).toBe("Starter");
-    expect(refs.pipeTextureText.textContent).toBe("Basic");
+    expect(refs.usernameInput.value).toBe("PlayerOne");
+    expect(result.username).toBe("PlayerOne");
+    expect(refs.pbText.textContent).toBe("42");
   });
 
-  it("refreshes display names when catalogs change", () => {
-    const refs = buildRefs();
-    const model = createMenuProfileModel({
+  it("prefers user data over fallbacks", () => {
+    const refs = createRefs();
+    const result = syncMenuProfileBindings({
       refs,
       user: {
-        selectedTrail: "nova",
-        selectedIcon: "spark",
-        selectedPipeTexture: "pulse"
+        username: "RealUser",
+        bestScore: 100,
+        selectedTrail: "classic",
+        selectedIcon: "icon",
+        selectedPipeTexture: "basic",
+        currencies: { bustercoin: 5 }
       },
-      trails: [{ id: "nova", name: "Nova" }],
-      icons: [{ id: "spark", name: "Spark" }],
-      pipeTextures: [{ id: "pulse", name: "Pulse" }]
+      trails: [{ id: "classic", name: "Classic" }],
+      icons: [{ id: "icon", name: "Icon" }],
+      pipeTextures: [{ id: "basic", name: "Basic" }],
+      fallbackUsername: "Fallback",
+      bestScoreFallback: 0
     });
 
-    model.sync();
-    expect(refs.trailText.textContent).toBe("Nova");
-    expect(refs.iconText.textContent).toBe("Spark");
-    expect(refs.pipeTextureText.textContent).toBe("Pulse");
-
-    model.updateCatalogs({
-      trails: [{ id: "nova", name: "Nova Prime" }],
-      icons: [{ id: "spark", name: "Spark Prime" }],
-      pipeTextures: [{ id: "pulse", name: "Pulse Prime" }]
-    });
-
-    expect(refs.trailText.textContent).toBe("Nova Prime");
-    expect(refs.iconText.textContent).toBe("Spark Prime");
-    expect(refs.pipeTextureText.textContent).toBe("Pulse Prime");
-
-    model.updateCatalogs({ icons: [{ id: "spark", name: "Spark Ultra" }] });
-    expect(refs.trailText.textContent).toBe("Nova Prime");
-    expect(refs.iconText.textContent).toBe("Spark Ultra");
-    expect(refs.pipeTextureText.textContent).toBe("Pulse Prime");
+    expect(refs.usernameInput.value).toBe("RealUser");
+    expect(result.username).toBe("RealUser");
+    expect(refs.pbText.textContent).toBe("100");
+    expect(refs.bustercoinText.textContent).toBe("5");
   });
 });

@@ -138,6 +138,7 @@ import { buildAuthHints } from "./authHints.js";
 import { OFFLINE_STATUS_TEXT } from "./userStatusCopy.js";
 import { applyNetUserUpdate } from "./netUser.js";
 import { handleTrailSaveResponse } from "./trailSaveResponse.js";
+import { readSessionUsername } from "./session.js";
 import {
   genRandomSeed,
   readIconCookie,
@@ -567,6 +568,7 @@ function refreshBootUI() {
 
 // ---- Menu rendering (highscores, cosmetics, binds) ----
 function syncMenuProfileBindingsFromState({
+  fallbackUsername = readSessionUsername() || "",
   fallbackTrailId = currentTrailId,
   fallbackIconId = currentIconId,
   fallbackPipeTextureId = currentPipeTextureId,
@@ -577,6 +579,7 @@ function syncMenuProfileBindingsFromState({
     trails: net.trails,
     icons: playerIcons,
     pipeTextures: net.pipeTextures,
+    fallbackUsername,
     fallbackTrailId,
     fallbackIconId,
     fallbackPipeTextureId,
@@ -1261,11 +1264,13 @@ async function updateSkillSettings(next, { persist = true } = {}) {
 }
 
 // ---- Server refresh ----
-async function refreshProfileAndHighscores() {
+async function refreshProfileAndHighscores({ keepUserOnFailure = false } = {}) {
   const me = await apiGetMe();
   if (!me?.ok) {
     net.online = false;
-    setNetUser(null);
+    if (!keepUserOnFailure) {
+      setNetUser(null);
+    }
     syncIconCatalog(net.icons || playerIcons);
     net.achievements = { definitions: ACHIEVEMENTS, state: normalizeAchievementState() };
   } else {
@@ -1310,7 +1315,7 @@ async function refreshProfileAndHighscores() {
 }
 
 async function recoverSession() {
-  await refreshProfileAndHighscores();
+  await refreshProfileAndHighscores({ keepUserOnFailure: true });
   return Boolean(net.user);
 }
 
