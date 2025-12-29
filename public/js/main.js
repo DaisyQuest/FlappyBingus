@@ -19,8 +19,13 @@ import {
 } from "./api.js";
 
 import {
-  escapeHtml, clamp, getCookie, setCookie,
-  setRandSource, createSeededRand, createTapeRandRecorder, createTapeRandPlayer, formatRunDuration
+  escapeHtml,
+  clamp,
+  setRandSource,
+  createSeededRand,
+  createTapeRandRecorder,
+  createTapeRandPlayer,
+  formatRunDuration
 } from "./util.js";
 
 import { Game } from "./game.js";
@@ -133,6 +138,21 @@ import { buildAuthHints } from "./authHints.js";
 import { OFFLINE_STATUS_TEXT } from "./userStatusCopy.js";
 import { applyNetUserUpdate } from "./netUser.js";
 import { handleTrailSaveResponse } from "./trailSaveResponse.js";
+import {
+  genRandomSeed,
+  readIconCookie,
+  readLocalBest,
+  readPipeTextureCookie,
+  readPipeTextureModeCookie,
+  readSeed,
+  readSettingsCookie,
+  writeIconCookie,
+  writeLocalBest,
+  writePipeTextureCookie,
+  writePipeTextureModeCookie,
+  writeSeed,
+  writeSettingsCookie
+} from "./preferences.js";
 
 // ---- DOM ----
 const ui = buildGameUI();
@@ -245,15 +265,6 @@ const {
 } = ui;
 
 // ---- Local best fallback cookie (legacy support) ----
-const LOCAL_BEST_COOKIE = "chocolate_chip";
-function readLocalBest() {
-  const raw = getCookie(LOCAL_BEST_COOKIE);
-  const n = Number.parseInt(raw, 10);
-  return (Number.isFinite(n) && n >= 0) ? Math.min(n, 1e9) : 0;
-}
-function writeLocalBest(v) {
-  setCookie(LOCAL_BEST_COOKIE, String(Math.max(0, Math.min(1e9, v | 0))), 3650);
-}
 function updatePersonalBestUI(finalScore, userBestScore) {
   if (!overPB) return;
   const personalBestStatus = computePersonalBestStatus(finalScore, userBestScore, readLocalBest());
@@ -293,69 +304,6 @@ function updateGameOverStats({ view = currentStatsView, runStats = lastRunStats,
   overPerfectCombo.textContent = String(resolved.combo.perfect);
   renderSkillUsageStats(skillUsageStats, resolved.skillUsage);
   applyStatsLabels(resolved.labels);
-}
-
-// ---- Seed cookie ----
-const SEED_COOKIE = "sesame_seed";
-function readSeed() {
-  const raw = getCookie(SEED_COOKIE);
-  try { return raw ? decodeURIComponent(raw) : ""; } catch { return raw || ""; }
-}
-function writeSeed(s) {
-  setCookie(SEED_COOKIE, String(s ?? ""), 3650);
-}
-function genRandomSeed() {
-  const u = new Uint32Array(2);
-  crypto.getRandomValues(u);
-  return `${u[0].toString(16)}-${u[1].toString(16)}`;
-}
-
-const SETTINGS_COOKIE = "bingus_settings";
-function readSettingsCookie() {
-  const raw = getCookie(SETTINGS_COOKIE);
-  if (!raw) return null;
-  try {
-    const parsed = JSON.parse(raw);
-    return normalizeSkillSettings(parsed);
-  } catch {
-    return null;
-  }
-}
-function writeSettingsCookie(settings) {
-  try {
-    setCookie(SETTINGS_COOKIE, JSON.stringify(normalizeSkillSettings(settings || {})), 3650);
-  } catch {
-    // ignore cookie errors
-  }
-}
-
-const ICON_COOKIE = "bingus_icon";
-function readIconCookie() {
-  const raw = getCookie(ICON_COOKIE);
-  return raw && typeof raw === "string" ? raw : null;
-}
-function writeIconCookie(id) {
-  if (!id) return;
-  setCookie(ICON_COOKIE, String(id), 3650);
-}
-
-const PIPE_TEXTURE_COOKIE = "bingus_pipe_texture";
-const PIPE_TEXTURE_MODE_COOKIE = "bingus_pipe_texture_mode";
-function readPipeTextureCookie() {
-  const raw = getCookie(PIPE_TEXTURE_COOKIE);
-  return raw && typeof raw === "string" ? raw : null;
-}
-function writePipeTextureCookie(id) {
-  if (!id) return;
-  setCookie(PIPE_TEXTURE_COOKIE, String(id), 3650);
-}
-function readPipeTextureModeCookie() {
-  const raw = getCookie(PIPE_TEXTURE_MODE_COOKIE);
-  return raw && typeof raw === "string" ? raw : null;
-}
-function writePipeTextureModeCookie(mode) {
-  const normalized = normalizePipeTextureMode(mode);
-  setCookie(PIPE_TEXTURE_MODE_COOKIE, normalized, 3650);
 }
 
 let menuParallaxControl = null;
