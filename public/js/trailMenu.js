@@ -31,6 +31,14 @@ export function describeTrailLock(trail, { unlocked = false, bestScore = 0, isRe
   return "Unlock more trails by improving your best run.";
 }
 
+export function trailHoverText(trail, { unlocked = false, lockText = "" } = {}) {
+  if (!trail) return "";
+  if (unlocked) {
+    return `Click to equip ${trail.name || trail.id}.`;
+  }
+  return lockText || describeTrailLock(trail, { unlocked });
+}
+
 export function renderTrailOptions({
   container,
   trails = [],
@@ -102,6 +110,8 @@ export function toggleTrailMenu(overlay, open) {
   if (shouldOpen) {
     overlay.classList.remove("hidden");
     overlay.setAttribute("aria-hidden", "false");
+    const panel = overlay.querySelector(".trail-overlay-panel");
+    if (panel) panel.scrollTop = 0;
   } else {
     overlay.classList.add("hidden");
     overlay.setAttribute("aria-hidden", "true");
@@ -112,5 +122,6 @@ export function toggleTrailMenu(overlay, open) {
 export const __testables = {
   describeTrailLock,
   renderTrailOptions,
+  trailHoverText,
   toggleTrailMenu
 };

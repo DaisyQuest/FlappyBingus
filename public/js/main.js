@@ -115,6 +115,7 @@ import {
   DEFAULT_TRAIL_HINT,
   describeTrailLock,
   renderTrailOptions as renderTrailMenuOptions,
+  trailHoverText,
   toggleTrailMenu
 } from "./trailMenu.js";
 import { SHOP_TABS, getPurchasableUnlockablesByType, renderShopItems } from "./shopMenu.js";
@@ -1570,8 +1571,14 @@ trailOptions?.addEventListener("click", async (e) => {
       }, { source: "trail" });
       return;
     }
-    setTrailHint({ className: "hint bad", text: btn.dataset.statusText || describeTrailLock(targetTrail, { unlocked: false, bestScore: best, isRecordHolder: Boolean(net.user?.isRecordHolder) }) }, { persist: false });
+    const lockText = btn.dataset.statusText
+      || describeTrailLock(targetTrail, {
+        unlocked: false,
+        bestScore: best,
+        isRecordHolder: Boolean(net.user?.isRecordHolder)
+      });
     refreshTrailMenu(currentTrailId);
+    setTrailHint({ className: "hint bad", text: lockText }, { persist: false });
     return;
   }
 
@@ -1614,10 +1621,14 @@ trailOptions?.addEventListener("click", async (e) => {
 trailOptions?.addEventListener("mouseover", (e) => {
   const btn = e.target.closest("button[data-trail-id]");
   if (!btn) return;
-  const locked = btn.dataset.locked === "true";
-  const name = btn.dataset.trailName || btn.dataset.trailId;
-  const text = locked ? (btn.dataset.statusText || DEFAULT_TRAIL_HINT) : `Click to equip ${name}.`;
-  setTrailHint({ className: locked ? "hint" : "hint good", text }, { persist: false });
+  const id = btn.dataset.trailId;
+  const trail = net.trails.find((item) => item.id === id) || { id, name: btn.dataset.trailName || id };
+  const best = net.user ? (net.user.bestScore | 0) : readLocalBest();
+  const unlocked = computeUnlockedTrailSet(net.trails).has(id);
+  const lockText = btn.dataset.statusText
+    || describeTrailLock(trail, { unlocked, bestScore: best, isRecordHolder: Boolean(net.user?.isRecordHolder) });
+  const text = trailHoverText(trail, { unlocked, lockText });
+  setTrailHint({ className: unlocked ? "hint good" : "hint", text }, { persist: false });
 });
 
 trailOptions?.addEventListener("mouseout", (e) => {
@@ -2071,6 +2082,12 @@ retrySeedBtn?.addEventListener("click", async () => {
 toMenuBtn.addEventListener("click", () => toMenu());
 
 window.addEventListener("keydown", (e) => {
+  if (e.code === "Escape" && trailOverlay && !trailOverlay.classList.contains("hidden")) {
+    e.preventDefault();
+    toggleTrailMenu(trailOverlay, false);
+    if (lastTrailHint) setTrailHint(lastTrailHint, { persist: false });
+    return;
+  }
   if (e.code === "Enter" && !startBtn.disabled && !menu.classList.contains("hidden")) {
     e.preventDefault();
     // user gesture: ok to start audio

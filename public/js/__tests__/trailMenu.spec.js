@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { JSDOM } from "jsdom";
-import { DEFAULT_TRAIL_HINT, describeTrailLock, renderTrailOptions, toggleTrailMenu } from "../trailMenu.js";
+import { DEFAULT_TRAIL_HINT, describeTrailLock, renderTrailOptions, toggleTrailMenu, trailHoverText } from "../trailMenu.js";
 
 describe("trailMenu helpers", () => {
   let document;
@@ -82,6 +82,24 @@ describe("trailMenu helpers", () => {
     toggleTrailMenu(overlay, false);
     expect(overlay.classList.contains("hidden")).toBe(true);
     expect(overlay.getAttribute("aria-hidden")).toBe("true");
+  });
+
+  it("resets the trail overlay scroll position when opened", () => {
+    const overlay = document.createElement("div");
+    overlay.className = "trail-overlay hidden";
+    const panel = document.createElement("div");
+    panel.className = "trail-overlay-panel";
+    panel.scrollTop = 120;
+    overlay.append(panel);
+
+    toggleTrailMenu(overlay, true);
+    expect(panel.scrollTop).toBe(0);
+  });
+
+  it("provides hover copy for unlocked and locked trails", () => {
+    const trail = { id: "aurora", name: "Aurora" };
+    expect(trailHoverText(trail, { unlocked: true })).toContain("Click to equip");
+    expect(trailHoverText(trail, { unlocked: false, lockText: "Score 100" })).toBe("Score 100");
   });
 
   it("keeps every unlocked trail selectable with preserved names and aria state", () => {
