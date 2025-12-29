@@ -121,21 +121,31 @@ export const DEFAULT_PLAYER_ICONS = Object.freeze([
     name: "Fire Cape",
     unlock: { type: "achievement", id: "score_fire_cape_1000", label: "Fire Cape Trial" },
     style: {
-      fill: "#260808",
-      core: "#ffb14b",
-      rim: "#0d0303",
-      glow: "#ffd59a",
+      fill: "#1d0707",
+      core: "#ffb264",
+      rim: "#110404",
+      glow: "#ffd08a",
+      pattern: {
+        type: "cobblestone",
+        base: "#2a0c0b",
+        highlight: "#ff8a2a",
+        stroke: "#130404",
+        glow: "#ffb870",
+        stoneSize: 0.18,
+        gap: 0.03
+      },
       animation: {
-        type: "lava",
+        type: "cape_flow",
         palette: {
-          base: "#1b0707",
-          ember: "#a22b12",
-          molten: "#f06a1d",
-          flare: "#ffd27a"
+          base: "#200909",
+          ash: "#3a0e0d",
+          ember: "#b32716",
+          molten: "#f06d22",
+          flare: "#ffd07d"
         },
-        speed: 0.045,
-        layers: 4,
-        smoothness: 0.75
+        speed: 0.32,
+        bands: 7,
+        embers: 0.85
       }
     }
   },
@@ -144,21 +154,31 @@ export const DEFAULT_PLAYER_ICONS = Object.freeze([
     name: "Inferno Cape",
     unlock: { type: "achievement", id: "score_inferno_cape_2000", label: "Inferno Challenge" },
     style: {
-      fill: "#140505",
-      core: "#ff6b2b",
-      rim: "#070404",
-      glow: "#ffb068",
+      fill: "#140303",
+      core: "#ff7b2f",
+      rim: "#070303",
+      glow: "#ffb36a",
+      pattern: {
+        type: "cobblestone",
+        base: "#1f0706",
+        highlight: "#ff5f1f",
+        stroke: "#0b0202",
+        glow: "#ff9c5a",
+        stoneSize: 0.17,
+        gap: 0.028
+      },
       animation: {
-        type: "lava",
+        type: "cape_flow",
         palette: {
-          base: "#100404",
-          ember: "#6f150f",
-          molten: "#e95a1a",
-          flare: "#ffb15f"
+          base: "#160505",
+          ash: "#2f0807",
+          ember: "#84130f",
+          molten: "#e0521a",
+          flare: "#ffb25d"
         },
-        speed: 0.055,
-        layers: 5,
-        smoothness: 0.7
+        speed: 0.36,
+        bands: 8,
+        embers: 0.9
       }
     }
   }

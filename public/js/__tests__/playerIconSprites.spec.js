@@ -303,6 +303,79 @@ describe("player icon sprites", () => {
     expect(strokeStyles).toContain("#ea8c00");
   });
 
+  it("lays cobblestone texture overlays for molten capes", () => {
+    const ops = [];
+    const fillStyles = [];
+    const strokeStyles = [];
+    const alphaValues = [];
+    const ctx = {
+      save: () => {},
+      restore: () => {},
+      translate: () => {},
+      beginPath: () => ops.push("beginPath"),
+      arc: () => ops.push("arc"),
+      clip: () => {},
+      fill: () => {
+        ops.push("fill");
+        fillStyles.push(ctx.fillStyle);
+        alphaValues.push(ctx.globalAlpha);
+      },
+      stroke: () => {
+        ops.push("stroke");
+        strokeStyles.push(ctx.strokeStyle);
+        alphaValues.push(ctx.globalAlpha);
+      },
+      clearRect: () => {},
+      moveTo: () => ops.push("moveTo"),
+      lineTo: () => ops.push("lineTo"),
+      closePath: () => ops.push("closePath"),
+      set lineWidth(v) { this._lineWidth = v; },
+      set strokeStyle(v) { this._strokeStyle = v; },
+      get strokeStyle() { return this._strokeStyle; },
+      set fillStyle(v) { this._fillStyle = v; },
+      get fillStyle() { return this._fillStyle; },
+      set shadowColor(v) { this._shadowColor = v; },
+      set shadowBlur(v) { this._shadowBlur = v; },
+      set globalAlpha(v) { this._globalAlpha = v; },
+      get globalAlpha() { return this._globalAlpha ?? 1; }
+    };
+    const canvas = {
+      width: 96,
+      height: 96,
+      naturalWidth: 96,
+      naturalHeight: 96,
+      complete: true,
+      getContext: () => ctx
+    };
+    global.document = {
+      createElement: (tag) => (tag === "canvas" ? canvas : {})
+    };
+
+    const sprite = createPlayerIconSprite({
+      style: {
+        fill: "#1d0707",
+        core: "#ffb264",
+        rim: "#110404",
+        glow: "#ffd08a",
+        pattern: {
+          type: "cobblestone",
+          base: "#2a0c0b",
+          highlight: "#ff8a2a",
+          stroke: "#130404"
+        }
+      }
+    }, { size: 96 });
+
+    expect(sprite.__pattern?.type).toBe("cobblestone");
+    expect(ops).toContain("fill");
+    expect(ops).toContain("stroke");
+    expect(fillStyles).toContain("#2a0c0b");
+    expect(fillStyles).toContain("#ff8a2a");
+    expect(strokeStyles).toContain("#130404");
+    expect(alphaValues.some((alpha) => alpha < 1)).toBe(true);
+    expect(ctx.globalAlpha).toBe(1);
+  });
+
   it("renders the Perfect Line Beacon crosshair centered and in bright red", () => {
     const operations = [];
     const ctx = {
