@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   resolveReauthUsername,
+  shouldTriggerSelectionSave,
   shouldTriggerGuestSave,
   shouldUpdateTrailHint,
   shouldAttemptReauth,
@@ -84,6 +85,18 @@ describe("user hint recovery", () => {
       nextText: GUEST_TRAIL_HINT_TEXT,
       alreadyTriggered: false
     })).toBe(true);
+  });
+
+  it("triggers selection save when the selection changes", () => {
+    expect(shouldTriggerSelectionSave({ previousId: "a", nextId: "b" })).toBe(true);
+  });
+
+  it("does not trigger selection save when the selection is unchanged", () => {
+    expect(shouldTriggerSelectionSave({ previousId: "a", nextId: "a" })).toBe(false);
+  });
+
+  it("does not trigger selection save when the next selection is empty", () => {
+    expect(shouldTriggerSelectionSave({ previousId: "a", nextId: "" })).toBe(false);
   });
 
   it("returns false when reauth is in flight", () => {

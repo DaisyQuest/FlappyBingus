@@ -28,6 +28,11 @@ export function shouldTriggerGuestSave({ currentText, nextText, alreadyTriggered
   return shouldUpdateTrailHint({ currentText, nextText });
 }
 
+export function shouldTriggerSelectionSave({ previousId, nextId } = {}) {
+  if (!nextId) return false;
+  return previousId !== nextId;
+}
+
 function shouldAttemptReauthForHint({ hintText, username, inFlight, matchText } = {}) {
   if (inFlight) return false;
   if (!normalizeUsername(username)) return false;

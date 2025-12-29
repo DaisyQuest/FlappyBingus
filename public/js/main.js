@@ -143,6 +143,7 @@ import { recoverUserFromUsername } from "./sessionRecovery.js";
 import {
   resolveReauthUsername,
   shouldTriggerGuestSave,
+  shouldTriggerSelectionSave,
   shouldUpdateTrailHint,
   shouldAttemptReauth,
   shouldAttemptReauthForGuestHint
@@ -1770,6 +1771,9 @@ pipeTextureOptions?.addEventListener("click", async (e) => {
 
   const previous = currentPipeTextureId;
   applyPipeTextureSelection(id, net.pipeTextures, unlocked);
+  if (shouldTriggerSelectionSave({ previousId: previous, nextId: id })) {
+    saveUserBtn?.click?.();
+  }
   if (pipeTextureHint) {
     pipeTextureHint.className = net.user ? "hint" : "hint good";
     pipeTextureHint.textContent = net.user ? "Saving pipe texture…" : "Equipped (guest mode).";
