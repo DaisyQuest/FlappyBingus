@@ -124,7 +124,8 @@ import {
   toggleTrailMenu
 } from "./trailMenu.js";
 import { SHOP_TABS, getPurchasableUnlockablesByType, renderShopItems } from "./shopMenu.js";
-import { playbackTicks, chooseReplayRandSource } from "./replayUtils.js";
+import { playbackTicks } from "./replayUtils.js";
+import { createReplayManager, cloneReplayRun } from "./replayManager.js";
 import { bindSkillOptionGroup, markSkillOptionSelection } from "./skillOptions.js";
 import { renderSkillUsageStats } from "./skillUsageStats.js";
 import { initThemeEditor } from "./themes.js";
@@ -412,21 +413,17 @@ const MAX_FRAME = 1 / 20;
 let acc = 0;
 let lastTs = 0;
 
-// Replay / run capture
-// activeRun = { seed, ticks: [ { move, cursor, actions[] } ], pendingActions:[], ended:boolean, rngTape:[] }
-let activeRun = null;
+// Replay / run capture (managed via replayManager)
 let lastUploadedBestSeed = null;
 let lastUploadedBestScore = -Infinity;
 
 // Tutorial manager (initialized after Game is created, but referenced by the Input callback).
 let tutorial = null;
+let replayManager = null;
 
 
 // Seed of the most recently finished run (used for "Retry Previous Seed")
 let lastEndedSeed = "";
-
-// When true: main RAF loop does NOT advance the sim (replay drives it)
-let replayDriving = false;
 
 // Audio assets (served from /public/audio/*)
 const AUDIO = Object.freeze({
@@ -500,8 +497,8 @@ const input = new Input(canvas, () => binds, (actionId) => {
     });
     return;
   }
-  if (activeRun && game.state === 1 /* PLAY */) {
-    activeRun.pendingActions.push({
+  if (game.state === 1 /* PLAY */) {
+    replayManager?.queueAction({
       id: actionId,
       cursor: { x: input.cursor.x, y: input.cursor.y, has: input.cursor.has }
     });
@@ -547,6 +544,28 @@ tutorial = new Tutorial({
   input,
   getBinds: () => binds,
   onExit: () => toMenu()
+});
+
+replayManager = createReplayManager({
+  canvas,
+  game,
+  input,
+  menu,
+  over,
+  setRandSource,
+  tapeRecorder: createTapeRandRecorder,
+  tapePlayer: createTapeRandPlayer,
+  seededRand: createSeededRand,
+  playbackTicks,
+  simDt: SIM_DT,
+  requestFrame: requestAnimationFrame,
+  stopMusic: musicStop,
+  onStatus: (payload) => {
+    if (!replayStatus || !payload) return;
+    replayStatus.className = payload.className || "hint";
+    replayStatus.textContent = payload.text || "";
+  },
+  step: driver ? (dt, actions) => driver.step(dt, actions) : null
 });
 
 window.addEventListener("resize", () => {
@@ -683,8 +702,8 @@ async function handlePlayHighscore(username) {
       return;
     }
 
-    await playReplay({ captureMode: "none", run: playbackRun });
-    if (replayStatus) {
+    const played = await replayManager.play({ captureMode: "none", run: playbackRun });
+    if (played && replayStatus) {
       replayStatus.className = "hint good";
       replayStatus.textContent = `Playing ${username}'s best run… done.`;
     }
@@ -1444,99 +1463,14 @@ function downloadBlob(blob, filename) {
   setTimeout(() => URL.revokeObjectURL(url), 2500);
 }
 
-async function playReplay({ captureMode = "none", run: replayRun = activeRun } = {}) {
-  // NEW: ensure gameplay music is OFF during replay playback/capture
-  musicStop();
-
-  if (!replayRun || !replayRun.ended || !replayRun.ticks || !replayRun.ticks.length) {
-    if (replayStatus) {
-      replayStatus.className = "hint bad";
-      replayStatus.textContent = "No replay available yet (finish a run first).";
-    }
-    return null;
-  }
-  replayDriving = true;
-  try {
-    const replayRandSource = chooseReplayRandSource(replayRun, {
-      tapePlayer: createTapeRandPlayer,
-      seededRand: createSeededRand
-    });
-    if (replayRandSource) {
-      setRandSource(replayRandSource);
-    }
-    // Fake input for deterministic playback
-    const replayInput = {
-      cursor: { x: 0, y: 0, has: false },
-      _move: { dx: 0, dy: 0 },
-      getMove() { return this._move; }
-    };
-
-    const realInput = game.input;
-    game.input = replayInput;
-
-    // reset accumulator and start clean run
-    acc = 0;
-    input.reset();
-    menu.classList.add("hidden");
-    over.classList.add("hidden");
-    game.startRun();
-
-    // Optional capture (WebM)
-    let recorder = null;
-    let recordedChunks = [];
-    if (captureMode !== "none") {
-      const stream = canvas.captureStream(60);
-      const mime = MediaRecorder.isTypeSupported("video/webm;codecs=vp9")
-        ? "video/webm;codecs=vp9"
-        : "video/webm;codecs=vp8";
-      recorder = new MediaRecorder(stream, { mimeType: mime });
-      recorder.ondataavailable = (e) => { if (e.data && e.data.size) recordedChunks.push(e.data); };
-      recorder.start();
-    }
-
-    const replaySimDt = SIM_DT;
-
-    await playbackTicks({
-      ticks: replayRun.ticks,
-      game,
-      replayInput,
-      captureMode,
-      simDt: replaySimDt,
-      requestFrame: requestAnimationFrame
-    });
-
-    let webmBlob = null;
-    if (recorder) {
-      await new Promise((resolve) => { recorder.onstop = resolve; recorder.stop(); });
-      webmBlob = new Blob(recordedChunks, { type: recorder.mimeType || "video/webm" });
-    }
-
-    // Restore real input
-    game.input = realInput;
-
-    over.classList.remove("hidden");
-    return webmBlob;
-  } finally {
-    replayDriving = false;
-  }
-}
-
-function cloneActiveRun(run) {
-  if (!run) return null;
-  return {
-    ...run,
-    ticks: Array.isArray(run.ticks) ? run.ticks.slice() : [],
-    rngTape: Array.isArray(run.rngTape) ? run.rngTape.slice() : []
-  };
-}
-
 async function uploadBestRunArtifacts(finalScore, runStats) {
+  const activeRun = replayManager?.getActiveRun();
   if (!net.user || !activeRun?.ended) return;
   const bestScore = net.user?.bestScore ?? 0;
   if (finalScore < bestScore) return;
   if (lastUploadedBestSeed === activeRun.seed && lastUploadedBestScore >= bestScore) return;
 
-  const runForUpload = cloneActiveRun(activeRun);
+  const runForUpload = cloneReplayRun(activeRun);
   if (!runForUpload?.ticks?.length) return;
 
   const uploaded = await maybeUploadBestRun({
@@ -2192,8 +2126,7 @@ function startTutorial() {
   rebindActive = null;
 
   input.reset();
-  activeRun = null;
-  replayDriving = false;
+  replayManager?.reset();
 
   // Use a stable RNG stream (even though tutorial spawns are deterministic).
   setRandSource(createSeededRand("tutorial"));
@@ -2240,15 +2173,7 @@ async function startGame({ mode = "new" } = {}) {
   writeSeed(seed);
 
   // reset replay recording (tick-based) + RNG tape
-  activeRun = { seed, ticks: [], pendingActions: [], ended: false, rngTape: [] };
-
-  // IMPORTANT: record the exact RNG stream used during gameplay
-  setRandSource(createTapeRandRecorder(seed, activeRun.rngTape));
-
-  if (replayStatus) {
-    replayStatus.className = "hint";
-    replayStatus.textContent = `Recording replay… Seed: ${seed}`;
-  }
+  replayManager?.startRecording(seed);
   if (exportGifBtn) exportGifBtn.disabled = true;
   if (exportMp4Btn) exportMp4Btn.disabled = true;
 
@@ -2338,8 +2263,8 @@ async function onGameOver(finalScore) {
     applyIconSelection(currentIconId, playerIcons);
   }
 
+  const activeRun = replayManager?.markEnded();
   if (activeRun) {
-    activeRun.ended = true;
 
     // Remember this run's seed for "Retry Previous Seed"
     lastEndedSeed = String(activeRun.seed || "");
@@ -2447,7 +2372,7 @@ function frame(ts) {
   // Per-frame tutorial UI (skill intro animations, etc.)
   if (tutorial?.active) tutorial.frame(dt);
 
-  if (!replayDriving) {
+  if (!replayManager?.isReplaying()) {
     acc += dt;
 
     while (acc >= SIM_DT) {
@@ -2458,17 +2383,13 @@ function frame(ts) {
       let actions = [];
       if (tutorial?.active && game.state === 1 /* PLAY */) {
         actions = tutorial.drainActions();
-      } else if (activeRun && game.state === 1 /* PLAY */) {
-        actions = activeRun.pendingActions.splice(0);
+      } else if (game.state === 1 /* PLAY */) {
+        actions = replayManager?.drainPendingActions() || [];
       }
 
       // Record tick data
-      if (!tutorial?.active && activeRun && game.state === 1 /* PLAY */) {
-        activeRun.ticks.push({
-          move: snap.move,
-          cursor: snap.cursor,
-          actions
-        });
+      if (!tutorial?.active && game.state === 1 /* PLAY */) {
+        replayManager?.recordTick(snap, actions);
       }
 
       // Apply actions for this tick to the live game (tutorial or normal run)
@@ -2508,7 +2429,7 @@ function frame(ts) {
       acc -= SIM_DT;
 
       if (game.state === 2 /* OVER */) {
-        if (activeRun) activeRun.pendingActions.length = 0;
+        replayManager?.clearPendingActions();
         break;
       }
     }
@@ -2552,10 +2473,11 @@ function frame(ts) {
   exportMp4Btn?.addEventListener("click", async () => {
     try {
       replayStatus.textContent = "Exporting MP4… (replaying + encoding)";
-      const webm = await playReplay({ captureMode: "webm" });
+      const webm = await replayManager.play({ captureMode: "webm" });
       if (!webm) throw new Error("No WebM captured from replay.");
 
       const mp4 = await transcodeWithFFmpeg({ webmBlob: webm, outExt: "mp4" });
+      const activeRun = replayManager.getActiveRun();
       downloadBlob(mp4, `flappy-bingus-${activeRun.seed}.mp4`);
       replayStatus.textContent = "MP4 exported.";
     } catch (e) {
@@ -2567,10 +2489,11 @@ function frame(ts) {
   exportGifBtn?.addEventListener("click", async () => {
     try {
       replayStatus.textContent = "Exporting GIF… (replaying + encoding)";
-      const webm = await playReplay({ captureMode: "webm" });
+      const webm = await replayManager.play({ captureMode: "webm" });
       if (!webm) throw new Error("No WebM captured from replay.");
 
       const gif = await transcodeWithFFmpeg({ webmBlob: webm, outExt: "gif" });
+      const activeRun = replayManager.getActiveRun();
       downloadBlob(gif, `flappy-bingus-${activeRun.seed}.gif`);
       replayStatus.textContent = "GIF exported.";
     } catch (e) {
@@ -2581,15 +2504,12 @@ function frame(ts) {
 
   if (watchReplayBtn) {
     watchReplayBtn.addEventListener("click", async () => {
-      // Ensure music is off during replay
-      musicStop();
-
       if (replayStatus) {
         replayStatus.className = "hint";
         replayStatus.textContent = "Playing replay…";
       }
-      await playReplay({ captureMode: "none" });
-      if (replayStatus) {
+      const played = await replayManager.play({ captureMode: "none" });
+      if (played && replayStatus) {
         replayStatus.className = "hint good";
         replayStatus.textContent = "Replay finished.";
       }

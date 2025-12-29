@@ -110,6 +110,21 @@ describe("playbackTicks", () => {
     expect(game.render).toHaveBeenCalledTimes(2);
   });
 
+  it("uses a custom step handler when provided", async () => {
+    const game = makeGame();
+    const replayInput = makeReplayInput();
+    const ticks = [{ actions: [{ id: "a1" }] }, { actions: [{ id: "a2" }] }];
+    const step = vi.fn();
+
+    const ts = [0, 16, 32, 48];
+    const raf = makeRaf(ts);
+
+    await playbackTicks({ ticks, game, replayInput, captureMode: "none", simDt: SIM_DT, requestFrame: raf, step });
+
+    expect(step).toHaveBeenCalledTimes(2);
+    expect(game.update).not.toHaveBeenCalled();
+  });
+
   it("guards against invalid inputs", async () => {
     const game = makeGame();
     const replayInput = makeReplayInput();

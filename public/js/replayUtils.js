@@ -8,7 +8,8 @@ export async function playbackTicks({
   replayInput,
   captureMode = "none",
   simDt,
-  requestFrame = null
+  requestFrame = null,
+  step = null
 } = {}) {
   if (!Array.isArray(ticks) || !game || !replayInput || typeof simDt !== "number") return;
 
@@ -53,7 +54,11 @@ export async function playbackTicks({
         }
       }
 
-      game.update(simDt);
+      if (typeof step === "function") {
+        step(simDt, tk.actions || []);
+      } else {
+        game.update(simDt);
+      }
       acc -= tickStep;
 
       if (game.state === 2 /* OVER */) break;
