@@ -49,4 +49,17 @@ describe("session helpers", () => {
     writeSessionToken("", storage);
     expect(storage.setItem).not.toHaveBeenCalled();
   });
+
+  it("falls back to the cached token when storage is unavailable", () => {
+    const storage = {
+      getItem: vi.fn(() => "cached-token"),
+      setItem: vi.fn(),
+      removeItem: vi.fn()
+    };
+
+    expect(readSessionToken(storage)).toBe("cached-token");
+    expect(readSessionToken(null)).toBe("cached-token");
+    clearSessionToken(storage);
+    expect(readSessionToken(null)).toBeNull();
+  });
 });
