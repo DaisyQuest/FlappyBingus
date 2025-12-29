@@ -135,11 +135,12 @@ import {
   createMenuProfileModel
 } from "./menuProfileBindings.js";
 import { buildAuthHints } from "./authHints.js";
-import { OFFLINE_STATUS_TEXT } from "./userStatusCopy.js";
+import { OFFLINE_STATUS_TEXT, SIGNED_OUT_TEXT } from "./userStatusCopy.js";
 import { applyNetUserUpdate } from "./netUser.js";
 import { handleTrailSaveResponse } from "./trailSaveResponse.js";
 import { readSessionUsername } from "./session.js";
 import { recoverUserFromUsername } from "./sessionRecovery.js";
+import { shouldAttemptReauth } from "./userHintRecovery.js";
 import {
   genRandomSeed,
   readIconCookie,
@@ -592,6 +593,8 @@ function setNetUser(nextUser, { syncProfile = true } = {}) {
   applyNetUserUpdate({ net, syncMenuProfileBindingsFromState }, nextUser, { syncProfile });
 }
 
+let reauthInProgress = false;
+
 function setUserHint() {
   const best = net.user ? (net.user.bestScore | 0) : readLocalBest();
   const isRecordHolder = Boolean(net.user?.isRecordHolder);
@@ -607,6 +610,20 @@ function setUserHint() {
   if (userHint) {
     userHint.className = hint.className;
     userHint.textContent = hint.text;
+  }
+  if (shouldAttemptReauth({
+    hintText: hint.text,
+    username: usernameInput?.value?.trim(),
+    inFlight: reauthInProgress
+  })) {
+    reauthInProgress = true;
+    ensureLoggedInForSave()
+      .then((recovered) => {
+        if (recovered) setUserHint();
+      })
+      .finally(() => {
+        reauthInProgress = false;
+      });
   }
   if (offlineStatus) {
     offlineStatus.textContent = OFFLINE_STATUS_TEXT;
