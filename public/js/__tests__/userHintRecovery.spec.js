@@ -78,6 +78,14 @@ describe("user hint recovery", () => {
     })).toBe(false);
   });
 
+  it("triggers guest save when no current text exists", () => {
+    expect(shouldTriggerGuestSave({
+      currentText: undefined,
+      nextText: GUEST_TRAIL_HINT_TEXT,
+      alreadyTriggered: false
+    })).toBe(true);
+  });
+
   it("returns false when reauth is in flight", () => {
     expect(shouldAttemptReauth({ hintText: SIGNED_OUT_TEXT, username: "PlayerOne", inFlight: true })).toBe(false);
   });

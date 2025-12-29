@@ -651,16 +651,6 @@ function setUserHint() {
   }
   if (trailHint && authTrailHint?.text) {
     const current = trailHint.textContent;
-    if (shouldTriggerGuestSave({
-      currentText: current,
-      nextText: authTrailHint.text,
-      alreadyTriggered: guestSaveTriggered
-    })) {
-      guestSaveTriggered = true;
-      saveUserBtn?.click?.();
-    } else if (authTrailHint.text !== GUEST_TRAIL_HINT_TEXT) {
-      guestSaveTriggered = false;
-    }
     if (shouldUpdateTrailHint({ currentText: current, nextText: authTrailHint.text })) {
       setTrailHint(authTrailHint);
     }
@@ -913,6 +903,18 @@ function applyTrailSelection(id, trails = net.trails) {
 
 function setTrailHint(hint, { persist = true } = {}) {
   if (trailHint) {
+    const current = trailHint.textContent;
+    const nextText = hint?.text;
+    if (shouldTriggerGuestSave({
+      currentText: current,
+      nextText,
+      alreadyTriggered: guestSaveTriggered
+    })) {
+      guestSaveTriggered = true;
+      saveUserBtn?.click?.();
+    } else if (nextText !== GUEST_TRAIL_HINT_TEXT) {
+      guestSaveTriggered = false;
+    }
     trailHint.className = hint.className || "hint";
     trailHint.textContent = hint.text || DEFAULT_TRAIL_HINT;
   }
