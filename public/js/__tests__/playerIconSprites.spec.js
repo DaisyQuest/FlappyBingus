@@ -286,21 +286,21 @@ describe("player icon sprites", () => {
       style: {
         fill: "#facc15",
         core: "#fef08a",
-        pattern: {
-          type: "citrus_slice",
-          stroke: "#f59e0b",
-          rindStroke: "#f59e0b",
-          segmentStroke: "#d97706",
-          segments: 8
-        }
+      pattern: {
+        type: "citrus_slice",
+        stroke: "#f59e0b",
+        rindStroke: "#f59e0b",
+        segmentStroke: "#ea8c00",
+        segments: 10
       }
-    }, { size: 88 });
+    }
+  }, { size: 88 });
 
     expect(sprite.__pattern?.type).toBe("citrus_slice");
     expect(citrusOps).toContain("lineTo");
     expect(citrusOps).toContain("arc");
     expect(strokeStyles).toContain("#f59e0b");
-    expect(strokeStyles).toContain("#d97706");
+    expect(strokeStyles).toContain("#ea8c00");
   });
 
   it("renders the Perfect Line Beacon crosshair centered and in bright red", () => {

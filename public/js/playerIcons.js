@@ -110,8 +110,8 @@ export const DEFAULT_PLAYER_ICONS = Object.freeze([
         type: "citrus_slice",
         stroke: "#f59e0b",
         rindStroke: "#f59e0b",
-        segmentStroke: "#d97706",
-        segments: 8,
+        segmentStroke: "#ea8c00",
+        segments: 10,
         glow: "#fde68a"
       }
     }
