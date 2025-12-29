@@ -134,8 +134,9 @@ export function normalizePipeTextureMode(mode) {
   return PIPE_TEXTURE_MODES.includes(upper) ? upper : DEFAULT_PIPE_TEXTURE_MODE;
 }
 
-export function normalizePipeTextures(list) {
-  const src = Array.isArray(list) ? list : [];
+export function normalizePipeTextures(list, { allowEmpty = false } = {}) {
+  const hasList = Array.isArray(list);
+  const src = hasList ? list : [];
   const seen = new Set();
   const out = [];
 
@@ -153,9 +154,9 @@ export function normalizePipeTextures(list) {
     });
   }
 
-  return out.length
-    ? out
-    : PIPE_TEXTURES.map((t) => ({ ...t, unlock: normalizeUnlock(t.unlock) }));
+  if (out.length) return out;
+  if (allowEmpty && hasList) return [];
+  return PIPE_TEXTURES.map((t) => ({ ...t, unlock: normalizeUnlock(t.unlock) }));
 }
 
 export function getPipeTextureDisplayName(id, textures = PIPE_TEXTURES) {

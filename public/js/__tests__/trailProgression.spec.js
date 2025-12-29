@@ -8,6 +8,11 @@ describe("trailProgression helpers", () => {
     expect(result[0].id).toBe("classic");
   });
 
+  it("allows empty trail catalogs when explicitly requested", () => {
+    const result = normalizeTrails([], { allowEmpty: true });
+    expect(result).toEqual([]);
+  });
+
   it("unlocks record-holder trails only when eligible", () => {
     const trails = [
       { id: "classic", achievementId: "a", alwaysUnlocked: true },

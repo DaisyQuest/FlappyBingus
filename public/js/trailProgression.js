@@ -25,8 +25,10 @@ export const DEFAULT_TRAILS = Object.freeze([
   { id: "world_record", name: "World Record Cherry Blossom", minScore: 3000, achievementId: "trail_world_record_3000", requiresRecordHolder: true }
 ]);
 
-export function normalizeTrails(list) {
-  return Array.isArray(list) && list.length ? list : DEFAULT_TRAILS.map((t) => ({ ...t }));
+export function normalizeTrails(list, { allowEmpty = false } = {}) {
+  if (!Array.isArray(list)) return DEFAULT_TRAILS.map((t) => ({ ...t }));
+  if (!list.length) return allowEmpty ? [] : DEFAULT_TRAILS.map((t) => ({ ...t }));
+  return list;
 }
 
 export function getUnlockedTrails(trails, achievements, { isRecordHolder = false } = {}) {

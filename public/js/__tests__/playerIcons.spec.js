@@ -20,6 +20,11 @@ describe("player icon helpers", () => {
     expect(fallback.map((i) => i.id)).toEqual(DEFAULT_PLAYER_ICONS.map((i) => i.id));
   });
 
+  it("supports empty icon catalogs when explicitly allowed", () => {
+    const empty = normalizePlayerIcons([], { allowEmpty: true });
+    expect(empty).toEqual([]);
+  });
+
   it("computes unlocked icons across multiple unlock types", () => {
     const icons = [
       { id: "free", name: "Free", unlock: { type: "free" } },

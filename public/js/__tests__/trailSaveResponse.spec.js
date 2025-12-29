@@ -15,7 +15,6 @@ describe("handleTrailSaveResponse", () => {
     const setUserHint = vi.fn();
     const setTrailHint = vi.fn();
     const buildTrailHint = vi.fn(() => ({ className: "hint", text: "Guest hint" }));
-    const readLocalBest = vi.fn(() => 42);
     const getAuthStatusFromResponse = vi.fn(() => ({ online: true, unauthorized: true }));
     const recoverSession = vi.fn(async () => false);
 
@@ -37,7 +36,6 @@ describe("handleTrailSaveResponse", () => {
       syncPipeTextureCatalog: vi.fn(),
       refreshTrailMenu: vi.fn(),
       applyIconSelection: vi.fn(),
-      readLocalBest,
       getAuthStatusFromResponse,
       recoverSession
     });
@@ -51,7 +49,7 @@ describe("handleTrailSaveResponse", () => {
     expect(buildTrailHint).toHaveBeenCalledWith(expect.objectContaining({
       online: true,
       user: null,
-      bestScore: 42,
+      bestScore: 0,
       selectedTrail: "classic"
     }));
     expect(setTrailHint).toHaveBeenCalledWith({ className: "hint", text: "Guest hint" });
@@ -103,7 +101,6 @@ describe("handleTrailSaveResponse", () => {
       syncPipeTextureCatalog,
       refreshTrailMenu,
       applyIconSelection,
-      readLocalBest: vi.fn(),
       getAuthStatusFromResponse: vi.fn()
     });
 
@@ -153,7 +150,6 @@ describe("handleTrailSaveResponse", () => {
       syncPipeTextureCatalog: vi.fn(),
       refreshTrailMenu: vi.fn(),
       applyIconSelection: vi.fn(),
-      readLocalBest: vi.fn(() => 42),
       getAuthStatusFromResponse: vi.fn(() => ({ online: true, unauthorized: false }))
     });
 
@@ -199,7 +195,6 @@ describe("handleTrailSaveResponse", () => {
       syncPipeTextureCatalog: vi.fn(),
       refreshTrailMenu: vi.fn(),
       applyIconSelection: vi.fn(),
-      readLocalBest: vi.fn(() => 42),
       getAuthStatusFromResponse: vi.fn(() => ({ online: true, unauthorized: true })),
       recoverSession: vi.fn(async () => true)
     });

@@ -33,6 +33,11 @@ describe("pipeTextures", () => {
     expect(normalized.length).toBe(PIPE_TEXTURES.length);
   });
 
+  it("accepts empty definitions when explicitly allowed", () => {
+    const normalized = normalizePipeTextures([], { allowEmpty: true });
+    expect(normalized).toEqual([]);
+  });
+
   it("resolves display names with defaults", () => {
     expect(getPipeTextureDisplayName("basic", PIPE_TEXTURES)).toBe("Basic");
     expect(getPipeTextureDisplayName("unknown", PIPE_TEXTURES)).toBe("unknown");

@@ -19,7 +19,6 @@ export async function handleTrailSaveResponse({
   syncPipeTextureCatalog,
   refreshTrailMenu,
   applyIconSelection,
-  readLocalBest,
   getAuthStatusFromResponse,
   recoverSession
 }) {
@@ -35,10 +34,11 @@ export async function handleTrailSaveResponse({
       }
     }
     setUserHint();
+    const bestScore = net.user ? (net.user.bestScore | 0) : 0;
     const hint = buildTrailHint({
       online: net.online,
       user: net.user,
-      bestScore: net.user ? (net.user.bestScore | 0) : readLocalBest(),
+      bestScore,
       trails: orderedTrails,
       achievements: net.user?.achievements || net.achievements?.state,
       selectedTrail: currentTrailId

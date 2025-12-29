@@ -221,8 +221,9 @@ export function normalizeIconUnlock(unlock) {
   return { type: "free", label: unlock.label || "Free" };
 }
 
-export function normalizePlayerIcons(list) {
-  const src = Array.isArray(list) ? list : [];
+export function normalizePlayerIcons(list, { allowEmpty = false } = {}) {
+  const hasList = Array.isArray(list);
+  const src = hasList ? list : [];
   const seen = new Set();
   const out = [];
 
@@ -242,9 +243,9 @@ export function normalizePlayerIcons(list) {
     });
   }
 
-  return out.length
-    ? out
-    : DEFAULT_PLAYER_ICONS.map((i) => ({ ...i, unlock: normalizeIconUnlock(i.unlock) }));
+  if (out.length) return out;
+  if (allowEmpty && hasList) return [];
+  return DEFAULT_PLAYER_ICONS.map((i) => ({ ...i, unlock: normalizeIconUnlock(i.unlock) }));
 }
 
 export function getUnlockedPlayerIcons(icons, {
