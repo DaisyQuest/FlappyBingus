@@ -311,7 +311,7 @@ export class Game {
 
   resizeToWindow() {
     const baseDpr = window.devicePixelRatio || 1;
-    const dpr = this.skillSettings?.highPerformance ? 4 : Math.min(baseDpr, 2);
+    const dpr = this.skillSettings?.highPerformance ? Math.min(baseDpr * 2, 2) : Math.min(baseDpr, 2);
     const cssW = Math.max(1, Math.round(window.visualViewport?.width || window.innerWidth));
     const cssH = Math.max(1, Math.round(window.visualViewport?.height || window.innerHeight));
     const norm = Math.max(0.25, baseDpr / BASE_DPR);
@@ -1816,6 +1816,17 @@ _drawOrb(o) {
     const p = this.player;
 
     ctx.save();
+    if (this.skillSettings?.highPerformance) {
+      ctx.save();
+      ctx.shadowColor = "rgba(0,0,0,.35)";
+      ctx.shadowBlur = 16;
+      ctx.shadowOffsetY = 4;
+      ctx.fillStyle = "rgba(0,0,0,.18)";
+      ctx.beginPath();
+      ctx.arc(p.x, p.y + p.r * 0.35, p.r * 0.65, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+    }
     ctx.shadowBlur = 18;
     ctx.shadowColor = (p.invT > 0) ? "rgba(160,220,255,.35)" : "rgba(120,210,255,.22)";
 

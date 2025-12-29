@@ -532,12 +532,12 @@ function createPerformanceCard(doc, refs) {
   });
   const label = doc.createElement("label");
   label.setAttribute("for", "highPerformanceToggle");
-  label.textContent = "High performance (16x AA)";
+  label.textContent = "High performance (4x AA)";
   row.append(toggle, label);
 
   const hint = doc.createElement("div");
   hint.className = "hint";
-  hint.textContent = "Supersamples the canvas for crisp edges on fast rigs.";
+  hint.textContent = "Supersamples the canvas for smoother edges and richer shadows.";
 
   card.append(title, row, hint);
   return card;

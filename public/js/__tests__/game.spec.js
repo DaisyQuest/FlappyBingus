@@ -192,12 +192,33 @@ describe("Game core utilities", () => {
 
   it("supersamples the canvas when high performance mode is enabled", () => {
     const { game, canvas, ctx } = buildGame();
+    window.devicePixelRatio = 1;
     game.setSkillSettings({ ...DEFAULT_SKILL_SETTINGS, highPerformance: true });
     game.resizeToWindow();
 
-    expect(canvas.width).toBe(1280);
-    expect(canvas.height).toBe(800);
+    expect(canvas.width).toBe(640);
+    expect(canvas.height).toBe(400);
     expect(ctx.imageSmoothingQuality).toBe("high");
+  });
+
+  it("adds a drop shadow for the player when high performance is enabled", () => {
+    const { game, ctx } = buildGame();
+    ctx.shadowOffsetY = 0;
+    game.setSkillSettings({ ...DEFAULT_SKILL_SETTINGS, highPerformance: true });
+
+    game._drawPlayer();
+
+    expect(ctx.shadowOffsetY).toBe(4);
+  });
+
+  it("avoids the player drop shadow when high performance is disabled", () => {
+    const { game, ctx } = buildGame();
+    ctx.shadowOffsetY = 0;
+    game.setSkillSettings({ ...DEFAULT_SKILL_SETTINGS, highPerformance: false });
+
+    game._drawPlayer();
+
+    expect(ctx.shadowOffsetY).toBe(0);
   });
 
   it("toggles audio and guards SFX triggers", async () => {
