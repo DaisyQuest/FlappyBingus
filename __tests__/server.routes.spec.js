@@ -105,6 +105,11 @@ function buildSessionCookie(server, username, { nowMs, exp } = {}) {
   return `bingus_session=${token}`;
 }
 
+function buildAuthHeader(server, username) {
+  const token = server.__testables.signSessionToken({ sub: username });
+  return `Bearer ${token}`;
+}
+
 function readJson(res) {
   return JSON.parse(res.body || "{}");
 }
@@ -148,6 +153,7 @@ describe("server routes and helpers", () => {
     expect(savedSettings.dashBehavior).toBe("ricochet");
     expect(savedSettings.teleportBehavior).toBe("normal");
     expect(savedSettings.invulnBehavior).toBe("short");
+    expect(readJson(successHttp).sessionToken).toMatch(/^\S+\.\S+\.\S+$/);
 
     const successForwarded = createRes();
     await server.route(
@@ -191,6 +197,24 @@ describe("server routes and helpers", () => {
 
     expect(res.status).toBe(401);
     expect(readJson(res).error).toBe("unauthorized");
+  });
+
+  it("accepts bearer session tokens when cookies are unavailable", async () => {
+    const { server } = await importServer();
+    const res = createRes();
+
+    await server.route(
+      createReq({
+        method: "POST",
+        url: "/api/score",
+        body: JSON.stringify({ score: 50 }),
+        headers: { authorization: buildAuthHeader(server, "PlayerOne") }
+      }),
+      res
+    );
+
+    expect(res.status).toBe(200);
+    expect(readJson(res).ok).toBe(true);
   });
 
   it("clears invalid session cookies and denies access", async () => {
@@ -419,6 +443,7 @@ describe("server routes and helpers", () => {
     });
     expect(readJson(res).icons?.length).toBeGreaterThan(0);
     expect(readJson(res).pipeTextures?.length).toBeGreaterThan(0);
+    expect(readJson(res).sessionToken).toMatch(/^\S+\.\S+\.\S+$/);
   });
 
   it("includes achievement payload on /api/me responses", async () => {

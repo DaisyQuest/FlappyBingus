@@ -659,8 +659,16 @@ function clearSessionCookie(res, req) {
 
 async function getUserFromReqWithSession(req, { withRecordHolder = false, res } = {}) {
   const cookies = parseCookies(req.headers.cookie);
-  const sessionToken = cookies[SESSION_COOKIE];
-  const session = verifySessionToken(sessionToken);
+  const authHeader = typeof req.headers.authorization === "string" ? req.headers.authorization.trim() : "";
+  const bearerToken = authHeader.toLowerCase().startsWith("bearer ")
+    ? authHeader.slice(7).trim()
+    : null;
+  const sessionToken = bearerToken || cookies[SESSION_COOKIE];
+  let session = verifySessionToken(sessionToken);
+  if (!session.ok && bearerToken) {
+    const cookieToken = cookies[SESSION_COOKIE];
+    if (cookieToken) session = verifySessionToken(cookieToken);
+  }
   let username = session.ok ? session.username : null;
   let upgradedLegacy = false;
 
@@ -697,6 +705,11 @@ async function getUserFromReqWithSession(req, { withRecordHolder = false, res } 
     }
   }
   return u;
+}
+
+function buildSessionPayload(username) {
+  const token = signSessionToken({ sub: username });
+  return token ? { sessionToken: token } : {};
 }
 
 function buildUserDefaults(username, key) {
@@ -1071,7 +1084,8 @@ async function route(req, res) {
       icons: ICONS,
       trails: TRAILS,
       pipeTextures: PIPE_TEXTURES,
-      achievements: buildAchievementsPayload(u)
+      achievements: buildAchievementsPayload(u),
+      ...buildSessionPayload(u.username)
     });
     return;
   }
@@ -1103,7 +1117,8 @@ async function route(req, res) {
       icons: ICONS,
       trails: TRAILS,
       pipeTextures: PIPE_TEXTURES,
-      achievements: buildAchievementsPayload(u)
+      achievements: buildAchievementsPayload(u),
+      ...buildSessionPayload(u.username)
     });
     return;
   }
@@ -1593,6 +1608,7 @@ module.exports = {
     verifySessionToken,
     base64UrlEncode,
     base64UrlDecode,
+    buildSessionPayload,
     _setSessionSecretForTests(secret) {
       SESSION_SECRET = secret;
     }

@@ -7,6 +7,8 @@ describe("api helpers", () => {
     vi.useRealTimers();
     // eslint-disable-next-line no-undef
     global.fetch = undefined;
+    // eslint-disable-next-line no-undef
+    global.localStorage = undefined;
   });
 
   it("requests the trail preview catalog", async () => {
@@ -30,6 +32,71 @@ describe("api helpers", () => {
       method: "GET"
     });
     expect(res).toEqual({ ...mockResponse, status: 200 });
+  });
+
+  it("includes bearer tokens when a session is stored", async () => {
+    const fetchMock = vi.fn(() =>
+      Promise.resolve({
+        ok: true,
+        status: 200,
+        json: () => Promise.resolve({ ok: true })
+      })
+    );
+    // eslint-disable-next-line no-undef
+    global.fetch = fetchMock;
+    // eslint-disable-next-line no-undef
+    global.localStorage = {
+      getItem: vi.fn(() => "session-token"),
+      setItem: vi.fn(),
+      removeItem: vi.fn()
+    };
+
+    const { apiGetMe } = await import("../api.js");
+    await apiGetMe();
+
+    expect(fetchMock).toHaveBeenCalledWith("/api/me", {
+      credentials: "same-origin",
+      headers: {
+        Authorization: "Bearer session-token",
+        "Content-Type": "application/json"
+      },
+      method: "GET"
+    });
+  });
+
+  it("persists and clears session tokens from responses", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: () => Promise.resolve({ ok: true, sessionToken: "fresh-token" })
+      })
+      .mockResolvedValueOnce({
+        ok: false,
+        status: 401,
+        json: () => Promise.resolve({ ok: false, error: "unauthorized" })
+      });
+    // eslint-disable-next-line no-undef
+    global.fetch = fetchMock;
+    const store = { token: null };
+    // eslint-disable-next-line no-undef
+    global.localStorage = {
+      getItem: vi.fn(() => store.token),
+      setItem: vi.fn((_key, value) => {
+        store.token = value;
+      }),
+      removeItem: vi.fn(() => {
+        store.token = null;
+      })
+    };
+
+    const { apiGetMe } = await import("../api.js");
+    await apiGetMe();
+    expect(store.token).toBe("fresh-token");
+
+    await apiGetMe();
+    expect(store.token).toBeNull();
   });
 
   it("stops calling fetch when the client limit is exceeded", async () => {

@@ -30,17 +30,30 @@ function hitClientRateLimit(name) {
   return false;
 }
 
+import { clearSessionToken, readSessionToken, writeSessionToken } from "./session.js";
+
 async function requestJson(url, opts = {}) {
+  const sessionToken = readSessionToken();
+  const headers = {
+    "Content-Type": "application/json",
+    ...(opts.headers || {})
+  };
+  if (sessionToken && !headers.Authorization) {
+    headers.Authorization = `Bearer ${sessionToken}`;
+  }
   try {
     const res = await fetch(url, {
       credentials: "same-origin",
       ...opts,
-      headers: {
-        "Content-Type": "application/json",
-        ...(opts.headers || {})
-      }
+      headers
     });
     const data = await res.json().catch(() => null);
+    if (data?.sessionToken) {
+      writeSessionToken(data.sessionToken);
+    }
+    if (res.status === 401) {
+      clearSessionToken();
+    }
     return {
       ...(data || {}),
       ok: res.ok && data !== null && data?.ok !== false,

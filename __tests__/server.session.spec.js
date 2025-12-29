@@ -40,4 +40,9 @@ describe("session tokens", () => {
     const encoded = testables.base64UrlEncode("bingus");
     expect(testables.base64UrlDecode(encoded)).toBe("bingus");
   });
+
+  it("builds session payloads for responses", () => {
+    const payload = testables.buildSessionPayload("PlayerOne");
+    expect(payload.sessionToken).toMatch(/^\S+\.\S+\.\S+$/);
+  });
 });
