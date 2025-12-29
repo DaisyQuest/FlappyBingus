@@ -9,6 +9,7 @@ describe("icon save response classifier", () => {
       online: false,
       revert: false,
       resetUser: false,
+      needsReauth: false,
       message: "Server unavailable. Icon equipped locally."
     });
   });
@@ -17,7 +18,8 @@ describe("icon save response classifier", () => {
     const res = { ok: false, status: 401, error: "unauthorized" };
     const result = classifyIconSaveResponse(res);
     expect(result.outcome).toBe("unauthorized");
-    expect(result.resetUser).toBe(true);
+    expect(result.resetUser).toBe(false);
+    expect(result.needsReauth).toBe(true);
     expect(result.revert).toBe(true);
     expect(result.message).toMatch(/sign in/i);
   });
@@ -27,6 +29,7 @@ describe("icon save response classifier", () => {
     const result = classifyIconSaveResponse(res);
     expect(result.outcome).toBe("rejected");
     expect(result.resetUser).toBe(false);
+    expect(result.needsReauth).toBe(false);
     expect(result.revert).toBe(true);
     expect(result.online).toBe(true);
   });
@@ -36,6 +39,7 @@ describe("icon save response classifier", () => {
     const result = classifyIconSaveResponse(res);
     expect(result.outcome).toBe("locked");
     expect(result.revert).toBe(true);
+    expect(result.needsReauth).toBe(false);
     expect(result.online).toBe(true);
   });
 
@@ -44,6 +48,7 @@ describe("icon save response classifier", () => {
     const result = classifyIconSaveResponse(res);
     expect(result.outcome).toBe("server_error");
     expect(result.revert).toBe(false);
+    expect(result.needsReauth).toBe(false);
     expect(result.online).toBe(false);
   });
 
@@ -52,6 +57,7 @@ describe("icon save response classifier", () => {
     const result = classifyIconSaveResponse(res);
     expect(result.outcome).toBe("rejected");
     expect(result.revert).toBe(true);
+    expect(result.needsReauth).toBe(false);
     expect(result.message).toContain("Could not save icon");
   });
 
@@ -61,5 +67,6 @@ describe("icon save response classifier", () => {
     expect(result.outcome).toBe("saved");
     expect(result.online).toBe(true);
     expect(result.revert).toBe(false);
+    expect(result.needsReauth).toBe(false);
   });
 });

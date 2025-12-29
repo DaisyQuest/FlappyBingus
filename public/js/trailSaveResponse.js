@@ -1,7 +1,7 @@
 // =======================
 // FILE: public/js/trailSaveResponse.js
 // =======================
-export function handleTrailSaveResponse({
+export async function handleTrailSaveResponse({
   res,
   net,
   orderedTrails,
@@ -20,13 +20,19 @@ export function handleTrailSaveResponse({
   refreshTrailMenu,
   applyIconSelection,
   readLocalBest,
-  getAuthStatusFromResponse
+  getAuthStatusFromResponse,
+  recoverSession
 }) {
   if (!res || !res.ok) {
     const authStatus = getAuthStatusFromResponse(res);
     net.online = authStatus.online;
     if (authStatus.unauthorized) {
-      setNetUser(null);
+      const recovered = typeof recoverSession === "function"
+        ? await recoverSession()
+        : false;
+      if (!recovered) {
+        setNetUser(null);
+      }
     }
     setUserHint();
     const hint = buildTrailHint({

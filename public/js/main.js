@@ -1309,6 +1309,11 @@ async function refreshProfileAndHighscores() {
   refreshBootUI();
 }
 
+async function recoverSession() {
+  await refreshProfileAndHighscores();
+  return Boolean(net.user);
+}
+
 // ---- Registration ----
 saveUserBtn.addEventListener("click", async () => {
   const username = usernameInput.value.trim();
@@ -1543,7 +1548,7 @@ trailOptions?.addEventListener("click", async (e) => {
   if (!net.user) return;
 
   const res = await apiSetTrail(id);
-  handleTrailSaveResponse({
+  await handleTrailSaveResponse({
     res,
     net,
     orderedTrails: ordered,
@@ -1562,7 +1567,8 @@ trailOptions?.addEventListener("click", async (e) => {
     refreshTrailMenu,
     applyIconSelection,
     readLocalBest,
-    getAuthStatusFromResponse
+    getAuthStatusFromResponse,
+    recoverSession
   });
 });
 
@@ -1623,9 +1629,9 @@ pipeTextureModeOptions?.addEventListener("click", async (e) => {
     const authStatus = getAuthStatusFromResponse(res);
     net.online = authStatus.online;
     if (authStatus.unauthorized) {
-      setNetUser(null);
+      await recoverSession();
     }
-    if (!authStatus.online || authStatus.unauthorized) {
+    if (!authStatus.online || !net.user) {
       setUserHint();
     }
     currentPipeTextureMode = previous;
@@ -1698,9 +1704,9 @@ pipeTextureOptions?.addEventListener("click", async (e) => {
     const authStatus = getAuthStatusFromResponse(res);
     net.online = authStatus.online;
     if (authStatus.unauthorized) {
-      setNetUser(null);
+      await recoverSession();
     }
-    if (!authStatus.online || authStatus.unauthorized) {
+    if (!authStatus.online || !net.user) {
       setUserHint();
     }
     applyPipeTextureSelection(previous, net.pipeTextures, unlocked);
@@ -1785,8 +1791,8 @@ iconOptions?.addEventListener("click", async (e) => {
   const outcome = classifyIconSaveResponse(res);
   net.online = outcome.online;
 
-  if (outcome.resetUser) {
-    setNetUser(null);
+  if (outcome.needsReauth) {
+    await recoverSession();
   }
 
   if (outcome.outcome === "saved" && res) {
@@ -1800,7 +1806,7 @@ iconOptions?.addEventListener("click", async (e) => {
     applyIconSelection(previous, playerIcons);
   }
 
-  if (!outcome.online || outcome.resetUser) {
+  if (!outcome.online || !net.user) {
     setUserHint();
   }
 

@@ -11,5 +11,6 @@ In short: **cosmetic updates were the first authenticated requests to fail when 
 3. **Store and send the token client-side** for all API calls, so authentication works even when cookies are blocked.
 4. **Cache the session token in memory** so the app can keep authenticating even when localStorage is blocked.
 5. **Retry unauthorized requests** by re-registering with the cached username and replaying the original request.
+6. **Recover the session in UI handlers** before clearing `net.user`, so cosmetic actions don't blank the username input on transient auth failures.
 
 This keeps JWT cookies as the primary mechanism, while providing a robust fallback that prevents logout on selection changes.
