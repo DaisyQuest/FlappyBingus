@@ -12,7 +12,7 @@ export const DEFAULT_TRAILS = Object.freeze([
   { id: "ocean", name: "Tidal Current", minScore: 750, achievementId: "trail_ocean_750" },
   { id: "miami", name: "Neon Miami", minScore: 950, achievementId: "trail_miami_950" },
   { id: "aurora", name: "Aurora", minScore: 1150, achievementId: "trail_aurora_1150" },
-  { id: "rainbow", name: "Prismatic Ribbon", minScore: 1350, achievementId: "trail_rainbow_1350" },
+  { id: "rainbow", name: "Prismatic Ribbon", achievementId: "play_10_games" },
   { id: "solar", name: "Solar Flare", minScore: 1550, achievementId: "trail_solar_1550" },
   { id: "storm", name: "Stormstrike", minScore: 1750, achievementId: "trail_storm_1750" },
   { id: "magma", name: "Forgefire", minScore: 1950, achievementId: "trail_magma_1950" },

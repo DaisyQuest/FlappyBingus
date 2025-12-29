@@ -132,7 +132,7 @@ const TRAILS = Object.freeze([
   { id: "ocean", name: "Tidal Current", minScore: 750, achievementId: "trail_ocean_750" },
   { id: "miami", name: "Neon Miami", minScore: 950, achievementId: "trail_miami_950" },
   { id: "aurora", name: "Aurora", minScore: 1150, achievementId: "trail_aurora_1150" },
-  { id: "rainbow", name: "Prismatic Ribbon", minScore: 1350, achievementId: "trail_rainbow_1350" },
+  { id: "rainbow", name: "Prismatic Ribbon", achievementId: "play_10_games" },
   { id: "solar", name: "Solar Flare", minScore: 1550, achievementId: "trail_solar_1550" },
   { id: "storm", name: "Stormstrike", minScore: 1750, achievementId: "trail_storm_1750" },
   { id: "magma", name: "Forgefire", minScore: 1950, achievementId: "trail_magma_1950" },
@@ -358,10 +358,11 @@ function unlockedTrails({ achievements, bestScore = 0 } = {}, { recordHolder = f
   }).map((t) => t.id);
 }
 
-function syncTrailAchievementsState(state, { bestScore = 0, recordHolder = false, now = nowMs() } = {}) {
+function syncTrailAchievementsState(state, { bestScore = 0, totalRuns = 0, recordHolder = false, now = nowMs() } = {}) {
   const normalized = normalizeAchievementState(state);
   const safeBest = normalizeScore(bestScore);
   normalized.progress.bestScore = Math.max(normalized.progress.bestScore || 0, safeBest);
+  normalized.progress.totalRuns = Math.max(normalized.progress.totalRuns || 0, normalizeCount(totalRuns));
 
   for (const t of TRAILS) {
     if (!t.achievementId) continue;
@@ -387,7 +388,10 @@ function ensureUserSchema(u, { recordHolder = false } = {}) {
   u.bustercoins = normalizeCount(u.bustercoins);
   u.currencies = normalizeCurrencyWallet(u.currencies, { [DEFAULT_CURRENCY_ID]: u.bustercoins });
   u.bustercoins = getCurrencyBalance(u.currencies, DEFAULT_CURRENCY_ID);
-  u.achievements = syncTrailAchievementsState(u.achievements, { bestScore: u.bestScore, recordHolder });
+  u.achievements = syncTrailAchievementsState(u.achievements, { bestScore: u.bestScore, totalRuns: u.runs, recordHolder });
+  if (u.runs >= 10 && !u.achievements.unlocked?.play_10_games) {
+    u.achievements.unlocked = { ...u.achievements.unlocked, play_10_games: nowMs() };
+  }
   u.skillTotals = normalizeSkillTotals(u.skillTotals || DEFAULT_SKILL_TOTALS);
   if (typeof u.selectedTrail !== "string") u.selectedTrail = "classic";
   if (typeof u.selectedIcon !== "string") u.selectedIcon = DEFAULT_PLAYER_ICON_ID;

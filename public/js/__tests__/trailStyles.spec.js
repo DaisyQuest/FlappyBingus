@@ -60,6 +60,12 @@ describe("trailStyles", () => {
     expect(glacierColor).toContain("hsla");
     expect(glacier.sparkle.color({ rand: () => 0.5, hue: 0, i: 0 })).toContain("rgba");
 
+    const rainbow = trailStyleFor("rainbow");
+    const fixedRand = () => 0;
+    expect(rainbow.color({ rand: fixedRand, hue: 0, i: 0 })).toContain("hsla(0,");
+    expect(rainbow.color({ rand: fixedRand, hue: 0, i: 1 })).toContain("hsla(30,");
+    expect(rainbow.color({ rand: fixedRand, hue: 0, i: 2 })).toContain("hsla(55,");
+
     const ocean = trailStyleFor("ocean");
     const oceanColor = ocean.color({ rand: () => 0, hue: 0, i: 0 });
     expect(oceanColor).toContain("rgba(0,164,214");

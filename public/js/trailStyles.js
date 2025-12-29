@@ -20,6 +20,11 @@ const duskColor = ({ rand: r, i }) => hsla((335 + r(-12, 12) + i * 1.1) % 360, 6
 const haloColor = ({ hue, rand: r }) => hsla((hue + r(-12, 12)) % 360, 92, 76, 0.48);
 const cometColor = ({ hue, rand: r }) => hsla((hue + r(-24, 24)) % 360, 100, 70, 0.9);
 const prismColor = ({ hue, i }) => hsla((hue + i * 18) % 360, 100, 70, 0.88);
+const ROYGBIV_HUES = Object.freeze([0, 30, 55, 120, 200, 250, 285]);
+const roygbivColor = ({ i, rand: r }) => {
+  const hue = ROYGBIV_HUES[i % ROYGBIV_HUES.length];
+  return hsla((hue + r(-4, 4)) % 360, 96, 68, 0.9);
+};
 const nebulaSmoke = ({ hue, rand: r }) => hsla((hue + r(-30, 30)) % 360, 64, 64, 0.55);
 const starGlow = ({ rand: r, i }) => hsla((52 + r(-18, 18) + i * 2) % 360, 96, 86, 0.9);
 const honeyGlow = ({ rand: r }) => hsla(42 + r(-6, 6), 94, 66, 0.88);
@@ -153,9 +158,8 @@ const TRAIL_STYLES = Object.freeze({
     speed: [36, 170],
     drag: 9.6,
     add: true,
-    color: prismColor,
-    hueRate: 280,
-    sparkle: { ...sparkleDefaults, rate: 52, size: [1.8, 3.6], color: cometColor }
+    color: roygbivColor,
+    sparkle: { ...sparkleDefaults, rate: 20, size: [1.4, 2.6], color: roygbivColor }
   },
   solar: {
     rate: 96,

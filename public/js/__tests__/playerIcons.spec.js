@@ -54,6 +54,16 @@ describe("player icon helpers", () => {
     expect(bee?.style?.pattern?.type).toBe("stripes");
   });
 
+  it("unlocks the Rainbow Stripes icon after the Orb Vacuum achievement", () => {
+    const unlocked = getUnlockedPlayerIcons(DEFAULT_PLAYER_ICONS, {
+      achievements: { unlocked: { orbs_run_100: Date.now() } }
+    });
+    expect(unlocked).toContain("rainbow_stripes");
+    const rainbow = DEFAULT_PLAYER_ICONS.find((icon) => icon.id === "rainbow_stripes");
+    expect(rainbow?.style?.pattern?.type).toBe("stripes");
+    expect(rainbow?.style?.pattern?.colors).toHaveLength(7);
+  });
+
   it("adds the Honeycomb icon when the drift achievement unlocks", () => {
     const unlocked = getUnlockedPlayerIcons(DEFAULT_PLAYER_ICONS, {
       achievements: { unlocked: { total_run_time_600: Date.now() } }

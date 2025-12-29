@@ -64,6 +64,22 @@ const PLAYER_ICONS = Object.freeze([
     }
   },
   {
+    id: "rainbow_stripes",
+    name: "Rainbow Stripes",
+    unlock: { type: "achievement", id: "orbs_run_100", label: "Orb Vacuum" },
+    style: {
+      fill: "#f8fafc",
+      core: "#e2e8f0",
+      rim: "#1f2937",
+      glow: "#f8fafc",
+      pattern: {
+        type: "stripes",
+        colors: ["#ef4444", "#fb923c", "#facc15", "#22c55e", "#3b82f6", "#6366f1", "#a855f7"],
+        angle: Math.PI / 4
+      }
+    }
+  },
+  {
     id: "honeycomb",
     name: "Honeycomb",
     unlock: { type: "achievement", id: "total_run_time_600", label: "Honeycomb Drift" },
