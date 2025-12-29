@@ -139,6 +139,7 @@ import { OFFLINE_STATUS_TEXT } from "./userStatusCopy.js";
 import { applyNetUserUpdate } from "./netUser.js";
 import { handleTrailSaveResponse } from "./trailSaveResponse.js";
 import { readSessionUsername } from "./session.js";
+import { recoverUserFromUsername } from "./sessionRecovery.js";
 import {
   genRandomSeed,
   readIconCookie,
@@ -1319,6 +1320,26 @@ async function recoverSession() {
   return Boolean(net.user);
 }
 
+async function ensureLoggedInForSave() {
+  if (net.user) return true;
+  const username = usernameInput?.value?.trim();
+  if (!username) return false;
+  const recovered = await recoverUserFromUsername({
+    username,
+    register: apiRegister,
+    onSuccess: (res) => {
+      net.online = true;
+      setNetUser(res.user);
+      net.trails = normalizeTrails(res.trails || net.trails);
+      syncUnlockablesCatalog({ trails: net.trails });
+      syncIconCatalog(res.icons || net.icons);
+      syncPipeTextureCatalog(res.pipeTextures || net.pipeTextures);
+      applyAchievementsPayload(res.achievements || { definitions: ACHIEVEMENTS, state: res.user?.achievements });
+    }
+  });
+  return recovered && Boolean(net.user);
+}
+
 // ---- Registration ----
 saveUserBtn.addEventListener("click", async () => {
   const username = usernameInput.value.trim();
@@ -1550,7 +1571,7 @@ trailOptions?.addEventListener("click", async (e) => {
     text: net.user ? "Saving trail choice…" : "Equipped (guest mode)."
   }, { persist: Boolean(net.user) });
 
-  if (!net.user) return;
+  if (!net.user && !(await ensureLoggedInForSave())) return;
 
   const res = await apiSetTrail(id);
   await handleTrailSaveResponse({
@@ -1627,7 +1648,7 @@ pipeTextureModeOptions?.addEventListener("click", async (e) => {
   syncPipeTextureSwatch(currentPipeTextureId, net.pipeTextures);
   renderPipeTextureMenuOptions(currentPipeTextureId, computeUnlockedPipeTextureSet(net.pipeTextures), net.pipeTextures);
 
-  if (!net.user) return;
+  if (!net.user && !(await ensureLoggedInForSave())) return;
 
   const res = await apiSetPipeTexture(currentPipeTextureId, currentPipeTextureMode);
   if (!res || !res.ok) {
@@ -1702,7 +1723,7 @@ pipeTextureOptions?.addEventListener("click", async (e) => {
     pipeTextureHint.textContent = net.user ? "Saving pipe texture…" : "Equipped (guest mode).";
   }
 
-  if (!net.user) return;
+  if (!net.user && !(await ensureLoggedInForSave())) return;
 
   const res = await apiSetPipeTexture(id, currentPipeTextureMode);
   if (!res || !res.ok) {
@@ -1790,7 +1811,7 @@ iconOptions?.addEventListener("click", async (e) => {
     iconHint.textContent = net.user ? "Saving icon choice…" : "Equipped (guest mode).";
   }
 
-  if (!net.user) return;
+  if (!net.user && !(await ensureLoggedInForSave())) return;
 
   const res = await apiSetIcon(id);
   const outcome = classifyIconSaveResponse(res);
