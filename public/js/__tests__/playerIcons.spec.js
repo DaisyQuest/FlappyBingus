@@ -83,6 +83,19 @@ describe("player icon helpers", () => {
     expect(lemon?.unlock).toEqual({ type: "achievement", id: "pipes_broken_run_100", label: "Shatterstorm Run" });
   });
 
+  it("defines the Lemon Slice citrus accents with warm rind and segment strokes", () => {
+    const lemon = DEFAULT_PLAYER_ICONS.find((icon) => icon.id === "lemon_slice");
+    expect(lemon?.style?.pattern).toEqual(
+      expect.objectContaining({
+        type: "citrus_slice",
+        stroke: "#f59e0b",
+        rindStroke: "#f59e0b",
+        segmentStroke: "#d97706",
+        segments: 8
+      })
+    );
+  });
+
   it("defines the Perfect Line Beacon palette as a black core with bright red accents", () => {
     const perfectLine = DEFAULT_PLAYER_ICONS.find((icon) => icon.id === "perfect_ten_liner");
     expect(perfectLine?.style?.fill).toBe("#000000");

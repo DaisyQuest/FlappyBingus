@@ -252,6 +252,7 @@ describe("player icon sprites", () => {
 
   it("sketches citrus slice segments for lemon icons", () => {
     const citrusOps = [];
+    const strokeStyles = [];
     const ctx = {
       save: () => {},
       restore: () => {},
@@ -265,7 +266,7 @@ describe("player icon sprites", () => {
       moveTo: () => citrusOps.push("moveTo"),
       lineTo: () => citrusOps.push("lineTo"),
       set lineWidth(v) { this._lineWidth = v; },
-      set strokeStyle(v) { this._strokeStyle = v; },
+      set strokeStyle(v) { this._strokeStyle = v; strokeStyles.push(v); },
       set shadowColor(v) { this._shadowColor = v; },
       set shadowBlur(v) { this._shadowBlur = v; }
     };
@@ -285,13 +286,21 @@ describe("player icon sprites", () => {
       style: {
         fill: "#facc15",
         core: "#fef08a",
-        pattern: { type: "citrus_slice", stroke: "#fff7a8", segments: 6 }
+        pattern: {
+          type: "citrus_slice",
+          stroke: "#f59e0b",
+          rindStroke: "#f59e0b",
+          segmentStroke: "#d97706",
+          segments: 8
+        }
       }
     }, { size: 88 });
 
     expect(sprite.__pattern?.type).toBe("citrus_slice");
     expect(citrusOps).toContain("lineTo");
     expect(citrusOps).toContain("arc");
+    expect(strokeStyles).toContain("#f59e0b");
+    expect(strokeStyles).toContain("#d97706");
   });
 
   it("renders the Perfect Line Beacon crosshair centered and in bright red", () => {

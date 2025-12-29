@@ -93,6 +93,8 @@ describe("trailStyles", () => {
     const lemon = trailStyleFor("lemon_slice");
     expect(lemon.particleShape).toBe("lemon_slice");
     expect(lemon.sliceStyle?.segments).toBeGreaterThan(3);
+    expect(lemon.sliceStyle?.rind).toBe("rgba(255, 228, 122, 0.98)");
+    expect(lemon.sliceStyle?.segment).toBe("rgba(255, 196, 54, 0.94)");
   });
 
   it("uses honeycomb hexagons with a matching outline style", () => {

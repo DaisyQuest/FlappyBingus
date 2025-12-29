@@ -132,7 +132,7 @@ export class Part {
       const pith = slice.pith || "rgba(255, 252, 224, 0.95)";
       const segment = slice.segment || "rgba(255, 240, 170, 0.9)";
       const segments = Math.max(4, Math.floor(slice.segments || 6));
-      const inner = r * 0.86;
+      const inner = r * 0.82;
       const pulp = r * 0.64;
       ctx.translate(this.x, this.y);
       if (this.rotation) ctx.rotate(this.rotation);
@@ -149,7 +149,7 @@ export class Part {
       ctx.arc(0, 0, pulp, 0, Math.PI * 2);
       ctx.fill();
       ctx.strokeStyle = segment;
-      ctx.lineWidth = Math.max(0.6, r * 0.16);
+      ctx.lineWidth = Math.max(0.6, r * 0.12);
       for (let i = 0; i < segments; i++) {
         const ang = (Math.PI * 2 * i) / segments;
         ctx.beginPath();

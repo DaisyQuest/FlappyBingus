@@ -186,17 +186,21 @@ function drawCitrusSlice(ctx, radius, {
   lineWidth = null,
   segments = 6,
   centerRadius = null,
-  glow = null
+  glow = null,
+  rindStroke = null,
+  segmentStroke = null,
+  segmentWidth = null
 } = {}) {
   if (!ctx) return;
   const safeSegments = Math.max(3, Math.floor(segments) || 6);
   const width = Math.max(1, lineWidth || radius * 0.08);
+  const spokeWidth = Math.max(1, segmentWidth || width * 0.75);
   const inner = Math.max(2, centerRadius || radius * 0.18);
   const span = radius * 0.86;
+  const ringStroke = rindStroke || stroke;
+  const spokeStroke = segmentStroke || stroke;
 
   ctx.save?.();
-  ctx.lineWidth = width;
-  ctx.strokeStyle = stroke;
   if (glow) {
     ctx.shadowColor = glow;
     ctx.shadowBlur = Math.max(4, width * 2.2);
@@ -204,10 +208,14 @@ function drawCitrusSlice(ctx, radius, {
     ctx.shadowBlur = 0;
   }
 
+  ctx.lineWidth = width;
+  ctx.strokeStyle = ringStroke;
   ctx.beginPath();
   ctx.arc?.(0, 0, span, 0, Math.PI * 2);
   ctx.stroke?.();
 
+  ctx.lineWidth = spokeWidth;
+  ctx.strokeStyle = spokeStroke;
   for (let i = 0; i < safeSegments; i += 1) {
     const angle = (Math.PI * 2 * i) / safeSegments;
     const x = Math.cos(angle) * span;
@@ -218,6 +226,8 @@ function drawCitrusSlice(ctx, radius, {
     ctx.stroke?.();
   }
 
+  ctx.lineWidth = width;
+  ctx.strokeStyle = ringStroke;
   ctx.beginPath();
   ctx.arc?.(0, 0, inner, 0, Math.PI * 2);
   ctx.stroke?.();
@@ -436,7 +446,10 @@ function renderIconFrame(ctx, canvas, icon = {}, { animationPhase = 0 } = {}) {
       lineWidth: pattern.lineWidth,
       segments: pattern.segments,
       centerRadius: pattern.centerRadius,
-      glow: pattern.glow || glow
+      glow: pattern.glow || glow,
+      rindStroke: pattern.rindStroke,
+      segmentStroke: pattern.segmentStroke,
+      segmentWidth: pattern.segmentWidth
     });
     canvas.__pattern = { type: "citrus_slice" };
   }
