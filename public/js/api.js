@@ -30,9 +30,26 @@ function hitClientRateLimit(name) {
   return false;
 }
 
-import { clearSessionToken, readSessionToken, writeSessionToken } from "./session.js";
+import {
+  clearSessionToken,
+  clearSessionUsername,
+  readSessionToken,
+  readSessionUsername,
+  writeSessionToken,
+  writeSessionUsername
+} from "./session.js";
 
-async function requestJson(url, opts = {}) {
+function applySessionFromResponse(data) {
+  if (!data) return;
+  if (data.sessionToken) {
+    writeSessionToken(data.sessionToken);
+  }
+  if (data.user?.username) {
+    writeSessionUsername(data.user.username);
+  }
+}
+
+async function requestJsonRaw(url, opts = {}) {
   const sessionToken = readSessionToken();
   const headers = {
     "Content-Type": "application/json",
@@ -48,12 +65,6 @@ async function requestJson(url, opts = {}) {
       headers
     });
     const data = await res.json().catch(() => null);
-    if (data?.sessionToken) {
-      writeSessionToken(data.sessionToken);
-    }
-    if (res.status === 401) {
-      clearSessionToken();
-    }
     return {
       ...(data || {}),
       ok: res.ok && data !== null && data?.ok !== false,
@@ -62,6 +73,29 @@ async function requestJson(url, opts = {}) {
   } catch {
     return null;
   }
+}
+
+async function requestJson(url, opts = {}) {
+  const res = await requestJsonRaw(url, opts);
+  applySessionFromResponse(res);
+  if (res?.status === 401 && res?.error === "unauthorized") {
+    const username = readSessionUsername();
+    if (username) {
+      const reauth = await requestJsonRaw("/api/register", {
+        method: "POST",
+        body: JSON.stringify({ username })
+      });
+      applySessionFromResponse(reauth);
+      if (reauth?.ok) {
+        const retry = await requestJsonRaw(url, opts);
+        applySessionFromResponse(retry);
+        return retry;
+      }
+    }
+    clearSessionToken();
+    clearSessionUsername();
+  }
+  return res;
 }
 
 export async function apiGetMe() {

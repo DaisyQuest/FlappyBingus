@@ -46,7 +46,7 @@ describe("api helpers", () => {
     global.fetch = fetchMock;
     // eslint-disable-next-line no-undef
     global.localStorage = {
-      getItem: vi.fn(() => "session-token"),
+      getItem: vi.fn((key) => (key === "bingus_session_token" ? "session-token" : null)),
       setItem: vi.fn(),
       removeItem: vi.fn()
     };
@@ -70,7 +70,7 @@ describe("api helpers", () => {
       .mockResolvedValueOnce({
         ok: true,
         status: 200,
-        json: () => Promise.resolve({ ok: true, sessionToken: "fresh-token" })
+        json: () => Promise.resolve({ ok: true, sessionToken: "fresh-token", user: { username: "bingus" } })
       })
       .mockResolvedValueOnce({
         ok: false,
@@ -79,24 +79,32 @@ describe("api helpers", () => {
       });
     // eslint-disable-next-line no-undef
     global.fetch = fetchMock;
-    const store = { token: null };
+    const store = { token: null, username: null };
     // eslint-disable-next-line no-undef
     global.localStorage = {
-      getItem: vi.fn(() => store.token),
-      setItem: vi.fn((_key, value) => {
-        store.token = value;
+      getItem: vi.fn((key) => {
+        if (key === "bingus_session_token") return store.token;
+        if (key === "bingus_username") return store.username;
+        return null;
       }),
-      removeItem: vi.fn(() => {
-        store.token = null;
+      setItem: vi.fn((key, value) => {
+        if (key === "bingus_session_token") store.token = value;
+        if (key === "bingus_username") store.username = value;
+      }),
+      removeItem: vi.fn((key) => {
+        if (key === "bingus_session_token") store.token = null;
+        if (key === "bingus_username") store.username = null;
       })
     };
 
     const { apiGetMe } = await import("../api.js");
     await apiGetMe();
     expect(store.token).toBe("fresh-token");
+    expect(store.username).toBe("bingus");
 
     await apiGetMe();
     expect(store.token).toBeNull();
+    expect(store.username).toBeNull();
   });
 
   it("stops calling fetch when the client limit is exceeded", async () => {
@@ -244,5 +252,46 @@ describe("api helpers", () => {
     const afterReset = await apiGetMe();
     expect(fetchMock).toHaveBeenCalledTimes(9);
     expect(afterReset).toEqual({ ok: true });
+  });
+
+  it("re-registers and retries requests after unauthorized responses", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({
+        ok: false,
+        status: 401,
+        json: () => Promise.resolve({ ok: false, error: "unauthorized" })
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: () => Promise.resolve({ ok: true, sessionToken: "fresh-token", user: { username: "bingus" } })
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: () => Promise.resolve({ ok: true })
+      });
+    // eslint-disable-next-line no-undef
+    global.fetch = fetchMock;
+    // eslint-disable-next-line no-undef
+    global.localStorage = {
+      getItem: vi.fn((key) => (key === "bingus_username" ? "bingus" : null)),
+      setItem: vi.fn(),
+      removeItem: vi.fn()
+    };
+
+    const { apiGetMe } = await import("../api.js");
+    const res = await apiGetMe();
+
+    expect(res).toEqual({ ok: true, status: 200 });
+    expect(fetchMock).toHaveBeenNthCalledWith(1, "/api/me", expect.any(Object));
+    expect(fetchMock).toHaveBeenNthCalledWith(2, "/api/register", {
+      credentials: "same-origin",
+      headers: { "Content-Type": "application/json" },
+      method: "POST",
+      body: JSON.stringify({ username: "bingus" })
+    });
+    expect(fetchMock).toHaveBeenNthCalledWith(3, "/api/me", expect.any(Object));
   });
 });

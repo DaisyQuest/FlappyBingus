@@ -1,5 +1,12 @@
 import { describe, expect, it, vi } from "vitest";
-import { clearSessionToken, readSessionToken, writeSessionToken } from "../session.js";
+import {
+  clearSessionToken,
+  clearSessionUsername,
+  readSessionToken,
+  readSessionUsername,
+  writeSessionToken,
+  writeSessionUsername
+} from "../session.js";
 
 describe("session helpers", () => {
   it("reads and writes session tokens", () => {
@@ -61,5 +68,33 @@ describe("session helpers", () => {
     expect(readSessionToken(null)).toBe("cached-token");
     clearSessionToken(storage);
     expect(readSessionToken(null)).toBeNull();
+  });
+
+  it("reads and writes session usernames", () => {
+    const store = new Map();
+    const storage = {
+      getItem: (key) => store.get(key) || null,
+      setItem: (key, value) => store.set(key, value),
+      removeItem: (key) => store.delete(key)
+    };
+
+    expect(readSessionUsername(storage)).toBeNull();
+    writeSessionUsername("PlayerOne", storage);
+    expect(readSessionUsername(storage)).toBe("PlayerOne");
+    clearSessionUsername(storage);
+    expect(readSessionUsername(storage)).toBeNull();
+  });
+
+  it("caches usernames in memory when storage is unavailable", () => {
+    const storage = {
+      getItem: vi.fn(() => "PlayerTwo"),
+      setItem: vi.fn(),
+      removeItem: vi.fn()
+    };
+
+    expect(readSessionUsername(storage)).toBe("PlayerTwo");
+    expect(readSessionUsername(null)).toBe("PlayerTwo");
+    clearSessionUsername(storage);
+    expect(readSessionUsername(null)).toBeNull();
   });
 });
