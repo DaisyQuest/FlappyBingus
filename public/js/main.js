@@ -142,6 +142,7 @@ import { readSessionUsername } from "./session.js";
 import { recoverUserFromUsername } from "./sessionRecovery.js";
 import {
   resolveReauthUsername,
+  shouldUpdateTrailHint,
   shouldAttemptReauth,
   shouldAttemptReauthForGuestHint
 } from "./userHintRecovery.js";
@@ -646,14 +647,13 @@ function setUserHint() {
     offlineStatus.textContent = OFFLINE_STATUS_TEXT;
     offlineStatus.classList.toggle("hidden", net.online);
   }
-  if (trailHint && authTrailHint) {
-    const current = trailHint.textContent || "";
-    const showingGuest = current.includes(GUEST_TRAIL_HINT_TEXT);
-    const shouldShowGuest = authTrailHint.text === GUEST_TRAIL_HINT_TEXT;
-    if (showingGuest !== shouldShowGuest) {
+  if (trailHint && authTrailHint?.text) {
+    const current = trailHint.textContent;
+    if (shouldUpdateTrailHint({ currentText: current, nextText: authTrailHint.text })) {
       setTrailHint(authTrailHint);
     }
   }
+  syncMenuProfileBindingsFromState();
 }
 
 async function handlePlayHighscore(username) {

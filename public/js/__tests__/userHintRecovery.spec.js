@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   resolveReauthUsername,
+  shouldUpdateTrailHint,
   shouldAttemptReauth,
   shouldAttemptReauthForGuestHint
 } from "../userHintRecovery.js";
@@ -18,6 +19,22 @@ describe("user hint recovery", () => {
 
   it("returns an empty username when no valid values exist", () => {
     expect(resolveReauthUsername({ inputValue: null, sessionUsername: undefined })).toBe("");
+  });
+
+  it("updates trail hints when no current value exists", () => {
+    expect(shouldUpdateTrailHint({ currentText: null, nextText: "Next" })).toBe(true);
+  });
+
+  it("does not update trail hints when next text is empty", () => {
+    expect(shouldUpdateTrailHint({ currentText: "Current", nextText: "" })).toBe(false);
+  });
+
+  it("does not update trail hints when text is unchanged", () => {
+    expect(shouldUpdateTrailHint({ currentText: "Same", nextText: "Same" })).toBe(false);
+  });
+
+  it("updates trail hints when the text changes", () => {
+    expect(shouldUpdateTrailHint({ currentText: "Old", nextText: "New" })).toBe(true);
   });
 
   it("returns false when reauth is in flight", () => {

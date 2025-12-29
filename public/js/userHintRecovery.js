@@ -15,6 +15,12 @@ export function resolveReauthUsername({ inputValue, sessionUsername } = {}) {
   return normalizeUsername(sessionUsername);
 }
 
+export function shouldUpdateTrailHint({ currentText, nextText } = {}) {
+  if (!nextText) return false;
+  if (typeof currentText !== "string") return true;
+  return currentText !== nextText;
+}
+
 function shouldAttemptReauthForHint({ hintText, username, inFlight, matchText } = {}) {
   if (inFlight) return false;
   if (!normalizeUsername(username)) return false;
