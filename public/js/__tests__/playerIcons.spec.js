@@ -90,8 +90,8 @@ describe("player icon helpers", () => {
         type: "citrus_slice",
         stroke: "#f59e0b",
         rindStroke: "#f59e0b",
-        segmentStroke: "#d97706",
-        segments: 8
+        segmentStroke: "#ea8c00",
+        segments: 10
       })
     );
   });

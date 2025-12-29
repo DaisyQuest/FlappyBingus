@@ -24,6 +24,7 @@ const nebulaSmoke = ({ hue, rand: r }) => hsla((hue + r(-30, 30)) % 360, 64, 64,
 const starGlow = ({ rand: r, i }) => hsla((52 + r(-18, 18) + i * 2) % 360, 96, 86, 0.9);
 const honeyGlow = ({ rand: r }) => hsla(42 + r(-6, 6), 94, 66, 0.88);
 const lemonGlow = ({ rand: r, i }) => hsla((54 + r(-8, 8) + i * 1.4) % 360, 96, 82, 0.88);
+const leafGlow = ({ rand: r, i }) => hsla((120 + r(-14, 14) + i * 0.6) % 360, 42, 58, 0.74);
 const honeyHexStyle = Object.freeze({
   stroke: "rgba(245, 158, 11, 0.9)",
   fill: "rgba(255, 224, 130, 0.4)",
@@ -181,15 +182,16 @@ const TRAIL_STYLES = Object.freeze({
     aura: { rate: 12, size: [4.0, 6.2], life: [0.4, 0.6], color: ({ rand: r }) => hsla(220 + r(-8, 8), 70, 66, 0.32) }
   },
   magma: {
-    rate: 88,
-    life: [0.22, 0.4],
-    size: [7.8, 14.6],
-    speed: [42, 166],
-    drag: 9.4,
+    rate: 76,
+    life: [0.18, 0.34],
+    size: [4.8, 9.6],
+    speed: [36, 150],
+    drag: 9.8,
     add: true,
-    color: flameColor({ base: 8, spread: 34, alpha: 0.92 }),
-    sparkle: { ...sparkleDefaults, rate: 28, size: [2.6, 5.8], color: ({ rand: r }) => hsla((16 + r(-14, 22)) % 360, 98, 72, 0.94) },
-    aura: { rate: 22, size: [6.2, 10.8], life: [0.7, 1.0], color: ({ rand: r }) => hsla(10 + r(-8, 8), 90, 62, 0.42) }
+    color: flameColor({ base: 18, spread: 26, alpha: 0.94 }),
+    sparkle: { ...sparkleDefaults, rate: 22, size: [1.6, 3.6], speed: [22, 70], color: emberSpark },
+    glint: { ...glintDefaults, rate: 18, size: [1.8, 3.6], speed: [40, 120], color: ({ rand: r }) => hsla((28 + r(-12, 18)) % 360, 96, 74, 0.9) },
+    aura: { rate: 14, size: [4.8, 8.8], life: [0.55, 0.85], color: ({ rand: r }) => hsla(18 + r(-10, 10), 82, 58, 0.32) }
   },
   plasma: {
     rate: 118,
@@ -260,23 +262,24 @@ const TRAIL_STYLES = Object.freeze({
     aura: { rate: 14, size: [4.6, 8.2], life: [0.5, 0.75], color: ({ rand: r }) => hsla(46 + r(-8, 8), 86, 62, 0.32) }
   },
   lemon_slice: {
-    rate: 90,
-    life: [0.2, 0.36],
-    size: [4.2, 8.8],
-    speed: [36, 150],
+    rate: 82,
+    life: [0.22, 0.38],
+    size: [4.0, 8.2],
+    speed: [34, 146],
     drag: 10.2,
     add: true,
-    color: paletteColor(["rgba(255,235,59,.92)", "rgba(255,248,190,.94)", "rgba(255,210,64,.92)"]),
+    color: paletteColor(["rgba(255,239,132,.94)", "rgba(255,224,92,.94)", "rgba(255,248,206,.9)"]),
     particleShape: "lemon_slice",
     sliceStyle: {
-      rind: "rgba(255, 228, 122, 0.98)",
-      pith: "rgba(255, 251, 214, 0.96)",
-      segment: "rgba(255, 196, 54, 0.94)",
-      segments: 8
+      rind: "rgba(255, 214, 96, 0.98)",
+      pith: "rgba(255, 246, 206, 0.96)",
+      segment: "rgba(255, 184, 36, 0.95)",
+      segments: 10,
+      segmentGap: 0.12
     },
-    sparkle: { ...sparkleDefaults, rate: 38, size: [1.4, 3.0], color: lemonGlow },
-    glint: { ...glintDefaults, rate: 30, size: [2.0, 3.8], speed: [48, 140], color: ({ rand: r }) => hsla(52 + r(-10, 10), 90, 80, 0.88) },
-    aura: { rate: 16, size: [4.8, 8.6], life: [0.5, 0.8], color: ({ rand: r }) => hsla(56 + r(-8, 8), 88, 74, 0.34) }
+    sparkle: { ...sparkleDefaults, rate: 32, size: [1.3, 2.8], color: lemonGlow },
+    glint: { ...glintDefaults, rate: 26, size: [1.8, 3.6], speed: [44, 130], color: ({ rand: r }) => hsla(52 + r(-8, 10), 92, 78, 0.88) },
+    aura: { rate: 14, size: [4.4, 8.0], life: [0.52, 0.82], color: ({ rand: r }) => hsla(56 + r(-8, 8), 86, 72, 0.32) }
   },
   dragonfire: {
     rate: 122,
@@ -302,32 +305,35 @@ const TRAIL_STYLES = Object.freeze({
     aura: { rate: 20, size: [4.8, 8.2], life: [0.6, 0.9], color: ({ rand: r }) => hsla((275 + r(-10, 10)) % 360, 80, 66, 0.4) }
   },
   world_record: {
-    rate: 126,
-    life: [0.28, 0.52],
-    size: [10, 17],
-    speed: [42, 150],
-    drag: 10.4,
-    add: true,
+    rate: 42,
+    life: [0.34, 0.6],
+    size: [2.2, 4.8],
+    speed: [24, 88],
+    drag: 11.4,
+    add: false,
     color: petalColor,
+    particleShape: "petal",
     sparkle: {
-      rate: 46,
-      life: [0.50, 0.86],
-      size: [5, 11],
-      speed: [22, 82],
-      drag: 9.8,
+      rate: 6,
+      life: [0.45, 0.8],
+      size: [1.6, 3.2],
+      speed: [16, 58],
+      drag: 10.4,
       add: false,
-      color: ({ rand: r }) => hsla((332 + r(-12, 12)) % 360, 86, 86, 0.9)
+      color: starGlow,
+      particleShape: "star"
     },
     glint: {
-      rate: 38,
-      life: [0.34, 0.54],
-      size: [7, 12],
-      speed: [32, 118],
-      drag: 8.9,
+      rate: 14,
+      life: [0.4, 0.7],
+      size: [2.4, 4.6],
+      speed: [20, 80],
+      drag: 10.2,
       add: false,
-      color: ({ rand: r }) => hsla((328 + r(-10, 12)) % 360, 84, 88, 0.9)
+      color: leafGlow,
+      particleShape: "leaf"
     },
-    hueRate: 120
+    hueRate: 90
   }
 });
 

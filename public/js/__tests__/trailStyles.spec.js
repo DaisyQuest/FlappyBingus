@@ -31,6 +31,9 @@ describe("trailStyles", () => {
   it("includes an extravagant record-holder blossom style", () => {
     const style = trailStyleFor("world_record");
     expect(TRAIL_STYLE_IDS).toContain("world_record");
+    expect(style.particleShape).toBe("petal");
+    expect(style.sparkle.particleShape).toBe("star");
+    expect(style.glint.particleShape).toBe("leaf");
     expect(style.sparkle.size[1]).toBeGreaterThan(style.sparkle.size[0]);
     expect(style.glint.size[1]).toBeGreaterThan(style.glint.size[0]);
   });
@@ -43,8 +46,8 @@ describe("trailStyles", () => {
 
     expect(style.sparkle.add).toBe(false);
     expect(style.glint.add).toBe(false);
-    expect(style.glint.rate).toBeLessThan(46);
-    expect(style.sparkle.rate).toBeLessThan(54);
+    expect(style.glint.rate).toBeLessThan(20);
+    expect(style.sparkle.rate).toBeLessThan(10);
     expect(glintColor).toContain("hsla");
     expect(sparkleColor).toContain("hsla");
     expect(glintColor).not.toContain("255,255,255");
@@ -93,8 +96,8 @@ describe("trailStyles", () => {
     const lemon = trailStyleFor("lemon_slice");
     expect(lemon.particleShape).toBe("lemon_slice");
     expect(lemon.sliceStyle?.segments).toBeGreaterThan(3);
-    expect(lemon.sliceStyle?.rind).toBe("rgba(255, 228, 122, 0.98)");
-    expect(lemon.sliceStyle?.segment).toBe("rgba(255, 196, 54, 0.94)");
+    expect(lemon.sliceStyle?.rind).toBe("rgba(255, 214, 96, 0.98)");
+    expect(lemon.sliceStyle?.segment).toBe("rgba(255, 184, 36, 0.95)");
   });
 
   it("uses honeycomb hexagons with a matching outline style", () => {
