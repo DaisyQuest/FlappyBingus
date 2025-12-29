@@ -310,10 +310,11 @@ export class Game {
 
 
   resizeToWindow() {
-    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    const baseDpr = window.devicePixelRatio || 1;
+    const dpr = this.skillSettings?.highPerformance ? 4 : Math.min(baseDpr, 2);
     const cssW = Math.max(1, Math.round(window.visualViewport?.width || window.innerWidth));
     const cssH = Math.max(1, Math.round(window.visualViewport?.height || window.innerHeight));
-    const norm = Math.max(0.25, (window.devicePixelRatio || 1) / BASE_DPR);
+    const norm = Math.max(0.25, baseDpr / BASE_DPR);
 
     // Logical game space is normalized to the DPR at page load so browser zoom
     // does not change the effective playfield size.
@@ -327,6 +328,9 @@ export class Game {
 
     this.ctx.setTransform(dpr / norm, 0, 0, dpr / norm, 0, 0);
     this.ctx.imageSmoothingEnabled = true;
+    if ("imageSmoothingQuality" in this.ctx) {
+      this.ctx.imageSmoothingQuality = this.skillSettings?.highPerformance ? "high" : "medium";
+    }
 
     this.DPR = dpr / norm;
     this.W = logicalW;

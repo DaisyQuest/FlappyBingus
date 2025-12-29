@@ -59,7 +59,8 @@ describe("server helpers (trails)", () => {
       dashBehavior: "ricochet",
       slowFieldBehavior: "slow",
       teleportBehavior: "normal",
-      invulnBehavior: "short"
+      invulnBehavior: "short",
+      highPerformance: false
     });
   });
 
@@ -147,7 +148,8 @@ describe("server helpers (trails)", () => {
       dashBehavior: "ricochet",
       slowFieldBehavior: "slow",
       teleportBehavior: "normal",
-      invulnBehavior: "short"
+      invulnBehavior: "short",
+      highPerformance: false
     });
     expect(u.runs).toBe(0);
     expect(u.totalScore).toBe(0);

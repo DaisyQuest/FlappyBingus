@@ -254,10 +254,12 @@ describe("uiLayout", () => {
     expect(featureTitles).toContain("Skill Keybinds");
     expect(settingsGrid?.firstElementChild?.querySelector(".section-title")?.textContent).toBe("Skill Behaviors");
 
-    const secondary = settingsGrid?.querySelector(".settings-secondary");
-    expect(secondary?.querySelector("#musicVolume")).toBeInstanceOf(window.HTMLInputElement);
-    expect(secondary?.querySelector("#sfxVolume")).toBeInstanceOf(window.HTMLInputElement);
+    const volumeCard = settingsGrid?.querySelector(".volume-card");
+    expect(volumeCard?.querySelector("#musicVolume")).toBeInstanceOf(window.HTMLInputElement);
+    expect(volumeCard?.querySelector("#sfxVolume")).toBeInstanceOf(window.HTMLInputElement);
     expect(settingsGrid?.querySelector(".muted-note")).toBeNull();
+    const performanceCard = settingsGrid?.querySelector(".performance-card");
+    expect(performanceCard?.querySelector("#highPerformanceToggle")).toBeInstanceOf(window.HTMLInputElement);
 
     const utilityTitles = Array.from(settingsGrid?.querySelectorAll(".settings-utility .section-title") || []).map(
       el => el?.textContent

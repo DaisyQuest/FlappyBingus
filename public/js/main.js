@@ -237,6 +237,7 @@ const {
   musicVolume: musicSlider,
   sfxVolume: sfxSlider,
   muteToggle,
+  highPerformanceToggle,
   watchReplay: watchReplayBtn,
   exportGif: exportGifBtn,
   exportMp4: exportMp4Btn,
@@ -485,6 +486,9 @@ const volumeChangeHandler = () => applyVolumeFromUI();
 musicSlider?.addEventListener("input", volumeChangeHandler);
 sfxSlider?.addEventListener("input", volumeChangeHandler);
 muteToggle?.addEventListener("change", volumeChangeHandler);
+highPerformanceToggle?.addEventListener("change", () => {
+  updateSkillSettings({ ...skillSettings, highPerformance: !!highPerformanceToggle.checked });
+});
 applySkillSettingsToUI(skillSettings);
 
 // IMPORTANT: actions are NOT applied immediately.
@@ -1295,15 +1299,21 @@ function applySkillSettingsToUI(settings = skillSettings) {
   markSkillOptionSelection(teleportBehaviorOptions, normalized.teleportBehavior);
   markSkillOptionSelection(invulnBehaviorOptions, normalized.invulnBehavior);
   markSkillOptionSelection(slowFieldBehaviorOptions, normalized.slowFieldBehavior);
+  if (highPerformanceToggle) highPerformanceToggle.checked = !!normalized.highPerformance;
 }
 
 async function updateSkillSettings(next, { persist = true } = {}) {
+  const prevHighPerformance = skillSettings?.highPerformance;
   const normalized = normalizeSkillSettings(next || DEFAULT_SKILL_SETTINGS);
   const changed = !skillSettingsEqual(skillSettings, normalized);
   skillSettings = normalized;
   game.setSkillSettings(skillSettings);
   applySkillSettingsToUI(skillSettings);
   writeSettingsCookie(skillSettings);
+  if (prevHighPerformance !== normalized.highPerformance) {
+    game.resizeToWindow();
+    trailPreview?.resize();
+  }
 
   if (persist && net.user && changed) {
     const res = await apiSetSettings(skillSettings);

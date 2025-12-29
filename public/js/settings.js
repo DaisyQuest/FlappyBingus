@@ -7,7 +7,8 @@ export const DEFAULT_SKILL_SETTINGS = Object.freeze({
   dashBehavior: "ricochet",
   slowFieldBehavior: "slow",
   teleportBehavior: "normal",
-  invulnBehavior: "short"
+  invulnBehavior: "short",
+  highPerformance: false
 });
 
 export const SKILL_BEHAVIOR_OPTIONS = Object.freeze({
@@ -18,6 +19,9 @@ export const SKILL_BEHAVIOR_OPTIONS = Object.freeze({
 });
 
 function normalizeValue(name, value) {
+  if (name === "highPerformance") {
+    return value === true || value === "true";
+  }
   const choices = SKILL_BEHAVIOR_OPTIONS[name] || [];
   return choices.includes(value) ? value : DEFAULT_SKILL_SETTINGS[name];
 }

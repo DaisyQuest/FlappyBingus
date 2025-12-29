@@ -17,7 +17,8 @@ const baseUser = () => ({
     dashBehavior: "ricochet",
     slowFieldBehavior: "slow",
     teleportBehavior: "normal",
-    invulnBehavior: "short"
+    invulnBehavior: "short",
+    highPerformance: false
   },
   runs: 1,
   totalScore: 100,

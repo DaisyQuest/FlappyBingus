@@ -516,6 +516,33 @@ function createVolumeCard(doc, refs) {
   return card;
 }
 
+function createPerformanceCard(doc, refs) {
+  const card = doc.createElement("div");
+  card.className = "info-card settings-secondary performance-card";
+
+  const title = doc.createElement("div");
+  title.className = "section-title";
+  title.textContent = "Performance";
+
+  const row = doc.createElement("div");
+  row.className = "mute-row";
+  const toggle = createElement(doc, refs, "input", {
+    id: "highPerformanceToggle",
+    attrs: { type: "checkbox", "aria-label": "Enable high performance mode" }
+  });
+  const label = doc.createElement("label");
+  label.setAttribute("for", "highPerformanceToggle");
+  label.textContent = "High performance (16x AA)";
+  row.append(toggle, label);
+
+  const hint = doc.createElement("div");
+  hint.className = "hint";
+  hint.textContent = "Supersamples the canvas for crisp edges on fast rigs.";
+
+  card.append(title, row, hint);
+  return card;
+}
+
 function createBindCard(doc, refs) {
   const card = doc.createElement("div");
   card.className = "info-card settings-feature";
@@ -1253,6 +1280,7 @@ function createMenuScreen(doc, refs) {
     createSkillSettingsCard(doc, refs),
     createBindCard(doc, refs),
     createVolumeCard(doc, refs),
+    createPerformanceCard(doc, refs),
     createSeedCard(doc, refs),
     createStatusCard(doc, refs)
   );

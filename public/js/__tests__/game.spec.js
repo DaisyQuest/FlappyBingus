@@ -3,6 +3,7 @@ import { describe, it, beforeAll, beforeEach, afterEach, expect, vi } from "vite
 import { Game } from "../game.js";
 import { DEFAULT_CONFIG } from "../config.js";
 import { setRandSource } from "../util.js";
+import { DEFAULT_SKILL_SETTINGS } from "../settings.js";
 import * as pipeColors from "../pipeColors.js";
 import * as perfectGaps from "../perfectGaps.js";
 import * as mechanics from "../mechanics.js";
@@ -46,6 +47,7 @@ const mockCtx = () => {
     moveTo: vi.fn(),
     lineTo: vi.fn(),
     imageSmoothingEnabled: true,
+    imageSmoothingQuality: "low",
     get globalAlpha() { return this._ga || 0; },
     set globalAlpha(v) { this._ga = v; },
     get fillStyle() { return this._fs; },
@@ -168,7 +170,7 @@ afterEach(() => {
 
 describe("Game core utilities", () => {
   it("resizes canvas, recomputes player size, and initializes background layers", () => {
-    const { game, canvas } = buildGame();
+    const { game, canvas, ctx } = buildGame();
     game.resizeToWindow();
 
     expect(canvas.style.width).toBe("320px");
@@ -179,12 +181,23 @@ describe("Game core utilities", () => {
     expect(game.bgCanvas).toBeTruthy();
     expect(game.bgDirty).toBe(false);
     expect(game.bgDots.length).toBeGreaterThan(0);
+    expect(ctx.imageSmoothingQuality).toBe("medium");
 
     const previousCtx = game.bgCtx;
     game.W += 1;
     game._refreshBackgroundLayer();
     expect(game.bgCtx).not.toBeNull();
     expect(game.bgCtx).not.toBe(previousCtx);
+  });
+
+  it("supersamples the canvas when high performance mode is enabled", () => {
+    const { game, canvas, ctx } = buildGame();
+    game.setSkillSettings({ ...DEFAULT_SKILL_SETTINGS, highPerformance: true });
+    game.resizeToWindow();
+
+    expect(canvas.width).toBe(1280);
+    expect(canvas.height).toBe(800);
+    expect(ctx.imageSmoothingQuality).toBe("high");
   });
 
   it("toggles audio and guards SFX triggers", async () => {

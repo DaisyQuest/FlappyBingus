@@ -120,7 +120,8 @@ const DEFAULT_SETTINGS = Object.freeze({
   dashBehavior: "ricochet",
   slowFieldBehavior: "slow",
   teleportBehavior: "normal",
-  invulnBehavior: "short"
+  invulnBehavior: "short",
+  highPerformance: false
 });
 
 const TRAILS = Object.freeze([
@@ -474,7 +475,14 @@ function normalizeSettings(settings) {
   const slow = src.slowFieldBehavior === "explosion" ? "explosion" : "slow";
   const tp = src.teleportBehavior === "explode" ? "explode" : "normal";
   const inv = src.invulnBehavior === "long" ? "long" : "short";
-  return { dashBehavior: dash, slowFieldBehavior: slow, teleportBehavior: tp, invulnBehavior: inv };
+  const highPerformance = src.highPerformance === true;
+  return {
+    dashBehavior: dash,
+    slowFieldBehavior: slow,
+    teleportBehavior: tp,
+    invulnBehavior: inv,
+    highPerformance
+  };
 }
 
 function validateSettingsPayload(settings) {
@@ -483,12 +491,20 @@ function validateSettingsPayload(settings) {
   const slow = settings.slowFieldBehavior;
   const tp = settings.teleportBehavior;
   const inv = settings.invulnBehavior;
+  const hp = settings.highPerformance;
   const validDash = dash === "ricochet" || dash === "destroy";
   const validSlow = slow === "slow" || slow === "explosion";
   const validTp = tp === "normal" || tp === "explode";
   const validInv = inv === "short" || inv === "long";
-  if (!validDash || !validSlow || !validTp || !validInv) return null;
-  return { dashBehavior: dash, slowFieldBehavior: slow, teleportBehavior: tp, invulnBehavior: inv };
+  const validHp = typeof hp === "boolean" || typeof hp === "undefined";
+  if (!validDash || !validSlow || !validTp || !validInv || !validHp) return null;
+  return {
+    dashBehavior: dash,
+    slowFieldBehavior: slow,
+    teleportBehavior: tp,
+    invulnBehavior: inv,
+    highPerformance: hp === true
+  };
 }
 
 function normalizeBind(b) {

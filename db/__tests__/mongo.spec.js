@@ -229,7 +229,13 @@ describe("MongoDataStore mutations and reads", () => {
       key: "k",
       selectedTrail: "neon",
       keybinds: { dash: "Space" },
-      settings: { dashBehavior: "destroy", slowFieldBehavior: "slow", teleportBehavior: "normal", invulnBehavior: "short" }
+      settings: {
+        dashBehavior: "destroy",
+        slowFieldBehavior: "slow",
+        teleportBehavior: "normal",
+        invulnBehavior: "short",
+        highPerformance: false
+      }
     };
     const coll = makeCollection({ findOneAndUpdate: vi.fn(async () => ({ value: val })) });
     const store = new MongoDataStore({ uri: "mongodb://ok", dbName: "db" });

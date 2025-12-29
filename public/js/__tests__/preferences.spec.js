@@ -65,11 +65,12 @@ describe("preferences", () => {
   });
 
   it("round-trips settings cookies through normalization", () => {
-    writeSettingsCookie({ dashBehavior: "destroy", slowFieldBehavior: "invalid" });
+    writeSettingsCookie({ dashBehavior: "destroy", slowFieldBehavior: "invalid", highPerformance: true });
     const settings = readSettingsCookie();
     expect(settings).toEqual({
       ...DEFAULT_SKILL_SETTINGS,
-      dashBehavior: "destroy"
+      dashBehavior: "destroy",
+      highPerformance: true
     });
   });
 

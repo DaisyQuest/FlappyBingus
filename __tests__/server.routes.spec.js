@@ -17,7 +17,8 @@ const baseUser = () => ({
     dashBehavior: "ricochet",
     slowFieldBehavior: "slow",
     teleportBehavior: "normal",
-    invulnBehavior: "short"
+    invulnBehavior: "short",
+    highPerformance: false
   },
   runs: 3,
   totalScore: 5000,
@@ -153,6 +154,7 @@ describe("server routes and helpers", () => {
     expect(savedSettings.dashBehavior).toBe("ricochet");
     expect(savedSettings.teleportBehavior).toBe("normal");
     expect(savedSettings.invulnBehavior).toBe("short");
+    expect(savedSettings.highPerformance).toBe(false);
     expect(readJson(successHttp).sessionToken).toMatch(/^\S+\.\S+\.\S+$/);
 
     const successForwarded = createRes();
@@ -439,7 +441,8 @@ describe("server routes and helpers", () => {
       dashBehavior: "destroy",
       slowFieldBehavior: "explosion",
       teleportBehavior: "explode",
-      invulnBehavior: "long"
+      invulnBehavior: "long",
+      highPerformance: false
     });
     expect(readJson(res).icons?.length).toBeGreaterThan(0);
     expect(readJson(res).pipeTextures?.length).toBeGreaterThan(0);
@@ -791,7 +794,8 @@ describe("server routes and helpers", () => {
             dashBehavior: "destroy",
             slowFieldBehavior: "explosion",
             teleportBehavior: "explode",
-            invulnBehavior: "long"
+            invulnBehavior: "long",
+            highPerformance: true
           }
         }),
         headers: { cookie: buildSessionCookie(server, "PlayerOne") }
@@ -804,13 +808,15 @@ describe("server routes and helpers", () => {
       dashBehavior: "destroy",
       slowFieldBehavior: "explosion",
       teleportBehavior: "explode",
-      invulnBehavior: "long"
+      invulnBehavior: "long",
+      highPerformance: true
     });
     expect(readJson(valid).user.settings).toEqual({
       dashBehavior: "destroy",
       slowFieldBehavior: "explosion",
       teleportBehavior: "explode",
-      invulnBehavior: "long"
+      invulnBehavior: "long",
+      highPerformance: true
     });
   });
 
