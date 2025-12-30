@@ -69,6 +69,7 @@ let playback = null;
 let game = null;
 let driver = null;
 let replayInput = null;
+let activeRun = null;
 
 async function initGame() {
   if (!ui.canvas) return null;
@@ -109,6 +110,14 @@ async function initGame() {
     replayInput,
     simDt: SIM_DT,
     step: driver ? (dt, actions) => driver.step(dt, actions) : null,
+    onReset: () => {
+      if (!activeRun) return;
+      const randSource = chooseReplayRandSource(activeRun, {
+        tapePlayer: createTapeRandPlayer,
+        seededRand: createSeededRand
+      });
+      if (randSource) setRandSource(randSource);
+    },
     onProgress: ({ progress, index, total }) => {
       if (ui.progress) ui.progress.value = Math.round(progress * 1000);
       if (ui.time) ui.time.textContent = total ? `${Math.round(progress * 100)}%` : "0%";
@@ -149,13 +158,7 @@ async function loadReplay() {
       setControlsEnabled(false);
       return;
     }
-
-    const randSource = chooseReplayRandSource(hydrated, {
-      tapePlayer: createTapeRandPlayer,
-      seededRand: createSeededRand
-    });
-    if (randSource) setRandSource(randSource);
-
+    activeRun = hydrated;
     playback?.setTicks(hydrated.ticks);
     playback?.restart();
     setControlsEnabled(true);

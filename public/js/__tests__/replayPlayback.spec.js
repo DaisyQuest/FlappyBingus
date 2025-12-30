@@ -94,13 +94,15 @@ describe("replayPlayback", () => {
     const game = makeGame();
     const replayInput = { cursor: { x: 0, y: 0, has: false }, _move: { dx: 0, dy: 0 }, getMove() { return this._move; } };
     const onComplete = vi.fn();
+    const onReset = vi.fn();
 
     const playback = createReplayPlayback({
       game,
       replayInput,
       simDt: 1 / 120,
       requestFrame: raf,
-      onComplete
+      onComplete,
+      onReset
     });
 
     playback.setTicks([
@@ -112,6 +114,7 @@ describe("replayPlayback", () => {
     expect(replayInput._move).toEqual({ dx: 3, dy: 0 });
     expect(playback.seek(1)).toBe(true);
     expect(replayInput._move).toEqual({ dx: 4, dy: 0 });
+    expect(onReset).toHaveBeenCalled();
 
     playback.stepOnce();
     expect(onComplete).toHaveBeenCalled();
@@ -131,6 +134,25 @@ describe("replayPlayback", () => {
 
     expect(playback.setTicks([])).toBe(false);
     expect(playback.play()).toBe(false);
+  });
+
+  it("calls onReset when restarting", () => {
+    const { raf } = makeRaf();
+    const game = makeGame();
+    const replayInput = { cursor: { x: 0, y: 0, has: false }, _move: { dx: 0, dy: 0 }, getMove() { return this._move; } };
+    const onReset = vi.fn();
+
+    const playback = createReplayPlayback({
+      game,
+      replayInput,
+      simDt: 1 / 120,
+      requestFrame: raf,
+      onReset
+    });
+
+    playback.setTicks([{ move: { dx: 1, dy: 0 }, cursor: { x: 1, y: 1, has: true } }]);
+    playback.restart();
+    expect(onReset).toHaveBeenCalledTimes(1);
   });
 
   it("throws when required inputs are missing", () => {

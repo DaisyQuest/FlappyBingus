@@ -19,7 +19,8 @@ export function createReplayPlayback({
   step,
   onProgress,
   onStateChange,
-  onComplete
+  onComplete,
+  onReset
 } = {}) {
   if (!game || !replayInput || typeof simDt !== "number") {
     throw new Error("Replay playback requires game, replayInput, and simDt.");
@@ -154,6 +155,7 @@ export function createReplayPlayback({
     index = 0;
     completed = false;
     resetTiming();
+    onReset?.();
     game.startRun?.();
     game.render?.();
     emitProgress();
@@ -198,6 +200,7 @@ export function createReplayPlayback({
     completed = index >= total;
     playing = false;
     resetTiming();
+    onReset?.();
     game.startRun?.();
     for (let i = 0; i < index; i += 1) {
       applyTick(ticks[i]);
