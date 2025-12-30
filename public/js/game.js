@@ -309,10 +309,8 @@ export class Game {
   }
 
 
-  resizeToWindow() {
+  resizeToRect(cssW, cssH) {
     const dpr = Math.min(window.devicePixelRatio || 1, 2);
-    const cssW = Math.max(1, Math.round(window.visualViewport?.width || window.innerWidth));
-    const cssH = Math.max(1, Math.round(window.visualViewport?.height || window.innerHeight));
     const norm = Math.max(0.25, (window.devicePixelRatio || 1) / BASE_DPR);
 
     // Logical game space is normalized to the DPR at page load so browser zoom
@@ -339,6 +337,12 @@ export class Game {
 
     this._computePlayerSize();
     this._initBackground();
+  }
+
+  resizeToWindow() {
+    const cssW = Math.max(1, Math.round(window.visualViewport?.width || window.innerWidth));
+    const cssH = Math.max(1, Math.round(window.visualViewport?.height || window.innerHeight));
+    this.resizeToRect(cssW, cssH);
   }
 
   setStateMenu() {

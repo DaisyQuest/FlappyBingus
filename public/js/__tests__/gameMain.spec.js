@@ -59,6 +59,33 @@ describe("Game core loop hooks", () => {
     expect(bgSpy).toHaveBeenCalled();
   });
 
+  it("resizes to explicit bounds and updates logical dimensions", async () => {
+    makeWindow(400, 300, 2);
+    const { canvas, ctx } = baseCanvas();
+    const { Game } = await import("../game.js");
+    const game = new Game({
+      canvas,
+      ctx,
+      config: cloneCfg(),
+      playerImg: { naturalWidth: 12, naturalHeight: 18 },
+      input: { getMove: () => ({ dx: 0, dy: 0 }), cursor: { has: false } },
+      getTrailId: () => "classic",
+      getBinds: () => ({}),
+      onGameOver: () => {}
+    });
+
+    const bgSpy = vi.spyOn(game, "_initBackground").mockImplementation(() => {});
+    game.resizeToRect(280, 160);
+
+    expect(ctx.setTransform).toHaveBeenCalledWith(2, 0, 0, 2, 0, 0);
+    expect(game.W).toBeCloseTo(280);
+    expect(game.H).toBeCloseTo(160);
+    expect(canvas._logicalW).toBeCloseTo(280);
+    expect(canvas._logicalH).toBeCloseTo(160);
+    expect(game.player.r).toBeGreaterThan(0);
+    expect(bgSpy).toHaveBeenCalled();
+  });
+
   it("resets run state and timers deterministically", async () => {
     makeWindow();
     const { canvas, ctx } = baseCanvas();

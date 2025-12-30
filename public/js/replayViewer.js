@@ -48,20 +48,9 @@ const getUsername = () => String(ui.usernameInput?.value || "").trim();
 function resizeCanvas(game) {
   if (!ui.canvas || !game) return;
   const rect = ui.canvas.getBoundingClientRect();
-  const dpr = Math.max(1, window.devicePixelRatio || 1);
-  const width = Math.max(1, Math.floor(rect.width * dpr));
-  const height = Math.max(1, Math.floor(rect.height * dpr));
-  ui.canvas.width = width;
-  ui.canvas.height = height;
-  ui.canvas._logicalW = rect.width;
-  ui.canvas._logicalH = rect.height;
-  game.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-  game.ctx.imageSmoothingEnabled = true;
-  game.DPR = dpr;
-  game.W = rect.width;
-  game.H = rect.height;
-  game._computePlayerSize?.();
-  game._initBackground?.();
+  const width = Math.max(1, rect.width);
+  const height = Math.max(1, rect.height);
+  game.resizeToRect?.(width, height);
   game.render?.();
 }
 
