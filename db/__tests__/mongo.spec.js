@@ -246,6 +246,18 @@ describe("MongoDataStore connection lifecycle", () => {
     expect(user).toEqual({ key: "abc" });
   });
 
+  it("fetches users by username while ensuring connectivity", async () => {
+    const { MongoDataStore } = await loadModule();
+    const store = new MongoDataStore({ uri: "mongodb://ok", dbName: "db" });
+    store.ensureConnected = vi.fn();
+    store.usersCollection = () => ({ findOne: vi.fn(async (query) => ({ username: query.username })) });
+
+    const user = await store.getUserByUsername("PlayerOne");
+
+    expect(store.ensureConnected).toHaveBeenCalled();
+    expect(user).toEqual({ username: "PlayerOne" });
+  });
+
   it("returns cached connections without re-initializing a client", async () => {
     const { MongoDataStore } = await loadModule();
     const store = new MongoDataStore({ uri: "mongodb://ok", dbName: "db" });

@@ -11,6 +11,7 @@ import { createReplayManager } from "./replayManager.js";
 import { playbackTicks } from "./replayUtils.js";
 import { Input } from "./input.js";
 import { mapGameDriverState } from "./gameDriverState.js";
+import { normalizeSkillSettings } from "./settings.js";
 
 const SIM_DT = 1 / 120;
 
@@ -170,6 +171,9 @@ export function createReplayViewerApp({
         setStatus("Replay data is invalid.", { tone: "bad" });
         setControlsEnabled(false);
         return;
+      }
+      if (hydrated.settings && game?.setSkillSettings) {
+        game.setSkillSettings(normalizeSkillSettings(hydrated.settings));
       }
       activeRun = hydrated;
       setControlsEnabled(true);

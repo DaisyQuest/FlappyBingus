@@ -78,6 +78,7 @@ async function importServer(overrides = {}) {
     })),
     recordBestRun: vi.fn(async (_user, payload) => ({ ...payload, bestScore: payload.score })),
     getBestRunByUsername: vi.fn(async () => null),
+    getUserByUsername: vi.fn(async () => baseUser()),
     setTrail: vi.fn(async (_key, trailId) => ({ ...baseUser(), selectedTrail: trailId })),
     setIcon: vi.fn(async (_key, iconId) => ({ ...baseUser(), selectedIcon: iconId })),
     setPipeTexture: vi.fn(async (_key, textureId, mode) => ({ ...baseUser(), selectedPipeTexture: textureId, pipeTextureMode: mode })),
@@ -392,6 +393,15 @@ describe("server routes and helpers", () => {
         username: "PlayerOne",
         replayJson: JSON.stringify({ ticks: [{ move: { dx: 0, dy: 0 }, cursor: { x: 0, y: 0, has: false } }], rngTape: [], seed: "abc" }),
         runStats: { orbsCollected: 1 }
+      })),
+      getUserByUsername: vi.fn(async () => ({
+        username: "PlayerOne",
+        settings: {
+          dashBehavior: "destroy",
+          slowFieldBehavior: "explosion",
+          teleportBehavior: "explode",
+          invulnBehavior: "long"
+        }
       }))
     });
     const res = createRes();
@@ -402,7 +412,63 @@ describe("server routes and helpers", () => {
     const payload = readJson(res);
     expect(payload.run.seed).toBe("abc");
     expect(payload.run.replayJson).toContain('"ticks"');
+    expect(payload.run.settings).toEqual({
+      dashBehavior: "destroy",
+      slowFieldBehavior: "explosion",
+      teleportBehavior: "explode",
+      invulnBehavior: "long"
+    });
     expect(mockDataStore.getBestRunByUsername).toHaveBeenCalledWith("PlayerOne");
+    expect(mockDataStore.getUserByUsername).toHaveBeenCalledWith("PlayerOne");
+  });
+
+  it("returns best runs without settings when the user record is missing", async () => {
+    const { server, mockDataStore } = await importServer({
+      getBestRunByUsername: vi.fn(async () => ({
+        username: "PlayerOne",
+        replayJson: JSON.stringify({ ticks: [{ move: { dx: 0, dy: 0 }, cursor: { x: 0, y: 0, has: false } }], rngTape: [], seed: "abc" }),
+        runStats: { orbsCollected: 1 }
+      })),
+      getUserByUsername: vi.fn(async () => null)
+    });
+    const res = createRes();
+
+    await server.route(createReq({ method: "GET", url: "/api/run/best?username=PlayerOne" }), res);
+
+    expect(res.status).toBe(200);
+    const payload = readJson(res);
+    expect(payload.run.settings).toBeNull();
+    expect(mockDataStore.getUserByUsername).toHaveBeenCalledWith("PlayerOne");
+  });
+
+  it("normalizes stored settings when returning best runs", async () => {
+    const { server } = await importServer({
+      getBestRunByUsername: vi.fn(async () => ({
+        username: "PlayerOne",
+        replayJson: JSON.stringify({ ticks: [{ move: { dx: 0, dy: 0 }, cursor: { x: 0, y: 0, has: false } }], rngTape: [], seed: "abc" })
+      })),
+      getUserByUsername: vi.fn(async () => ({
+        username: "PlayerOne",
+        settings: {
+          dashBehavior: "unknown",
+          slowFieldBehavior: "slow",
+          teleportBehavior: "nope",
+          invulnBehavior: "short"
+        }
+      }))
+    });
+    const res = createRes();
+
+    await server.route(createReq({ method: "GET", url: "/api/run/best?username=PlayerOne" }), res);
+
+    expect(res.status).toBe(200);
+    const payload = readJson(res);
+    expect(payload.run.settings).toEqual({
+      dashBehavior: "ricochet",
+      slowFieldBehavior: "slow",
+      teleportBehavior: "normal",
+      invulnBehavior: "short"
+    });
   });
 
   it("serves the replay viewer page with watermark enabled", async () => {

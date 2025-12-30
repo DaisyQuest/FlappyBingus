@@ -75,6 +75,7 @@ const makeGameClass = () => {
       this.state = 0;
       this.resizeToRect = vi.fn();
       this.render = vi.fn();
+      this.setSkillSettings = vi.fn();
       this.startRun = vi.fn(() => {
         this.state = 1;
       });
@@ -214,5 +215,47 @@ describe("createReplayViewerApp", () => {
     play.mockRejectedValueOnce(new Error("nope"));
     await app.playReplay();
     expect(ui.status.textContent).toBe("Unable to play replay.");
+  });
+
+  it("applies recorded skill settings when loading a replay", async () => {
+    const ui = makeUi();
+    const createReplayManagerFn = vi.fn(() => ({ play: vi.fn(), queueAction: vi.fn() }));
+    const apiGetBestRunFn = vi.fn(async () => ({ ok: true, run: { replayJson: "{}" } }));
+    const hydrateBestRunPayloadFn = vi.fn(() => ({
+      ended: true,
+      ticks: [{}],
+      settings: {
+        dashBehavior: "destroy",
+        slowFieldBehavior: "slow",
+        teleportBehavior: "normal",
+        invulnBehavior: "short"
+      }
+    }));
+
+    const app = createReplayViewerApp({
+      documentRef: makeDocumentRef(ui),
+      windowRef: makeWindowRef(),
+      loadConfigFn: vi.fn(async () => ({ config: {} })),
+      createPlayerIconSpriteFn: vi.fn(() => ({})),
+      createReplayManagerFn,
+      apiGetBestRunFn,
+      hydrateBestRunPayloadFn,
+      GameClass: makeGameClass(),
+      GameDriverClass: makeGameDriverClass({}),
+      InputClass: makeInputClass(),
+      requestFrame: vi.fn()
+    });
+
+    await app.init();
+    ui.usernameInput.value = "tester";
+    await app.loadReplay();
+
+    const { game } = app.getState();
+    expect(game.setSkillSettings).toHaveBeenCalledWith({
+      dashBehavior: "destroy",
+      slowFieldBehavior: "slow",
+      teleportBehavior: "normal",
+      invulnBehavior: "short"
+    });
   });
 });

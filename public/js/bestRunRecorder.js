@@ -1,3 +1,5 @@
+import { normalizeSkillSettings } from "./settings.js";
+
 const MAX_REPLAY_UPLOAD_BYTES = 5 * 1024 * 1024;
 const DEFAULT_TICK_MS = 1000 / 120;
 
@@ -7,7 +9,16 @@ function clampInt(n) {
   return Math.floor(num);
 }
 
-export function buildReplayEnvelope(run, { finalScore = 0, runStats = null, recordedAt = Date.now(), tickMs = DEFAULT_TICK_MS } = {}) {
+export function buildReplayEnvelope(
+  run,
+  {
+    finalScore = 0,
+    runStats = null,
+    recordedAt = Date.now(),
+    tickMs = DEFAULT_TICK_MS,
+    settings = null
+  } = {}
+) {
   if (!run || !run.ended || !Array.isArray(run.ticks) || run.ticks.length === 0) return null;
 
   const ticks = run.ticks.map((tk) => ({
@@ -35,6 +46,8 @@ export function buildReplayEnvelope(run, { finalScore = 0, runStats = null, reco
   const rngTape = Array.isArray(run.rngTape) ? [...run.rngTape] : [];
   const durationMs = Math.max(0, Math.round(ticks.length * tickMs));
 
+  const normalizedSettings = settings ? normalizeSkillSettings(settings) : null;
+
   return {
     version: 1,
     score: clampInt(finalScore),
@@ -43,7 +56,8 @@ export function buildReplayEnvelope(run, { finalScore = 0, runStats = null, reco
     durationMs,
     ticks,
     rngTape,
-    runStats: runStats ? JSON.parse(JSON.stringify(runStats)) : null
+    runStats: runStats ? JSON.parse(JSON.stringify(runStats)) : null,
+    settings: normalizedSettings
   };
 }
 
@@ -64,6 +78,8 @@ export function hydrateBestRunPayload(run) {
   const ticks = Array.isArray(parsed.ticks) ? parsed.ticks : [];
   if (!ticks.length) return null;
 
+  const settings = parsed.settings || run.settings || null;
+
   return {
     seed: parsed.seed || run.seed || "",
     ticks,
@@ -74,7 +90,8 @@ export function hydrateBestRunPayload(run) {
     pendingActions: [],
     durationMs: run.durationMs || parsed.durationMs || 0,
     recordedAt: run.recordedAt || parsed.recordedAt || Date.now(),
-    runStats: run.runStats || parsed.runStats || null
+    runStats: run.runStats || parsed.runStats || null,
+    settings
   };
 }
 
@@ -82,6 +99,7 @@ export async function maybeUploadBestRun({
   activeRun,
   finalScore,
   runStats,
+  settings,
   bestScore = 0,
   recordVideo,
   upload,
@@ -97,7 +115,7 @@ export async function maybeUploadBestRun({
     return false;
   }
 
-  const envelope = buildReplayEnvelope(activeRun, { finalScore: score, runStats });
+  const envelope = buildReplayEnvelope(activeRun, { finalScore: score, runStats, settings });
   if (!envelope) return false;
 
   const { json, bytes } = serializeReplayEnvelope(envelope);

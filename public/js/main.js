@@ -1473,6 +1473,7 @@ async function uploadBestRunArtifacts(finalScore, runStats) {
     activeRun: runForUpload,
     finalScore,
     runStats,
+    settings: skillSettings,
     bestScore,
     upload: apiUploadBestRun,
     logger: (msg) => {

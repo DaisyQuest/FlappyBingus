@@ -87,6 +87,7 @@ function _setDataStoreForTests(mock) {
       throw new Error("recordBestRun_not_mocked");
     },
     getBestRunByUsername: async () => null,
+    getUserByUsername: async () => null,
     ...mock
   };
   dataStore = safeStore;
@@ -1256,12 +1257,21 @@ async function route(req, res) {
       return;
     }
 
+    let settings = null;
+    if (typeof dataStore.getUserByUsername === "function") {
+      const user = await dataStore.getUserByUsername(username);
+      if (user?.settings && typeof user.settings === "object") {
+        settings = normalizeSettings(user.settings);
+      }
+    }
+
     sendJson(res, 200, {
       ok: true,
       run: {
         ...hydrated,
         replayJson: stored.replayJson,
-        runStats: stored.runStats || null
+        runStats: stored.runStats || null,
+        settings
       }
     });
     return;

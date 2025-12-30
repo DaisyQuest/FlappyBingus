@@ -14,7 +14,17 @@ const baseRun = () => ({
 describe("buildReplayEnvelope", () => {
   it("normalizes ticks, cursor state, and metadata", () => {
     const run = baseRun();
-    const envelope = buildReplayEnvelope(run, { finalScore: 99, runStats: { orbsCollected: 2 }, recordedAt: 1234 });
+    const envelope = buildReplayEnvelope(run, {
+      finalScore: 99,
+      runStats: { orbsCollected: 2 },
+      recordedAt: 1234,
+      settings: {
+        dashBehavior: "destroy",
+        slowFieldBehavior: "slow",
+        teleportBehavior: "normal",
+        invulnBehavior: "short"
+      }
+    });
 
     expect(envelope.seed).toBe("abc");
     expect(envelope.score).toBe(99);
@@ -25,12 +35,89 @@ describe("buildReplayEnvelope", () => {
     expect(envelope.rngTape).toEqual([0.1, 0.2]);
     expect(envelope.durationMs).toBeGreaterThan(0);
     expect(envelope.runStats).toEqual({ orbsCollected: 2 });
+    expect(envelope.settings).toEqual({
+      dashBehavior: "destroy",
+      slowFieldBehavior: "slow",
+      teleportBehavior: "normal",
+      invulnBehavior: "short"
+    });
   });
 
   it("returns null when the run is incomplete or empty", () => {
     expect(buildReplayEnvelope(null)).toBeNull();
     expect(buildReplayEnvelope({ ended: true, ticks: [] })).toBeNull();
     expect(buildReplayEnvelope({ ended: false, ticks: [{ move: { dx: 0, dy: 0 }, cursor: { x: 0, y: 0, has: false } }] })).toBeNull();
+  });
+
+  it("normalizes invalid skill settings values", () => {
+    const envelope = buildReplayEnvelope(baseRun(), {
+      finalScore: 10,
+      settings: {
+        dashBehavior: "unknown",
+        slowFieldBehavior: "slow",
+        teleportBehavior: "nope",
+        invulnBehavior: "short"
+      }
+    });
+
+    expect(envelope.settings).toEqual({
+      dashBehavior: "ricochet",
+      slowFieldBehavior: "slow",
+      teleportBehavior: "normal",
+      invulnBehavior: "short"
+    });
+  });
+});
+
+describe("hydrateBestRunPayload", () => {
+  it("returns settings from the replay JSON when present", () => {
+    const run = {
+      replayJson: JSON.stringify({
+        seed: "abc",
+        ticks: [{ move: { dx: 0, dy: 0 }, cursor: { x: 0, y: 0, has: false }, actions: [] }],
+        rngTape: [],
+        settings: {
+          dashBehavior: "destroy",
+          slowFieldBehavior: "explosion",
+          teleportBehavior: "explode",
+          invulnBehavior: "long"
+        }
+      })
+    };
+
+    const hydrated = hydrateBestRunPayload(run);
+
+    expect(hydrated.settings).toEqual({
+      dashBehavior: "destroy",
+      slowFieldBehavior: "explosion",
+      teleportBehavior: "explode",
+      invulnBehavior: "long"
+    });
+  });
+
+  it("falls back to response settings when replay JSON lacks them", () => {
+    const run = {
+      replayJson: JSON.stringify({
+        seed: "abc",
+        ticks: [{ move: { dx: 0, dy: 0 }, cursor: { x: 0, y: 0, has: false }, actions: [] }],
+        rngTape: []
+      }),
+      settings: {
+        dashBehavior: "destroy",
+        slowFieldBehavior: "slow",
+        teleportBehavior: "normal",
+        invulnBehavior: "short"
+      }
+    };
+
+    const hydrated = hydrateBestRunPayload(run);
+
+    expect(hydrated.settings).toEqual({
+      dashBehavior: "destroy",
+      slowFieldBehavior: "slow",
+      teleportBehavior: "normal",
+      invulnBehavior: "short"
+    });
   });
 });
 
@@ -59,6 +146,7 @@ describe("maybeUploadBestRun", () => {
       finalScore: 150,
       bestScore: 100,
       runStats: { orbsCollected: 1 },
+      settings: { dashBehavior: "destroy", slowFieldBehavior: "slow", teleportBehavior: "normal", invulnBehavior: "short" },
       recordVideo: () => media,
       upload
     });
@@ -69,7 +157,7 @@ describe("maybeUploadBestRun", () => {
         score: 150,
         ticksLength: 2,
         rngTapeLength: 2,
-        replayJson: expect.stringContaining('"ticks"'),
+        replayJson: expect.stringContaining('"settings"'),
         media
       })
     );

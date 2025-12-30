@@ -461,6 +461,11 @@ class MongoDataStore {
     return doc || null;
   }
 
+  async getUserByUsername(username) {
+    await this.ensureConnected();
+    return this.usersCollection().findOne({ username });
+  }
+
   async setTrail(key, trailId) {
     await this.ensureConnected();
     const now = Date.now();
