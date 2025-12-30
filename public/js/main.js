@@ -126,6 +126,7 @@ import {
 import { SHOP_TABS, getPurchasableUnlockablesByType, renderShopItems } from "./shopMenu.js";
 import { playbackTicks } from "./replayUtils.js";
 import { createReplayManager, cloneReplayRun } from "./replayManager.js";
+import { mapGameDriverState } from "./gameDriverState.js";
 import { bindSkillOptionGroup, markSkillOptionSelection } from "./skillOptions.js";
 import { renderSkillUsageStats } from "./skillUsageStats.js";
 import { initThemeEditor } from "./themes.js";
@@ -530,12 +531,7 @@ let driver = new GameDriver({
   game,
   syncRandSource: setRandSource,
   captureSnapshots: false,
-  mapState(engineState, g) {
-    engineState.time = g.timeAlive ?? engineState.time;
-    engineState.tick = (engineState.tick ?? 0) + 1;
-    engineState.score = { ...(engineState.score || {}), total: g.score ?? 0 };
-    engineState.player = { ...(engineState.player || {}), x: g.player?.x, y: g.player?.y, vx: g.player?.vx, vy: g.player?.vy };
-  }
+  mapState: mapGameDriverState
 });
 
 // Tutorial wires into the same game instance.
