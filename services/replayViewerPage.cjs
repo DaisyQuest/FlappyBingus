@@ -49,9 +49,7 @@ function renderReplayViewerPage({ username = "", watermarkEnabled = false } = {}
     .canvas-card{position:relative;border:1px solid rgba(255,255,255,.12);border-radius:16px;background:#0f172a;overflow:hidden;box-shadow:0 18px 40px rgba(0,0,0,.35);margin-bottom:24px;}
     canvas{display:block;width:100%;height:auto;aspect-ratio:16/9;background:#0b1220;}
     .replay-watermark{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:clamp(22px,4vw,44px);font-weight:800;letter-spacing:.08em;color:rgba(255,255,255,.18);text-transform:lowercase;pointer-events:none;mix-blend-mode:screen;}
-    .progress{display:flex;align-items:center;gap:10px;margin-top:8px;}
-    .progress input[type="range"]{flex:1;}
-    .progress .time{font-size:12px;color:#94a3b8;min-width:90px;text-align:right;}
+    .progress{margin-top:8px;font-size:13px;color:#94a3b8;}
   </style>
 </head>
 <body>
@@ -67,22 +65,8 @@ function renderReplayViewerPage({ username = "", watermarkEnabled = false } = {}
         <button id="loadReplay" data-variant="primary">Load replay</button>
         <button id="playPause" disabled>Play</button>
         <button id="restartReplay" disabled>Restart</button>
-        <button id="stepReplay" disabled>Step</button>
-        <label>
-          Speed
-          <select id="replaySpeed" disabled>
-            <option value="0.5">0.5×</option>
-            <option value="1" selected>1×</option>
-            <option value="1.5">1.5×</option>
-            <option value="2">2×</option>
-            <option value="3">3×</option>
-          </select>
-        </label>
       </div>
-      <div class="progress">
-        <input id="replayProgress" type="range" min="0" max="1000" value="0" disabled/>
-        <div class="time" id="replayTime">0%</div>
-      </div>
+      <div class="progress">Playback uses the same deterministic loop as in-game replays.</div>
       <div class="status" id="replayStatus">Enter a username to load a replay.</div>
     </div>
   </header>

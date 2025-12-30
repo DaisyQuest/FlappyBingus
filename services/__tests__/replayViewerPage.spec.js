@@ -9,6 +9,7 @@ describe("renderReplayViewerPage", () => {
     expect(html).toContain("https://flappybing.us");
     expect(html).toContain("window.__REPLAY_VIEWER__");
     expect(html).toContain('"watermarkEnabled":true');
+    expect(html).toContain("Playback uses the same deterministic loop");
   });
 
   it("omits watermark when disabled and escapes usernames", () => {

@@ -8,7 +8,8 @@ import { hydrateBestRunPayload } from "./bestRunRecorder.js";
 import { apiGetBestRun } from "./api.js";
 import { DEFAULT_PLAYER_ICONS } from "./playerIcons.js";
 import { createPlayerIconSprite } from "./playerIconSprites.js";
-import { createReplayPlayback } from "./replayPlayback.js";
+import { createReplayManager } from "./replayManager.js";
+import { playbackTicks } from "./replayUtils.js";
 
 const SIM_DT = 1 / 120;
 
@@ -18,11 +19,7 @@ const ui = {
   loadButton: document.getElementById("loadReplay"),
   playPause: document.getElementById("playPause"),
   restart: document.getElementById("restartReplay"),
-  step: document.getElementById("stepReplay"),
-  speed: document.getElementById("replaySpeed"),
-  status: document.getElementById("replayStatus"),
-  progress: document.getElementById("replayProgress"),
-  time: document.getElementById("replayTime")
+  status: document.getElementById("replayStatus")
 };
 
 const configSeed = window.__REPLAY_VIEWER__ || {};
@@ -37,7 +34,7 @@ const setStatus = (text, { tone = "info" } = {}) => {
 };
 
 const setControlsEnabled = (enabled) => {
-  const controls = [ui.playPause, ui.restart, ui.step, ui.speed, ui.progress];
+  const controls = [ui.playPause, ui.restart];
   controls.forEach((el) => {
     if (el) el.disabled = !enabled;
   });
@@ -59,6 +56,8 @@ let game = null;
 let driver = null;
 let replayInput = null;
 let activeRun = null;
+let replayManager = null;
+let playing = false;
 
 async function initGame() {
   if (!ui.canvas) return null;
@@ -94,35 +93,27 @@ async function initGame() {
   window.addEventListener("resize", () => resizeCanvas(game));
   window.visualViewport?.addEventListener("resize", () => resizeCanvas(game));
 
-  playback = createReplayPlayback({
+  replayManager = createReplayManager({
     game,
-    replayInput,
+    input: { reset() {} },
+    menu: null,
+    over: null,
+    setRandSource,
+    tapePlayer: createTapeRandPlayer,
+    seededRand: createSeededRand,
+    playbackTicks,
     simDt: SIM_DT,
-    step: driver ? (dt, actions) => driver.step(dt, actions) : null,
-    onReset: () => {
-      if (!activeRun) return;
-      const randSource = chooseReplayRandSource(activeRun, {
-        tapePlayer: createTapeRandPlayer,
-        seededRand: createSeededRand
-      });
-      if (randSource) setRandSource(randSource);
+    requestFrame: requestAnimationFrame,
+    onStatus: (payload) => {
+      if (!payload?.text) return;
+      const tone = payload.className?.includes("bad") ? "bad" : payload.className?.includes("good") ? "good" : "info";
+      setStatus(payload.text, { tone });
     },
-    onProgress: ({ progress, index, total }) => {
-      if (ui.progress) ui.progress.value = Math.round(progress * 1000);
-      if (ui.time) ui.time.textContent = total ? `${Math.round(progress * 100)}%` : "0%";
-      if (ui.step) ui.step.disabled = total === 0;
-      if (ui.restart) ui.restart.disabled = total === 0;
-    },
-    onStateChange: ({ playing, completed }) => {
-      if (ui.playPause) ui.playPause.textContent = playing ? "Pause" : completed ? "Replay" : "Play";
-    },
-    onComplete: () => {
-      setStatus("Replay finished.", { tone: "good" });
-    }
+    step: driver ? (dt, actions) => driver.step(dt, actions) : null
   });
 
   setControlsEnabled(false);
-  return playback;
+  return replayManager;
 }
 
 async function loadReplay() {
@@ -148,8 +139,6 @@ async function loadReplay() {
       return;
     }
     activeRun = hydrated;
-    playback?.setTicks(hydrated.ticks);
-    playback?.restart();
     setControlsEnabled(true);
     setStatus(`Loaded ${username}'s replay.`, { tone: "good" });
   } catch (err) {
@@ -159,23 +148,32 @@ async function loadReplay() {
   }
 }
 
+async function playReplay() {
+  if (!replayManager || !activeRun) return;
+  if (playing) return;
+  playing = true;
+  if (ui.playPause) ui.playPause.textContent = "Playing…";
+  setControlsEnabled(false);
+  try {
+    await replayManager.play({ captureMode: "none", run: activeRun });
+    setStatus("Replay finished.", { tone: "good" });
+  } catch (err) {
+    console.error(err);
+    setStatus("Unable to play replay.", { tone: "bad" });
+  } finally {
+    playing = false;
+    if (ui.playPause) ui.playPause.textContent = "Play";
+    setControlsEnabled(Boolean(activeRun));
+  }
+}
+
 function bindControls() {
   ui.loadButton?.addEventListener("click", () => loadReplay());
   ui.usernameInput?.addEventListener("keydown", (event) => {
     if (event.key === "Enter") loadReplay();
   });
-  ui.playPause?.addEventListener("click", () => playback?.toggle());
-  ui.restart?.addEventListener("click", () => playback?.restart());
-  ui.step?.addEventListener("click", () => playback?.stepOnce());
-  ui.speed?.addEventListener("change", (event) => {
-    const value = Number(event.target.value);
-    playback?.setSpeed(value);
-  });
-  ui.progress?.addEventListener("input", (event) => {
-    const value = Number(event.target.value || 0) / 1000;
-    playback?.pause();
-    playback?.seek(value);
-  });
+  ui.playPause?.addEventListener("click", () => playReplay());
+  ui.restart?.addEventListener("click", () => playReplay());
 }
 
 initGame()
