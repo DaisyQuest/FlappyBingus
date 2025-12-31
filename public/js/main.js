@@ -1572,6 +1572,7 @@ async function uploadBestRunArtifacts(finalScore, runStats) {
 
   const runForUpload = cloneReplayRun(activeRun);
   if (!runForUpload?.ticks?.length) return;
+  runForUpload.skillSettings = game?.skillSettings ? { ...game.skillSettings } : null;
 
   const uploaded = await maybeUploadBestRun({
     activeRun: runForUpload,

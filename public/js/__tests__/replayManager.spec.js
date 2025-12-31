@@ -94,7 +94,7 @@ describe("replayManager", () => {
   });
 
   it("plays a replay using deterministic playback in non-capture mode", async () => {
-    const game = { input: { name: "real" }, startRun: vi.fn() };
+    const game = { input: { name: "real" }, startRun: vi.fn(), setSkillSettings: vi.fn() };
     const input = { reset: vi.fn() };
     const menu = { classList: makeClassList() };
     const over = { classList: makeClassList() };
@@ -124,6 +124,7 @@ describe("replayManager", () => {
 
     manager.startRecording("seed");
     manager.recordTick({ move: { dx: 1, dy: 1 }, cursor: { x: 0, y: 0 } }, []);
+    manager.getActiveRun().skillSettings = { dashBehavior: "destroy" };
     manager.markEnded();
 
     const result = await manager.play({ captureMode: "none" });
@@ -138,6 +139,7 @@ describe("replayManager", () => {
     expect(over.classList.remove).toHaveBeenCalledWith("hidden");
     expect(playbackTicksDeterministic).toHaveBeenCalled();
     expect(playbackTicks).not.toHaveBeenCalled();
+    expect(game.setSkillSettings).toHaveBeenCalledWith({ dashBehavior: "destroy" });
     expect(manager.isReplaying()).toBe(false);
   });
 

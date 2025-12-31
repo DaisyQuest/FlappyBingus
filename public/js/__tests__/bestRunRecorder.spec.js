@@ -14,6 +14,7 @@ const baseRun = () => ({
 describe("buildReplayEnvelope", () => {
   it("normalizes ticks, cursor state, and metadata", () => {
     const run = baseRun();
+    run.skillSettings = { dashBehavior: "destroy" };
     const envelope = buildReplayEnvelope(run, { finalScore: 99, runStats: { orbsCollected: 2 }, recordedAt: 1234 });
 
     expect(envelope.seed).toBe("abc");
@@ -25,6 +26,7 @@ describe("buildReplayEnvelope", () => {
     expect(envelope.rngTape).toEqual([0.1, 0.2]);
     expect(envelope.durationMs).toBeGreaterThan(0);
     expect(envelope.runStats).toEqual({ orbsCollected: 2 });
+    expect(envelope.skillSettings).toEqual({ dashBehavior: "destroy" });
   });
 
   it("normalizes action strings into replay payloads", () => {
@@ -131,12 +133,14 @@ describe("hydrateBestRunPayload", () => {
     const hydrated = hydrateBestRunPayload({
       ...envelope,
       replayJson: JSON.stringify(envelope),
+      skillSettings: { dashBehavior: "destroy" },
       media: { dataUrl: "data:video/webm;base64,AAA", mimeType: "video/webm" }
     });
     expect(hydrated?.ticksLength).toBe(envelope.ticks.length);
     expect(hydrated?.rngTapeLength).toBe(envelope.rngTape.length);
     expect(hydrated?.ended).toBe(true);
     expect(hydrated?.media).toEqual({ dataUrl: "data:video/webm;base64,AAA", mimeType: "video/webm" });
+    expect(hydrated?.skillSettings).toEqual({ dashBehavior: "destroy" });
   });
 
   it("returns null when the payload is invalid", () => {

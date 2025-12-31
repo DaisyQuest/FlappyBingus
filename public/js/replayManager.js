@@ -162,6 +162,9 @@ export function createReplayManager({
 
       if (game) {
         game.input = replayInput;
+        if (typeof game.setSkillSettings === "function" && run?.skillSettings) {
+          game.setSkillSettings(run.skillSettings);
+        }
       }
 
       input?.reset?.();

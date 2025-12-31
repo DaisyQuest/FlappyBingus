@@ -48,6 +48,7 @@ export function buildReplayEnvelope(run, { finalScore = 0, runStats = null, reco
     durationMs,
     ticks,
     rngTape,
+    skillSettings: run.skillSettings ? JSON.parse(JSON.stringify(run.skillSettings)) : null,
     runStats: runStats ? JSON.parse(JSON.stringify(runStats)) : null
   };
 }
@@ -79,6 +80,7 @@ export function hydrateBestRunPayload(run) {
     pendingActions: [],
     durationMs: run.durationMs || parsed.durationMs || 0,
     recordedAt: run.recordedAt || parsed.recordedAt || Date.now(),
+    skillSettings: run.skillSettings || parsed.skillSettings || null,
     runStats: run.runStats || parsed.runStats || null,
     media: run.media || null
   };
