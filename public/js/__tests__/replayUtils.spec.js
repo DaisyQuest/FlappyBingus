@@ -124,19 +124,41 @@ describe("playbackTicks", () => {
     await expect(playbackTicks({ ticks: [], game, replayInput: null, simDt: SIM_DT, requestFrame: raf })).resolves.toBeUndefined();
     await expect(playbackTicks({ ticks: [], game, replayInput, simDt: null, requestFrame: raf })).resolves.toBeUndefined();
   });
+
+  it("uses deterministic playback when capture mode is none", async () => {
+    const game = makeGame();
+    const replayInput = makeReplayInput();
+    const ticks = [{}, {}];
+    const raf = vi.fn();
+
+    await playbackTicks({
+      ticks,
+      game,
+      replayInput,
+      captureMode: "none",
+      simDt: SIM_DT,
+      requestFrame: raf,
+      renderEveryTicks: 1,
+      yieldBetweenRenders: () => Promise.resolve()
+    });
+
+    expect(game.update).toHaveBeenCalledTimes(2);
+    expect(game.render).toHaveBeenCalledTimes(2);
+    expect(raf).not.toHaveBeenCalled();
+  });
 });
 
 describe("playbackTicksDeterministic", () => {
   const SIM_DT = 1 / 120;
 
-  it("plays the same tick list deterministically across runs", () => {
+  it("plays the same tick list deterministically across runs", async () => {
     const ticks = [
       { move: { dx: 1, dy: 2 }, cursor: { x: 3, y: 4 }, actions: [{ id: "a1" }, { id: "a2" }] },
       { move: { dx: 5, dy: 6 }, cursor: { x: 7, y: 8 }, actions: [{ id: "a3" }] },
       { move: { dx: 9, dy: 10 }, cursor: { x: 11, y: 12 }, actions: [{ id: "a4" }] }
     ];
 
-    const runOnce = () => {
+    const runOnce = async () => {
       const game = makeGame();
       const replayInput = makeReplayInput();
       const calls = [];
@@ -150,7 +172,13 @@ describe("playbackTicksDeterministic", () => {
         game.updates += 1;
       });
 
-      playbackTicksDeterministic({ ticks, game, replayInput, simDt: SIM_DT });
+      await playbackTicksDeterministic({
+        ticks,
+        game,
+        replayInput,
+        simDt: SIM_DT,
+        yieldBetweenRenders: () => Promise.resolve()
+      });
 
       return {
         calls,
@@ -160,8 +188,8 @@ describe("playbackTicksDeterministic", () => {
       };
     };
 
-    const first = runOnce();
-    const second = runOnce();
+    const first = await runOnce();
+    const second = await runOnce();
 
     expect(second.calls).toEqual(first.calls);
     expect(second.actions).toEqual(first.actions);
@@ -169,18 +197,19 @@ describe("playbackTicksDeterministic", () => {
     expect(second.replayInput).toEqual(first.replayInput);
   });
 
-  it("renders on the configured cadence and optionally renders a final frame", () => {
+  it("renders on the configured cadence and optionally renders a final frame", async () => {
     const game = makeGame();
     const replayInput = makeReplayInput();
     const ticks = [{}, {}, {}, {}, {}];
 
-    playbackTicksDeterministic({
+    await playbackTicksDeterministic({
       ticks,
       game,
       replayInput,
       simDt: SIM_DT,
       renderEveryTicks: 2,
-      renderFinal: false
+      renderFinal: false,
+      yieldBetweenRenders: () => Promise.resolve()
     });
 
     expect(game.update).toHaveBeenCalledTimes(5);
@@ -188,31 +217,39 @@ describe("playbackTicksDeterministic", () => {
 
     game.render.mockClear();
 
-    playbackTicksDeterministic({
+    await playbackTicksDeterministic({
       ticks,
       game,
       replayInput,
       simDt: SIM_DT,
       renderEveryTicks: 2,
-      renderFinal: true
+      renderFinal: true,
+      yieldBetweenRenders: () => Promise.resolve()
     });
 
     expect(game.render).toHaveBeenCalledTimes(3);
   });
 
-  it("uses a custom step handler when provided", () => {
+  it("uses a custom step handler when provided", async () => {
     const game = makeGame();
     const replayInput = makeReplayInput();
     const ticks = [{ actions: [{ id: "a1" }] }, { actions: [{ id: "a2" }] }];
     const step = vi.fn();
 
-    playbackTicksDeterministic({ ticks, game, replayInput, simDt: SIM_DT, step });
+    await playbackTicksDeterministic({
+      ticks,
+      game,
+      replayInput,
+      simDt: SIM_DT,
+      step,
+      yieldBetweenRenders: () => Promise.resolve()
+    });
 
     expect(step).toHaveBeenCalledTimes(2);
     expect(game.update).not.toHaveBeenCalled();
   });
 
-  it("stops when the game reaches OVER state", () => {
+  it("stops when the game reaches OVER state", async () => {
     const game = makeGame();
     const replayInput = makeReplayInput();
     const ticks = [{}, {}, {}];
@@ -222,19 +259,44 @@ describe("playbackTicksDeterministic", () => {
       if (this.updates >= 2) this.state = 2;
     });
 
-    playbackTicksDeterministic({ ticks, game, replayInput, simDt: SIM_DT });
+    await playbackTicksDeterministic({
+      ticks,
+      game,
+      replayInput,
+      simDt: SIM_DT,
+      renderEveryTicks: 5,
+      yieldBetweenRenders: () => Promise.resolve()
+    });
 
     expect(game.update).toHaveBeenCalledTimes(2);
     expect(game.render).toHaveBeenCalled();
   });
 
-  it("guards against invalid inputs", () => {
+  it("renders every tick when renderMode is always", async () => {
     const game = makeGame();
     const replayInput = makeReplayInput();
-    expect(playbackTicksDeterministic({ ticks: null, game, replayInput, simDt: SIM_DT })).toBeUndefined();
-    expect(playbackTicksDeterministic({ ticks: [], game: null, replayInput, simDt: SIM_DT })).toBeUndefined();
-    expect(playbackTicksDeterministic({ ticks: [], game, replayInput: null, simDt: SIM_DT })).toBeUndefined();
-    expect(playbackTicksDeterministic({ ticks: [], game, replayInput, simDt: null })).toBeUndefined();
+    const ticks = [{}, {}, {}];
+
+    await playbackTicksDeterministic({
+      ticks,
+      game,
+      replayInput,
+      simDt: SIM_DT,
+      renderMode: "always",
+      renderEveryTicks: 10,
+      yieldBetweenRenders: () => Promise.resolve()
+    });
+
+    expect(game.render).toHaveBeenCalledTimes(3);
+  });
+
+  it("guards against invalid inputs", async () => {
+    const game = makeGame();
+    const replayInput = makeReplayInput();
+    await expect(playbackTicksDeterministic({ ticks: null, game, replayInput, simDt: SIM_DT })).resolves.toBeUndefined();
+    await expect(playbackTicksDeterministic({ ticks: [], game: null, replayInput, simDt: SIM_DT })).resolves.toBeUndefined();
+    await expect(playbackTicksDeterministic({ ticks: [], game, replayInput: null, simDt: SIM_DT })).resolves.toBeUndefined();
+    await expect(playbackTicksDeterministic({ ticks: [], game, replayInput, simDt: null })).resolves.toBeUndefined();
   });
 });
 

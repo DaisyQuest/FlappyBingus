@@ -28,7 +28,7 @@ function applyReplayTick({ tick, game, replayInput, simDt, step }) {
   }
 }
 
-export function playbackTicksDeterministic({
+export async function playbackTicksDeterministic({
   ticks,
   game,
   replayInput,
@@ -36,7 +36,8 @@ export function playbackTicksDeterministic({
   step = null,
   renderEveryTicks = null,
   renderMode = "cadence",
-  renderFinal = true
+  renderFinal = true,
+  yieldBetweenRenders = null
 } = {}) {
   if (!Array.isArray(ticks) || !game || !replayInput || typeof simDt !== "number") return;
 
@@ -46,6 +47,10 @@ export function playbackTicksDeterministic({
     : defaultCadence;
   const renderAlways = renderMode === "always";
   let ticksProcessed = 0;
+
+  const yieldAfterRender = typeof yieldBetweenRenders === "function"
+    ? yieldBetweenRenders
+    : (typeof setTimeout === "function" ? () => new Promise((resolve) => setTimeout(resolve, 0)) : null);
 
   for (let i = 0; i < ticks.length; i += 1) {
     applyReplayTick({ tick: ticks[i], game, replayInput, simDt, step });
@@ -57,6 +62,9 @@ export function playbackTicksDeterministic({
 
     if (shouldRender) {
       game.render();
+      if (yieldAfterRender) {
+        await yieldAfterRender();
+      }
     }
 
     if (game.state === 2 /* OVER */) break;
@@ -64,6 +72,9 @@ export function playbackTicksDeterministic({
 
   if (!renderAlways && renderFinal && ticksProcessed > 0 && ticksProcessed % cadence !== 0 && game.state !== 2) {
     game.render();
+    if (yieldAfterRender) {
+      await yieldAfterRender();
+    }
   }
 }
 
@@ -77,12 +88,13 @@ export async function playbackTicks({
   step = null,
   renderEveryTicks = null,
   renderMode = "cadence",
-  renderFinal = true
+  renderFinal = true,
+  yieldBetweenRenders = null
 } = {}) {
   if (!Array.isArray(ticks) || !game || !replayInput || typeof simDt !== "number") return;
 
   if (captureMode === "none") {
-    playbackTicksDeterministic({
+    await playbackTicksDeterministic({
       ticks,
       game,
       replayInput,
@@ -90,7 +102,8 @@ export async function playbackTicks({
       step,
       renderEveryTicks,
       renderMode,
-      renderFinal
+      renderFinal,
+      yieldBetweenRenders
     });
     return;
   }
