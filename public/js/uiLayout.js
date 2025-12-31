@@ -456,6 +456,44 @@ function createSeedCard(doc, refs) {
   return card;
 }
 
+function createReplayVideoCard(doc, refs) {
+  const card = doc.createElement("div");
+  card.className = "info-card settings-utility";
+
+  const title = doc.createElement("div");
+  title.className = "section-title";
+  title.textContent = "Replay Video";
+
+  const uploadRow = doc.createElement("div");
+  uploadRow.className = "minirow";
+  const uploadToggle = createElement(doc, refs, "input", {
+    id: "replayVideoUpload",
+    attrs: { type: "checkbox", "aria-label": "Upload replay video for highscores" }
+  });
+  const uploadLabel = doc.createElement("label");
+  uploadLabel.setAttribute("for", "replayVideoUpload");
+  uploadLabel.textContent = "Upload replay video for highscores";
+  uploadRow.append(uploadToggle, uploadLabel);
+
+  const preferRow = doc.createElement("div");
+  preferRow.className = "minirow";
+  const preferToggle = createElement(doc, refs, "input", {
+    id: "replayVideoPrefer",
+    attrs: { type: "checkbox", "aria-label": "Prefer video replay when available" }
+  });
+  const preferLabel = doc.createElement("label");
+  preferLabel.setAttribute("for", "replayVideoPrefer");
+  preferLabel.textContent = "Prefer video replay when available";
+  preferRow.append(preferToggle, preferLabel);
+
+  const hint = doc.createElement("div");
+  hint.className = "hint";
+  hint.textContent = "Video replays may take longer to upload but avoid desyncs after updates.";
+
+  card.append(title, uploadRow, preferRow, hint);
+  return card;
+}
+
 function createVolumeCard(doc, refs) {
   const card = doc.createElement("div");
   card.className = "info-card settings-secondary volume-card";
@@ -1253,6 +1291,7 @@ function createMenuScreen(doc, refs) {
     createSkillSettingsCard(doc, refs),
     createBindCard(doc, refs),
     createVolumeCard(doc, refs),
+    createReplayVideoCard(doc, refs),
     createSeedCard(doc, refs),
     createStatusCard(doc, refs)
   );

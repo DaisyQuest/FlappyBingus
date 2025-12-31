@@ -1247,6 +1247,7 @@ async function route(req, res) {
     if (!(await ensureDatabase(res))) return;
     const username = normalizeUsername(url.searchParams.get("username"));
     if (!username) return badRequest(res, "invalid_username");
+    const includeMedia = url.searchParams.get("includeMedia") === "1";
 
     const stored = await dataStore.getBestRunByUsername(username);
     const hydrated = hydrateReplayFromJson(stored);
@@ -1260,7 +1261,8 @@ async function route(req, res) {
       run: {
         ...hydrated,
         replayJson: stored.replayJson,
-        runStats: stored.runStats || null
+        runStats: stored.runStats || null,
+        media: includeMedia ? stored.media || null : null
       }
     });
     return;

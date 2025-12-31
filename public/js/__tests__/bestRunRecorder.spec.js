@@ -121,10 +121,15 @@ describe("serializeReplayEnvelope", () => {
 describe("hydrateBestRunPayload", () => {
   it("parses stored replay JSON into an active run shape", () => {
     const envelope = buildReplayEnvelope(baseRun(), { finalScore: 10 });
-    const hydrated = hydrateBestRunPayload({ ...envelope, replayJson: JSON.stringify(envelope) });
+    const hydrated = hydrateBestRunPayload({
+      ...envelope,
+      replayJson: JSON.stringify(envelope),
+      media: { dataUrl: "data:video/webm;base64,AAA", mimeType: "video/webm" }
+    });
     expect(hydrated?.ticksLength).toBe(envelope.ticks.length);
     expect(hydrated?.rngTapeLength).toBe(envelope.rngTape.length);
     expect(hydrated?.ended).toBe(true);
+    expect(hydrated?.media).toEqual({ dataUrl: "data:video/webm;base64,AAA", mimeType: "video/webm" });
   });
 
   it("returns null when the payload is invalid", () => {

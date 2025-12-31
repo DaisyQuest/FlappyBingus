@@ -264,6 +264,7 @@ describe("uiLayout", () => {
     );
     expect(utilityTitles).toContain("Status");
     expect(utilityTitles).toContain("Level Seed");
+    expect(utilityTitles).toContain("Replay Video");
     const trailingTitles = Array.from(settingsGrid?.children || [])
       .slice(-2)
       .map((card) => card.querySelector(".section-title")?.textContent);
@@ -273,6 +274,9 @@ describe("uiLayout", () => {
     expect(seedRow?.classList.contains("minirow")).toBe(true);
     expect(seedRow?.querySelector("#seedInput")).toBeInstanceOf(window.HTMLInputElement);
     expect(seedRow?.querySelector("#seedRandomBtn")).toBeInstanceOf(window.HTMLButtonElement);
+
+    expect(document.querySelector("#replayVideoUpload")).toBeInstanceOf(window.HTMLInputElement);
+    expect(document.querySelector("#replayVideoPrefer")).toBeInstanceOf(window.HTMLInputElement);
 
     const cooldowns = Array.from(settingsGrid?.querySelectorAll(".skill-option-meta-value") || []).map(
       el => el?.textContent

@@ -157,12 +157,14 @@ import {
   readPipeTextureModeCookie,
   readSeed,
   readSettingsCookie,
+  readReplayPreferences,
   writeIconCookie,
   writeLocalBest,
   writePipeTextureCookie,
   writePipeTextureModeCookie,
   writeSeed,
-  writeSettingsCookie
+  writeSettingsCookie,
+  writeReplayPreferences
 } from "./preferences.js";
 
 import { handleMenuEscape } from "./menuEscapeHandler.js";
@@ -234,6 +236,8 @@ const {
   seedInput,
   seedRandomBtn,
   seedHint,
+  replayVideoUpload,
+  replayVideoPrefer,
   viewAchievements,
   musicVolume: musicSlider,
   sfxVolume: sfxSlider,
@@ -420,6 +424,8 @@ let lastUploadedBestScore = -Infinity;
 // Tutorial manager (initialized after Game is created, but referenced by the Input callback).
 let tutorial = null;
 let replayManager = null;
+let replayPrefs = readReplayPreferences();
+let mediaReplayActive = false;
 
 
 // Seed of the most recently finished run (used for "Retry Previous Seed")
@@ -483,6 +489,15 @@ musicSlider?.addEventListener("input", volumeChangeHandler);
 sfxSlider?.addEventListener("input", volumeChangeHandler);
 muteToggle?.addEventListener("change", volumeChangeHandler);
 applySkillSettingsToUI(skillSettings);
+applyReplayPrefsUI();
+
+replayVideoUpload?.addEventListener("change", () => {
+  updateReplayPrefs({ uploadReplayVideo: !!replayVideoUpload.checked });
+});
+
+replayVideoPrefer?.addEventListener("change", () => {
+  updateReplayPrefs({ preferReplayVideo: !!replayVideoPrefer.checked });
+});
 
 // IMPORTANT: actions are NOT applied immediately.
 // They are enqueued and applied at the next simulation tick boundary.
@@ -679,6 +694,85 @@ function setUserHint() {
   syncMenuProfileBindingsFromState();
 }
 
+function applyReplayPrefsUI() {
+  if (replayVideoUpload) replayVideoUpload.checked = !!replayPrefs?.uploadReplayVideo;
+  if (replayVideoPrefer) replayVideoPrefer.checked = !!replayPrefs?.preferReplayVideo;
+}
+
+function updateReplayPrefs(next) {
+  replayPrefs = writeReplayPreferences({ ...replayPrefs, ...next });
+  applyReplayPrefsUI();
+}
+
+async function blobToDataUrl(blob) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = () => reject(reader.error || new Error("Failed to read blob."));
+    reader.readAsDataURL(blob);
+  });
+}
+
+async function recordReplayVideo() {
+  const webm = await replayManager?.play({ captureMode: "webm" });
+  if (!webm) return null;
+  const dataUrl = await blobToDataUrl(webm);
+  return {
+    dataUrl,
+    mimeType: webm.type || "video/webm"
+  };
+}
+
+async function playHighscoreMediaReplay(media) {
+  if (!media?.dataUrl) return false;
+  mediaReplayActive = true;
+  musicStop();
+  menu?.classList?.add("hidden");
+  over?.classList?.add("hidden");
+
+  const wrapper = document.createElement("div");
+  wrapper.style.position = "fixed";
+  wrapper.style.inset = "0";
+  wrapper.style.background = "rgba(0, 0, 0, 0.92)";
+  wrapper.style.display = "flex";
+  wrapper.style.alignItems = "center";
+  wrapper.style.justifyContent = "center";
+  wrapper.style.zIndex = "9999";
+
+  const video = document.createElement("video");
+  video.src = media.dataUrl;
+  video.controls = true;
+  video.autoplay = true;
+  video.playsInline = true;
+  video.muted = true;
+  video.style.maxWidth = "92vw";
+  video.style.maxHeight = "92vh";
+  video.style.boxShadow = "0 0 40px rgba(0,0,0,0.6)";
+  wrapper.append(video);
+
+  document.body.append(wrapper);
+
+  const cleanup = () => {
+    wrapper.remove();
+    mediaReplayActive = false;
+    menu?.classList?.remove("hidden");
+  };
+
+  try {
+    await video.play();
+  } catch {
+    // Autoplay may be blocked; controls allow manual play.
+  }
+
+  await new Promise((resolve) => {
+    video.onended = resolve;
+    video.onerror = resolve;
+  });
+
+  cleanup();
+  return true;
+}
+
 async function handlePlayHighscore(username) {
   if (!username) return;
   if (replayStatus) {
@@ -686,7 +780,7 @@ async function handlePlayHighscore(username) {
     replayStatus.textContent = `Loading ${username}'s best run…`;
   }
   try {
-    const res = await apiGetBestRun(username);
+    const res = await apiGetBestRun(username, { includeMedia: replayPrefs?.preferReplayVideo });
     if (!res?.ok || !res.run) {
       if (replayStatus) {
         replayStatus.className = "hint bad";
@@ -703,7 +797,12 @@ async function handlePlayHighscore(username) {
       return;
     }
 
-    const played = await replayManager.play({ captureMode: "none", paceMode: "realtime", run: playbackRun });
+    let played = false;
+    if (replayPrefs?.preferReplayVideo && playbackRun.media?.dataUrl) {
+      played = await playHighscoreMediaReplay(playbackRun.media);
+    } else {
+      played = await replayManager.play({ captureMode: "none", paceMode: "realtime", run: playbackRun });
+    }
     if (played && replayStatus) {
       replayStatus.className = "hint good";
       replayStatus.textContent = `Playing ${username}'s best run… done.`;
@@ -1479,6 +1578,7 @@ async function uploadBestRunArtifacts(finalScore, runStats) {
     finalScore,
     runStats,
     bestScore,
+    recordVideo: replayPrefs?.uploadReplayVideo ? recordReplayVideo : null,
     upload: apiUploadBestRun,
     logger: (msg) => {
       if (!replayStatus) return;
@@ -2373,7 +2473,7 @@ function frame(ts) {
   // Per-frame tutorial UI (skill intro animations, etc.)
   if (tutorial?.active) tutorial.frame(dt);
 
-  if (!replayManager?.isReplaying()) {
+  if (!replayManager?.isReplaying() && !mediaReplayActive) {
     acc += dt;
 
     while (acc >= SIM_DT) {

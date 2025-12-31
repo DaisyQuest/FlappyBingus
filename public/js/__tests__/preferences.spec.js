@@ -2,31 +2,37 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { JSDOM } from "jsdom";
 import { DEFAULT_SKILL_SETTINGS } from "../settings.js";
 import {
+  DEFAULT_REPLAY_PREFS,
   genRandomSeed,
   readIconCookie,
   readLocalBest,
   readPipeTextureCookie,
   readPipeTextureModeCookie,
+  readReplayPreferences,
   readSeed,
   readSettingsCookie,
   writeIconCookie,
   writeLocalBest,
   writePipeTextureCookie,
   writePipeTextureModeCookie,
+  writeReplayPreferences,
   writeSeed,
   writeSettingsCookie
 } from "../preferences.js";
 import { DEFAULT_PIPE_TEXTURE_MODE } from "../pipeTextures.js";
 
 const originalDocument = globalThis.document;
+const originalWindow = globalThis.window;
 
 beforeEach(() => {
   const dom = new JSDOM("<!doctype html><html><body></body></html>", { url: "https://example.test" });
   globalThis.document = dom.window.document;
+  globalThis.window = dom.window;
 });
 
 afterEach(() => {
   globalThis.document = originalDocument;
+  globalThis.window = originalWindow;
   vi.restoreAllMocks();
 });
 
@@ -94,5 +100,16 @@ describe("preferences", () => {
 
     expect(getCookieValue("bingus_icon")).toBeNull();
     expect(getCookieValue("bingus_pipe_texture")).toBeNull();
+  });
+
+  it("round-trips replay preferences through localStorage", () => {
+    const prefs = writeReplayPreferences({ uploadReplayVideo: true, preferReplayVideo: false });
+    expect(prefs).toEqual({ uploadReplayVideo: true, preferReplayVideo: false });
+    expect(readReplayPreferences()).toEqual({ uploadReplayVideo: true, preferReplayVideo: false });
+  });
+
+  it("falls back to defaults when replay preferences are malformed", () => {
+    globalThis.window.localStorage.setItem("bingus_replay_prefs", "{bad json");
+    expect(readReplayPreferences()).toEqual(DEFAULT_REPLAY_PREFS);
   });
 });

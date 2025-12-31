@@ -74,7 +74,8 @@ export function hydrateBestRunPayload(run) {
     pendingActions: [],
     durationMs: run.durationMs || parsed.durationMs || 0,
     recordedAt: run.recordedAt || parsed.recordedAt || Date.now(),
-    runStats: run.runStats || parsed.runStats || null
+    runStats: run.runStats || parsed.runStats || null,
+    media: run.media || null
   };
 }
 

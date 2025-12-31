@@ -11,6 +11,12 @@ const SETTINGS_COOKIE = "bingus_settings";
 const ICON_COOKIE = "bingus_icon";
 const PIPE_TEXTURE_COOKIE = "bingus_pipe_texture";
 const PIPE_TEXTURE_MODE_COOKIE = "bingus_pipe_texture_mode";
+const REPLAY_PREFS_KEY = "bingus_replay_prefs";
+
+export const DEFAULT_REPLAY_PREFS = Object.freeze({
+  uploadReplayVideo: false,
+  preferReplayVideo: false
+});
 
 export function readLocalBest() {
   const raw = getCookie(LOCAL_BEST_COOKIE);
@@ -54,6 +60,37 @@ export function writeSettingsCookie(settings) {
   } catch {
     // ignore cookie errors
   }
+}
+
+export function readReplayPreferences(defaults = DEFAULT_REPLAY_PREFS) {
+  const base = defaults || DEFAULT_REPLAY_PREFS;
+  if (typeof window === "undefined") return { ...base };
+  try {
+    const raw = window.localStorage?.getItem(REPLAY_PREFS_KEY);
+    if (!raw) return { ...base };
+    const parsed = JSON.parse(raw);
+    return {
+      uploadReplayVideo: Boolean(parsed?.uploadReplayVideo),
+      preferReplayVideo: Boolean(parsed?.preferReplayVideo)
+    };
+  } catch {
+    return { ...base };
+  }
+}
+
+export function writeReplayPreferences(prefs, defaults = DEFAULT_REPLAY_PREFS) {
+  const base = defaults || DEFAULT_REPLAY_PREFS;
+  if (typeof window === "undefined") return { ...base };
+  const normalized = {
+    uploadReplayVideo: Boolean(prefs?.uploadReplayVideo),
+    preferReplayVideo: Boolean(prefs?.preferReplayVideo)
+  };
+  try {
+    window.localStorage?.setItem(REPLAY_PREFS_KEY, JSON.stringify(normalized));
+  } catch {
+    return { ...base };
+  }
+  return normalized;
 }
 
 export function readIconCookie() {

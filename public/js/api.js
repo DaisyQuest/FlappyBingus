@@ -128,10 +128,11 @@ export async function apiUploadBestRun(payload) {
   return requestJson("/api/run/best", { method: "POST", body: JSON.stringify(payload) });
 }
 
-export async function apiGetBestRun(username) {
+export async function apiGetBestRun(username, { includeMedia = false } = {}) {
   if (hitClientRateLimit("/api/run/best")) return null;
   const target = encodeURIComponent(String(username || ""));
-  return requestJson(`/api/run/best?username=${target}`, { method: "GET" });
+  const mediaParam = includeMedia ? "&includeMedia=1" : "";
+  return requestJson(`/api/run/best?username=${target}${mediaParam}`, { method: "GET" });
 }
 
 export async function apiSetTrail(trailId) {

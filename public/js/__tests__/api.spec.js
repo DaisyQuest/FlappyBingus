@@ -158,6 +158,7 @@ describe("api helpers", () => {
       [apiRegister, ["/api/register", { method: "POST", body: JSON.stringify({ username: "bingus" }) }]],
       [apiSubmitScore, ["/api/score", { method: "POST", body: JSON.stringify({ score: 9001, bustercoinsEarned: 0 }) }]],
       [apiGetBestRun, ["/api/run/best?username=bingus", { method: "GET" }]],
+      [apiGetBestRun, ["/api/run/best?username=bingus&includeMedia=1", { method: "GET" }]],
       [apiUploadBestRun, ["/api/run/best", { method: "POST", body: JSON.stringify({ score: 9001 }) }]],
       [apiSetTrail, ["/api/cosmetics/trail", { method: "POST", body: JSON.stringify({ trailId: "classic" }) }]],
       [apiSetIcon, ["/api/cosmetics/icon", { method: "POST", body: JSON.stringify({ iconId: "hi_vis_orange" }) }]],
@@ -171,6 +172,7 @@ describe("api helpers", () => {
     await apiRegister("bingus");
     await apiSubmitScore(9001);
     await apiGetBestRun("bingus");
+    await apiGetBestRun("bingus", { includeMedia: true });
     await apiUploadBestRun({ score: 9001 });
     await apiSetTrail("classic");
     await apiSetIcon("hi_vis_orange");
