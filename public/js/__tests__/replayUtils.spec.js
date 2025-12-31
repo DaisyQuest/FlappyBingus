@@ -222,6 +222,27 @@ describe("playbackTicksDeterministic", () => {
     expect(second.replayInput).toEqual(first.replayInput);
   });
 
+  it("supports string action entries when applying ticks", async () => {
+    const game = makeGame();
+    const replayInput = makeReplayInput();
+    const ticks = [
+      { actions: ["dash"] },
+      { actions: [{ id: "teleport", cursor: { x: 7, y: 8, has: true } }] }
+    ];
+
+    await playbackTicksDeterministic({
+      ticks,
+      game,
+      replayInput,
+      simDt: SIM_DT,
+      renderEveryTicks: 1,
+      yieldBetweenRenders: () => Promise.resolve()
+    });
+
+    expect(game.actions).toEqual(["dash", "teleport"]);
+    expect(replayInput.cursor).toEqual({ x: 7, y: 8, has: true });
+  });
+
   it("renders on the configured cadence and optionally renders a final frame", async () => {
     const game = makeGame();
     const replayInput = makeReplayInput();

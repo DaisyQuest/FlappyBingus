@@ -23,12 +23,17 @@ export function buildReplayEnvelope(run, { finalScore = 0, runStats = null, reco
     actions: Array.isArray(tk?.actions)
       ? tk.actions
           .filter(Boolean)
-          .map((a) => ({
-            id: a.id,
-            cursor: a.cursor
-              ? { x: clampInt(a.cursor.x), y: clampInt(a.cursor.y), has: !!a.cursor.has }
-              : undefined
-          }))
+          .map((a) => {
+            if (typeof a === "string") {
+              return { id: a };
+            }
+            return {
+              id: a.id,
+              cursor: a.cursor
+                ? { x: clampInt(a.cursor.x), y: clampInt(a.cursor.y), has: !!a.cursor.has }
+                : undefined
+            };
+          })
       : []
   }));
 

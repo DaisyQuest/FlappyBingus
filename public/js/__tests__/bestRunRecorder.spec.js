@@ -27,6 +27,13 @@ describe("buildReplayEnvelope", () => {
     expect(envelope.runStats).toEqual({ orbsCollected: 2 });
   });
 
+  it("normalizes action strings into replay payloads", () => {
+    const run = baseRun();
+    run.ticks[0].actions = ["dash"];
+    const envelope = buildReplayEnvelope(run, { finalScore: 12 });
+    expect(envelope?.ticks[0].actions).toEqual([{ id: "dash" }]);
+  });
+
   it("returns null when the run is incomplete or empty", () => {
     expect(buildReplayEnvelope(null)).toBeNull();
     expect(buildReplayEnvelope({ ended: true, ticks: [] })).toBeNull();

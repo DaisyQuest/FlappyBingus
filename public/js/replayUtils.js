@@ -12,12 +12,15 @@ function applyReplayTick({ tick, game, replayInput, simDt, step }) {
 
   if (Array.isArray(tk.actions)) {
     for (const a of tk.actions) {
-      if (a && a.cursor) {
+      const actionId = typeof a === "string" ? a : a?.id;
+      if (a && typeof a === "object" && a.cursor) {
         replayInput.cursor.x = a.cursor.x;
         replayInput.cursor.y = a.cursor.y;
         replayInput.cursor.has = !!a.cursor.has;
       }
-      game.handleAction(a.id);
+      if (actionId) {
+        game.handleAction(actionId);
+      }
     }
   }
 
