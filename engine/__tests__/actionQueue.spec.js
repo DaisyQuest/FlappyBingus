@@ -15,6 +15,12 @@ describe("action queue", () => {
     expect(queue.size()).toBe(0);
   });
 
+  it("supports raw enqueues", () => {
+    const queue = createActionQueue();
+    queue.enqueueRaw({ id: "dash" });
+    expect(queue.drain()).toEqual([{ id: "dash" }]);
+  });
+
   it("rejects invalid action names", () => {
     const queue = createActionQueue();
     expect(() => queue.enqueue("")).toThrow("Action name is required");
