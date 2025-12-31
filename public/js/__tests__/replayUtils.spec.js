@@ -134,7 +134,10 @@ describe("playbackTicks", () => {
     await playbackTicks({ ticks, game, replayInput, captureMode: "webm", simDt: SIM_DT, requestFrame: raf, step });
 
     expect(step).toHaveBeenCalledTimes(2);
+    expect(step).toHaveBeenNthCalledWith(1, SIM_DT, []);
+    expect(step).toHaveBeenNthCalledWith(2, SIM_DT, []);
     expect(game.update).not.toHaveBeenCalled();
+    expect(game.handleAction).toHaveBeenCalledTimes(2);
   });
 
   it("guards against invalid inputs", async () => {
@@ -292,7 +295,10 @@ describe("playbackTicksDeterministic", () => {
     });
 
     expect(step).toHaveBeenCalledTimes(2);
+    expect(step).toHaveBeenNthCalledWith(1, SIM_DT, []);
+    expect(step).toHaveBeenNthCalledWith(2, SIM_DT, []);
     expect(game.update).not.toHaveBeenCalled();
+    expect(game.handleAction).toHaveBeenCalledTimes(2);
   });
 
   it("stops when the game reaches OVER state", async () => {

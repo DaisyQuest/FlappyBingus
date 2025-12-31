@@ -4,6 +4,7 @@ const MAX_FRAME_DT = 1 / 10; // cap catch-up to avoid runaway loops
 
 function applyReplayTick({ tick, game, replayInput, simDt, step }) {
   const tk = tick || {};
+  const normalizedActions = [];
 
   replayInput._move = tk.move || { dx: 0, dy: 0 };
   replayInput.cursor.x = tk.cursor?.x ?? 0;
@@ -19,13 +20,14 @@ function applyReplayTick({ tick, game, replayInput, simDt, step }) {
         replayInput.cursor.has = !!a.cursor.has;
       }
       if (actionId) {
+        normalizedActions.push(actionId);
         game.handleAction(actionId);
       }
     }
   }
 
   if (typeof step === "function") {
-    step(simDt, tk.actions || []);
+    step(simDt, []);
   } else {
     game.update(simDt);
   }
