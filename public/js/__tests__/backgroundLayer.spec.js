@@ -6,6 +6,7 @@ import {
   updateBackgroundDots,
   drawBackgroundLayer
 } from "../backgroundLayer.js";
+import { createProceduralBackground, createMonochromeBackground } from "../backgroundModes.js";
 
 const makeCtx = () => ({
   setTransform: vi.fn(),
@@ -41,7 +42,7 @@ describe("backgroundLayer", () => {
   it("initializes dots and marks dirty", () => {
     const layer = createBackgroundLayer();
     initBackgroundLayer(layer, { width: 100, height: 50, rand: () => 0.5 });
-    expect(layer.dots.length).toBeGreaterThan(0);
+    expect(layer.mode.dots.length).toBeGreaterThan(0);
     expect(layer.dirty).toBe(true);
   });
 
@@ -56,10 +57,11 @@ describe("backgroundLayer", () => {
 
   it("updates dots with wrapping", () => {
     const layer = createBackgroundLayer();
-    layer.dots = [{ x: 0, y: 70, s: 5 }];
+    layer.mode = createProceduralBackground({ width: 100, height: 50, rand: () => 0.5 });
+    layer.mode.dots = [{ x: 0, y: 70, s: 5, r: 1 }];
     updateBackgroundDots(layer, { width: 100, height: 50, dt: 1, rand: () => 0.75 });
-    expect(layer.dots[0].y).toBe(-10);
-    expect(layer.dots[0].x).toBe(75);
+    expect(layer.mode.dots[0].y).toBe(-10);
+    expect(layer.mode.dots[0].x).toBe(75);
   });
 
   it("draws using the cached canvas when available", () => {
@@ -78,6 +80,17 @@ describe("backgroundLayer", () => {
     layer.ctx = null;
     const drawn = drawBackgroundLayer(layer, null, { width: 100, height: 50 });
     expect(drawn).toBe(false);
+  });
+
+  it("respects monochrome background color", () => {
+    const layer = createBackgroundLayer();
+    initBackgroundLayer(layer, {
+      width: 100,
+      height: 50,
+      mode: createMonochromeBackground({ color: "#222222" })
+    });
+    refreshBackgroundLayer(layer, { width: 100, height: 50 });
+    expect(layer.mode.color).toBe("#222222");
   });
 
   it("throws when layer is missing", () => {

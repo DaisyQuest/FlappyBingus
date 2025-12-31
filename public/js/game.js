@@ -436,7 +436,11 @@ export class Game {
   }
 
   _initBackground() {
-    initBackgroundLayer(this.background, { width: this.W, height: this.H, rand: Math.random });
+    initBackgroundLayer(this.background, {
+      width: this.W,
+      height: this.H,
+      rand: Math.random
+    });
     this._refreshBackgroundLayer();
   }
 

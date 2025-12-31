@@ -178,7 +178,7 @@ describe("Game core utilities", () => {
     expect(game.player.r).toBeGreaterThan(0);
     expect(game.background.canvas).toBeTruthy();
     expect(game.background.dirty).toBe(false);
-    expect(game.background.dots.length).toBeGreaterThan(0);
+    expect(game.background.mode.dots.length).toBeGreaterThan(0);
 
     const previousCtx = game.background.ctx;
     game.W += 1;
@@ -1323,26 +1323,28 @@ describe("Player movement and trail emission", () => {
 describe("Game loop", () => {
   it("early exits on OVER and drifts dots in MENU", () => {
     const { game } = buildGame();
-    game.background.dots = [{ x: 0, y: 0, s: 1 }];
+    game._initBackground();
+    game.background.mode.dots = [{ x: 0, y: 0, s: 1, r: 1 }];
 
     game.state = 2;
     game.update(1);
-    expect(game.background.dots[0].y).toBe(0);
+    expect(game.background.mode.dots[0].y).toBe(0);
 
     game.state = 0;
     game.update(1);
-    expect(game.background.dots[0].y).toBeGreaterThan(0);
+    expect(game.background.mode.dots[0].y).toBeGreaterThan(0);
   });
 
   it("wraps drifting background dots when they exit the playfield", () => {
     const { game } = buildGame();
-    game.background.dots = [{ x: 1, y: game.H + 20, s: 5 }];
+    game._initBackground();
+    game.background.mode.dots = [{ x: 1, y: game.H + 20, s: 5, r: 1 }];
     const randSpy = vi.spyOn(Math, "random").mockReturnValue(0.75);
 
     game.update(0.1);
 
-    expect(game.background.dots[0].y).toBe(-10);
-    expect(game.background.dots[0].x).toBeCloseTo(game.W * 0.75);
+    expect(game.background.mode.dots[0].y).toBe(-10);
+    expect(game.background.mode.dots[0].x).toBeCloseTo(game.W * 0.75);
     randSpy.mockRestore();
   });
 

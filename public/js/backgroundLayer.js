@@ -1,4 +1,4 @@
-import { clamp } from "./util.js";
+import { createProceduralBackground, updateProceduralBackground } from "./backgroundModes.js";
 
 const DEFAULT_BACKGROUND_COLOR = "#07101a";
 
@@ -7,26 +7,15 @@ export function createBackgroundLayer() {
     canvas: null,
     ctx: null,
     dirty: true,
-    dots: []
+    mode: null
   };
 }
 
-export function initBackgroundLayer(layer, { width, height, rand = Math.random } = {}) {
+export function initBackgroundLayer(layer, { width, height, rand = Math.random, mode } = {}) {
   if (!layer) throw new Error("Background layer is required.");
   const w = Math.max(1, width || 0);
   const h = Math.max(1, height || 0);
-  const count = Math.floor(clamp((w * h) / 11000, 80, 220));
-
-  layer.dots.length = 0;
-  for (let i = 0; i < count; i += 1) {
-    layer.dots.push({
-      x: rand() * w,
-      y: rand() * h,
-      r: 0.8 + rand() * (2.2 - 0.8),
-      s: 4 + rand() * (22 - 4)
-    });
-  }
-
+  layer.mode = mode || createProceduralBackground({ width: w, height: h, rand });
   layer.dirty = true;
 }
 
@@ -57,7 +46,11 @@ export function refreshBackgroundLayer(layer, { width, height, backgroundColor =
   ctx.setTransform(1, 0, 0, 1, 0, 0);
   ctx.clearRect(0, 0, w, h);
 
-  ctx.fillStyle = backgroundColor;
+  const mode = layer.mode || {};
+  const fillColor = mode.color || backgroundColor;
+  const vignetteStrength = typeof mode.vignetteStrength === "number" ? mode.vignetteStrength : 0.44;
+
+  ctx.fillStyle = fillColor;
   ctx.fillRect(0, 0, w, h);
 
   const vg = ctx.createRadialGradient(
@@ -65,14 +58,15 @@ export function refreshBackgroundLayer(layer, { width, height, backgroundColor =
     w * 0.5, h * 0.5, Math.max(w, h) * 0.75
   );
   vg.addColorStop(0, "rgba(0,0,0,0)");
-  vg.addColorStop(1, "rgba(0,0,0,.44)");
+  vg.addColorStop(1, `rgba(0,0,0,${vignetteStrength})`);
   ctx.fillStyle = vg;
   ctx.fillRect(0, 0, w, h);
 
   ctx.save();
   ctx.globalAlpha = 0.75;
   ctx.fillStyle = "rgba(255,255,255,.20)";
-  for (const dot of layer.dots) {
+  const dots = mode.dots || [];
+  for (const dot of dots) {
     ctx.beginPath();
     ctx.arc(dot.x, dot.y, dot.r, 0, Math.PI * 2);
     ctx.fill();
@@ -84,16 +78,9 @@ export function refreshBackgroundLayer(layer, { width, height, backgroundColor =
 
 export function updateBackgroundDots(layer, { width, height, dt, rand = Math.random } = {}) {
   if (!layer) throw new Error("Background layer is required.");
-  const w = Math.max(1, width || 0);
-  const h = Math.max(1, height || 0);
-  const delta = Number(dt) || 0;
-
-  for (const dot of layer.dots) {
-    dot.y += dot.s * delta;
-    if (dot.y > h + 10) {
-      dot.y = -10;
-      dot.x = rand() * w;
-    }
+  const mode = layer.mode;
+  if (mode?.type === "procedural") {
+    updateProceduralBackground(mode, { width, height, dt, rand });
   }
 }
 
