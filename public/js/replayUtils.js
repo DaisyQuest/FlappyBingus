@@ -10,22 +10,25 @@ function applyReplayTick({ tick, game, replayInput, simDt, step }) {
   replayInput.cursor.y = tk.cursor?.y ?? 0;
   replayInput.cursor.has = !!tk.cursor?.has;
 
-  if (Array.isArray(tk.actions)) {
-    for (const a of tk.actions) {
-      if (a && a.cursor) {
-        replayInput.cursor.x = a.cursor.x;
-        replayInput.cursor.y = a.cursor.y;
-        replayInput.cursor.has = !!a.cursor.has;
-      }
-      game.handleAction(a.id);
+  const actions = Array.isArray(tk.actions) ? tk.actions : [];
+  for (const a of actions) {
+    if (a && a.cursor) {
+      replayInput.cursor.x = a.cursor.x;
+      replayInput.cursor.y = a.cursor.y;
+      replayInput.cursor.has = !!a.cursor.has;
     }
   }
 
   if (typeof step === "function") {
-    step(simDt, tk.actions || []);
-  } else {
-    game.update(simDt);
+    step(simDt, actions);
+    return;
   }
+
+  for (const a of actions) {
+    game.handleAction(a.id);
+  }
+
+  game.update(simDt);
 }
 
 export async function playbackTicksDeterministic({
