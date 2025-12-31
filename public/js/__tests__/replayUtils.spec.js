@@ -150,6 +150,47 @@ describe("playbackTicks", () => {
     expect(raf).not.toHaveBeenCalled();
     global.requestAnimationFrame = originalRaf;
   });
+
+  it("plays in real time when playback mode is realtime", async () => {
+    const game = makeGame();
+    const replayInput = makeReplayInput();
+    const ticks = [{}, {}, {}, {}];
+    const ts = [0, 16, 32, 48];
+    const raf = makeRaf(ts);
+
+    await playbackTicks({
+      ticks,
+      game,
+      replayInput,
+      captureMode: "none",
+      playbackMode: "realtime",
+      simDt: SIM_DT,
+      requestFrame: raf
+    });
+
+    expect(game.update).toHaveBeenCalledTimes(4);
+    expect(game.render).toHaveBeenCalledTimes(3);
+  });
+
+  it("bails when realtime playback lacks requestAnimationFrame", async () => {
+    const game = makeGame();
+    const replayInput = makeReplayInput();
+    const ticks = [{}, {}];
+    const originalRaf = global.requestAnimationFrame;
+    global.requestAnimationFrame = undefined;
+
+    await expect(playbackTicks({
+      ticks,
+      game,
+      replayInput,
+      captureMode: "none",
+      playbackMode: "realtime",
+      simDt: SIM_DT,
+      requestFrame: null
+    })).resolves.toBeUndefined();
+
+    global.requestAnimationFrame = originalRaf;
+  });
 });
 
 describe("playbackTicksDeterministic", () => {

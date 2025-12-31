@@ -78,6 +78,7 @@ export class Game {
 
     // Offscreen background (dots + vignette) to avoid repainting thousands of primitives per frame
     this.background = createBackgroundLayer();
+    this.backgroundRand = () => Math.random();
 
     this.player = {
       x: 0, y: 0, vx: 0, vy: 0,
@@ -144,6 +145,13 @@ export class Game {
   // NEW: toggle game SFX without touching music
   setAudioEnabled(on) {
     this.audioEnabled = !!on;
+  }
+
+  setBackgroundRand(randFn) {
+    this.backgroundRand = (typeof randFn === "function") ? randFn : (() => Math.random());
+    if (this.W > 0 && this.H > 0) {
+      this._initBackground();
+    }
   }
 
   setSkillSettings(settings) {
@@ -439,7 +447,7 @@ export class Game {
     initBackgroundLayer(this.background, {
       width: this.W,
       height: this.H,
-      rand: Math.random
+      rand: this.backgroundRand
     });
     this._refreshBackgroundLayer();
   }
@@ -1345,7 +1353,7 @@ export class Game {
     if (this.state === STATE.OVER) return;
 
     // background drift
-    updateBackgroundDots(this.background, { width: this.W, height: this.H, dt, rand: Math.random });
+    updateBackgroundDots(this.background, { width: this.W, height: this.H, dt, rand: this.backgroundRand });
 
     if (this.state !== STATE.PLAY) return;
 

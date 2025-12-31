@@ -88,6 +88,7 @@ export async function playbackTicks({
   game,
   replayInput,
   captureMode = "none",
+  playbackMode = "deterministic",
   simDt,
   requestFrame = null,
   step = null,
@@ -98,7 +99,8 @@ export async function playbackTicks({
 } = {}) {
   if (!Array.isArray(ticks) || !game || !replayInput || typeof simDt !== "number") return;
 
-  if (captureMode === "none") {
+  const useDeterministic = captureMode === "none" && playbackMode === "deterministic";
+  if (useDeterministic) {
     await playbackTicksDeterministic({
       ticks,
       game,
@@ -123,8 +125,7 @@ export async function playbackTicks({
   for (let i = 0; i < ticks.length;) {
     const ts = await new Promise((resolve) => raf(resolve));
     if (lastTs === null) {
-      lastTs = ts;
-      continue;
+      lastTs = ts - (1000 / REPLAY_TARGET_FPS);
     }
     const frameDt = Math.min(MAX_FRAME_DT, Math.max(0, (ts - lastTs) / 1000));
     lastTs = ts;
