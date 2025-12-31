@@ -59,6 +59,7 @@ import {
   sfxAchievementUnlock
 } from "./audio.js";
 import { DEFAULT_AUDIO_SETTINGS, readAudioSettings, writeAudioSettings } from "./audioSettings.js";
+import { applyVolumeFromUI, primeVolumeUI } from "./audioVolumeControls.js";
 import { applyBustercoinEarnings } from "./bustercoins.js";
 import {
   ACHIEVEMENTS,
@@ -69,6 +70,7 @@ import {
 } from "./achievements.js";
 import { renderScoreBreakdown } from "./scoreBreakdown.js";
 import { computePersonalBestStatus, updatePersonalBestElements } from "./personalBest.js";
+import { updatePersonalBestUI } from "./personalBestUI.js";
 import { buildGameOverStats, GAME_OVER_STAT_VIEWS } from "./gameOverStats.js";
 import { buildUnlockablesCatalog, getUnlockedIdsByType, UNLOCKABLE_TYPES } from "./unlockables.js";
 import { DEFAULT_CURRENCY_ID, getUserCurrencyBalance } from "./currencySystem.js";
@@ -279,21 +281,20 @@ const {
 } = ui;
 
 // ---- Local best fallback cookie (legacy support) ----
-function updatePersonalBestUI(finalScore, userBestScore) {
-  if (!overPB) return;
-  const personalBestStatus = computePersonalBestStatus(finalScore, userBestScore, readLocalBest());
-  if (personalBestStatus.shouldPersistLocalBest) {
-    writeLocalBest(personalBestStatus.score);
-  }
-  const refreshedStatus = computePersonalBestStatus(finalScore, userBestScore, readLocalBest());
-  updatePersonalBestElements(
-    {
+function updatePersonalBestUIWrapper(finalScore, userBestScore) {
+  updatePersonalBestUI({
+    finalScore,
+    userBestScore,
+    elements: {
       personalBestEl: overPB,
       badgeEl: overPbBadge,
       statusEl: overPbStatus
     },
-    refreshedStatus
-  );
+    readLocalBest,
+    writeLocalBest,
+    computePersonalBestStatus,
+    updatePersonalBestElements
+  });
 }
 
 let currentStatsView = GAME_OVER_STAT_VIEWS.run;
@@ -447,38 +448,32 @@ const DEFAULT_MUSIC = DEFAULT_AUDIO_SETTINGS.music;
 const DEFAULT_SFX = DEFAULT_AUDIO_SETTINGS.sfx;
 const DEFAULT_AUDIO = { ...DEFAULT_AUDIO_SETTINGS, music: DEFAULT_MUSIC, sfx: DEFAULT_SFX, muted: false };
 
-function sliderValueTo01(el, fallback01) {
-  const raw = el ? Number.parseFloat(el.value) : Number.NaN;
-  const pct = Number.isFinite(raw) ? raw : (fallback01 ?? 0) * 100;
-  return clamp(pct / 100, 0, 1);
+function handleVolumeChange() {
+  applyVolumeFromUI({
+    musicSlider,
+    sfxSlider,
+    muteToggle,
+    defaults: DEFAULT_AUDIO,
+    setMusicVolume,
+    setSfxVolume,
+    setMuted,
+    writeAudioSettings,
+    game
+  });
 }
 
-function applyVolumeFromUI() {
-  const music = sliderValueTo01(musicSlider, DEFAULT_MUSIC);
-  const sfx = sliderValueTo01(sfxSlider, DEFAULT_SFX);
-
-  setMusicVolume(music);
-  setSfxVolume(sfx);
-
-  const isMuted = !!(muteToggle && muteToggle.checked);
-  setMuted(isMuted);
-  writeAudioSettings({ music, sfx, muted: isMuted }, DEFAULT_AUDIO);
-
-  if (game) {
-    const sfxAudible = !isMuted && sfx > 0;
-    game.setAudioEnabled(sfxAudible);
-  }
+function primeVolumeControls() {
+  primeVolumeUI({
+    musicSlider,
+    sfxSlider,
+    muteToggle,
+    readAudioSettings,
+    defaults: DEFAULT_AUDIO
+  });
+  handleVolumeChange();
 }
 
-function primeVolumeUI() {
-  const saved = readAudioSettings(DEFAULT_AUDIO) || DEFAULT_AUDIO;
-  if (musicSlider) musicSlider.value = String(Math.round(saved.music * 100));
-  if (sfxSlider) sfxSlider.value = String(Math.round(saved.sfx * 100));
-  if (muteToggle) muteToggle.checked = !!saved.muted;
-  applyVolumeFromUI();
-}
-
-const volumeChangeHandler = () => applyVolumeFromUI();
+const volumeChangeHandler = () => handleVolumeChange();
 musicSlider?.addEventListener("input", volumeChangeHandler);
 sfxSlider?.addEventListener("input", volumeChangeHandler);
 muteToggle?.addEventListener("change", volumeChangeHandler);
@@ -2208,7 +2203,7 @@ async function onGameOver(finalScore) {
   lastRunStats = runStats;
   currentStatsView = GAME_OVER_STAT_VIEWS.run;
   renderScoreBreakdown(scoreBreakdown, runStats, finalScore);
-  updatePersonalBestUI(finalScore, net.user?.bestScore);
+  updatePersonalBestUIWrapper(finalScore, net.user?.bestScore);
   updateGameOverStats({ view: currentStatsView, runStats, achievementsState: net.user?.achievements, skillTotals: net.user?.skillTotals });
 
   over.classList.remove("hidden");
@@ -2241,7 +2236,7 @@ async function onGameOver(finalScore) {
       renderHighscoresUI();
       renderAchievements();
 
-      updatePersonalBestUI(finalScore, net.user.bestScore);
+      updatePersonalBestUIWrapper(finalScore, net.user.bestScore);
       updateGameOverStats({ runStats, achievementsState: net.user.achievements, skillTotals: net.user?.skillTotals });
     } else {
       if (optimistic.applied && net.user?.bustercoins !== undefined) {
@@ -2255,7 +2250,7 @@ async function onGameOver(finalScore) {
       await refreshProfileAndHighscores();
 
       // Keep PB display meaningful even if the submission failed.
-      updatePersonalBestUI(finalScore, net.user?.bestScore);
+      updatePersonalBestUIWrapper(finalScore, net.user?.bestScore);
       updateGameOverStats({ runStats, achievementsState: net.user?.achievements, skillTotals: net.user?.skillTotals });
     }
   }
@@ -2468,7 +2463,7 @@ function frame(ts) {
     });
   }
 
-  primeVolumeUI();
+  primeVolumeControls();
   renderIconOptions(currentIconId, computeUnlockedIconSet(playerIcons), playerIcons);
 
   exportMp4Btn?.addEventListener("click", async () => {
