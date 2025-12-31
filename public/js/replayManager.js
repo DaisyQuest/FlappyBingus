@@ -77,6 +77,7 @@ export function createReplayManager({
   tapePlayer,
   seededRand,
   playbackTicks,
+  playbackTicksDeterministic,
   simDt,
   requestFrame,
   stopMusic,
@@ -138,7 +139,7 @@ export function createReplayManager({
 
   const isReplaying = () => replaying;
 
-  const play = async ({ captureMode = "none", run = activeRun } = {}) => {
+  const play = async ({ captureMode = "none", paceMode = "deterministic", run = activeRun } = {}) => {
     stopMusic?.();
 
     if (!hasReplayData(run)) {
@@ -175,12 +176,16 @@ export function createReplayManager({
         }));
       }
 
-      if (typeof playbackTicks === "function") {
-        await playbackTicks({
+      const useDeterministic = captureMode === "none" && paceMode !== "realtime";
+      const playbackFn = useDeterministic ? playbackTicksDeterministic : playbackTicks;
+
+      if (typeof playbackFn === "function") {
+        await playbackFn({
           ticks: run.ticks,
           game,
           replayInput,
           captureMode,
+          paceMode,
           simDt,
           requestFrame,
           step

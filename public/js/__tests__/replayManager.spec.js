@@ -93,7 +93,7 @@ describe("replayManager", () => {
     expect(manager.isReplaying()).toBe(false);
   });
 
-  it("plays a replay with the provided playback function", async () => {
+  it("plays a replay using deterministic playback in non-capture mode", async () => {
     const game = { input: { name: "real" }, startRun: vi.fn() };
     const input = { reset: vi.fn() };
     const menu = { classList: makeClassList() };
@@ -103,7 +103,8 @@ describe("replayManager", () => {
     const tapePlayer = vi.fn(() => "tape");
     const seededRand = vi.fn(() => "seeded");
 
-    const playbackTicks = vi.fn(async ({ game: playbackGame, replayInput }) => {
+    const playbackTicks = vi.fn();
+    const playbackTicksDeterministic = vi.fn(({ game: playbackGame, replayInput }) => {
       expect(playbackGame.input).toBe(replayInput);
     });
 
@@ -117,6 +118,7 @@ describe("replayManager", () => {
       tapePlayer,
       seededRand,
       playbackTicks,
+      playbackTicksDeterministic,
       simDt: 1 / 120
     });
 
@@ -134,14 +136,39 @@ describe("replayManager", () => {
     expect(menu.classList.add).toHaveBeenCalledWith("hidden");
     expect(over.classList.add).toHaveBeenCalledWith("hidden");
     expect(over.classList.remove).toHaveBeenCalledWith("hidden");
-    expect(playbackTicks).toHaveBeenCalled();
+    expect(playbackTicksDeterministic).toHaveBeenCalled();
+    expect(playbackTicks).not.toHaveBeenCalled();
     expect(manager.isReplaying()).toBe(false);
+  });
+
+  it("uses the realtime pacing path when requested", async () => {
+    const game = { input: { name: "real" }, startRun: vi.fn() };
+    const playbackTicks = vi.fn(async () => {});
+    const playbackTicksDeterministic = vi.fn();
+
+    const manager = createReplayManager({
+      game,
+      playbackTicks,
+      playbackTicksDeterministic,
+      simDt: 1 / 120,
+      requestFrame: () => {}
+    });
+
+    manager.startRecording("seed");
+    manager.recordTick({ move: { dx: 1, dy: 1 }, cursor: { x: 0, y: 0 } }, []);
+    manager.markEnded();
+
+    await manager.play({ captureMode: "none", paceMode: "realtime" });
+
+    expect(playbackTicks).toHaveBeenCalledWith(expect.objectContaining({ paceMode: "realtime" }));
+    expect(playbackTicksDeterministic).not.toHaveBeenCalled();
   });
 
   it("captures a replay when capture mode is enabled", async () => {
     const game = { input: { name: "real" }, startRun: vi.fn() };
     const canvas = { captureStream: vi.fn(() => ({ stream: true })) };
     const playbackTicks = vi.fn(async () => {});
+    const playbackTicksDeterministic = vi.fn();
 
     class FakeMediaRecorder {
       static isTypeSupported() {
@@ -170,6 +197,7 @@ describe("replayManager", () => {
       canvas,
       game,
       playbackTicks,
+      playbackTicksDeterministic,
       simDt: 1 / 120
     });
 
@@ -181,5 +209,30 @@ describe("replayManager", () => {
 
     expect(result).toBeInstanceOf(Blob);
     expect(canvas.captureStream).toHaveBeenCalledWith(__testables.DEFAULT_CAPTURE_FPS);
+    expect(playbackTicks).toHaveBeenCalled();
+    expect(playbackTicksDeterministic).not.toHaveBeenCalled();
+  });
+
+  it("falls back to deterministic playback when requestFrame is unavailable", async () => {
+    const game = { input: { name: "real" }, startRun: vi.fn() };
+    const playbackTicks = vi.fn();
+    const playbackTicksDeterministic = vi.fn();
+
+    const manager = createReplayManager({
+      game,
+      playbackTicks,
+      playbackTicksDeterministic,
+      simDt: 1 / 120,
+      requestFrame: null
+    });
+
+    manager.startRecording("seed");
+    manager.recordTick({ move: { dx: 1, dy: 1 }, cursor: { x: 0, y: 0 } }, []);
+    manager.markEnded();
+
+    await manager.play({ captureMode: "none" });
+
+    expect(playbackTicksDeterministic).toHaveBeenCalled();
+    expect(playbackTicks).not.toHaveBeenCalled();
   });
 });
