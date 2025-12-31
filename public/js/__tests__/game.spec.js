@@ -176,15 +176,15 @@ describe("Game core utilities", () => {
     expect(game.W).toBeGreaterThan(0);
     expect(game.H).toBeGreaterThan(0);
     expect(game.player.r).toBeGreaterThan(0);
-    expect(game.bgCanvas).toBeTruthy();
-    expect(game.bgDirty).toBe(false);
-    expect(game.bgDots.length).toBeGreaterThan(0);
+    expect(game.background.canvas).toBeTruthy();
+    expect(game.background.dirty).toBe(false);
+    expect(game.background.mode.dots.length).toBeGreaterThan(0);
 
-    const previousCtx = game.bgCtx;
+    const previousCtx = game.background.ctx;
     game.W += 1;
     game._refreshBackgroundLayer();
-    expect(game.bgCtx).not.toBeNull();
-    expect(game.bgCtx).not.toBe(previousCtx);
+    expect(game.background.ctx).not.toBeNull();
+    expect(game.background.ctx).not.toBe(previousCtx);
   });
 
   it("toggles audio and guards SFX triggers", async () => {
@@ -730,13 +730,13 @@ describe("Player movement and trail emission", () => {
     const originalDocument = global.document;
     const originalOffscreen = global.OffscreenCanvas;
 
-    game.bgCanvas = null;
+    game.background.canvas = null;
     global.document = undefined;
     global.OffscreenCanvas = undefined;
 
     try {
       game._refreshBackgroundLayer();
-      expect(game.bgCanvas).toBeNull();
+      expect(game.background.canvas).toBeNull();
     } finally {
       global.document = originalDocument;
       global.OffscreenCanvas = originalOffscreen;
@@ -1323,26 +1323,28 @@ describe("Player movement and trail emission", () => {
 describe("Game loop", () => {
   it("early exits on OVER and drifts dots in MENU", () => {
     const { game } = buildGame();
-    game.bgDots = [{ x: 0, y: 0, s: 1 }];
+    game._initBackground();
+    game.background.mode.dots = [{ x: 0, y: 0, s: 1, r: 1 }];
 
     game.state = 2;
     game.update(1);
-    expect(game.bgDots[0].y).toBe(0);
+    expect(game.background.mode.dots[0].y).toBe(0);
 
     game.state = 0;
     game.update(1);
-    expect(game.bgDots[0].y).toBeGreaterThan(0);
+    expect(game.background.mode.dots[0].y).toBeGreaterThan(0);
   });
 
   it("wraps drifting background dots when they exit the playfield", () => {
     const { game } = buildGame();
-    game.bgDots = [{ x: 1, y: game.H + 20, s: 5 }];
+    game._initBackground();
+    game.background.mode.dots = [{ x: 1, y: game.H + 20, s: 5, r: 1 }];
     const randSpy = vi.spyOn(Math, "random").mockReturnValue(0.75);
 
     game.update(0.1);
 
-    expect(game.bgDots[0].y).toBe(-10);
-    expect(game.bgDots[0].x).toBeCloseTo(game.W * 0.75);
+    expect(game.background.mode.dots[0].y).toBe(-10);
+    expect(game.background.mode.dots[0].x).toBeCloseTo(game.W * 0.75);
     randSpy.mockRestore();
   });
 
@@ -1594,19 +1596,19 @@ describe("Game loop", () => {
 
     game.resizeToWindow();
 
-    game.bgCanvas = null;
+    game.background.canvas = null;
     game._refreshBackgroundLayer();
-    expect(game.bgCanvas).not.toBeNull();
+    expect(game.background.canvas).not.toBeNull();
 
-    game.bgCanvas.width = Math.round(game.W);
-    game.bgCanvas.height = Math.round(game.H);
-    game.bgCtx = null;
-    game._refreshBackgroundLayer();
-
-    game.bgCtx = mockCtx();
+    game.background.canvas.width = Math.round(game.W);
+    game.background.canvas.height = Math.round(game.H);
+    game.background.ctx = null;
     game._refreshBackgroundLayer();
 
-    game.bgCanvas = { width: 1, height: 1, getContext: vi.fn(() => null) };
+    game.background.ctx = mockCtx();
+    game._refreshBackgroundLayer();
+
+    game.background.canvas = { width: 1, height: 1, getContext: vi.fn(() => null) };
     game._refreshBackgroundLayer();
 
     game.timeAlive = 0;
