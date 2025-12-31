@@ -1,4 +1,5 @@
 import { chooseReplayRandSource } from "./replayUtils.js";
+import { createActionQueue } from "/engine/actionQueue.js";
 
 const DEFAULT_CAPTURE_FPS = 60;
 
@@ -86,6 +87,7 @@ export function createReplayManager({
 } = {}) {
   let activeRun = null;
   let replaying = false;
+  let actionQueue = null;
 
   const notifyStatus = (payload) => {
     if (typeof onStatus !== "function") return;
@@ -94,6 +96,7 @@ export function createReplayManager({
 
   const startRecording = (seed) => {
     activeRun = createReplayRun(seed);
+    actionQueue = createActionQueue({ initial: activeRun.pendingActions });
     if (typeof setRandSource === "function" && typeof tapeRecorder === "function") {
       setRandSource(tapeRecorder(activeRun.seed, activeRun.rngTape));
     }
@@ -104,20 +107,21 @@ export function createReplayManager({
   const reset = () => {
     activeRun = null;
     replaying = false;
+    actionQueue = null;
   };
 
   const queueAction = (action) => {
     if (!activeRun || activeRun.ended) return;
-    activeRun.pendingActions.push(action);
+    actionQueue?.enqueueRaw(action);
   };
 
   const drainPendingActions = () => {
     if (!activeRun || activeRun.ended) return [];
-    return activeRun.pendingActions.splice(0);
+    return actionQueue?.drain() ?? [];
   };
 
   const clearPendingActions = () => {
-    if (activeRun) activeRun.pendingActions.length = 0;
+    actionQueue?.clear();
   };
 
   const recordTick = (snapshot, actions) => {

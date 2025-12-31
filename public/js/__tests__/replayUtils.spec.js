@@ -113,6 +113,7 @@ describe("playbackTicks", () => {
 
     expect(step).toHaveBeenCalledTimes(2);
     expect(game.update).not.toHaveBeenCalled();
+    expect(game.handleAction).not.toHaveBeenCalled();
   });
 
   it("guards against invalid inputs", async () => {
@@ -198,6 +199,26 @@ describe("playbackTicksDeterministic", () => {
     expect(second.actions).toEqual(first.actions);
     expect(second.updates).toBe(first.updates);
     expect(second.replayInput).toEqual(first.replayInput);
+  });
+
+  it("does not double-apply actions when a step handler is provided", async () => {
+    const game = makeGame();
+    const replayInput = makeReplayInput();
+    const ticks = [{ actions: [{ id: "a1" }] }];
+    const step = vi.fn();
+
+    await playbackTicksDeterministic({
+      ticks,
+      game,
+      replayInput,
+      simDt: SIM_DT,
+      step,
+      yieldBetweenRenders: () => Promise.resolve()
+    });
+
+    expect(step).toHaveBeenCalledWith(SIM_DT, ticks[0].actions);
+    expect(game.handleAction).not.toHaveBeenCalled();
+    expect(game.update).not.toHaveBeenCalled();
   });
 
   it("renders on the configured cadence and optionally renders a final frame", async () => {

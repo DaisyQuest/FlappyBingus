@@ -42,6 +42,13 @@ import {
   normalizePipeTextureMode
 } from "./pipeTextures.js";
 import { trailStyleFor } from "./trailStyles.js";
+import {
+  createBackgroundLayer,
+  drawBackgroundLayer,
+  initBackgroundLayer,
+  refreshBackgroundLayer,
+  updateBackgroundDots
+} from "./backgroundLayer.js";
 
 const TRAIL_LIFE_SCALE = 1.45;
 const TRAIL_DISTANCE_SCALE = 1.18;
@@ -70,11 +77,7 @@ export class Game {
     this.W = 1; this.H = 1; this.DPR = 1;
 
     // Offscreen background (dots + vignette) to avoid repainting thousands of primitives per frame
-    this.bgCanvas = null;
-    this.bgCtx = null;
-    this.bgDirty = true;
-
-    this.bgDots = [];
+    this.background = createBackgroundLayer();
 
     this.player = {
       x: 0, y: 0, vx: 0, vy: 0,
@@ -433,76 +436,16 @@ export class Game {
   }
 
   _initBackground() {
-    this.bgDots.length = 0;
-    const n = Math.floor(clamp((this.W * this.H) / 11000, 80, 220));
-    for (let i = 0; i < n; i++) {
-      // IMPORTANT: visuals only -> do NOT use seeded rand()
-      this.bgDots.push({
-        x: Math.random() * this.W,
-        y: Math.random() * this.H,
-        r: 0.8 + Math.random() * (2.2 - 0.8),
-        s: 4 + Math.random() * (22 - 4)
-      });
-    }
-
-    this.bgDirty = true;
+    initBackgroundLayer(this.background, {
+      width: this.W,
+      height: this.H,
+      rand: Math.random
+    });
     this._refreshBackgroundLayer();
   }
 
   _refreshBackgroundLayer() {
-    // Lazily allocate the offscreen buffer (supports both DOM and OffscreenCanvas)
-    const canvasFactory = () => {
-      if (typeof OffscreenCanvas !== "undefined") return new OffscreenCanvas(1, 1);
-      if (typeof document !== "undefined") return document.createElement("canvas");
-      return null;
-    };
-
-    if (!this.bgCanvas) this.bgCanvas = canvasFactory();
-    if (!this.bgCanvas) return; // Fallback: will render directly to the main canvas
-
-    const w = Math.max(1, Math.round(this.W));
-    const h = Math.max(1, Math.round(this.H));
-
-    // Resize invalidates the context state; reacquire each time we resize
-    if (this.bgCanvas.width !== w || this.bgCanvas.height !== h) {
-      this.bgCanvas.width = w;
-      this.bgCanvas.height = h;
-      this.bgCtx = null;
-    }
-
-    if (!this.bgCtx) this.bgCtx = this.bgCanvas.getContext("2d", { alpha: false });
-    const bctx = this.bgCtx;
-    if (!bctx) return;
-
-    bctx.setTransform(1, 0, 0, 1, 0, 0);
-    bctx.clearRect(0, 0, w, h);
-
-    // background fill
-    bctx.fillStyle = "#07101a";
-    bctx.fillRect(0, 0, w, h);
-
-    // vignette
-    const vg = bctx.createRadialGradient(
-      this.W * 0.5, this.H * 0.45, Math.min(this.W, this.H) * 0.12,
-      this.W * 0.5, this.H * 0.5, Math.max(this.W, this.H) * 0.75
-    );
-    vg.addColorStop(0, "rgba(0,0,0,0)");
-    vg.addColorStop(1, "rgba(0,0,0,.44)");
-    bctx.fillStyle = vg;
-    bctx.fillRect(0, 0, w, h);
-
-    // static dots
-    bctx.save();
-    bctx.globalAlpha = 0.75;
-    bctx.fillStyle = "rgba(255,255,255,.20)";
-    for (const p of this.bgDots) {
-      bctx.beginPath();
-      bctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
-      bctx.fill();
-    }
-    bctx.restore();
-
-    this.bgDirty = false;
+    refreshBackgroundLayer(this.background, { width: this.W, height: this.H });
   }
 
   _margin() {
@@ -1402,13 +1345,7 @@ export class Game {
     if (this.state === STATE.OVER) return;
 
     // background drift
-    for (const p of this.bgDots) {
-      p.y += p.s * dt;
-      if (p.y > this.H + 10) {
-        p.y = -10;
-        p.x = Math.random() * this.W; // visuals only -> not seeded
-      }
-    }
+    updateBackgroundDots(this.background, { width: this.W, height: this.H, dt, rand: Math.random });
 
     if (this.state !== STATE.PLAY) return;
 
@@ -1684,10 +1621,8 @@ export class Game {
     const ctx = this.ctx;
 
     // background (cached offscreen)
-    if (this.bgDirty) this._refreshBackgroundLayer();
-    if (this.bgCanvas) {
-      ctx.drawImage(this.bgCanvas, 0, 0, this.W, this.H);
-    } else {
+    const backgroundDrawn = drawBackgroundLayer(this.background, ctx, { width: this.W, height: this.H });
+    if (!backgroundDrawn) {
       ctx.fillStyle = "#07101a";
       ctx.fillRect(0, 0, this.W, this.H);
     }
