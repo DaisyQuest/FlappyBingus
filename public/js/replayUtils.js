@@ -2,6 +2,71 @@ const REPLAY_TARGET_FPS = 60;
 const REPLAY_TPS = 120;
 const MAX_FRAME_DT = 1 / 10; // cap catch-up to avoid runaway loops
 
+function applyReplayTick({ tick, game, replayInput, simDt, step }) {
+  const tk = tick || {};
+
+  replayInput._move = tk.move || { dx: 0, dy: 0 };
+  replayInput.cursor.x = tk.cursor?.x ?? 0;
+  replayInput.cursor.y = tk.cursor?.y ?? 0;
+  replayInput.cursor.has = !!tk.cursor?.has;
+
+  if (Array.isArray(tk.actions)) {
+    for (const a of tk.actions) {
+      if (a && a.cursor) {
+        replayInput.cursor.x = a.cursor.x;
+        replayInput.cursor.y = a.cursor.y;
+        replayInput.cursor.has = !!a.cursor.has;
+      }
+      game.handleAction(a.id);
+    }
+  }
+
+  if (typeof step === "function") {
+    step(simDt, tk.actions || []);
+  } else {
+    game.update(simDt);
+  }
+}
+
+export function playbackTicksDeterministic({
+  ticks,
+  game,
+  replayInput,
+  simDt,
+  step = null,
+  renderEveryTicks = null,
+  renderMode = "cadence",
+  renderFinal = true
+} = {}) {
+  if (!Array.isArray(ticks) || !game || !replayInput || typeof simDt !== "number") return;
+
+  const defaultCadence = Math.max(1, Math.round((1 / simDt) / REPLAY_TARGET_FPS));
+  const cadence = Number.isInteger(renderEveryTicks) && renderEveryTicks > 0
+    ? renderEveryTicks
+    : defaultCadence;
+  const renderAlways = renderMode === "always";
+  let ticksProcessed = 0;
+
+  for (let i = 0; i < ticks.length; i += 1) {
+    applyReplayTick({ tick: ticks[i], game, replayInput, simDt, step });
+    ticksProcessed += 1;
+
+    const shouldRender = renderAlways
+      || ticksProcessed % cadence === 0
+      || (renderFinal && game.state === 2 /* OVER */);
+
+    if (shouldRender) {
+      game.render();
+    }
+
+    if (game.state === 2 /* OVER */) break;
+  }
+
+  if (!renderAlways && renderFinal && ticksProcessed > 0 && ticksProcessed % cadence !== 0 && game.state !== 2) {
+    game.render();
+  }
+}
+
 export async function playbackTicks({
   ticks,
   game,
@@ -9,9 +74,26 @@ export async function playbackTicks({
   captureMode = "none",
   simDt,
   requestFrame = null,
-  step = null
+  step = null,
+  renderEveryTicks = null,
+  renderMode = "cadence",
+  renderFinal = true
 } = {}) {
   if (!Array.isArray(ticks) || !game || !replayInput || typeof simDt !== "number") return;
+
+  if (captureMode === "none") {
+    playbackTicksDeterministic({
+      ticks,
+      game,
+      replayInput,
+      simDt,
+      step,
+      renderEveryTicks,
+      renderMode,
+      renderFinal
+    });
+    return;
+  }
 
   const raf = requestFrame || (typeof requestAnimationFrame === "function" ? requestAnimationFrame : null);
   if (!raf) return;
@@ -37,28 +119,7 @@ export async function playbackTicks({
 
     while (i < ticks.length && acc >= tickStep) {
       const tk = ticks[i++] || {};
-
-      replayInput._move = tk.move || { dx: 0, dy: 0 };
-      replayInput.cursor.x = tk.cursor?.x ?? 0;
-      replayInput.cursor.y = tk.cursor?.y ?? 0;
-      replayInput.cursor.has = !!tk.cursor?.has;
-
-      if (Array.isArray(tk.actions)) {
-        for (const a of tk.actions) {
-          if (a && a.cursor) {
-            replayInput.cursor.x = a.cursor.x;
-            replayInput.cursor.y = a.cursor.y;
-            replayInput.cursor.has = !!a.cursor.has;
-          }
-          game.handleAction(a.id);
-        }
-      }
-
-      if (typeof step === "function") {
-        step(simDt, tk.actions || []);
-      } else {
-        game.update(simDt);
-      }
+      applyReplayTick({ tick: tk, game, replayInput, simDt, step });
       acc -= tickStep;
 
       if (game.state === 2 /* OVER */) break;

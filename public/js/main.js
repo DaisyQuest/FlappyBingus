@@ -124,7 +124,7 @@ import {
   toggleTrailMenu
 } from "./trailMenu.js";
 import { SHOP_TABS, getPurchasableUnlockablesByType, renderShopItems } from "./shopMenu.js";
-import { playbackTicks } from "./replayUtils.js";
+import { playbackTicks, playbackTicksDeterministic } from "./replayUtils.js";
 import { createReplayManager, cloneReplayRun } from "./replayManager.js";
 import { bindSkillOptionGroup, markSkillOptionSelection } from "./skillOptions.js";
 import { renderSkillUsageStats } from "./skillUsageStats.js";
@@ -557,6 +557,7 @@ replayManager = createReplayManager({
   tapePlayer: createTapeRandPlayer,
   seededRand: createSeededRand,
   playbackTicks,
+  playbackTicksDeterministic,
   simDt: SIM_DT,
   requestFrame: requestAnimationFrame,
   stopMusic: musicStop,
