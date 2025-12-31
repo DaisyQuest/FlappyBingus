@@ -130,6 +130,8 @@ describe("playbackTicks", () => {
     const replayInput = makeReplayInput();
     const ticks = [{}, {}];
     const raf = vi.fn();
+    const originalRaf = global.requestAnimationFrame;
+    global.requestAnimationFrame = undefined;
 
     await playbackTicks({
       ticks,
@@ -145,6 +147,7 @@ describe("playbackTicks", () => {
     expect(game.update).toHaveBeenCalledTimes(2);
     expect(game.render).toHaveBeenCalledTimes(2);
     expect(raf).not.toHaveBeenCalled();
+    global.requestAnimationFrame = originalRaf;
   });
 });
 
@@ -288,6 +291,29 @@ describe("playbackTicksDeterministic", () => {
     });
 
     expect(game.render).toHaveBeenCalledTimes(3);
+  });
+
+  it("uses requestAnimationFrame for yielding when available", async () => {
+    const game = makeGame();
+    const replayInput = makeReplayInput();
+    const ticks = [{}, {}, {}];
+    const originalRaf = global.requestAnimationFrame;
+    const raf = vi.fn((cb) => cb(0));
+
+    global.requestAnimationFrame = raf;
+
+    await playbackTicksDeterministic({
+      ticks,
+      game,
+      replayInput,
+      simDt: SIM_DT,
+      renderEveryTicks: 1
+    });
+
+    expect(game.render).toHaveBeenCalledTimes(3);
+    expect(raf).toHaveBeenCalledTimes(3);
+
+    global.requestAnimationFrame = originalRaf;
   });
 
   it("guards against invalid inputs", async () => {

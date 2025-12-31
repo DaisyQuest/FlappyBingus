@@ -50,7 +50,9 @@ export async function playbackTicksDeterministic({
 
   const yieldAfterRender = typeof yieldBetweenRenders === "function"
     ? yieldBetweenRenders
-    : (typeof setTimeout === "function" ? () => new Promise((resolve) => setTimeout(resolve, 0)) : null);
+    : (typeof requestAnimationFrame === "function"
+      ? () => new Promise((resolve) => requestAnimationFrame(() => resolve()))
+      : (typeof setTimeout === "function" ? () => new Promise((resolve) => setTimeout(resolve, 0)) : null));
 
   for (let i = 0; i < ticks.length; i += 1) {
     applyReplayTick({ tick: ticks[i], game, replayInput, simDt, step });
