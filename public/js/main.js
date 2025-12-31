@@ -22,6 +22,7 @@ import {
   escapeHtml,
   clamp,
   setRandSource,
+  getRandSource,
   createSeededRand,
   createTapeRandRecorder,
   createTapeRandPlayer,
@@ -124,8 +125,8 @@ import {
   toggleTrailMenu
 } from "./trailMenu.js";
 import { SHOP_TABS, getPurchasableUnlockablesByType, renderShopItems } from "./shopMenu.js";
-import { playbackTicks, playbackTicksDeterministic } from "./replayUtils.js";
-import { createReplayManager, cloneReplayRun } from "./replayManager.js";
+import { createReplayEngine, cloneReplayRun } from "./replayEngine.js";
+import { createFixedStepLoop } from "./simulationLoop.js";
 import { bindSkillOptionGroup, markSkillOptionSelection } from "./skillOptions.js";
 import { renderSkillUsageStats } from "./skillUsageStats.js";
 import { initThemeEditor } from "./themes.js";
@@ -410,16 +411,14 @@ const ctx = canvas.getContext("2d", { alpha: false });
 // Deterministic sim clock
 const SIM_DT = 1 / 120;
 const MAX_FRAME = 1 / 20;
-let acc = 0;
-let lastTs = 0;
 
-// Replay / run capture (managed via replayManager)
+// Replay / run capture (managed via replayEngine)
 let lastUploadedBestSeed = null;
 let lastUploadedBestScore = -Infinity;
 
 // Tutorial manager (initialized after Game is created, but referenced by the Input callback).
 let tutorial = null;
-let replayManager = null;
+let replayEngine = null;
 
 
 // Seed of the most recently finished run (used for "Retry Previous Seed")
@@ -498,7 +497,7 @@ const input = new Input(canvas, () => binds, (actionId) => {
     return;
   }
   if (game.state === 1 /* PLAY */) {
-    replayManager?.queueAction({
+    replayEngine?.queueAction({
       id: actionId,
       cursor: { x: input.cursor.x, y: input.cursor.y, has: input.cursor.has }
     });
@@ -546,18 +545,17 @@ tutorial = new Tutorial({
   onExit: () => toMenu()
 });
 
-replayManager = createReplayManager({
+replayEngine = createReplayEngine({
   canvas,
   game,
   input,
   menu,
   over,
   setRandSource,
+  getRandSource,
   tapeRecorder: createTapeRandRecorder,
   tapePlayer: createTapeRandPlayer,
   seededRand: createSeededRand,
-  playbackTicks,
-  playbackTicksDeterministic,
   simDt: SIM_DT,
   requestFrame: requestAnimationFrame,
   stopMusic: musicStop,
@@ -567,6 +565,71 @@ replayManager = createReplayManager({
     replayStatus.textContent = payload.text || "";
   },
   step: driver ? (dt, actions) => driver.step(dt, actions) : null
+});
+
+const simLoop = createFixedStepLoop({
+  simDt: SIM_DT,
+  maxFrame: MAX_FRAME,
+  onFrameStart: (dt) => {
+    if (tutorial?.active) tutorial.frame(dt);
+  },
+  onTick: () => {
+    const snap = input.snapshot();
+
+    let actions = [];
+    if (tutorial?.active && game.state === 1 /* PLAY */) {
+      actions = tutorial.drainActions();
+    } else if (game.state === 1 /* PLAY */) {
+      actions = replayEngine?.drainPendingActions() || [];
+    }
+
+    if (!tutorial?.active && game.state === 1 /* PLAY */) {
+      replayEngine?.recordTick(snap, actions);
+    }
+
+    const canAdvanceSim = !(tutorial?.active && tutorial.pauseSim);
+    if (game.state === 1 /* PLAY */ && actions.length && canAdvanceSim) {
+      for (const a of actions) {
+        if (a && a.cursor) {
+          input.cursor.x = a.cursor.x;
+          input.cursor.y = a.cursor.y;
+          input.cursor.has = !!a.cursor.has;
+        }
+
+        if (tutorial?.active) {
+          if (!tutorial.allowAction(a.id)) {
+            tutorial.notifyBlockedAction(a.id);
+            continue;
+          }
+        }
+
+        game.handleAction(a.id);
+        tutorial?.onActionApplied(a.id);
+      }
+    }
+
+    if (tutorial?.active) tutorial.beforeSimTick(SIM_DT);
+    if (!(tutorial?.active && tutorial.pauseSim)) {
+      if (driver) {
+        driver.step(SIM_DT, actions);
+      } else {
+        game.update(SIM_DT);
+      }
+      if (tutorial?.active) tutorial.afterSimTick(SIM_DT);
+    }
+    checkRunAchievements();
+
+    if (game.state === 2 /* OVER */) {
+      replayEngine?.clearPendingActions();
+      return false;
+    }
+
+    return true;
+  },
+  onFrameEnd: () => {
+    game.render();
+    if (tutorial?.active) tutorial.renderOverlay(ctx);
+  }
 });
 
 window.addEventListener("resize", () => {
@@ -703,7 +766,7 @@ async function handlePlayHighscore(username) {
       return;
     }
 
-    const played = await replayManager.play({ captureMode: "none", run: playbackRun });
+    const played = await replayEngine.play({ captureMode: "none", run: playbackRun });
     if (played && replayStatus) {
       replayStatus.className = "hint good";
       replayStatus.textContent = `Playing ${username}'s best run… done.`;
@@ -1465,7 +1528,7 @@ function downloadBlob(blob, filename) {
 }
 
 async function uploadBestRunArtifacts(finalScore, runStats) {
-  const activeRun = replayManager?.getActiveRun();
+  const activeRun = replayEngine?.getActiveRun();
   if (!net.user || !activeRun?.ended) return;
   const bestScore = net.user?.bestScore ?? 0;
   if (finalScore < bestScore) return;
@@ -2127,7 +2190,7 @@ function startTutorial() {
   rebindActive = null;
 
   input.reset();
-  replayManager?.reset();
+  replayEngine?.reset();
 
   // Use a stable RNG stream (even though tutorial spawns are deterministic).
   setRandSource(createSeededRand("tutorial"));
@@ -2135,7 +2198,7 @@ function startTutorial() {
   menu.classList.add("hidden");
   over.classList.add("hidden");
 
-  acc = 0;
+  simLoop.reset();
   resetRunAchievements();
   tutorial.start();
   musicStartLoop();
@@ -2174,14 +2237,14 @@ async function startGame({ mode = "new" } = {}) {
   writeSeed(seed);
 
   // reset replay recording (tick-based) + RNG tape
-  replayManager?.startRecording(seed);
+  replayEngine?.startRecording(seed);
   if (exportGifBtn) exportGifBtn.disabled = true;
   if (exportMp4Btn) exportMp4Btn.disabled = true;
 
   menu.classList.add("hidden");
   over.classList.add("hidden");
 
-  acc = 0;
+  simLoop.reset();
   resetRunAchievements();
   game.startRun();
 
@@ -2264,7 +2327,7 @@ async function onGameOver(finalScore) {
     applyIconSelection(currentIconId, playerIcons);
   }
 
-  const activeRun = replayManager?.markEnded();
+  const activeRun = replayEngine?.markEnded();
   if (activeRun) {
 
     // Remember this run's seed for "Retry Previous Seed"
@@ -2366,77 +2429,8 @@ async function transcodeWithFFmpeg({ webmBlob, outExt }) {
 
 // ---- Main loop (fixed timestep + tick capture) ----
 function frame(ts) {
-  let dt = (ts - lastTs) / 1000;
-  lastTs = ts;
-  dt = clamp(dt, 0, MAX_FRAME);
-
-  // Per-frame tutorial UI (skill intro animations, etc.)
-  if (tutorial?.active) tutorial.frame(dt);
-
-  if (!replayManager?.isReplaying()) {
-    acc += dt;
-
-    while (acc >= SIM_DT) {
-      // Capture input snapshot for THIS tick
-      const snap = input.snapshot();
-
-      // Drain actions enqueued since last tick and apply them now (live run)
-      let actions = [];
-      if (tutorial?.active && game.state === 1 /* PLAY */) {
-        actions = tutorial.drainActions();
-      } else if (game.state === 1 /* PLAY */) {
-        actions = replayManager?.drainPendingActions() || [];
-      }
-
-      // Record tick data
-      if (!tutorial?.active && game.state === 1 /* PLAY */) {
-        replayManager?.recordTick(snap, actions);
-      }
-
-      // Apply actions for this tick to the live game (tutorial or normal run)
-      const canAdvanceSim = !(tutorial?.active && tutorial.pauseSim);
-      if (game.state === 1 /* PLAY */ && actions.length && canAdvanceSim) {
-        for (const a of actions) {
-          // For teleport: ensure the input cursor reflects the recorded cursor for that action
-          if (a && a.cursor) {
-            input.cursor.x = a.cursor.x;
-            input.cursor.y = a.cursor.y;
-            input.cursor.has = !!a.cursor.has;
-          }
-
-          if (tutorial?.active) {
-            if (!tutorial.allowAction(a.id)) {
-              tutorial.notifyBlockedAction(a.id);
-              continue;
-            }
-          }
-
-          game.handleAction(a.id);
-          tutorial?.onActionApplied(a.id);
-        }
-      }
-
-      // Step simulation
-      if (tutorial?.active) tutorial.beforeSimTick(SIM_DT);
-      if (!(tutorial?.active && tutorial.pauseSim)) {
-        if (driver) {
-          driver.step(SIM_DT, actions);
-        } else {
-          game.update(SIM_DT);
-        }
-        if (tutorial?.active) tutorial.afterSimTick(SIM_DT);
-      }
-      checkRunAchievements();
-      acc -= SIM_DT;
-
-      if (game.state === 2 /* OVER */) {
-        replayManager?.clearPendingActions();
-        break;
-      }
-    }
-
-    game.render();
-    if (tutorial?.active) tutorial.renderOverlay(ctx);
+  if (!replayEngine?.isReplaying()) {
+    simLoop.advance(ts);
   }
 
   requestAnimationFrame(frame);
@@ -2474,11 +2468,11 @@ function frame(ts) {
   exportMp4Btn?.addEventListener("click", async () => {
     try {
       replayStatus.textContent = "Exporting MP4… (replaying + encoding)";
-      const webm = await replayManager.play({ captureMode: "webm" });
+      const webm = await replayEngine.play({ captureMode: "webm" });
       if (!webm) throw new Error("No WebM captured from replay.");
 
       const mp4 = await transcodeWithFFmpeg({ webmBlob: webm, outExt: "mp4" });
-      const activeRun = replayManager.getActiveRun();
+      const activeRun = replayEngine.getActiveRun();
       downloadBlob(mp4, `flappy-bingus-${activeRun.seed}.mp4`);
       replayStatus.textContent = "MP4 exported.";
     } catch (e) {
@@ -2490,11 +2484,11 @@ function frame(ts) {
   exportGifBtn?.addEventListener("click", async () => {
     try {
       replayStatus.textContent = "Exporting GIF… (replaying + encoding)";
-      const webm = await replayManager.play({ captureMode: "webm" });
+      const webm = await replayEngine.play({ captureMode: "webm" });
       if (!webm) throw new Error("No WebM captured from replay.");
 
       const gif = await transcodeWithFFmpeg({ webmBlob: webm, outExt: "gif" });
-      const activeRun = replayManager.getActiveRun();
+      const activeRun = replayEngine.getActiveRun();
       downloadBlob(gif, `flappy-bingus-${activeRun.seed}.gif`);
       replayStatus.textContent = "GIF exported.";
     } catch (e) {
@@ -2509,7 +2503,7 @@ function frame(ts) {
         replayStatus.className = "hint";
         replayStatus.textContent = "Playing replay…";
       }
-      const played = await replayManager.play({ captureMode: "none" });
+      const played = await replayEngine.play({ captureMode: "none" });
       if (played && replayStatus) {
         replayStatus.className = "hint good";
         replayStatus.textContent = "Replay finished.";
@@ -2566,8 +2560,6 @@ function frame(ts) {
   refreshBootUI();
 
   resumeTrailPreview(net.user?.selectedTrail || currentTrailId || "classic");
-  requestAnimationFrame((t) => {
-    lastTs = t;
-    requestAnimationFrame(frame);
-  });
+  simLoop.reset();
+  requestAnimationFrame(frame);
 })();

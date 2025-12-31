@@ -1,5 +1,5 @@
-import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
-import { createReplayManager, createReplayRun, cloneReplayRun, __testables } from "../replayManager.js";
+import { describe, expect, it, vi, afterEach } from "vitest";
+import { createReplayEngine, createReplayRun, cloneReplayRun, __testables } from "../replayEngine.js";
 
 function makeClassList() {
   const classes = new Set();
@@ -10,7 +10,7 @@ function makeClassList() {
   };
 }
 
-describe("replayManager", () => {
+describe("replayEngine", () => {
   const originalMediaRecorder = global.MediaRecorder;
 
   afterEach(() => {
@@ -48,8 +48,8 @@ describe("replayManager", () => {
     const tapeRecorder = vi.fn(() => "tape");
     const onStatus = vi.fn();
 
-    const manager = createReplayManager({ setRandSource, tapeRecorder, onStatus });
-    const run = manager.startRecording("abc");
+    const engine = createReplayEngine({ setRandSource, tapeRecorder, onStatus });
+    const run = engine.startRecording("abc");
 
     expect(run.seed).toBe("abc");
     expect(setRandSource).toHaveBeenCalledWith("tape");
@@ -59,14 +59,14 @@ describe("replayManager", () => {
       text: "Recording replay… Seed: abc"
     });
 
-    manager.queueAction({ id: "dash" });
-    manager.queueAction({ id: "teleport" });
+    engine.queueAction({ id: "dash" });
+    engine.queueAction({ id: "teleport" });
 
-    const drained = manager.drainPendingActions();
+    const drained = engine.drainPendingActions();
     expect(drained.map((action) => action.id)).toEqual(["dash", "teleport"]);
-    expect(manager.drainPendingActions()).toEqual([]);
+    expect(engine.drainPendingActions()).toEqual([]);
 
-    manager.recordTick(
+    engine.recordTick(
       { move: { dx: 1, dy: 2 }, cursor: { x: 3, y: 4 } },
       [{ id: "dash" }]
     );
@@ -74,78 +74,105 @@ describe("replayManager", () => {
     expect(run.ticks).toHaveLength(1);
     expect(run.ticks[0].actions[0].id).toBe("dash");
 
-    manager.markEnded();
-    manager.queueAction({ id: "phase" });
-    expect(manager.drainPendingActions()).toEqual([]);
+    engine.markEnded();
+    engine.queueAction({ id: "phase" });
+    expect(engine.drainPendingActions()).toEqual([]);
   });
 
   it("returns null and reports status when a replay is missing", async () => {
     const onStatus = vi.fn();
-    const manager = createReplayManager({ onStatus });
+    const engine = createReplayEngine({ onStatus });
 
-    const result = await manager.play({ captureMode: "none" });
+    const result = await engine.play({ captureMode: "none" });
 
     expect(result).toBeNull();
     expect(onStatus).toHaveBeenCalledWith({
       className: "hint bad",
       text: "No replay available yet (finish a run first)."
     });
-    expect(manager.isReplaying()).toBe(false);
+    expect(engine.isReplaying()).toBe(false);
   });
 
-  it("plays a replay using deterministic playback in non-capture mode", async () => {
-    const game = { input: { name: "real" }, startRun: vi.fn() };
+  it("plays a replay with deterministic stepping and restores RNG", async () => {
+    const originalRand = () => 0.2;
+    const nextRand = () => 0.9;
+    const setRandSource = vi.fn();
+    const getRandSource = vi.fn(() => originalRand);
+    const seededRand = vi.fn(() => nextRand);
+
+    const game = {
+      input: { name: "real" },
+      state: 1,
+      startRun: vi.fn(),
+      handleAction: vi.fn(),
+      update: vi.fn(),
+      render: vi.fn()
+    };
     const input = { reset: vi.fn() };
     const menu = { classList: makeClassList() };
     const over = { classList: makeClassList() };
     const stopMusic = vi.fn();
-    const setRandSource = vi.fn();
-    const tapePlayer = vi.fn(() => "tape");
-    const seededRand = vi.fn(() => "seeded");
 
-    const playbackTicks = vi.fn();
-    const playbackTicksDeterministic = vi.fn(({ game: playbackGame, replayInput }) => {
-      expect(playbackGame.input).toBe(replayInput);
-    });
-
-    const manager = createReplayManager({
+    const engine = createReplayEngine({
       game,
       input,
       menu,
       over,
       stopMusic,
       setRandSource,
-      tapePlayer,
+      getRandSource,
       seededRand,
-      playbackTicks,
-      playbackTicksDeterministic,
       simDt: 1 / 120
     });
 
-    manager.startRecording("seed");
-    manager.recordTick({ move: { dx: 1, dy: 1 }, cursor: { x: 0, y: 0 } }, []);
-    manager.markEnded();
+    engine.startRecording("seed");
+    engine.recordTick({ move: { dx: 1, dy: 1 }, cursor: { x: 0, y: 0 } }, [{ id: "dash" }]);
+    engine.markEnded();
 
-    const result = await manager.play({ captureMode: "none" });
+    const result = await engine.play({ captureMode: "none", renderEveryTicks: 1, yieldBetweenRenders: () => Promise.resolve() });
 
     expect(result).toBe(true);
     expect(stopMusic).toHaveBeenCalled();
-    expect(setRandSource).toHaveBeenCalledWith("seeded");
-    expect(tapePlayer).not.toHaveBeenCalled();
+    expect(setRandSource).toHaveBeenCalledWith(nextRand);
+    expect(setRandSource).toHaveBeenCalledWith(originalRand);
+    expect(game.handleAction).toHaveBeenCalledWith("dash");
     expect(game.input).toEqual({ name: "real" });
     expect(menu.classList.add).toHaveBeenCalledWith("hidden");
     expect(over.classList.add).toHaveBeenCalledWith("hidden");
     expect(over.classList.remove).toHaveBeenCalledWith("hidden");
-    expect(playbackTicksDeterministic).toHaveBeenCalled();
-    expect(playbackTicks).not.toHaveBeenCalled();
-    expect(manager.isReplaying()).toBe(false);
+    expect(engine.isReplaying()).toBe(false);
+  });
+
+  it("uses tape playback when RNG tape is present", async () => {
+    const setRandSource = vi.fn();
+    const getRandSource = vi.fn(() => () => 0.1);
+    const tapePlayer = vi.fn(() => () => 0.5);
+    const seededRand = vi.fn(() => () => 0.9);
+
+    const game = { state: 1, update: vi.fn(), render: vi.fn() };
+    const engine = createReplayEngine({
+      game,
+      setRandSource,
+      getRandSource,
+      tapePlayer,
+      seededRand,
+      simDt: 1 / 120
+    });
+
+    const run = createReplayRun("seed");
+    run.ticks.push({ move: { dx: 0, dy: 0 }, cursor: { x: 0, y: 0 }, actions: [] });
+    run.rngTape.push(0.25);
+    run.ended = true;
+
+    await engine.play({ captureMode: "none", run, renderEveryTicks: 1, yieldBetweenRenders: () => Promise.resolve() });
+
+    expect(tapePlayer).toHaveBeenCalledWith(run.rngTape);
+    expect(seededRand).not.toHaveBeenCalled();
   });
 
   it("captures a replay when capture mode is enabled", async () => {
-    const game = { input: { name: "real" }, startRun: vi.fn() };
+    const game = { input: { name: "real" }, state: 1, startRun: vi.fn(), update: vi.fn(), render: vi.fn() };
     const canvas = { captureStream: vi.fn(() => ({ stream: true })) };
-    const playbackTicks = vi.fn(async () => {});
-    const playbackTicksDeterministic = vi.fn();
 
     class FakeMediaRecorder {
       static isTypeSupported() {
@@ -170,46 +197,19 @@ describe("replayManager", () => {
 
     global.MediaRecorder = FakeMediaRecorder;
 
-    const manager = createReplayManager({
+    const engine = createReplayEngine({
       canvas,
       game,
-      playbackTicks,
-      playbackTicksDeterministic,
       simDt: 1 / 120
     });
 
-    manager.startRecording("seed");
-    manager.recordTick({ move: { dx: 1, dy: 1 }, cursor: { x: 0, y: 0 } }, []);
-    manager.markEnded();
+    engine.startRecording("seed");
+    engine.recordTick({ move: { dx: 1, dy: 1 }, cursor: { x: 0, y: 0 } }, []);
+    engine.markEnded();
 
-    const result = await manager.play({ captureMode: "webm" });
+    const result = await engine.play({ captureMode: "webm", renderEveryTicks: 1, yieldBetweenRenders: () => Promise.resolve() });
 
     expect(result).toBeInstanceOf(Blob);
     expect(canvas.captureStream).toHaveBeenCalledWith(__testables.DEFAULT_CAPTURE_FPS);
-    expect(playbackTicks).toHaveBeenCalled();
-    expect(playbackTicksDeterministic).not.toHaveBeenCalled();
-  });
-
-  it("falls back to deterministic playback when requestFrame is unavailable", async () => {
-    const game = { input: { name: "real" }, startRun: vi.fn() };
-    const playbackTicks = vi.fn();
-    const playbackTicksDeterministic = vi.fn();
-
-    const manager = createReplayManager({
-      game,
-      playbackTicks,
-      playbackTicksDeterministic,
-      simDt: 1 / 120,
-      requestFrame: null
-    });
-
-    manager.startRecording("seed");
-    manager.recordTick({ move: { dx: 1, dy: 1 }, cursor: { x: 0, y: 0 } }, []);
-    manager.markEnded();
-
-    await manager.play({ captureMode: "none" });
-
-    expect(playbackTicksDeterministic).toHaveBeenCalled();
-    expect(playbackTicks).not.toHaveBeenCalled();
   });
 });

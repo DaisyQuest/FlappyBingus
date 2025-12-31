@@ -1,6 +1,5 @@
-import { chooseReplayRandSource } from "./replayUtils.js";
-
 const DEFAULT_CAPTURE_FPS = 60;
+const DEFAULT_RENDER_FPS = 60;
 
 function createReplayInput() {
   return {
@@ -16,6 +15,49 @@ function hasReplayData(run) {
 
 function ensureClassList(el) {
   return el?.classList;
+}
+
+function applyReplayTick({ tick, game, replayInput, simDt, step }) {
+  const tk = tick || {};
+
+  replayInput._move = tk.move || { dx: 0, dy: 0 };
+  replayInput.cursor.x = tk.cursor?.x ?? 0;
+  replayInput.cursor.y = tk.cursor?.y ?? 0;
+  replayInput.cursor.has = !!tk.cursor?.has;
+
+  if (Array.isArray(tk.actions)) {
+    for (const a of tk.actions) {
+      if (a && a.cursor) {
+        replayInput.cursor.x = a.cursor.x;
+        replayInput.cursor.y = a.cursor.y;
+        replayInput.cursor.has = !!a.cursor.has;
+      }
+      game.handleAction?.(a.id);
+    }
+  }
+
+  if (typeof step === "function") {
+    step(simDt, tk.actions || []);
+  } else {
+    game.update?.(simDt);
+  }
+}
+
+function resolveYield({ yieldBetweenRenders, requestFrame }) {
+  if (typeof yieldBetweenRenders === "function") return yieldBetweenRenders;
+  if (typeof requestFrame === "function") {
+    return () => new Promise((resolve) => requestFrame(() => resolve()));
+  }
+  if (typeof setTimeout === "function") {
+    return () => new Promise((resolve) => setTimeout(resolve, 0));
+  }
+  return null;
+}
+
+function resolveRenderCadence({ renderEveryTicks, simDt }) {
+  if (Number.isInteger(renderEveryTicks) && renderEveryTicks > 0) return renderEveryTicks;
+  const approxTicksPerFrame = Math.max(1, Math.round((1 / simDt) / DEFAULT_RENDER_FPS));
+  return approxTicksPerFrame;
 }
 
 function startCapture({ canvas, fps }) {
@@ -66,18 +108,17 @@ export function cloneReplayRun(run) {
   };
 }
 
-export function createReplayManager({
+export function createReplayEngine({
   canvas,
   game,
   input,
   menu,
   over,
   setRandSource,
+  getRandSource,
   tapeRecorder,
   tapePlayer,
   seededRand,
-  playbackTicks,
-  playbackTicksDeterministic,
   simDt,
   requestFrame,
   stopMusic,
@@ -136,10 +177,16 @@ export function createReplayManager({
   };
 
   const getActiveRun = () => activeRun;
-
   const isReplaying = () => replaying;
 
-  const play = async ({ captureMode = "none", run = activeRun } = {}) => {
+  const play = async ({
+    captureMode = "none",
+    run = activeRun,
+    renderEveryTicks = null,
+    renderMode = "cadence",
+    renderFinal = true,
+    yieldBetweenRenders = null
+  } = {}) => {
     stopMusic?.();
 
     if (!hasReplayData(run)) {
@@ -150,12 +197,16 @@ export function createReplayManager({
     replaying = true;
     const replayInput = createReplayInput();
     const originalInput = game?.input;
+    const originalRandSource = typeof getRandSource === "function" ? getRandSource() : null;
     let webmBlob = null;
     let recorder = null;
     let recordedChunks = null;
 
     try {
-      const replayRandSource = chooseReplayRandSource(run, { tapePlayer, seededRand });
+      const hasReplayTape = Array.isArray(run.rngTape) && run.rngTape.length > 0;
+      const replayRandSource = hasReplayTape
+        ? tapePlayer?.(run.rngTape)
+        : seededRand?.(run.seed);
       if (replayRandSource && typeof setRandSource === "function") {
         setRandSource(replayRandSource);
       }
@@ -176,19 +227,34 @@ export function createReplayManager({
         }));
       }
 
-      const useDeterministic = captureMode === "none";
-      const playbackFn = useDeterministic ? playbackTicksDeterministic : playbackTicks;
+      const cadence = resolveRenderCadence({ renderEveryTicks, simDt });
+      const renderAlways = renderMode === "always";
+      const yieldAfterRender = resolveYield({ yieldBetweenRenders, requestFrame });
+      let ticksProcessed = 0;
 
-      if (typeof playbackFn === "function") {
-        await playbackFn({
-          ticks: run.ticks,
-          game,
-          replayInput,
-          captureMode,
-          simDt,
-          requestFrame,
-          step
-        });
+      for (let i = 0; i < run.ticks.length; i += 1) {
+        applyReplayTick({ tick: run.ticks[i], game, replayInput, simDt, step });
+        ticksProcessed += 1;
+
+        const shouldRender = renderAlways
+          || ticksProcessed % cadence === 0
+          || (renderFinal && game?.state === 2 /* OVER */);
+
+        if (shouldRender) {
+          game?.render?.();
+          if (yieldAfterRender) {
+            await yieldAfterRender();
+          }
+        }
+
+        if (game?.state === 2 /* OVER */) break;
+      }
+
+      if (!renderAlways && renderFinal && ticksProcessed > 0 && ticksProcessed % cadence !== 0 && game?.state !== 2) {
+        game?.render?.();
+        if (yieldAfterRender) {
+          await yieldAfterRender();
+        }
       }
 
       if (recorder) {
@@ -197,6 +263,9 @@ export function createReplayManager({
     } finally {
       if (game) {
         game.input = originalInput;
+      }
+      if (originalRandSource && typeof setRandSource === "function") {
+        setRandSource(originalRandSource);
       }
       ensureClassList(over)?.remove("hidden");
       replaying = false;
@@ -222,8 +291,5 @@ export function createReplayManager({
 
 export const __testables = {
   DEFAULT_CAPTURE_FPS,
-  createReplayInput,
-  hasReplayData,
-  startCapture,
-  stopCapture
+  DEFAULT_RENDER_FPS
 };
