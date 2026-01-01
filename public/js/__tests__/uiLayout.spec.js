@@ -1,7 +1,7 @@
 import fs from "node:fs";
 import { describe, it, expect, beforeEach } from "vitest";
 import { JSDOM } from "jsdom";
-import { buildGameUI, formatCooldownSeconds } from "../uiLayout.js";
+import { buildGameUI, formatCooldownSeconds, setTextCustomPanelVisibility } from "../uiLayout.js";
 import { OFFLINE_STATUS_TEXT, SIGNED_OUT_TEXT } from "../userStatusCopy.js";
 import { formatWorldwideRuns } from "../worldwideStats.js";
 
@@ -113,6 +113,30 @@ describe("uiLayout", () => {
     expect(settingsActions?.lastElementChild).toBe(settingsAction);
     const themeCallout = mount.querySelector(".theme-callout");
     expect(themeCallout?.textContent).toContain("Change pipe colors and menu theme ↘");
+  });
+
+  it("hides custom text settings until the custom preset is selected", () => {
+    buildGameUI({ document, mount });
+
+    const presetSelect = mount.querySelector("#textStylePresetSelect");
+    const customPanel = mount.querySelector("#textCustomPanel");
+
+    expect(presetSelect).toBeInstanceOf(window.HTMLSelectElement);
+    expect(customPanel).toBeInstanceOf(window.HTMLDivElement);
+    expect(customPanel?.hidden).toBe(true);
+    expect(customPanel?.getAttribute("aria-hidden")).toBe("true");
+
+    if (presetSelect instanceof window.HTMLSelectElement) {
+      presetSelect.value = "custom";
+      setTextCustomPanelVisibility(customPanel, presetSelect.value);
+      expect(customPanel?.hidden).toBe(false);
+      expect(customPanel?.getAttribute("aria-hidden")).toBe("false");
+
+      presetSelect.value = "basic";
+      setTextCustomPanelVisibility(customPanel, presetSelect.value);
+      expect(customPanel?.hidden).toBe(true);
+      expect(customPanel?.getAttribute("aria-hidden")).toBe("true");
+    }
   });
 
   it("keeps the how-to settings action wrapped inside the card actions container", () => {
