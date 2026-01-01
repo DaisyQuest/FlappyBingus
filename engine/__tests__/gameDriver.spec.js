@@ -96,6 +96,7 @@ describe("GameDriver", () => {
       { id: "teleport", cursor: { x: 5, y: 6, has: true } },
       { id: "dash", cursor: { x: 9, y: 8, has: false } }
     ]);
+    expect(game.input.cursor).toEqual({ x: 0, y: 0, has: false });
   });
 
   it("maps game state into engine snapshots", () => {

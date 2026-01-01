@@ -23,6 +23,7 @@ function applyReplayTick({ tick, game, replayInput, simDt, step }) {
   replayInput.cursor.x = tk.cursor?.x ?? 0;
   replayInput.cursor.y = tk.cursor?.y ?? 0;
   replayInput.cursor.has = !!tk.cursor?.has;
+  const baseCursor = { ...replayInput.cursor };
 
   const actions = normalizeActions(tk.actions);
   if (typeof step === "function") {
@@ -37,6 +38,9 @@ function applyReplayTick({ tick, game, replayInput, simDt, step }) {
       replayInput.cursor.has = !!a.cursor.has;
     }
     game.handleAction(a.id);
+    replayInput.cursor.x = baseCursor.x;
+    replayInput.cursor.y = baseCursor.y;
+    replayInput.cursor.has = baseCursor.has;
   }
 
   game.update(simDt);

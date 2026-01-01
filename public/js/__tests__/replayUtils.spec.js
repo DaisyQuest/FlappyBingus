@@ -167,6 +167,33 @@ describe("playbackTicks", () => {
     ]);
   });
 
+  it("restores the tick cursor after each action before updating", async () => {
+    const replayInput = makeReplayInput();
+    const game = {
+      state: 1,
+      update: vi.fn(function () {
+        expect(replayInput.cursor).toEqual({ x: 5, y: 6, has: true });
+      }),
+      render: vi.fn(),
+      handleAction: vi.fn()
+    };
+    const ticks = [{
+      cursor: { x: 5, y: 6, has: true },
+      actions: [
+        { id: "teleport", cursor: { x: 10, y: 20, has: true } },
+        { id: "dash", cursor: { x: 30, y: 40, has: false } }
+      ]
+    }];
+    const ts = [0, 16, 32];
+    const raf = makeRaf(ts);
+
+    await playbackTicks({ ticks, game, replayInput, captureMode: "webm", simDt: SIM_DT, requestFrame: raf });
+
+    expect(game.handleAction).toHaveBeenCalledTimes(2);
+    expect(game.update).toHaveBeenCalledTimes(1);
+    expect(replayInput.cursor).toEqual({ x: 5, y: 6, has: true });
+  });
+
   it("normalizes action ids before calling game.handleAction", async () => {
     const game = makeGame();
     const replayInput = makeReplayInput();
@@ -323,7 +350,6 @@ describe("playbackTicks", () => {
     const ticksPerFrame = Math.floor((__testables.MAX_FRAME_DT + 1e-9) / tickStep);
     const expectedFrames = 1 + Math.ceil((totalTicks - ticksFirstFrame) / ticksPerFrame);
     const lastTick = ticks[ticks.length - 1];
-    const lastActionCursor = lastTick.actions[0].cursor;
 
     expect(game.update).toHaveBeenCalledTimes(totalTicks);
     expect(game.render).toHaveBeenCalledTimes(expectedFrames);
@@ -334,9 +360,9 @@ describe("playbackTicks", () => {
     expect(game.actions[game.actions.length - 1]).toBe(`dash-${(totalTicks - 1) % 3}`);
     expect(replayInput._move).toEqual(lastTick.move);
     expect(replayInput.cursor).toEqual({
-      x: lastActionCursor.x,
-      y: lastActionCursor.y,
-      has: lastActionCursor.has
+      x: lastTick.cursor.x,
+      y: lastTick.cursor.y,
+      has: lastTick.cursor.has
     });
   });
 

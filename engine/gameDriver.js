@@ -83,13 +83,23 @@ export class GameDriver {
     const actionId = payload.id || payload.action || payload.actionId || payload.name;
     if (!actionId) return;
     const cursor = payload.cursor;
-    if (cursor && this.game?.input?.cursor) {
-      const target = this.game.input.cursor;
+    const target = this.game?.input?.cursor;
+    let restore = null;
+    if (cursor && target) {
+      restore = { x: target.x, y: target.y, has: target.has };
       target.x = Number.isFinite(cursor.x) ? cursor.x : target.x;
       target.y = Number.isFinite(cursor.y) ? cursor.y : target.y;
       if ("has" in cursor) target.has = !!cursor.has;
     }
-    this.game.handleAction(actionId);
+    try {
+      this.game.handleAction(actionId);
+    } finally {
+      if (restore && target) {
+        target.x = restore.x;
+        target.y = restore.y;
+        target.has = restore.has;
+      }
+    }
   }
 
   _step(dt) {

@@ -2853,6 +2853,7 @@ function frame(ts) {
       // Apply actions for this tick to the live game (tutorial or normal run)
       const canAdvanceSim = !(tutorial?.active && tutorial.pauseSim);
       let actionsToApply = actions;
+      const baseCursor = { ...snap.cursor };
       if (game.state === 1 /* PLAY */ && actions.length && canAdvanceSim) {
         if (tutorial?.active) {
           actionsToApply = [];
@@ -2874,6 +2875,9 @@ function frame(ts) {
               input.cursor.has = !!a.cursor.has;
             }
             game.handleAction(a.id);
+            input.cursor.x = baseCursor.x;
+            input.cursor.y = baseCursor.y;
+            input.cursor.has = baseCursor.has;
           }
         }
 
