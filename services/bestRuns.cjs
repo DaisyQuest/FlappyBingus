@@ -6,6 +6,8 @@ const { clampScoreDefault } = require("./scoreService.cjs");
 const MAX_REPLAY_BYTES = 5 * 1024 * 1024;
 const MAX_MEDIA_BYTES = 6 * 1024 * 1024;
 const DEFAULT_TICK_MS = 1000 / 120;
+const DEFAULT_BEST_RUN_LIST_LIMIT = 100;
+const BEST_RUN_SORTS = new Set(["score", "recent", "duration"]);
 
 function utf8Bytes(str = "") {
   return Buffer.byteLength(String(str), "utf8");
@@ -115,6 +117,46 @@ function normalizeBestRunRequest(
   };
 }
 
+function normalizeBestRunListQuery(params = {}) {
+  const raw = params && typeof params === "object" ? params : {};
+  const limitRaw = Number(raw.limit);
+  const limit = Number.isFinite(limitRaw)
+    ? Math.max(1, Math.min(200, Math.floor(limitRaw)))
+    : DEFAULT_BEST_RUN_LIST_LIMIT;
+  const search = typeof raw.search === "string" ? raw.search.trim().slice(0, 80) : "";
+  const sort = BEST_RUN_SORTS.has(raw.sort) ? raw.sort : "score";
+
+  const minScoreRaw = clampScoreDefault(raw.minScore);
+  const maxScoreRaw = clampScoreDefault(raw.maxScore);
+  const minScore = Number.isFinite(minScoreRaw) && minScoreRaw > 0 ? minScoreRaw : null;
+  const maxScore = Number.isFinite(maxScoreRaw) && maxScoreRaw > 0 ? maxScoreRaw : null;
+  const scoreRange = minScore && maxScore && minScore > maxScore
+    ? { min: maxScore, max: minScore }
+    : { min: minScore, max: maxScore };
+
+  const minDurationRaw = Number(raw.minDuration);
+  const maxDurationRaw = Number(raw.maxDuration);
+  const minDuration = Number.isFinite(minDurationRaw) && minDurationRaw > 0
+    ? Math.floor(minDurationRaw)
+    : null;
+  const maxDuration = Number.isFinite(maxDurationRaw) && maxDurationRaw > 0
+    ? Math.floor(maxDurationRaw)
+    : null;
+  const durationRange = minDuration && maxDuration && minDuration > maxDuration
+    ? { min: maxDuration, max: minDuration }
+    : { min: minDuration, max: maxDuration };
+
+  return {
+    limit,
+    search,
+    sort,
+    minScore: scoreRange.min,
+    maxScore: scoreRange.max,
+    minDuration: durationRange.min,
+    maxDuration: durationRange.max
+  };
+}
+
 function hydrateReplayFromJson(run) {
   if (!run || typeof run.replayJson !== "string" || !run.replayJson) return null;
   let parsed = null;
@@ -142,6 +184,9 @@ function hydrateReplayFromJson(run) {
 module.exports = {
   MAX_MEDIA_BYTES,
   MAX_REPLAY_BYTES,
+  DEFAULT_BEST_RUN_LIST_LIMIT,
+  BEST_RUN_SORTS,
   normalizeBestRunRequest,
+  normalizeBestRunListQuery,
   hydrateReplayFromJson
 };

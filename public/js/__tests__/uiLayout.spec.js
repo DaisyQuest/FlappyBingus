@@ -75,6 +75,9 @@ describe("uiLayout", () => {
     expect(ui.replayModal?.classList.contains("hidden")).toBe(true);
     expect(ui.replayModal?.classList.contains("modal-layer")).toBe(true);
     expect(ui.replayModal?.getAttribute("aria-modal")).toBe("true");
+    expect(ui.replayBrowserModal?.classList.contains("hidden")).toBe(true);
+    expect(ui.replayBrowserModal?.classList.contains("modal-layer")).toBe(true);
+    expect(ui.replayBrowserModal?.getAttribute("aria-modal")).toBe("true");
     const mainTitles = Array.from(mount.querySelectorAll(".panel-main .section-title")).map(el => el.textContent);
     expect(mainTitles).not.toContain("Ready to fly");
     expect(mainTitles).not.toContain("Player Icon");
@@ -248,10 +251,31 @@ describe("uiLayout", () => {
       "purchaseModalStatus",
       "purchaseModalCancel",
       "purchaseModalConfirm",
+      "replayBrowserLauncher",
+      "replayBrowserModal",
+      "replayBrowserTitle",
+      "replayBrowserClose",
+      "replayBrowserSearch",
+      "replayBrowserSearchButton",
+      "replayBrowserMinScore",
+      "replayBrowserMaxScore",
+      "replayBrowserMinDuration",
+      "replayBrowserMaxDuration",
+      "replayBrowserSort",
+      "replayBrowserRefresh",
+      "replayBrowserClear",
+      "replayBrowserList",
+      "replayBrowserStatus",
       "replayModal",
       "replayModalTitle",
       "replayModalClose",
       "replayModalStatus",
+      "replayModalCanvasSlot",
+      "replayModalPlayToggle",
+      "replayModalRestart",
+      "replayModalStop",
+      "replayModalProgress",
+      "replayModalProgressBar",
       "updateSkillCooldowns"
     ];
 

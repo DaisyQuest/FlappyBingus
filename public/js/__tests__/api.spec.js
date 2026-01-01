@@ -144,6 +144,7 @@ describe("api helpers", () => {
       apiRegister,
       apiSubmitScore,
       apiGetBestRun,
+      apiListBestRuns,
       apiUploadBestRun,
       apiSetTrail,
       apiSetIcon,
@@ -160,6 +161,7 @@ describe("api helpers", () => {
       [apiSubmitScore, ["/api/score", { method: "POST", body: JSON.stringify({ score: 9001, bustercoinsEarned: 0 }) }]],
       [apiGetBestRun, ["/api/run/best?username=bingus", { method: "GET" }]],
       [apiUploadBestRun, ["/api/run/best", { method: "POST", body: JSON.stringify({ score: 9001 }) }]],
+      [apiListBestRuns, ["/api/run/best/list?search=bingus&limit=5&sort=recent", { method: "GET" }]],
       [apiSetTrail, ["/api/cosmetics/trail", { method: "POST", body: JSON.stringify({ trailId: "classic" }) }]],
       [apiSetIcon, ["/api/cosmetics/icon", { method: "POST", body: JSON.stringify({ iconId: "hi_vis_orange" }) }]],
       [apiSetPipeTexture, ["/api/cosmetics/pipe_texture", { method: "POST", body: JSON.stringify({ textureId: "basic", mode: "NORMAL" }) }]],
@@ -174,6 +176,7 @@ describe("api helpers", () => {
     await apiSubmitScore(9001);
     await apiGetBestRun("bingus");
     await apiUploadBestRun({ score: 9001 });
+    await apiListBestRuns({ search: "bingus", limit: 5, sort: "recent" });
     await apiSetTrail("classic");
     await apiSetIcon("hi_vis_orange");
     await apiSetPipeTexture("basic", "NORMAL");

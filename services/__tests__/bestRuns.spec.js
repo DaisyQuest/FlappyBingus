@@ -1,7 +1,15 @@
 "use strict";
 
 import { describe, expect, it } from "vitest";
-import { MAX_MEDIA_BYTES, MAX_REPLAY_BYTES, normalizeBestRunRequest, hydrateReplayFromJson } from "../bestRuns.cjs";
+import {
+  MAX_MEDIA_BYTES,
+  MAX_REPLAY_BYTES,
+  DEFAULT_BEST_RUN_LIST_LIMIT,
+  BEST_RUN_SORTS,
+  normalizeBestRunRequest,
+  normalizeBestRunListQuery,
+  hydrateReplayFromJson
+} from "../bestRuns.cjs";
 
 const baseBody = {
   score: 120,
@@ -252,5 +260,59 @@ describe("normalizeBestRunRequest", () => {
     expect(hydrated.seed).toBe("fallback-seed");
     expect(hydrated.durationMs).toBe(456);
     expect(hydrated.rngTapeLength).toBe(0);
+  });
+});
+
+describe("normalizeBestRunListQuery", () => {
+  it("uses defaults and trims search input", () => {
+    const res = normalizeBestRunListQuery();
+    expect(res.limit).toBe(DEFAULT_BEST_RUN_LIST_LIMIT);
+    expect(res.search).toBe("");
+    expect(res.sort).toBe("score");
+  });
+
+  it("normalizes query parameters and swaps min/max bounds", () => {
+    const res = normalizeBestRunListQuery({
+      limit: 500,
+      search: "  Bingus ",
+      sort: "recent",
+      minScore: 120,
+      maxScore: 50,
+      minDuration: 9000,
+      maxDuration: 2000
+    });
+
+    expect(res.limit).toBe(200);
+    expect(res.search).toBe("Bingus");
+    expect(res.sort).toBe("recent");
+    expect(res.minScore).toBe(50);
+    expect(res.maxScore).toBe(120);
+    expect(res.minDuration).toBe(2000);
+    expect(res.maxDuration).toBe(9000);
+  });
+
+  it("clears invalid ranges and unknown sorts", () => {
+    const res = normalizeBestRunListQuery({
+      limit: "nope",
+      sort: "unknown",
+      minScore: -5,
+      maxScore: 0,
+      minDuration: -1,
+      maxDuration: 0
+    });
+
+    expect(res.limit).toBe(DEFAULT_BEST_RUN_LIST_LIMIT);
+    expect(res.sort).toBe("score");
+    expect(res.minScore).toBeNull();
+    expect(res.maxScore).toBeNull();
+    expect(res.minDuration).toBeNull();
+    expect(res.maxDuration).toBeNull();
+  });
+
+  it("accepts known sorts", () => {
+    BEST_RUN_SORTS.forEach((sort) => {
+      const res = normalizeBestRunListQuery({ sort });
+      expect(res.sort).toBe(sort);
+    });
   });
 });

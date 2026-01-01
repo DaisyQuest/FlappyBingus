@@ -1026,7 +1026,182 @@ function createReplayModal(doc, refs) {
     text: "Select a leaderboard entry to view a replay."
   });
 
-  panel.append(header, status);
+  const body = doc.createElement("div");
+  body.className = "replay-modal-body";
+
+  const canvasSlot = createElement(doc, refs, "div", {
+    id: "replayModalCanvasSlot",
+    className: "replay-modal-canvas-slot",
+    attrs: { "aria-label": "Replay canvas" }
+  });
+
+  const controls = doc.createElement("div");
+  controls.className = "replay-modal-controls";
+  const playToggle = createElement(doc, refs, "button", {
+    id: "replayModalPlayToggle",
+    className: "btn primary",
+    attrs: { type: "button" },
+    text: "Play",
+    props: { disabled: true }
+  });
+  const restart = createElement(doc, refs, "button", {
+    id: "replayModalRestart",
+    className: "btn ghost",
+    attrs: { type: "button" },
+    text: "Restart",
+    props: { disabled: true }
+  });
+  const stop = createElement(doc, refs, "button", {
+    id: "replayModalStop",
+    className: "btn ghost",
+    attrs: { type: "button" },
+    text: "Stop",
+    props: { disabled: true }
+  });
+  const progress = createElement(doc, refs, "div", {
+    id: "replayModalProgress",
+    className: "replay-modal-progress",
+    text: "Progress: 0%"
+  });
+  const progressBar = createElement(doc, refs, "progress", {
+    id: "replayModalProgressBar",
+    className: "replay-modal-progress-bar",
+    attrs: { max: "1", value: "0" }
+  });
+  controls.append(playToggle, restart, stop, progress, progressBar);
+
+  body.append(canvasSlot, controls);
+
+  panel.append(header, status, body);
+  overlay.append(panel);
+  return overlay;
+}
+
+function createReplayBrowserModal(doc, refs) {
+  const overlay = createElement(doc, refs, "div", {
+    id: "replayBrowserModal",
+    className: "replay-browser modal-layer hidden",
+    attrs: { role: "dialog", "aria-modal": "true", "aria-labelledby": "replayBrowserTitle", "aria-hidden": "true" }
+  });
+
+  const panel = doc.createElement("div");
+  panel.className = "replay-browser-panel";
+
+  const header = doc.createElement("div");
+  header.className = "replay-browser-header";
+
+  const title = createElement(doc, refs, "div", {
+    id: "replayBrowserTitle",
+    className: "section-title",
+    text: "Replay Browser"
+  });
+
+  const close = createElement(doc, refs, "button", {
+    id: "replayBrowserClose",
+    className: "replay-browser-close",
+    attrs: { type: "button" },
+    text: "Close"
+  });
+
+  header.append(title, close);
+
+  const controls = doc.createElement("div");
+  controls.className = "replay-browser-controls";
+
+  const searchRow = doc.createElement("div");
+  searchRow.className = "replay-browser-row";
+  const searchLabel = doc.createElement("label");
+  searchLabel.className = "replay-browser-label";
+  searchLabel.textContent = "Search player";
+  searchLabel.setAttribute("for", "replayBrowserSearch");
+  const searchInput = createElement(doc, refs, "input", {
+    id: "replayBrowserSearch",
+    className: "replay-browser-input",
+    attrs: { type: "search", placeholder: "Enter a username", autocomplete: "off" }
+  });
+  const searchButton = createElement(doc, refs, "button", {
+    id: "replayBrowserSearchButton",
+    className: "btn primary",
+    attrs: { type: "button" },
+    text: "Search"
+  });
+  searchRow.append(searchLabel, searchInput, searchButton);
+
+  const filterGrid = doc.createElement("div");
+  filterGrid.className = "replay-browser-grid";
+
+  const minScore = createElement(doc, refs, "input", {
+    id: "replayBrowserMinScore",
+    className: "replay-browser-input",
+    attrs: { type: "number", min: "0", placeholder: "Min score" }
+  });
+  const maxScore = createElement(doc, refs, "input", {
+    id: "replayBrowserMaxScore",
+    className: "replay-browser-input",
+    attrs: { type: "number", min: "0", placeholder: "Max score" }
+  });
+  const minDuration = createElement(doc, refs, "input", {
+    id: "replayBrowserMinDuration",
+    className: "replay-browser-input",
+    attrs: { type: "number", min: "0", placeholder: "Min duration (ms)" }
+  });
+  const maxDuration = createElement(doc, refs, "input", {
+    id: "replayBrowserMaxDuration",
+    className: "replay-browser-input",
+    attrs: { type: "number", min: "0", placeholder: "Max duration (ms)" }
+  });
+  const sort = createElement(doc, refs, "select", {
+    id: "replayBrowserSort",
+    className: "replay-browser-input"
+  });
+  [
+    { value: "score", label: "Top score" },
+    { value: "recent", label: "Most recent" },
+    { value: "duration", label: "Longest runs" }
+  ].forEach(({ value, label }) => {
+    const option = doc.createElement("option");
+    option.value = value;
+    option.textContent = label;
+    sort.append(option);
+  });
+
+  filterGrid.append(
+    createElement(doc, refs, "div", { className: "replay-browser-field", html: "<span class='replay-browser-field-label'>Score range</span>" }, [minScore, maxScore]),
+    createElement(doc, refs, "div", { className: "replay-browser-field", html: "<span class='replay-browser-field-label'>Duration (ms)</span>" }, [minDuration, maxDuration]),
+    createElement(doc, refs, "div", { className: "replay-browser-field", html: "<span class='replay-browser-field-label'>Sort by</span>" }, [sort])
+  );
+
+  const actionRow = doc.createElement("div");
+  actionRow.className = "replay-browser-actions";
+  const refresh = createElement(doc, refs, "button", {
+    id: "replayBrowserRefresh",
+    className: "btn ghost",
+    attrs: { type: "button" },
+    text: "Refresh"
+  });
+  const clear = createElement(doc, refs, "button", {
+    id: "replayBrowserClear",
+    className: "btn ghost",
+    attrs: { type: "button" },
+    text: "Clear filters"
+  });
+  actionRow.append(refresh, clear);
+
+  controls.append(searchRow, filterGrid, actionRow);
+
+  const list = createElement(doc, refs, "div", {
+    id: "replayBrowserList",
+    className: "replay-browser-list",
+    attrs: { role: "list" }
+  });
+
+  const status = createElement(doc, refs, "div", {
+    id: "replayBrowserStatus",
+    className: "hint replay-browser-status",
+    text: "Search for a player or refresh to load top runs."
+  });
+
+  panel.append(header, controls, list, status);
   overlay.append(panel);
   return overlay;
 }
@@ -1157,12 +1332,22 @@ function createHighscoreCard(doc, refs) {
   link.textContent = "Full list";
   heading.append(title, link);
 
+  const actions = doc.createElement("div");
+  actions.className = "row hs-actions";
+  const replayBrowserLauncher = createElement(doc, refs, "button", {
+    id: "replayBrowserLauncher",
+    className: "btn ghost",
+    text: "Replay Browser",
+    attrs: { type: "button" }
+  });
+  actions.append(replayBrowserLauncher);
+
   const spacer = doc.createElement("div");
   spacer.className = "spacer-sm";
 
   const hsWrap = createElement(doc, refs, "div", { id: "hsWrap", className: "hsWrap hint", text: "Loading leaderboard…" });
 
-  card.append(heading, spacer, hsWrap);
+  card.append(heading, actions, spacer, hsWrap);
   return card;
 }
 
@@ -1397,7 +1582,8 @@ function createMenuScreen(doc, refs) {
     panel,
     createShopOverlay(doc, refs),
     createPurchaseModal(doc, refs),
-    createReplayModal(doc, refs)
+    createReplayModal(doc, refs),
+    createReplayBrowserModal(doc, refs)
   );
   return screen;
 }

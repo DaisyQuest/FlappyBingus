@@ -5,6 +5,7 @@ const CLIENT_RATE_LIMITS = Object.freeze({
   "/api/register": { limit: 3, windowMs: 10_000 },
   "/api/score": { limit: 5, windowMs: 10_000 },
   "/api/run/best": { limit: 3, windowMs: 20_000 },
+  "/api/run/best/list": { limit: 6, windowMs: 20_000 },
   "/api/cosmetics/trail": { limit: 6, windowMs: 10_000 },
   "/api/cosmetics/icon": { limit: 6, windowMs: 10_000 },
   "/api/cosmetics/pipe_texture": { limit: 6, windowMs: 10_000 },
@@ -133,6 +134,29 @@ export async function apiGetBestRun(username) {
   if (hitClientRateLimit("/api/run/best")) return null;
   const target = encodeURIComponent(String(username || ""));
   return requestJson(`/api/run/best?username=${target}`, { method: "GET" });
+}
+
+export async function apiListBestRuns({
+  search = "",
+  limit = 100,
+  minScore = null,
+  maxScore = null,
+  minDuration = null,
+  maxDuration = null,
+  sort = "score"
+} = {}) {
+  if (hitClientRateLimit("/api/run/best/list")) return null;
+  const params = new URLSearchParams();
+  if (search) params.set("search", String(search));
+  if (limit) params.set("limit", String(limit));
+  if (minScore !== null && minScore !== undefined) params.set("minScore", String(minScore));
+  if (maxScore !== null && maxScore !== undefined) params.set("maxScore", String(maxScore));
+  if (minDuration !== null && minDuration !== undefined) params.set("minDuration", String(minDuration));
+  if (maxDuration !== null && maxDuration !== undefined) params.set("maxDuration", String(maxDuration));
+  if (sort) params.set("sort", String(sort));
+  const query = params.toString();
+  const url = query ? `/api/run/best/list?${query}` : "/api/run/best/list";
+  return requestJson(url, { method: "GET" });
 }
 
 export async function apiSetTrail(trailId) {

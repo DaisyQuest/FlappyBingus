@@ -14,6 +14,7 @@ import {
   apiSubmitScore,
   apiPurchaseUnlockable,
   apiGetBestRun,
+  apiListBestRuns,
   apiUploadBestRun,
   apiSetKeybinds,
   apiSetSettings
@@ -118,6 +119,12 @@ import { DEFAULT_TRAILS, getUnlockedTrails, normalizeTrails, sortTrailsForDispla
 import { computePipeColor } from "./pipeColors.js";
 import { hydrateBestRunPayload, maybeUploadBestRun } from "./bestRunRecorder.js";
 import { renderHighscores } from "./highscores.js";
+import {
+  filterReplayEntries,
+  normalizeReplayFilters,
+  renderReplayBrowserList,
+  sortReplayEntries
+} from "./replayBrowser.js";
 import { getAuthStatusFromResponse } from "./authResponse.js";
 import {
   DEFAULT_TRAIL_HINT,
@@ -251,6 +258,27 @@ const {
   replayModalTitle,
   replayModalStatus,
   replayModalClose,
+  replayModalCanvasSlot,
+  replayModalPlayToggle,
+  replayModalRestart,
+  replayModalStop,
+  replayModalProgress,
+  replayModalProgressBar,
+  replayBrowserLauncher,
+  replayBrowserModal,
+  replayBrowserTitle,
+  replayBrowserClose,
+  replayBrowserSearch,
+  replayBrowserSearchButton,
+  replayBrowserMinScore,
+  replayBrowserMaxScore,
+  replayBrowserMinDuration,
+  replayBrowserMaxDuration,
+  replayBrowserSort,
+  replayBrowserRefresh,
+  replayBrowserClear,
+  replayBrowserList,
+  replayBrowserStatus,
   achievementsList,
   achievementsHideCompleted,
   achievementsFilterScore,
@@ -434,6 +462,10 @@ let lastUploadedBestScore = -Infinity;
 // Tutorial manager (initialized after Game is created, but referenced by the Input callback).
 let tutorial = null;
 let replayManager = null;
+let replayBrowserRuns = [];
+let replayBrowserLoading = false;
+let replayPlaybackState = null;
+let replayCanvasHome = null;
 
 
 // Seed of the most recently finished run (used for "Retry Previous Seed")
@@ -695,7 +727,64 @@ function setUserHint() {
   syncMenuProfileBindingsFromState();
 }
 
-async function handlePlayHighscore(username) {
+async function playReplayRunInModal({ run, title, label } = {}) {
+  if (!run) return false;
+  if (!replayManager) return false;
+  const controller = createReplayPlaybackController();
+  replayPlaybackState = {
+    controller,
+    run,
+    title,
+    label,
+    restartRequested: false,
+    stopRequested: false
+  };
+
+  moveCanvasToReplayModal();
+  setReplayModalProgress({ tickIndex: 0, ticksLength: run.ticks?.length || 0 });
+  setReplayModalControlsState({ playing: true, paused: false });
+  updateReplayModal({
+    title,
+    text: `Playing ${label || "replay"}…`,
+    className: "hint",
+    canClose: false
+  });
+
+  const playOnce = async () => replayManager.play({
+    captureMode: "none",
+    run,
+    playbackMode: "deterministic",
+    shouldPause: controller.shouldPause,
+    waitForResume: controller.waitForResume,
+    shouldStop: controller.shouldStop,
+    onProgress: ({ tickIndex, ticksLength }) => setReplayModalProgress({ tickIndex, ticksLength })
+  });
+
+  while (true) {
+    controller.reset();
+    await playOnce();
+    if (replayPlaybackState?.stopRequested) break;
+    if (replayPlaybackState?.restartRequested) {
+      replayPlaybackState.restartRequested = false;
+      continue;
+    }
+    break;
+  }
+
+  const stopped = Boolean(replayPlaybackState?.stopRequested);
+  replayPlaybackState = null;
+  setReplayModalControlsState({ playing: false, paused: false });
+  updateReplayModal({
+    title,
+    text: stopped ? "Replay stopped." : "Replay finished.",
+    className: stopped ? "hint" : "hint good",
+    canClose: true
+  });
+  restoreReplayCanvas();
+  return !stopped;
+}
+
+async function playReplayByUsername(username) {
   if (!username) return;
   if (replayManager?.isReplaying()) {
     toggleReplayModal(true);
@@ -710,6 +799,7 @@ async function handlePlayHighscore(username) {
 
   const modalTitle = `Replay: ${username}`;
   toggleReplayModal(true);
+  setReplayModalControlsState({ playing: false, paused: false });
   updateReplayModal({
     title: modalTitle,
     text: `Loading ${username}'s best run…`,
@@ -741,26 +831,11 @@ async function handlePlayHighscore(username) {
       return;
     }
 
-    const played = await replayManager.play({
-      captureMode: "none",
+    await playReplayRunInModal({
       run: playbackRun,
-      playbackMode: "deterministic"
+      title: modalTitle,
+      label: `${username}'s best run`
     });
-    if (played) {
-      updateReplayModal({
-        title: modalTitle,
-        text: `Playing ${username}'s best run… done.`,
-        className: "hint good",
-        canClose: true
-      });
-    } else {
-      updateReplayModal({
-        title: modalTitle,
-        text: "Unable to play the selected replay.",
-        className: "hint bad",
-        canClose: true
-      });
-    }
   } catch (err) {
     console.error(err);
     updateReplayModal({
@@ -779,6 +854,16 @@ async function handlePlayHighscore(username) {
       pauseTrailPreview();
     }
   }
+}
+
+async function handlePlayHighscore(username) {
+  await playReplayByUsername(username);
+}
+
+async function handleReplayBrowserPlay(entry) {
+  const username = entry?.username || "";
+  toggleReplayBrowserModal(false);
+  await playReplayByUsername(username);
 }
 
 function renderHighscoresUI() {
@@ -1143,6 +1228,12 @@ function toggleReplayModal(open) {
   replayModal.setAttribute("aria-hidden", open ? "false" : "true");
 }
 
+function toggleReplayBrowserModal(open) {
+  if (!replayBrowserModal) return;
+  replayBrowserModal.classList.toggle("hidden", !open);
+  replayBrowserModal.setAttribute("aria-hidden", open ? "false" : "true");
+}
+
 function updateReplayModal({ title, text, className = "hint", canClose = true } = {}) {
   if (replayModalTitle && title) {
     replayModalTitle.textContent = title;
@@ -1156,9 +1247,181 @@ function updateReplayModal({ title, text, className = "hint", canClose = true } 
   }
 }
 
+function updateReplayBrowserStatus({ text, className = "hint" } = {}) {
+  if (!replayBrowserStatus) return;
+  replayBrowserStatus.className = className;
+  replayBrowserStatus.textContent = text || "";
+}
+
 function closeReplayModal() {
   if (replayManager?.isReplaying()) return;
   toggleReplayModal(false);
+}
+
+function closeReplayBrowserModal() {
+  toggleReplayBrowserModal(false);
+}
+
+function setReplayModalProgress({ tickIndex = 0, ticksLength = 0 } = {}) {
+  if (!replayModalProgress || !replayModalProgressBar) return;
+  const total = Math.max(1, Number(ticksLength) || 0);
+  const current = Math.min(total, Math.max(0, Number(tickIndex) || 0));
+  const ratio = Math.min(1, current / total);
+  replayModalProgress.textContent = `Progress: ${Math.round(ratio * 100)}% (${current}/${total})`;
+  replayModalProgressBar.value = String(ratio);
+}
+
+function setReplayModalControlsState({ playing = false, paused = false } = {}) {
+  if (replayModalPlayToggle) {
+    replayModalPlayToggle.disabled = !playing;
+    replayModalPlayToggle.textContent = playing ? (paused ? "Resume" : "Pause") : "Play";
+  }
+  if (replayModalRestart) {
+    replayModalRestart.disabled = !playing;
+  }
+  if (replayModalStop) {
+    replayModalStop.disabled = !playing;
+  }
+  if (replayModalClose) {
+    replayModalClose.disabled = playing;
+  }
+}
+
+function createReplayPlaybackController() {
+  let paused = false;
+  let stopped = false;
+  let resumePromise = null;
+  let resumeResolve = null;
+
+  const waitForResume = () => {
+    if (!paused) return Promise.resolve();
+    if (!resumePromise) {
+      resumePromise = new Promise((resolve) => {
+        resumeResolve = resolve;
+      });
+    }
+    return resumePromise;
+  };
+
+  const pause = () => {
+    paused = true;
+  };
+
+  const resume = () => {
+    paused = false;
+    if (resumeResolve) resumeResolve();
+    resumeResolve = null;
+    resumePromise = null;
+  };
+
+  const stop = () => {
+    stopped = true;
+    resume();
+  };
+
+  const reset = () => {
+    paused = false;
+    stopped = false;
+    if (resumeResolve) resumeResolve();
+    resumeResolve = null;
+    resumePromise = null;
+  };
+
+  return {
+    pause,
+    resume,
+    stop,
+    reset,
+    shouldPause: () => paused,
+    waitForResume,
+    shouldStop: () => stopped,
+    isPaused: () => paused,
+    isStopped: () => stopped
+  };
+}
+
+function moveCanvasToReplayModal() {
+  if (!canvas || !replayModalCanvasSlot) return;
+  if (canvas.parentElement === replayModalCanvasSlot) return;
+  if (!replayCanvasHome) {
+    replayCanvasHome = { parent: canvas.parentElement, nextSibling: canvas.nextSibling };
+  }
+  replayModalCanvasSlot.append(canvas);
+  canvas.classList.add("replay-modal-canvas");
+}
+
+function restoreReplayCanvas() {
+  if (!canvas || !replayCanvasHome?.parent) return;
+  if (canvas.parentElement === replayCanvasHome.parent) return;
+  const { parent, nextSibling } = replayCanvasHome;
+  if (nextSibling && nextSibling.parentElement === parent) {
+    parent.insertBefore(canvas, nextSibling);
+  } else {
+    parent.append(canvas);
+  }
+  canvas.classList.remove("replay-modal-canvas");
+}
+
+function readReplayBrowserFilters() {
+  return normalizeReplayFilters({
+    search: replayBrowserSearch?.value || "",
+    minScore: replayBrowserMinScore?.value,
+    maxScore: replayBrowserMaxScore?.value,
+    minDuration: replayBrowserMinDuration?.value,
+    maxDuration: replayBrowserMaxDuration?.value,
+    sort: replayBrowserSort?.value
+  });
+}
+
+function renderReplayBrowserResults({ runs = replayBrowserRuns } = {}) {
+  if (!replayBrowserList) return;
+  const filters = readReplayBrowserFilters();
+  const filtered = sortReplayEntries(filterReplayEntries(runs, filters), filters);
+  renderReplayBrowserList({
+    container: replayBrowserList,
+    entries: filtered,
+    onPlay: (entry) => handleReplayBrowserPlay(entry)
+  });
+  updateReplayBrowserStatus({
+    className: "hint",
+    text: filtered.length
+      ? `${filtered.length} replay${filtered.length === 1 ? "" : "s"} ready.`
+      : "No replays match your filters."
+  });
+}
+
+async function refreshReplayBrowser({ useFilters = true } = {}) {
+  if (replayBrowserLoading) return;
+  replayBrowserLoading = true;
+  updateReplayBrowserStatus({ className: "hint", text: "Loading replays…" });
+
+  const filters = useFilters ? readReplayBrowserFilters() : normalizeReplayFilters({});
+  const query = {
+    search: filters.search,
+    limit: 100,
+    minScore: filters.minScore,
+    maxScore: filters.maxScore,
+    minDuration: filters.minDuration,
+    maxDuration: filters.maxDuration,
+    sort: filters.sort
+  };
+
+  try {
+    const res = await apiListBestRuns(query);
+    if (!res?.ok || !Array.isArray(res.runs)) {
+      updateReplayBrowserStatus({ className: "hint bad", text: "Unable to load replay list." });
+      replayBrowserRuns = [];
+      renderReplayBrowserResults({ runs: [] });
+      return;
+    }
+    replayBrowserRuns = res.runs;
+    renderReplayBrowserResults({ runs: replayBrowserRuns });
+  } catch (err) {
+    console.error(err);
+    updateReplayBrowserStatus({ className: "hint bad", text: "Unable to load replay list." });
+  } finally {
+    replayBrowserLoading = false;
+  }
 }
 
 function openPurchaseModal(def, { source = "menu" } = {}) {
@@ -1994,6 +2257,101 @@ replayModalClose?.addEventListener("click", closeReplayModal);
 replayModal?.addEventListener("click", (e) => {
   if (e.target === replayModal) closeReplayModal();
 });
+
+replayModalPlayToggle?.addEventListener("click", () => {
+  if (!replayPlaybackState?.controller) return;
+  if (replayPlaybackState.controller.isPaused()) {
+    replayPlaybackState.controller.resume();
+    setReplayModalControlsState({ playing: true, paused: false });
+    updateReplayModal({
+      title: replayPlaybackState.title,
+      text: `Playing ${replayPlaybackState.label || "replay"}…`,
+      className: "hint",
+      canClose: false
+    });
+  } else {
+    replayPlaybackState.controller.pause();
+    setReplayModalControlsState({ playing: true, paused: true });
+    updateReplayModal({
+      title: replayPlaybackState.title,
+      text: "Replay paused.",
+      className: "hint",
+      canClose: false
+    });
+  }
+});
+
+replayModalRestart?.addEventListener("click", () => {
+  if (!replayPlaybackState?.controller) return;
+  replayPlaybackState.restartRequested = true;
+  replayPlaybackState.controller.stop();
+  updateReplayModal({
+    title: replayPlaybackState.title,
+    text: "Restarting replay…",
+    className: "hint",
+    canClose: false
+  });
+});
+
+replayModalStop?.addEventListener("click", () => {
+  if (!replayPlaybackState?.controller) return;
+  replayPlaybackState.stopRequested = true;
+  replayPlaybackState.controller.stop();
+  updateReplayModal({
+    title: replayPlaybackState.title,
+    text: "Stopping replay…",
+    className: "hint",
+    canClose: false
+  });
+});
+
+replayBrowserLauncher?.addEventListener("click", () => {
+  toggleReplayBrowserModal(true);
+  refreshReplayBrowser({ useFilters: false });
+});
+
+replayBrowserClose?.addEventListener("click", closeReplayBrowserModal);
+replayBrowserModal?.addEventListener("click", (e) => {
+  if (e.target === replayBrowserModal) closeReplayBrowserModal();
+});
+
+replayBrowserSearchButton?.addEventListener("click", () => {
+  refreshReplayBrowser({ useFilters: true });
+});
+
+replayBrowserSearch?.addEventListener("keydown", (e) => {
+  if (e.key === "Enter") {
+    e.preventDefault();
+    refreshReplayBrowser({ useFilters: true });
+  }
+});
+
+const replayBrowserFilterListener = () => {
+  renderReplayBrowserResults({ runs: replayBrowserRuns });
+};
+
+replayBrowserMinScore?.addEventListener("input", replayBrowserFilterListener);
+replayBrowserMaxScore?.addEventListener("input", replayBrowserFilterListener);
+replayBrowserMinDuration?.addEventListener("input", replayBrowserFilterListener);
+replayBrowserMaxDuration?.addEventListener("input", replayBrowserFilterListener);
+replayBrowserSort?.addEventListener("change", replayBrowserFilterListener);
+
+replayBrowserRefresh?.addEventListener("click", () => {
+  refreshReplayBrowser({ useFilters: true });
+});
+
+replayBrowserClear?.addEventListener("click", () => {
+  if (replayBrowserSearch) replayBrowserSearch.value = "";
+  if (replayBrowserMinScore) replayBrowserMinScore.value = "";
+  if (replayBrowserMaxScore) replayBrowserMaxScore.value = "";
+  if (replayBrowserMinDuration) replayBrowserMinDuration.value = "";
+  if (replayBrowserMaxDuration) replayBrowserMaxDuration.value = "";
+  if (replayBrowserSort) replayBrowserSort.value = "score";
+  renderReplayBrowserResults({ runs: replayBrowserRuns });
+});
+
+setReplayModalControlsState({ playing: false, paused: false });
+setReplayModalProgress({ tickIndex: 0, ticksLength: 0 });
 
 // ---- Keybind rebinding flow ----
 let rebindActive = null;

@@ -30,7 +30,13 @@ const {
   evaluateRunForAchievements,
   buildAchievementsPayload
 } = require("./services/achievements.cjs");
-const { MAX_MEDIA_BYTES, MAX_REPLAY_BYTES, normalizeBestRunRequest, hydrateReplayFromJson } = require("./services/bestRuns.cjs");
+const {
+  MAX_MEDIA_BYTES,
+  MAX_REPLAY_BYTES,
+  normalizeBestRunRequest,
+  normalizeBestRunListQuery,
+  hydrateReplayFromJson
+} = require("./services/bestRuns.cjs");
 const { DEFAULT_SKILL_TOTALS, normalizeSkillTotals } = require("./services/skillConsts.cjs");
 const {
   DEFAULT_PLAYER_ICON_ID,
@@ -86,6 +92,7 @@ function _setDataStoreForTests(mock) {
       throw new Error("recordBestRun_not_mocked");
     },
     getBestRunByUsername: async () => null,
+    listBestRuns: async () => [],
     ...mock
   };
   dataStore = safeStore;
@@ -1285,6 +1292,26 @@ async function route(req, res) {
         runStats: stored.runStats || null
       }
     });
+    return;
+  }
+
+  // List best-run summaries for replay browsing
+  if (pathname === "/api/run/best/list" && req.method === "GET") {
+    if (rateLimit(req, res, "/api/run/best/list")) return;
+    if (!(await ensureDatabase(res))) return;
+
+    const filters = normalizeBestRunListQuery({
+      limit: url.searchParams.get("limit"),
+      search: url.searchParams.get("search"),
+      sort: url.searchParams.get("sort"),
+      minScore: url.searchParams.get("minScore"),
+      maxScore: url.searchParams.get("maxScore"),
+      minDuration: url.searchParams.get("minDuration"),
+      maxDuration: url.searchParams.get("maxDuration")
+    });
+
+    const runs = await dataStore.listBestRuns(filters);
+    sendJson(res, 200, { ok: true, runs, count: runs.length });
     return;
   }
 

@@ -149,7 +149,15 @@ export function createReplayManager({
 
   const isReplaying = () => replaying;
 
-  const play = async ({ captureMode = "none", run = activeRun, playbackMode = "realtime" } = {}) => {
+  const play = async ({
+    captureMode = "none",
+    run = activeRun,
+    playbackMode = "realtime",
+    shouldPause = null,
+    waitForResume = null,
+    shouldStop = null,
+    onProgress = null
+  } = {}) => {
     stopMusic?.();
 
     if (!hasReplayData(run)) {
@@ -223,7 +231,11 @@ export function createReplayManager({
           requestFrame,
           step,
           yieldBetweenRenders,
-          paceWithSim
+          paceWithSim,
+          shouldPause,
+          waitForResume,
+          shouldStop,
+          onProgress
         });
       }
 

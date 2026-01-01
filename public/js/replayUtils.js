@@ -53,6 +53,10 @@ export async function playbackTicksDeterministic({
   renderFinal = true,
   yieldBetweenRenders = null,
   paceWithSim = false,
+  shouldPause = null,
+  waitForResume = null,
+  shouldStop = null,
+  onProgress = null,
   now = null,
   wait = null
 } = {}) {
@@ -88,8 +92,17 @@ export async function playbackTicksDeterministic({
   let startTimeMs = shouldPace ? resolveNow() : null;
 
   for (let i = 0; i < ticks.length; i += 1) {
+    if (typeof shouldStop === "function" && shouldStop()) break;
+    if (typeof shouldPause === "function" && shouldPause()) {
+      if (typeof waitForResume === "function") {
+        await waitForResume();
+      }
+    }
     applyReplayTick({ tick: ticks[i], game, replayInput, simDt, step });
     ticksProcessed += 1;
+    if (typeof onProgress === "function") {
+      onProgress({ tickIndex: ticksProcessed, ticksLength: ticks.length });
+    }
 
     const shouldRender = renderAlways
       || ticksProcessed % cadence === 0
@@ -139,7 +152,11 @@ export async function playbackTicks({
   renderEveryTicks = null,
   renderMode = "cadence",
   renderFinal = true,
-  yieldBetweenRenders = null
+  yieldBetweenRenders = null,
+  shouldPause = null,
+  waitForResume = null,
+  shouldStop = null,
+  onProgress = null
 } = {}) {
   if (!Array.isArray(ticks) || !game || !replayInput || typeof simDt !== "number") return;
 
@@ -154,7 +171,11 @@ export async function playbackTicks({
       renderEveryTicks,
       renderMode,
       renderFinal,
-      yieldBetweenRenders
+      yieldBetweenRenders,
+      shouldPause,
+      waitForResume,
+      shouldStop,
+      onProgress
     });
     return;
   }
@@ -167,6 +188,12 @@ export async function playbackTicks({
   let lastTs = null;
 
   for (let i = 0; i < ticks.length;) {
+    if (typeof shouldStop === "function" && shouldStop()) break;
+    if (typeof shouldPause === "function" && shouldPause()) {
+      if (typeof waitForResume === "function") {
+        await waitForResume();
+      }
+    }
     const ts = await new Promise((resolve) => raf(resolve));
     if (lastTs === null) {
       lastTs = ts - (1000 / REPLAY_TARGET_FPS);
@@ -181,9 +208,13 @@ export async function playbackTicks({
     }
 
     while (i < ticks.length && acc >= tickStep) {
+      if (typeof shouldStop === "function" && shouldStop()) break;
       const tk = ticks[i++] || {};
       applyReplayTick({ tick: tk, game, replayInput, simDt, step });
       acc -= tickStep;
+      if (typeof onProgress === "function") {
+        onProgress({ tickIndex: i, ticksLength: ticks.length });
+      }
 
       if (game.state === 2 /* OVER */) break;
     }

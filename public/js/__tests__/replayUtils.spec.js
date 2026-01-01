@@ -192,6 +192,61 @@ describe("playbackTicks", () => {
     await expect(playbackTicks({ ticks: [], game, replayInput, simDt: null, requestFrame: raf })).resolves.toBeUndefined();
   });
 
+  it("reports progress and waits for resume when paused", async () => {
+    const game = makeGame();
+    const replayInput = makeReplayInput();
+    const ticks = [{}, {}];
+    let paused = true;
+    let resumeResolve;
+    const shouldPause = vi.fn(() => paused);
+    const waitForResume = vi.fn(() => new Promise((resolve) => {
+      resumeResolve = resolve;
+    }));
+    const onProgress = vi.fn();
+
+    const playback = playbackTicksDeterministic({
+      ticks,
+      game,
+      replayInput,
+      simDt: SIM_DT,
+      shouldPause,
+      waitForResume,
+      onProgress,
+      renderEveryTicks: 1,
+      renderMode: "always"
+    });
+
+    await Promise.resolve();
+    expect(waitForResume).toHaveBeenCalledTimes(1);
+    paused = false;
+    resumeResolve();
+
+    await playback;
+
+    expect(onProgress).toHaveBeenNthCalledWith(1, { tickIndex: 1, ticksLength: 2 });
+    expect(onProgress).toHaveBeenNthCalledWith(2, { tickIndex: 2, ticksLength: 2 });
+  });
+
+  it("stops immediately when a stop signal is raised", async () => {
+    const game = makeGame();
+    const replayInput = makeReplayInput();
+    const ticks = [{}, {}];
+    const raf = vi.fn();
+    const shouldStop = vi.fn(() => true);
+
+    await playbackTicks({
+      ticks,
+      game,
+      replayInput,
+      simDt: SIM_DT,
+      requestFrame: raf,
+      shouldStop
+    });
+
+    expect(raf).not.toHaveBeenCalled();
+    expect(game.update).not.toHaveBeenCalled();
+  });
+
   it("uses deterministic playback when capture mode is none", async () => {
     const game = makeGame();
     const replayInput = makeReplayInput();

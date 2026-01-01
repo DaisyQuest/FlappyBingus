@@ -114,6 +114,10 @@ function normalizeTotal(v) {
   return Math.max(0, Math.floor(n));
 }
 
+function escapeRegex(value) {
+  return String(value).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
 async function safeClose(client) {
   if (!client) return;
   try {
@@ -469,6 +473,71 @@ class MongoDataStore {
       if (byName) return byName;
     }
     return null;
+  }
+
+  async listBestRuns({
+    limit = 100,
+    search = "",
+    minScore = null,
+    maxScore = null,
+    minDuration = null,
+    maxDuration = null,
+    sort = "score"
+  } = {}) {
+    await this.ensureConnected();
+    const lim = Math.max(1, Math.min(200, limit | 0 || 100));
+    const query = {};
+
+    if (typeof search === "string" && search.trim()) {
+      const regex = new RegExp(escapeRegex(search.trim()), "i");
+      query.$or = [{ username: regex }, { key: regex }];
+    }
+
+    if (Number.isFinite(minScore) || Number.isFinite(maxScore)) {
+      const scoreRange = {};
+      if (Number.isFinite(minScore)) scoreRange.$gte = Math.max(0, Math.floor(minScore));
+      if (Number.isFinite(maxScore)) scoreRange.$lte = Math.max(0, Math.floor(maxScore));
+      if (Object.keys(scoreRange).length) query.bestScore = scoreRange;
+    }
+
+    if (Number.isFinite(minDuration) || Number.isFinite(maxDuration)) {
+      const durationRange = {};
+      if (Number.isFinite(minDuration)) durationRange.$gte = Math.max(0, Math.floor(minDuration));
+      if (Number.isFinite(maxDuration)) durationRange.$lte = Math.max(0, Math.floor(maxDuration));
+      if (Object.keys(durationRange).length) query.durationMs = durationRange;
+    }
+
+    const sortSpec = sort === "recent"
+      ? { updatedAt: -1, bestScore: -1, username: 1 }
+      : (sort === "duration"
+        ? { durationMs: -1, bestScore: -1, username: 1 }
+        : { bestScore: -1, updatedAt: -1, username: 1 });
+
+    const docs = await this.bestRunsCollection()
+      .find(query, {
+        projection: {
+          username: 1,
+          bestScore: 1,
+          recordedAt: 1,
+          durationMs: 1,
+          ticksLength: 1,
+          rngTapeLength: 1,
+          updatedAt: 1
+        }
+      })
+      .sort(sortSpec)
+      .limit(lim)
+      .toArray();
+
+    return docs.map((doc) => ({
+      username: doc.username,
+      bestScore: Number(doc.bestScore) || 0,
+      recordedAt: Number(doc.recordedAt) || 0,
+      durationMs: Number(doc.durationMs) || 0,
+      ticksLength: Number(doc.ticksLength) || 0,
+      rngTapeLength: Number(doc.rngTapeLength) || 0,
+      updatedAt: Number(doc.updatedAt) || 0
+    }));
   }
 
   async setTrail(key, trailId) {

@@ -199,6 +199,61 @@ describe("MongoDataStore connection lifecycle", () => {
     expect(users.createIndex).toHaveBeenCalled();
   });
 
+  it("lists best runs with filters and sorting", async () => {
+    const { MongoDataStore } = await loadModule();
+    const sortMock = vi.fn().mockReturnThis();
+    const limitMock = vi.fn().mockReturnThis();
+    const toArray = vi.fn(async () => ([
+      {
+        username: "Bingus",
+        bestScore: 42,
+        recordedAt: 1000,
+        durationMs: 2000,
+        ticksLength: 120,
+        rngTapeLength: 50,
+        updatedAt: 2000
+      }
+    ]));
+    const findMock = vi.fn(() => ({
+      sort: sortMock,
+      limit: limitMock,
+      toArray
+    }));
+    const collection = makeCollection({ find: findMock });
+    connectBehavior.db.collection = vi.fn((name) => (name === "best_runs" ? collection : makeCollection()));
+
+    const store = new MongoDataStore({ uri: "mongodb://ok", dbName: "db", serverSelectionTimeoutMS: 1234 });
+    const res = await store.listBestRuns({
+      limit: 5,
+      search: "bing",
+      minScore: 10,
+      maxScore: 100,
+      minDuration: 500,
+      maxDuration: 5000,
+      sort: "recent"
+    });
+
+    expect(findMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        $or: [{ username: expect.any(RegExp) }, { key: expect.any(RegExp) }],
+        bestScore: { $gte: 10, $lte: 100 },
+        durationMs: { $gte: 500, $lte: 5000 }
+      }),
+      expect.objectContaining({ projection: expect.any(Object) })
+    );
+    expect(sortMock).toHaveBeenCalledWith({ updatedAt: -1, bestScore: -1, username: 1 });
+    expect(limitMock).toHaveBeenCalledWith(5);
+    expect(res).toEqual([{
+      username: "Bingus",
+      bestScore: 42,
+      recordedAt: 1000,
+      durationMs: 2000,
+      ticksLength: 120,
+      rngTapeLength: 50,
+      updatedAt: 2000
+    }]);
+  });
+
   it("captures errors and clears state when connect fails", async () => {
     const { MongoDataStore } = await loadModule();
     connectBehavior.error = new Error("nope");

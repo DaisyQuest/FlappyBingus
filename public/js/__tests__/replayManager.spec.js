@@ -166,6 +166,49 @@ describe("replayManager", () => {
     expect(manager.isReplaying()).toBe(false);
   });
 
+  it("forwards playback control hooks to the playback engine", async () => {
+    const game = { input: { name: "real" }, startRun: vi.fn() };
+    const menu = { classList: makeClassList() };
+    const over = { classList: makeClassList() };
+    const playbackTicks = vi.fn();
+    const playbackTicksDeterministic = vi.fn();
+    const shouldPause = vi.fn(() => false);
+    const waitForResume = vi.fn();
+    const shouldStop = vi.fn(() => false);
+    const onProgress = vi.fn();
+
+    const manager = createReplayManager({
+      game,
+      menu,
+      over,
+      playbackTicks,
+      playbackTicksDeterministic,
+      simDt: 1 / 120,
+      requestFrame: null
+    });
+
+    manager.startRecording("seed");
+    manager.recordTick({ move: { dx: 1, dy: 1 }, cursor: { x: 0, y: 0 } }, []);
+    manager.markEnded();
+
+    await manager.play({
+      captureMode: "none",
+      playbackMode: "deterministic",
+      shouldPause,
+      waitForResume,
+      shouldStop,
+      onProgress
+    });
+
+    expect(playbackTicksDeterministic).toHaveBeenCalledWith(expect.objectContaining({
+      shouldPause,
+      waitForResume,
+      shouldStop,
+      onProgress
+    }));
+    expect(playbackTicks).not.toHaveBeenCalled();
+  });
+
   it("restores hidden UI states after replay playback", async () => {
     const game = { input: { name: "real" }, startRun: vi.fn() };
     const menu = { classList: makeClassList(["hidden"]) };
