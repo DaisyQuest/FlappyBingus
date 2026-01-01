@@ -390,6 +390,8 @@ describe("uiLayout", () => {
     expect(ui.themeExportField).toBeInstanceOf(window.HTMLTextAreaElement);
     expect(ui.themeExportBtn).toBeInstanceOf(window.HTMLButtonElement);
     expect(ui.themeImportBtn).toBeInstanceOf(window.HTMLButtonElement);
+    expect(ui.themeChaosToggle).toBeInstanceOf(window.HTMLInputElement);
+    expect(ui.themeSmartRandomToggle).toBeInstanceOf(window.HTMLInputElement);
     expect(ui.themeOverlayClose).toBeInstanceOf(window.HTMLButtonElement);
     expect(overlay?.getAttribute("aria-modal")).toBe("true");
   });

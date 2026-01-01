@@ -864,7 +864,65 @@ function createThemeOverlay(doc, refs) {
     text: "Theme ready."
   });
 
-  panel.append(header, sub, toolbar, paletteTitle, palettes, editor, exportTitle, exportField, exportActions, status);
+  const modeTitle = doc.createElement("div");
+  modeTitle.className = "theme-subtitle";
+  modeTitle.textContent = "Auto themes";
+
+  const modeGroup = doc.createElement("div");
+  modeGroup.className = "theme-mode-group";
+
+  const chaosRow = doc.createElement("label");
+  chaosRow.className = "theme-mode-row";
+  const chaosText = doc.createElement("div");
+  chaosText.className = "theme-mode-text";
+  const chaosLabel = doc.createElement("div");
+  chaosLabel.className = "theme-mode-title";
+  chaosLabel.textContent = "Chaos mode";
+  const chaosHint = doc.createElement("div");
+  chaosHint.className = "theme-mode-hint";
+  chaosHint.textContent = "Completely randomize the theme every time the menu opens.";
+  chaosText.append(chaosLabel, chaosHint);
+  const chaosToggle = createElement(doc, refs, "input", {
+    id: "themeChaosToggle",
+    className: "theme-mode-toggle",
+    attrs: { type: "checkbox" }
+  });
+  chaosRow.append(chaosText, chaosToggle);
+
+  const smartRow = doc.createElement("label");
+  smartRow.className = "theme-mode-row";
+  const smartText = doc.createElement("div");
+  smartText.className = "theme-mode-text";
+  const smartLabel = doc.createElement("div");
+  smartLabel.className = "theme-mode-title";
+  smartLabel.textContent = "SmartRandom";
+  const smartHint = doc.createElement("div");
+  smartHint.className = "theme-mode-hint";
+  smartHint.textContent = "Generate a sensible palette every time the menu opens.";
+  smartText.append(smartLabel, smartHint);
+  const smartToggle = createElement(doc, refs, "input", {
+    id: "themeSmartRandomToggle",
+    className: "theme-mode-toggle",
+    attrs: { type: "checkbox" }
+  });
+  smartRow.append(smartText, smartToggle);
+
+  modeGroup.append(chaosRow, smartRow);
+
+  panel.append(
+    header,
+    sub,
+    toolbar,
+    paletteTitle,
+    palettes,
+    editor,
+    exportTitle,
+    exportField,
+    exportActions,
+    status,
+    modeTitle,
+    modeGroup
+  );
   overlay.append(panel);
   return overlay;
 }
