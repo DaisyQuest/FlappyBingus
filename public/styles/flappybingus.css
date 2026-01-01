@@ -1289,12 +1289,12 @@ input[type="range"]::-moz-range-thumb{
 .pipe-texture-option .unlock-cost{text-align:center}
 .purchasable:not(.locked)::after{content:"";display:none}
 
-.shop-overlay,.purchase-modal{position:fixed;inset:0;z-index:90;display:flex;align-items:center;justify-content:center;padding:6vh 16px;background:rgba(6,12,24,.78);backdrop-filter:blur(6px);box-sizing:border-box}
-.shop-overlay.hidden,.purchase-modal.hidden{display:none}
-.shop-overlay-panel,.purchase-modal-panel{background:linear-gradient(180deg,rgba(30,41,59,.95),rgba(15,23,42,.95));border:1px solid rgba(255,255,255,.12);border-radius:16px;padding:18px;box-shadow:0 24px 60px rgba(0,0,0,.45);width:min(760px,92vw);max-height:80vh;overflow:hidden;display:flex;flex-direction:column;gap:12px}
-.shop-overlay-header,.purchase-modal-header{display:flex;align-items:center;justify-content:space-between;gap:12px}
-.shop-overlay-close,.purchase-modal-close{background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);color:#e5e7eb;border-radius:10px;padding:6px 10px;font-weight:800;cursor:pointer;transition:transform .12s ease,box-shadow .12s ease}
-.shop-overlay-close:hover,.purchase-modal-close:hover{transform:translateY(-1px);box-shadow:0 10px 24px rgba(0,0,0,.35)}
+.shop-overlay,.purchase-modal,.replay-modal{position:fixed;inset:0;z-index:90;display:flex;align-items:center;justify-content:center;padding:6vh 16px;background:rgba(6,12,24,.78);backdrop-filter:blur(6px);box-sizing:border-box}
+.shop-overlay.hidden,.purchase-modal.hidden,.replay-modal.hidden{display:none}
+.shop-overlay-panel,.purchase-modal-panel,.replay-modal-panel{background:linear-gradient(180deg,rgba(30,41,59,.95),rgba(15,23,42,.95));border:1px solid rgba(255,255,255,.12);border-radius:16px;padding:18px;box-shadow:0 24px 60px rgba(0,0,0,.45);width:min(760px,92vw);max-height:80vh;overflow:hidden;display:flex;flex-direction:column;gap:12px}
+.shop-overlay-header,.purchase-modal-header,.replay-modal-header{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.shop-overlay-close,.purchase-modal-close,.replay-modal-close{background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);color:#e5e7eb;border-radius:10px;padding:6px 10px;font-weight:800;cursor:pointer;transition:transform .12s ease,box-shadow .12s ease}
+.shop-overlay-close:hover,.purchase-modal-close:hover,.replay-modal-close:hover{transform:translateY(-1px);box-shadow:0 10px 24px rgba(0,0,0,.35)}
 .shop-tabs{display:flex;flex-wrap:wrap;gap:8px}
 .shop-tab-btn{border:1px solid rgba(148,163,184,.35);background:rgba(15,23,42,.6);color:#e2e8f0;padding:6px 12px;border-radius:999px;font-size:12px;font-weight:800;letter-spacing:.3px;cursor:pointer;transition:background .12s ease,border-color .12s ease}
 .shop-tab-btn:hover{border-color:rgba(125,211,252,.6)}
@@ -1306,6 +1306,6 @@ input[type="range"]::-moz-range-thumb{
 .shop-item-owned{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;text-align:center;background:rgba(15,23,42,.74);border-radius:12px;font-weight:900;font-size:13px;letter-spacing:.3px;text-transform:uppercase}
 .shop-item-name{font-weight:800;font-size:14px}
 .shop-item-meta{font-size:12px;color:rgba(148,163,184,.95);font-weight:700}
-.purchase-modal-line{font-size:14px;color:#e2e8f0}
+.purchase-modal-line,.replay-modal-line{font-size:14px;color:#e2e8f0}
 .purchase-modal-actions{display:flex;justify-content:flex-end;gap:10px;margin-top:8px;flex-wrap:wrap}
 .icon-field-launcher,.trail-field-launcher{position:relative}

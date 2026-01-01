@@ -163,6 +163,10 @@ export function createReplayManager({
     let webmBlob = null;
     let recorder = null;
     let recordedChunks = null;
+    const menuClassList = ensureClassList(menu);
+    const overClassList = ensureClassList(over);
+    const menuWasHidden = menuClassList?.contains("hidden") ?? true;
+    const overWasHidden = overClassList?.contains("hidden") ?? true;
 
     try {
       const replayRandSource = chooseReplayRandSource(run, { tapePlayer, seededRand });
@@ -180,8 +184,8 @@ export function createReplayManager({
       }
 
       input?.reset?.();
-      ensureClassList(menu)?.add("hidden");
-      ensureClassList(over)?.add("hidden");
+      menuClassList?.add("hidden");
+      overClassList?.add("hidden");
       game?.startRun?.();
 
       if (captureMode !== "none") {
@@ -217,7 +221,14 @@ export function createReplayManager({
       if (game) {
         game.input = originalInput;
       }
-      ensureClassList(over)?.remove("hidden");
+      if (menuClassList) {
+        if (menuWasHidden) menuClassList.add("hidden");
+        else menuClassList.remove("hidden");
+      }
+      if (overClassList) {
+        if (overWasHidden) overClassList.add("hidden");
+        else overClassList.remove("hidden");
+      }
       replaying = false;
     }
 

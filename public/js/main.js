@@ -246,6 +246,10 @@ const {
   exportGif: exportGifBtn,
   exportMp4: exportMp4Btn,
   replayStatus,
+  replayModal,
+  replayModalTitle,
+  replayModalStatus,
+  replayModalClose,
   achievementsList,
   achievementsHideCompleted,
   achievementsFilterScore,
@@ -679,38 +683,82 @@ function setUserHint() {
 
 async function handlePlayHighscore(username) {
   if (!username) return;
-  if (replayStatus) {
-    replayStatus.className = "hint";
-    replayStatus.textContent = `Loading ${username}'s best run…`;
+  if (replayManager?.isReplaying()) {
+    toggleReplayModal(true);
+    updateReplayModal({
+      title: "Replay",
+      text: "A replay is already in progress.",
+      className: "hint bad",
+      canClose: true
+    });
+    return;
   }
+
+  const modalTitle = `Replay: ${username}`;
+  toggleReplayModal(true);
+  updateReplayModal({
+    title: modalTitle,
+    text: `Loading ${username}'s best run…`,
+    className: "hint",
+    canClose: false
+  });
+
+  pauseTrailPreview();
+  setUIMode(false);
   try {
     const res = await apiGetBestRun(username);
     if (!res?.ok || !res.run) {
-      if (replayStatus) {
-        replayStatus.className = "hint bad";
-        replayStatus.textContent = "Replay not available for this player.";
-      }
+      updateReplayModal({
+        title: modalTitle,
+        text: "Replay not available for this player.",
+        className: "hint bad",
+        canClose: true
+      });
       return;
     }
     const playbackRun = hydrateBestRunPayload(res.run);
     if (!playbackRun) {
-      if (replayStatus) {
-        replayStatus.className = "hint bad";
-        replayStatus.textContent = "Replay data is invalid.";
-      }
+      updateReplayModal({
+        title: modalTitle,
+        text: "Replay data is invalid.",
+        className: "hint bad",
+        canClose: true
+      });
       return;
     }
 
     const played = await replayManager.play({ captureMode: "none", run: playbackRun });
-    if (played && replayStatus) {
-      replayStatus.className = "hint good";
-      replayStatus.textContent = `Playing ${username}'s best run… done.`;
+    if (played) {
+      updateReplayModal({
+        title: modalTitle,
+        text: `Playing ${username}'s best run… done.`,
+        className: "hint good",
+        canClose: true
+      });
+    } else {
+      updateReplayModal({
+        title: modalTitle,
+        text: "Unable to play the selected replay.",
+        className: "hint bad",
+        canClose: true
+      });
     }
   } catch (err) {
     console.error(err);
-    if (replayStatus) {
-      replayStatus.className = "hint bad";
-      replayStatus.textContent = "Unable to play the selected replay.";
+    updateReplayModal({
+      title: modalTitle,
+      text: "Unable to play the selected replay.",
+      className: "hint bad",
+      canClose: true
+    });
+  } finally {
+    const menuVisible = !menu?.classList?.contains("hidden");
+    const overVisible = !over?.classList?.contains("hidden");
+    setUIMode(Boolean(menuVisible || overVisible));
+    if (menuVisible) {
+      resumeTrailPreview(net.user?.selectedTrail || currentTrailId || "classic");
+    } else {
+      pauseTrailPreview();
     }
   }
 }
@@ -1068,6 +1116,30 @@ function togglePurchaseModal(open) {
   if (!purchaseModal) return;
   purchaseModal.classList.toggle("hidden", !open);
   purchaseModal.setAttribute("aria-hidden", open ? "false" : "true");
+}
+
+function toggleReplayModal(open) {
+  if (!replayModal) return;
+  replayModal.classList.toggle("hidden", !open);
+  replayModal.setAttribute("aria-hidden", open ? "false" : "true");
+}
+
+function updateReplayModal({ title, text, className = "hint", canClose = true } = {}) {
+  if (replayModalTitle && title) {
+    replayModalTitle.textContent = title;
+  }
+  if (replayModalStatus) {
+    replayModalStatus.className = className;
+    replayModalStatus.textContent = text || "";
+  }
+  if (replayModalClose) {
+    replayModalClose.disabled = !canClose;
+  }
+}
+
+function closeReplayModal() {
+  if (replayManager?.isReplaying()) return;
+  toggleReplayModal(false);
 }
 
 function openPurchaseModal(def, { source = "menu" } = {}) {
@@ -1898,6 +1970,10 @@ purchaseModalCancel?.addEventListener("click", closePurchaseModal);
 purchaseModalConfirm?.addEventListener("click", confirmPendingPurchase);
 purchaseModal?.addEventListener("click", (e) => {
   if (e.target === purchaseModal) closePurchaseModal();
+});
+replayModalClose?.addEventListener("click", closeReplayModal);
+replayModal?.addEventListener("click", (e) => {
+  if (e.target === replayModal) closeReplayModal();
 });
 
 // ---- Keybind rebinding flow ----
