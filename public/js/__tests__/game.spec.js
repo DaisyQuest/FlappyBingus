@@ -1263,8 +1263,8 @@ describe("Player movement and trail emission", () => {
   });
 
   it("applies per-effect particle shapes when configured", () => {
-    setRandSource(() => 0.5);
     const { game } = buildGame();
+    game.setVisualRand(() => 0.5);
     game.player.x = 80; game.player.y = 80;
     game.player.vx = 150; game.player.vy = 0;
     game.getTrailId = () => "custom";
@@ -1282,22 +1282,18 @@ describe("Player movement and trail emission", () => {
     };
     vi.spyOn(game, "_trailStyle").mockReturnValue(style);
 
-    try {
-      const prev = game.parts.length;
-      game._emitTrail(1);
+    const prev = game.parts.length;
+    game._emitTrail(1);
 
-      const produced = game.parts.slice(prev);
-      expect(produced).toHaveLength(4);
-      expect(produced.every((p) => p.shape === "star")).toBe(true);
-      expect(produced.every((p) => p.rotation !== 0)).toBe(true);
-    } finally {
-      setRandSource();
-    }
+    const produced = game.parts.slice(prev);
+    expect(produced).toHaveLength(4);
+    expect(produced.every((p) => p.shape === "star")).toBe(true);
+    expect(produced.every((p) => p.rotation !== 0)).toBe(true);
   });
 
   it("assigns hexagon styling when the trail requests honeycomb shapes", () => {
-    setRandSource(() => 0.5);
     const { game } = buildGame();
+    game.setVisualRand(() => 0.5);
     game.player.x = 80; game.player.y = 80;
     game.player.vx = 150; game.player.vy = 0;
     game.getTrailId = () => "custom";
@@ -1328,8 +1324,8 @@ describe("Player movement and trail emission", () => {
   });
 
   it("bands pixel trails into stacked rainbow stripes", () => {
-    setRandSource(() => 0.5);
     const { game } = buildGame();
+    game.setVisualRand(() => 0.5);
     game.player.x = 50;
     game.player.y = 60;
     game.player.vx = 100;
@@ -1352,25 +1348,21 @@ describe("Player movement and trail emission", () => {
     };
     vi.spyOn(game, "_trailStyle").mockReturnValue(style);
 
-    try {
-      const prev = game.parts.length;
-      game._emitTrail(1);
-      const produced = game.parts.slice(prev);
-      const ys = produced.map((p) => Number(p.y.toFixed(2))).sort((a, b) => a - b);
+    const prev = game.parts.length;
+    game._emitTrail(1);
+    const produced = game.parts.slice(prev);
+    const ys = produced.map((p) => Number(p.y.toFixed(2))).sort((a, b) => a - b);
 
-      expect(produced).toHaveLength(3);
-      expect(produced.every((p) => p.shape === "pixel")).toBe(true);
-      expect(produced.every((p) => p.rotation === 0)).toBe(true);
-      expect(produced.map((p) => p.color)).toEqual(["color-0", "color-1", "color-2"]);
-      expect(ys).toEqual([50, 60, 70]);
-    } finally {
-      setRandSource();
-    }
+    expect(produced).toHaveLength(3);
+    expect(produced.every((p) => p.shape === "pixel")).toBe(true);
+    expect(produced.every((p) => p.rotation === 0)).toBe(true);
+    expect(produced.map((p) => p.color)).toEqual(["color-0", "color-1", "color-2"]);
+    expect(ys).toEqual([50, 60, 70]);
   });
 
   it("emits an aura and lengthened particles for a mesmerizing trail cloud", () => {
-    setRandSource(() => 0.5);
     const { game } = buildGame();
+    game.setVisualRand(() => 0.5);
     game.player.x = 100; game.player.y = 120;
     game.player.vx = 0; game.player.vy = 0;
     game.player.r = 20;
@@ -1400,26 +1392,22 @@ describe("Player movement and trail emission", () => {
     };
     vi.spyOn(game, "_trailStyle").mockReturnValue(style);
 
-    try {
-      const prev = game.parts.length;
-      game._emitTrail(1);
+    const prev = game.parts.length;
+    game._emitTrail(1);
 
-      const produced = game.parts.slice(prev);
-      const baseParts = produced.slice(0, 3);
-      const auraParts = produced.slice(3);
+    const produced = game.parts.slice(prev);
+    const baseParts = produced.slice(0, 3);
+    const auraParts = produced.slice(3);
 
-      expect(produced).toHaveLength(5);
-      expect(baseParts.every((p) => p.life === 2)).toBe(true);
-      expect(baseParts.every((p) => Math.abs(p.size - 2.16) < 1e-3)).toBe(true);
-      expect(baseParts.every((p) => p.drag === 0)).toBe(true);
-      expect(auraParts.every((p) => p.life === 4)).toBe(true);
-      expect(auraParts.every((p) => Math.abs(p.size - 3.24) < 1e-3)).toBe(true);
-      expect(auraParts.every((p) => p.twinkle === false)).toBe(true);
-      expect(game.trailAuraAcc).toBeLessThan(1);
-      expect(game.trailAcc).toBeLessThan(1);
-    } finally {
-      setRandSource();
-    }
+    expect(produced).toHaveLength(5);
+    expect(baseParts.every((p) => p.life === 2)).toBe(true);
+    expect(baseParts.every((p) => Math.abs(p.size - 2.16) < 1e-3)).toBe(true);
+    expect(baseParts.every((p) => p.drag === 0)).toBe(true);
+    expect(auraParts.every((p) => p.life === 4)).toBe(true);
+    expect(auraParts.every((p) => Math.abs(p.size - 3.24) < 1e-3)).toBe(true);
+    expect(auraParts.every((p) => p.twinkle === false)).toBe(true);
+    expect(game.trailAuraAcc).toBeLessThan(1);
+    expect(game.trailAcc).toBeLessThan(1);
   });
 });
 

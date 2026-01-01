@@ -2,6 +2,16 @@
 import { clamp, rand } from "./util.js";
 import { DEFAULT_TEXT_STYLE_CUSTOM, normalizeTextStyleCustom, normalizeTextStylePreset } from "./settings.js";
 
+let entityRandRange = rand;
+
+export function setEntityRandSource(fn) {
+  entityRandRange = (typeof fn === "function") ? fn : rand;
+}
+
+function randRange(a, b) {
+  return entityRandRange(a, b);
+}
+
 export class Pipe {
   constructor(x, y, w, h, vx, vy) {
     this.x = x; this.y = y; this.w = w; this.h = h;
@@ -62,7 +72,7 @@ export class Orb {
   constructor(x, y, vx, vy, r, life) {
     this.x = x; this.y = y; this.vx = vx; this.vy = vy;
     this.r = r; this.life = life; this.max = life;
-    this.ph = rand(0, Math.PI * 2);
+    this.ph = randRange(0, Math.PI * 2);
   }
   update(dt, W, H) {
     this.life -= dt;
@@ -280,7 +290,7 @@ function resolveFontFamily(key) {
 }
 
 function pickRandomPreset() {
-  const idx = Math.floor(rand(0, RANDOM_TEXT_STYLE_POOL.length));
+  const idx = Math.floor(randRange(0, RANDOM_TEXT_STYLE_POOL.length));
   return RANDOM_TEXT_STYLE_POOL[idx] || "basic";
 }
 
@@ -293,7 +303,7 @@ export class FloatText {
     const hasGlowColor = Object.prototype.hasOwnProperty.call(style, "glowColor");
     const hasSize = Object.prototype.hasOwnProperty.call(style, "size");
     this.txt = txt; this.x = x; this.y = y;
-    this.vx = rand(-18, 18); this.vy = rand(-90, -55);
+    this.vx = randRange(-18, 18); this.vy = randRange(-90, -55);
     this.life = 0.9; this.max = 0.9;
     this.color = hasColor ? style.color : (color || "rgba(255,255,255,.95)");
     this.palette = Array.isArray(style.palette) ? style.palette.slice(0, 4) : null;
@@ -320,7 +330,7 @@ export class FloatText {
 
     this.rotation = 0;
     this.phase = 0;
-    this.sparkleSeed = rand(0, Math.PI * 2);
+    this.sparkleSeed = randRange(0, Math.PI * 2);
 
     this._applyTextPreferences({
       preset: style.textStylePreset ?? FloatText.textStylePreset,
@@ -349,7 +359,7 @@ export class FloatText {
     this.shadowOffsetY += 1.5 * intensity;
     this.size *= extreme ? 1.18 : 1.06;
     this.wobble = Math.max(this.wobble, 0.5 * intensity);
-    if (!this.spin) this.spin = rand(-0.18, 0.18) * (extreme ? 2 : 1);
+    if (!this.spin) this.spin = randRange(-0.18, 0.18) * (extreme ? 2 : 1);
     this.shimmer = Math.max(this.shimmer, 0.3 * intensity);
 
     if (!this.palette) {
@@ -413,7 +423,7 @@ export class FloatText {
         this.shadowBoost = Math.max(this.shadowBoost, 14);
         this.shadowOffsetY = 1;
         this.wobble = Math.max(this.wobble, 0.8);
-        this.spin = this.spin || rand(-0.2, 0.2);
+        this.spin = this.spin || randRange(-0.2, 0.2);
         this.shimmer = Math.max(this.shimmer, 0.75);
         this.sparkle = true;
         this.palette = ["#f8bfff", "#b7f7ff", "#ffe6a6"];

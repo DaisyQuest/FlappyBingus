@@ -31,7 +31,7 @@ const WORLD_HEIGHT = 720;
 
 const STATE = Object.freeze({ MENU: 0, PLAY: 1, OVER: 2 });
 
-import { Pipe, Gate, Orb, Part, FloatText } from "./entities.js";
+import { Pipe, Gate, Orb, Part, FloatText, setEntityRandSource } from "./entities.js";
 import { spawnBurst, spawnCrossfire, spawnOrb, spawnSinglePipe, spawnWall } from "./spawn.js";
 import { dashBounceMax, orbPoints, tickCooldowns } from "./mechanics.js";
 import { buildScorePopupStyle, buildComboAuraStyle, COMBO_AURA_THRESHOLDS } from "./uiStyles.js";
@@ -80,6 +80,7 @@ export class Game {
     // Offscreen background (dots + vignette) to avoid repainting thousands of primitives per frame
     this.background = createBackgroundLayer();
     this.backgroundRand = getRandSource();
+    this.visualRand = getRandSource();
 
     this.player = {
       x: 0, y: 0, vx: 0, vy: 0,
@@ -140,6 +141,7 @@ export class Game {
     // NEW: allow main.js to disable SFX during replay/export if desired
     this.audioEnabled = true;
 
+    this.setVisualRand();
     this._resetRunStats();
   }
 
@@ -153,6 +155,11 @@ export class Game {
     if (this.W > 0 && this.H > 0) {
       this._initBackground();
     }
+  }
+
+  setVisualRand(randFn) {
+    this.visualRand = (typeof randFn === "function") ? randFn : getRandSource();
+    setEntityRandSource((a, b) => this._visualRand(a, b));
   }
 
   setSkillSettings(settings) {
@@ -439,6 +446,11 @@ export class Game {
     this._resetPlayer();
   }
 
+  _visualRand(a, b) {
+    const rand01 = (typeof this.visualRand === "function") ? this.visualRand : getRandSource();
+    return a + (b - a) * rand01();
+  }
+
   _resetPlayer() {
     const p = this.player;
     p.x = this.W * 0.5;
@@ -696,22 +708,23 @@ export class Game {
   }
 
   _spawnDashReflectFx(x, y, nx, ny, power = 1) {
+    const vrand = (a, b) => this._visualRand(a, b);
     const dir = Math.atan2(ny || 0, nx || 0);
     const sparkCount = 16;
     const strength = clamp(power, 0.4, 1.6);
 
     for (let i = 0; i < sparkCount; i++) {
-      const spread = rand(-0.8, 0.8);
-      const sp = rand(140, 320) * strength;
+      const spread = vrand(-0.8, 0.8);
+      const sp = vrand(140, 320) * strength;
       const vx = Math.cos(dir + spread) * sp;
       const vy = Math.sin(dir + spread) * sp;
-      const prt = new Part(x, y, vx, vy, rand(0.14, 0.30), rand(1.0, 2.1), "rgba(255,220,180,.90)", true);
+      const prt = new Part(x, y, vx, vy, vrand(0.14, 0.30), vrand(1.0, 2.1), "rgba(255,220,180,.90)", true);
       prt.drag = 11.5;
       this.parts.push(prt);
     }
 
     // Impact ring
-    const ring = new Part(x, y, 0, 0, 0.22, rand(1.6, 2.4), "rgba(255,255,255,.55)", true);
+    const ring = new Part(x, y, 0, 0, 0.22, vrand(1.6, 2.4), "rgba(255,255,255,.55)", true);
     ring.drag = 0;
     this.parts.push(ring);
   }
@@ -778,17 +791,18 @@ export class Game {
     const cy = (hit?.contactY != null) ? hit.contactY : (pipe.cy ? pipe.cy() : pipe.y + pipe.h * 0.5);
     const nx = hit?.nx || 0, ny = hit?.ny || 0;
 
+    const vrand = (a, b) => this._visualRand(a, b);
     for (let i = 0; i < particles; i++) {
-      const spread = rand(-0.7, 0.7);
+      const spread = vrand(-0.7, 0.7);
       const baseDir = Math.atan2(ny || 0, nx || 0);
-      const dir = (nx || ny) ? baseDir + spread : rand(0, Math.PI * 2);
-      const sp = rand(160, 420);
+      const dir = (nx || ny) ? baseDir + spread : vrand(0, Math.PI * 2);
+      const sp = vrand(160, 420);
       const prt = new Part(
         cx, cy,
         Math.cos(dir) * sp,
         Math.sin(dir) * sp,
-        rand(0.20, 0.42),
-        rand(1.2, 2.8),
+        vrand(0.20, 0.42),
+        vrand(1.2, 2.8),
         cause === "slowExplosion" ? "rgba(255,230,180,.85)" : "rgba(255,210,160,.90)",
         true
       );
@@ -992,22 +1006,23 @@ export class Game {
       const ny = clamp(ty, pad, this.H - pad);
       // --- END FIX ---
 
+      const vrand = (a, b) => this._visualRand(a, b);
       for (let i = 0; i < burst; i++) {
-        const a0 = rand(0, Math.PI * 2), sp0 = rand(80, 420);
+        const a0 = vrand(0, Math.PI * 2), sp0 = vrand(80, 420);
         const p0 = new Part(
           ox, oy,
           Math.cos(a0) * sp0, Math.sin(a0) * sp0,
-          rand(0.22, 0.50), rand(1.0, 2.2),
+          vrand(0.22, 0.50), vrand(1.0, 2.2),
           "rgba(210,170,255,.92)", true
         );
         p0.drag = 7.5;
         this.parts.push(p0);
 
-        const a1 = rand(0, Math.PI * 2), sp1 = rand(80, 420);
+        const a1 = vrand(0, Math.PI * 2), sp1 = vrand(80, 420);
         const p1 = new Part(
           nx, ny,
           Math.cos(a1) * sp1, Math.sin(a1) * sp1,
-          rand(0.22, 0.55), rand(1.0, 2.4),
+          vrand(0.22, 0.55), vrand(1.0, 2.4),
           "rgba(255,255,255,.82)", true
         );
         p1.drag = 7.0;
@@ -1022,11 +1037,11 @@ export class Game {
       this.floats.push(new FloatText("TELEPORT", p.x, p.y - p.r * 1.7, "rgba(230,200,255,.95)"));
 
       for (let i = 0; i < 26; i++) {
-        const a = rand(0, Math.PI * 2), sp = rand(40, 160);
+        const a = vrand(0, Math.PI * 2), sp = vrand(40, 160);
         const prt = new Part(
           nx, ny,
           Math.cos(a) * sp, Math.sin(a) * sp,
-          ed, rand(0.9, 1.7),
+          ed, vrand(0.9, 1.7),
           "rgba(255,255,255,.45)", true
         );
         prt.drag = 10;
@@ -1081,11 +1096,12 @@ export class Game {
     this.cds.dash = Math.max(0, Number(d.cooldown) || 0);
     this._dashStartSfx();
 
+    const vrand = (a, b) => this._visualRand(a, b);
     for (let i = 0; i < 18; i++) {
-      const a = rand(0, Math.PI * 2), sp = rand(40, 260);
+      const a = vrand(0, Math.PI * 2), sp = vrand(40, 260);
       const vx = Math.cos(a) * sp - p.dashVX * 220;
       const vy = Math.sin(a) * sp - p.dashVY * 220;
-      const prt = new Part(p.x, p.y, vx, vy, rand(0.18, 0.34), rand(1.0, 2.2), "rgba(255,255,255,.80)", true);
+      const prt = new Part(p.x, p.y, vx, vy, vrand(0.18, 0.34), vrand(1.0, 2.2), "rgba(255,255,255,.80)", true);
       prt.drag = 9.5;
       this.parts.push(prt);
     }
@@ -1098,11 +1114,12 @@ export class Game {
     this.cds.dash = Math.max(0, Number(d.cooldown) || 0);
     this._dashStartSfx();
 
+    const vrand = (a, b) => this._visualRand(a, b);
     for (let i = 0; i < 26; i++) {
-      const a = rand(0, Math.PI * 2), sp = rand(60, 320);
+      const a = vrand(0, Math.PI * 2), sp = vrand(60, 320);
       const vx = Math.cos(a) * sp - p.dashVX * 180;
       const vy = Math.sin(a) * sp - p.dashVY * 180;
-      const prt = new Part(p.x, p.y, vx, vy, rand(0.16, 0.36), rand(1.1, 2.4), "rgba(255,220,180,.85)", true);
+      const prt = new Part(p.x, p.y, vx, vy, vrand(0.16, 0.36), vrand(1.1, 2.4), "rgba(255,220,180,.85)", true);
       prt.drag = 11;
       this.parts.push(prt);
     }
@@ -1134,15 +1151,16 @@ export class Game {
     this.floats.push(new FloatText("Explode", p.x, p.y - p.r * 1.8, "rgba(255,210,150,.95)"));
 
     const shards = [];
+    const vrand = (a, b) => this._visualRand(a, b);
     for (let i = 0; i < blastParticles; i++) {
-      const a = rand(0, Math.PI * 2);
-      const sp = rand(160, 440);
+      const a = vrand(0, Math.PI * 2);
+      const sp = vrand(160, 440);
       const prt = new Part(
         p.x, p.y,
         Math.cos(a) * sp,
         Math.sin(a) * sp,
-        rand(0.22, 0.45),
-        rand(1.1, 2.6),
+        vrand(0.22, 0.45),
+        vrand(1.1, 2.6),
         "rgba(255,230,180,.85)",
         true
       );
@@ -1230,6 +1248,7 @@ export class Game {
   _emitTrail(dt) {
     const id = this.getTrailId();
     const st = this._trailStyle(id);
+    const vrand = (a, b) => this._visualRand(a, b);
     const glint = st.glint || {};
     const sparkle = st.sparkle || {};
     const aura = st.aura || {};
@@ -1250,7 +1269,7 @@ export class Game {
         prt.fillColor = hexStyle?.fill ?? prt.color;
         prt.lineWidth = hexStyle?.lineWidth ?? prt.lineWidth;
       }
-      prt.rotation = shape === "pixel" ? 0 : rand(0, Math.PI * 2);
+      prt.rotation = shape === "pixel" ? 0 : vrand(0, Math.PI * 2);
     };
 
     this.trailHue = (this.trailHue + dt * (st.hueRate || 220)) % 360;
@@ -1291,25 +1310,25 @@ export class Game {
         bandIndex = i % bandCount;
         const t = bandCount > 1 ? bandIndex / (bandCount - 1) : 0.5;
         const offset = (t - 0.5) * 2 * bandSpread;
-        const wobble = rand(-bandJitter, bandJitter);
+        const wobble = vrand(-bandJitter, bandJitter);
         jx = perpX * (offset + wobble);
         jy = perpY * (offset + wobble);
       } else {
-        const jitter = rand(0, Math.PI * 2);
-        jx = Math.cos(jitter) * rand(0, p.r * jitterScale);
-        jy = Math.sin(jitter) * rand(0, p.r * jitterScale);
+        const jitter = vrand(0, Math.PI * 2);
+        jx = Math.cos(jitter) * vrand(0, p.r * jitterScale);
+        jy = Math.sin(jitter) * vrand(0, p.r * jitterScale);
       }
 
-      const sp = rand(st.speed[0], st.speed[1]) * distanceScale;
-      const a = rand(0, Math.PI * 2);
+      const sp = vrand(st.speed[0], st.speed[1]) * distanceScale;
+      const a = vrand(0, Math.PI * 2);
       const vx = backX * sp + Math.cos(a) * sp * 0.55;
       const vy = backY * sp + Math.sin(a) * sp * 0.55;
 
-      const life = rand(st.life[0], st.life[1]) * baseLifeScale;
-      const size = rand(st.size[0], st.size[1]) * 1.08;
+      const life = vrand(st.life[0], st.life[1]) * baseLifeScale;
+      const size = vrand(st.size[0], st.size[1]) * 1.08;
 
       const colorIndex = banding ? bandIndex : i;
-      const color = st.color ? st.color({ i: colorIndex, hue: this.trailHue, rand }) : "rgba(140,220,255,.62)";
+      const color = st.color ? st.color({ i: colorIndex, hue: this.trailHue, rand: vrand }) : "rgba(140,220,255,.62)";
 
       const prt = new Part(bx + jx, by + jy, vx, vy, life, size, color, st.add);
       applyShape(prt, st.particleShape, st.sliceStyle, st.hexStyle);
@@ -1318,21 +1337,21 @@ export class Game {
     }
 
     for (let i = 0; i < a; i++) {
-      const ang = rand(0, Math.PI * 2);
-      const wobble = rand(-0.35, 0.35);
-      const orbit = rand(aura.orbit?.[0] ?? p.r * 0.65, aura.orbit?.[1] ?? p.r * 1.65);
+      const ang = vrand(0, Math.PI * 2);
+      const wobble = vrand(-0.35, 0.35);
+      const orbit = vrand(aura.orbit?.[0] ?? p.r * 0.65, aura.orbit?.[1] ?? p.r * 1.65);
       const px = p.x + Math.cos(ang) * orbit;
       const py = p.y + Math.sin(ang) * orbit;
 
-      const sp = rand(aura.speed?.[0] ?? st.speed[0] * 0.65, aura.speed?.[1] ?? st.speed[1] * 1.1) * auraDistanceScale;
+      const sp = vrand(aura.speed?.[0] ?? st.speed[0] * 0.65, aura.speed?.[1] ?? st.speed[1] * 1.1) * auraDistanceScale;
       const vx = Math.cos(ang + wobble) * sp;
       const vy = Math.sin(ang + wobble) * sp;
 
-      const life = rand(aura.life?.[0] ?? st.life[0] * 0.9, aura.life?.[1] ?? st.life[1] * 1.15) * auraLifeScale;
-      const size = rand(aura.size?.[0] ?? st.size[0] * 0.9, aura.size?.[1] ?? st.size[1] * 1.25) * auraSizeScale;
+      const life = vrand(aura.life?.[0] ?? st.life[0] * 0.9, aura.life?.[1] ?? st.life[1] * 1.15) * auraLifeScale;
+      const size = vrand(aura.size?.[0] ?? st.size[0] * 0.9, aura.size?.[1] ?? st.size[1] * 1.25) * auraSizeScale;
       const color = aura.color
-        ? aura.color({ i, hue: this.trailHue, rand })
-        : (st.color ? st.color({ i, hue: this.trailHue, rand }) : "rgba(140,220,255,.62)");
+        ? aura.color({ i, hue: this.trailHue, rand: vrand })
+        : (st.color ? st.color({ i, hue: this.trailHue, rand: vrand }) : "rgba(140,220,255,.62)");
 
       const prt = new Part(px, py, vx, vy, life, size, color, aura.add ?? st.add);
       prt.drag = aura.drag ?? st.drag ?? 10.5;
@@ -1342,19 +1361,19 @@ export class Game {
     }
 
     for (let i = 0; i < g; i++) {
-      const spin = rand(-0.9, 0.9);
-      const off = rand(p.r * 0.12, p.r * 0.58);
+      const spin = vrand(-0.9, 0.9);
+      const off = vrand(p.r * 0.12, p.r * 0.58);
       const px = bx + Math.cos(backA + Math.PI + spin) * off;
       const py = by + Math.sin(backA + Math.PI + spin) * off;
 
-      const sp = rand(glint.speed?.[0] || 55, glint.speed?.[1] || 155) * distanceScale;
+      const sp = vrand(glint.speed?.[0] || 55, glint.speed?.[1] || 155) * distanceScale;
       const vx = backX * sp * 0.42 + Math.cos(backA + Math.PI + spin) * sp * 0.58;
       const vy = backY * sp * 0.42 + Math.sin(backA + Math.PI + spin) * sp * 0.58;
 
-      const life = rand(glint.life?.[0] || 0.18, glint.life?.[1] || 0.32) * baseLifeScale;
-      const size = rand(glint.size?.[0] || 1.2, glint.size?.[1] || 3.0);
+      const life = vrand(glint.life?.[0] || 0.18, glint.life?.[1] || 0.32) * baseLifeScale;
+      const size = vrand(glint.size?.[0] || 1.2, glint.size?.[1] || 3.0);
 
-      const color = glint.color ? glint.color({ i, hue: this.trailHue, rand }) : "rgba(255,255,255,.9)";
+      const color = glint.color ? glint.color({ i, hue: this.trailHue, rand: vrand }) : "rgba(255,255,255,.9)";
 
       const prt = new Part(px, py, vx, vy, life, size, color, glint.add !== false);
       prt.drag = glint.drag ?? st.drag ?? 11.2;
@@ -1364,19 +1383,19 @@ export class Game {
     }
 
     for (let i = 0; i < s; i++) {
-      const ang = rand(0, Math.PI * 2);
-      const orbit = rand(p.r * 0.45, p.r * 1.05);
+      const ang = vrand(0, Math.PI * 2);
+      const orbit = vrand(p.r * 0.45, p.r * 1.05);
       const px = p.x + Math.cos(ang) * orbit;
       const py = p.y + Math.sin(ang) * orbit;
 
-      const sp = rand(sparkle.speed?.[0] || 20, sparkle.speed?.[1] || 55) * distanceScale;
-      const wobble = rand(-0.55, 0.55);
+      const sp = vrand(sparkle.speed?.[0] || 20, sparkle.speed?.[1] || 55) * distanceScale;
+      const wobble = vrand(-0.55, 0.55);
       const vx = Math.cos(ang + wobble) * sp * 0.65;
       const vy = Math.sin(ang + wobble) * sp * 0.65;
 
-      const life = rand(sparkle.life?.[0] || 0.28, sparkle.life?.[1] || 0.46) * baseLifeScale;
-      const size = rand(sparkle.size?.[0] || 1.0, sparkle.size?.[1] || 2.4) * 1.1;
-      const color = sparkle.color ? sparkle.color({ i, hue: this.trailHue, rand }) : "rgba(255,255,255,.88)";
+      const life = vrand(sparkle.life?.[0] || 0.28, sparkle.life?.[1] || 0.46) * baseLifeScale;
+      const size = vrand(sparkle.size?.[0] || 1.0, sparkle.size?.[1] || 2.4) * 1.1;
+      const color = sparkle.color ? sparkle.color({ i, hue: this.trailHue, rand: vrand }) : "rgba(255,255,255,.88)";
 
       const prt = new Part(px, py, vx, vy, life, size, color, sparkle.add !== false);
       prt.drag = sparkle.drag ?? 12.5;
@@ -1419,6 +1438,7 @@ export class Game {
     // combo sparkles
     const sparkleAt = Number(this.cfg.ui.comboBar.sparkleAt) || 9999;
     if (this.combo >= sparkleAt) {
+      const vrand = (a, b) => this._visualRand(a, b);
       const rate = Math.max(0, Number(this.cfg.ui.comboBar.sparkleRate) || 0);
       this.comboSparkAcc += dt * rate;
       const n = this.comboSparkAcc | 0;
@@ -1426,12 +1446,12 @@ export class Game {
 
       const { scoreX, scoreY, arcRadius, arcWidth } = this._scoreHudLayout();
       for (let i = 0; i < n; i++) {
-        const a = rand(Math.PI, Math.PI * 2);
-        const r = arcRadius + rand(-arcWidth * 0.4, arcWidth * 0.4);
+        const a = vrand(Math.PI, Math.PI * 2);
+        const r = arcRadius + vrand(-arcWidth * 0.4, arcWidth * 0.4);
         const px = scoreX + Math.cos(a) * r;
         const py = scoreY + Math.sin(a) * r;
-        const sp = rand(20, 90);
-        const prt = new Part(px, py, Math.cos(a) * sp, Math.sin(a) * sp, rand(0.18, 0.35), rand(0.9, 1.7), "rgba(255,255,255,.7)", true);
+        const sp = vrand(20, 90);
+        const prt = new Part(px, py, Math.cos(a) * sp, Math.sin(a) * sp, vrand(0.18, 0.35), vrand(0.9, 1.7), "rgba(255,255,255,.7)", true);
         prt.drag = 10.5;
         this.parts.push(prt);
       }
@@ -1535,9 +1555,10 @@ export class Game {
           const anchor = this._scorePopupAnchor();
           this.floats.push(new FloatText(`+${pts}`, anchor.x, anchor.y, perfectStyle.color, perfectStyle));
 
+          const vrand = (a, b) => this._visualRand(a, b);
           for (let k = 0; k < 28; k++) {
-            const a = rand(0, Math.PI * 2), sp = rand(60, 320);
-            const prt = new Part(this.player.x, this.player.y, Math.cos(a) * sp, Math.sin(a) * sp, rand(0.20, 0.45), rand(1.0, 2.2), "rgba(255,255,255,.85)", true);
+            const a = vrand(0, Math.PI * 2), sp = vrand(60, 320);
+            const prt = new Part(this.player.x, this.player.y, Math.cos(a) * sp, Math.sin(a) * sp, vrand(0.20, 0.45), vrand(1.0, 2.2), "rgba(255,255,255,.85)", true);
             prt.drag = 8.5;
             this.parts.push(prt);
           }
@@ -1588,9 +1609,10 @@ export class Game {
         const anchor = this._scorePopupAnchor();
         this.floats.push(new FloatText(`+${pts}`, anchor.x, anchor.y, popupStyle.color, popupStyle));
 
+        const vrand = (a, b) => this._visualRand(a, b);
         for (let k = 0; k < 18; k++) {
-          const a = rand(0, Math.PI * 2), sp = rand(40, 240);
-          const prt = new Part(ob.x, ob.y, Math.cos(a) * sp, Math.sin(a) * sp, rand(0.18, 0.38), rand(1.0, 2.0), "rgba(255,255,255,.7)", true);
+          const a = vrand(0, Math.PI * 2), sp = vrand(40, 240);
+          const prt = new Part(ob.x, ob.y, Math.cos(a) * sp, Math.sin(a) * sp, vrand(0.18, 0.38), vrand(1.0, 2.0), "rgba(255,255,255,.7)", true);
           prt.drag = 10;
           this.parts.push(prt);
         }
