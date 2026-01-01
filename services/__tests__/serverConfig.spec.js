@@ -7,7 +7,8 @@ import {
   DEFAULT_SERVER_CONFIG,
   applyUnlockableMenuConfig,
   createServerConfigStore,
-  normalizeServerConfig
+  normalizeServerConfig,
+  resolveConfigPath
 } from "../serverConfig.cjs";
 
 const sampleTrails = [
@@ -49,9 +50,52 @@ describe("server config normalization", () => {
     expect(normalized.rateLimits["/custom"].limit).toBe(2);
     expect(normalized.unlockableMenus.trail.mode).toBe("allowlist");
   });
+
+  it("normalizes invalid values and trims menu ids", () => {
+    const normalized = normalizeServerConfig({
+      session: { ttlSeconds: -10, refreshWindowSeconds: "bad" },
+      rateLimits: { "/api/me": { limit: 0, windowMs: -1 } },
+      unlockableMenus: {
+        trail: { mode: "allowlist", ids: [" ember ", "", null] },
+        player_texture: { mode: "unknown", ids: ["icon-a"] }
+      }
+    });
+
+    expect(normalized.session.ttlSeconds).toBe(1);
+    expect(normalized.session.refreshWindowSeconds).toBe(DEFAULT_SERVER_CONFIG.session.refreshWindowSeconds);
+    expect(normalized.rateLimits["/api/me"].limit).toBe(1);
+    expect(normalized.rateLimits["/api/me"].windowMs).toBe(1);
+    expect(normalized.unlockableMenus.trail.ids).toEqual(["ember"]);
+    expect(normalized.unlockableMenus.player_texture.mode).toBe("all");
+  });
+
+  it("adds new rate limit keys with default normalization", () => {
+    const normalized = normalizeServerConfig({
+      rateLimits: { "/api/new": { limit: 7.4, windowMs: 2500.9 } }
+    });
+
+    expect(normalized.rateLimits["/api/new"]).toEqual({ limit: 7, windowMs: 2500 });
+  });
 });
 
 describe("unlockable menu filtering", () => {
+  it("returns all items when no menu config is provided", () => {
+    const result = applyUnlockableMenuConfig(
+      {
+        trails: sampleTrails,
+        icons: sampleIcons,
+        pipeTextures: sampleTextures,
+        unlockables: sampleUnlockables
+      },
+      null
+    );
+
+    expect(result.trails).toEqual(sampleTrails);
+    expect(result.icons).toEqual(sampleIcons);
+    expect(result.pipeTextures).toEqual(sampleTextures);
+    expect(result.unlockables).toEqual(sampleUnlockables);
+  });
+
   it("returns allowlisted items only", () => {
     const result = applyUnlockableMenuConfig(
       {
@@ -76,6 +120,16 @@ describe("unlockable menu filtering", () => {
 });
 
 describe("config store", () => {
+  it("resolves config path with a default filename", () => {
+    const resolved = resolveConfigPath();
+    expect(resolved.endsWith("server-config.json")).toBe(true);
+  });
+
+  it("resolves custom config paths", () => {
+    const resolved = resolveConfigPath("./custom/server.json");
+    expect(resolved.endsWith(path.join("custom", "server.json"))).toBe(true);
+  });
+
   it("prefers persisted config and syncs it to disk", async () => {
     const dir = await fs.mkdtemp(path.join(os.tmpdir(), "bingus-config-"));
     const configPath = path.join(dir, "server-config.json");
@@ -150,5 +204,67 @@ describe("config store", () => {
     expect(raw.session.ttlSeconds).toBe(77);
     expect(saved.session.ttlSeconds).toBe(77);
     expect(store.getMeta().lastPersistedAt).toBeTypeOf("number");
+  });
+
+  it("skips reload checks before the interval elapses", async () => {
+    const fsApi = {
+      stat: vi.fn(async () => ({ mtimeMs: 10 })),
+      readFile: vi.fn(async () => JSON.stringify({ session: { ttlSeconds: 12 } }))
+    };
+    const store = createServerConfigStore({
+      configPath: "/tmp/server-config.json",
+      reloadIntervalMs: 5_000,
+      fsApi,
+      now: () => 1_000
+    });
+
+    const current = await store.maybeReload();
+
+    expect(current.session.ttlSeconds).toBe(DEFAULT_SERVER_CONFIG.session.ttlSeconds);
+    expect(fsApi.stat).not.toHaveBeenCalled();
+  });
+
+  it("handles stat failures while writing to disk", async () => {
+    const fsApi = {
+      writeFile: vi.fn(async () => undefined),
+      stat: vi.fn(async () => {
+        throw new Error("stat_failed");
+      })
+    };
+    const store = createServerConfigStore({
+      configPath: "/tmp/server-config.json",
+      reloadIntervalMs: 0,
+      fsApi,
+      now: () => 1000
+    });
+
+    await store.save({ session: { ttlSeconds: 55 } });
+
+    expect(fsApi.writeFile).toHaveBeenCalled();
+    expect(store.getMeta().lastLoadedAt).toBe(1000);
+    expect(store.getMeta().lastMtimeMs).toBeNull();
+  });
+
+  it("resets to defaults when the config file disappears during reload", async () => {
+    const fsApi = {
+      stat: vi.fn(async () => {
+        const err = new Error("missing");
+        err.code = "ENOENT";
+        throw err;
+      }),
+      readFile: vi.fn()
+    };
+    const store = createServerConfigStore({
+      configPath: "/tmp/server-config.json",
+      reloadIntervalMs: 0,
+      fsApi,
+      now: () => 2000
+    });
+
+    const reloaded = await store.maybeReload();
+
+    expect(reloaded.session.ttlSeconds).toBe(DEFAULT_SERVER_CONFIG.session.ttlSeconds);
+    expect(store.getMeta().lastMtimeMs).toBeNull();
+    expect(store.getMeta().lastLoadedAt).toBe(2000);
   });
 });

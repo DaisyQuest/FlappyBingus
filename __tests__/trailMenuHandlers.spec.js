@@ -12,11 +12,220 @@ const buildDom = () => {
       <button data-trail-id="spark"></button>
       <button data-trail-id="locked"></button>
     </div>
-  </body>`);
+  </body>`, { url: "http://localhost" });
   return dom.window.document;
 };
 
 describe("trail menu handlers", () => {
+  it("opens the overlay and restores hints when closing", () => {
+    const document = buildDom();
+    const toggleTrailMenu = vi.fn();
+    const setTrailHint = vi.fn();
+    const lastHint = { className: "hint", text: "cached" };
+
+    const { handlers } = createTrailMenuHandlers({
+      elements: {
+        trailLauncher: document.getElementById("launcher"),
+        trailOverlay: document.getElementById("overlay"),
+        trailOverlayClose: document.getElementById("overlay-close"),
+        trailOptions: document.getElementById("options")
+      },
+      getNet: () => ({ trails: [], user: null }),
+      getCurrentTrailId: () => "classic",
+      getCurrentIconId: () => "icon-1",
+      getPlayerIcons: () => [],
+      getLastTrailHint: () => lastHint,
+      apiSetTrail: vi.fn(),
+      refreshTrailMenu: vi.fn(),
+      toggleTrailMenu,
+      setTrailHint,
+      applyTrailSelection: vi.fn(),
+      ensureLoggedInForSave: vi.fn(),
+      openPurchaseModal: vi.fn(),
+      handleTrailSaveResponse: vi.fn(),
+      setNetUser: vi.fn(),
+      setUserHint: vi.fn(),
+      buildTrailHint: vi.fn(),
+      normalizeTrails: vi.fn(),
+      syncUnlockablesCatalog: vi.fn(),
+      syncIconCatalog: vi.fn(),
+      syncPipeTextureCatalog: vi.fn(),
+      applyIconSelection: vi.fn(),
+      getAuthStatusFromResponse: vi.fn(),
+      recoverSession: vi.fn(),
+      sortTrailsForDisplay: vi.fn().mockReturnValue([]),
+      computeUnlockedTrailSet: vi.fn().mockReturnValue(new Set()),
+      describeTrailLock: vi.fn(),
+      trailHoverText: vi.fn(),
+      DEFAULT_TRAIL_HINT: "Pick a trail",
+      DEFAULT_CURRENCY_ID: "coin",
+      UNLOCKABLE_TYPES: { trail: "trail" }
+    });
+
+    handlers.handleLauncherClick();
+    expect(toggleTrailMenu).toHaveBeenCalledWith(document.getElementById("overlay"), true);
+
+    handlers.handleOverlayCloseClick();
+    expect(toggleTrailMenu).toHaveBeenCalledWith(document.getElementById("overlay"), false);
+    expect(setTrailHint).toHaveBeenCalledWith(lastHint, { persist: false });
+
+    handlers.handleOverlayClick({ target: document.getElementById("overlay") });
+    expect(setTrailHint).toHaveBeenCalledWith(lastHint, { persist: false });
+  });
+
+  it("ignores option clicks that are not on trail buttons", async () => {
+    const document = buildDom();
+    const refreshTrailMenu = vi.fn();
+
+    const { handlers } = createTrailMenuHandlers({
+      elements: {
+        trailLauncher: null,
+        trailOverlay: null,
+        trailOverlayClose: null,
+        trailOptions: document.getElementById("options")
+      },
+      getNet: () => ({ trails: [], user: null }),
+      getCurrentTrailId: () => "classic",
+      getCurrentIconId: () => "icon-1",
+      getPlayerIcons: () => [],
+      getLastTrailHint: () => null,
+      apiSetTrail: vi.fn(),
+      refreshTrailMenu,
+      toggleTrailMenu: vi.fn(),
+      setTrailHint: vi.fn(),
+      applyTrailSelection: vi.fn(),
+      ensureLoggedInForSave: vi.fn(),
+      openPurchaseModal: vi.fn(),
+      handleTrailSaveResponse: vi.fn(),
+      setNetUser: vi.fn(),
+      setUserHint: vi.fn(),
+      buildTrailHint: vi.fn(),
+      normalizeTrails: vi.fn(),
+      syncUnlockablesCatalog: vi.fn(),
+      syncIconCatalog: vi.fn(),
+      syncPipeTextureCatalog: vi.fn(),
+      applyIconSelection: vi.fn(),
+      getAuthStatusFromResponse: vi.fn(),
+      recoverSession: vi.fn(),
+      sortTrailsForDisplay: vi.fn().mockReturnValue([]),
+      computeUnlockedTrailSet: vi.fn().mockReturnValue(new Set()),
+      describeTrailLock: vi.fn(),
+      trailHoverText: vi.fn(),
+      DEFAULT_TRAIL_HINT: "Pick a trail",
+      DEFAULT_CURRENCY_ID: "coin",
+      UNLOCKABLE_TYPES: { trail: "trail" }
+    });
+
+    await handlers.handleOptionsClick({ target: document.getElementById("options") });
+
+    expect(refreshTrailMenu).not.toHaveBeenCalled();
+  });
+
+  it("uses provided status text for locked trails", async () => {
+    const document = buildDom();
+    const button = document.querySelector("button[data-trail-id='locked']");
+    button.dataset.statusText = "Locked by status";
+    const setTrailHint = vi.fn();
+    const describeTrailLock = vi.fn();
+
+    const { handlers } = createTrailMenuHandlers({
+      elements: {
+        trailLauncher: null,
+        trailOverlay: null,
+        trailOverlayClose: null,
+        trailOptions: document.getElementById("options")
+      },
+      getNet: () => ({ trails: [{ id: "locked", name: "Locked" }], user: { bestScore: 1 } }),
+      getCurrentTrailId: () => "classic",
+      getCurrentIconId: () => "icon-1",
+      getPlayerIcons: () => [],
+      getLastTrailHint: () => null,
+      apiSetTrail: vi.fn(),
+      refreshTrailMenu: vi.fn(),
+      toggleTrailMenu: vi.fn(),
+      setTrailHint,
+      applyTrailSelection: vi.fn(),
+      ensureLoggedInForSave: vi.fn(),
+      openPurchaseModal: vi.fn(),
+      handleTrailSaveResponse: vi.fn(),
+      setNetUser: vi.fn(),
+      setUserHint: vi.fn(),
+      buildTrailHint: vi.fn(),
+      normalizeTrails: vi.fn(),
+      syncUnlockablesCatalog: vi.fn(),
+      syncIconCatalog: vi.fn(),
+      syncPipeTextureCatalog: vi.fn(),
+      applyIconSelection: vi.fn(),
+      getAuthStatusFromResponse: vi.fn(),
+      recoverSession: vi.fn(),
+      sortTrailsForDisplay: vi.fn().mockReturnValue([{ id: "locked", name: "Locked" }]),
+      computeUnlockedTrailSet: vi.fn().mockReturnValue(new Set()),
+      describeTrailLock,
+      trailHoverText: vi.fn(),
+      DEFAULT_TRAIL_HINT: "Pick a trail",
+      DEFAULT_CURRENCY_ID: "coin",
+      UNLOCKABLE_TYPES: { trail: "trail" }
+    });
+
+    await handlers.handleOptionsClick({ target: button });
+
+    expect(setTrailHint).toHaveBeenCalledWith(
+      { className: "hint bad", text: "Locked by status" },
+      { persist: false }
+    );
+    expect(describeTrailLock).not.toHaveBeenCalled();
+  });
+
+  it("keeps the current hint when mouseout stays inside options", () => {
+    const document = buildDom();
+    const setTrailHint = vi.fn();
+    const options = document.getElementById("options");
+    const child = document.createElement("span");
+    options.appendChild(child);
+
+    const { handlers } = createTrailMenuHandlers({
+      elements: {
+        trailLauncher: null,
+        trailOverlay: null,
+        trailOverlayClose: null,
+        trailOptions: options
+      },
+      getNet: () => ({ trails: [], user: null }),
+      getCurrentTrailId: () => "classic",
+      getCurrentIconId: () => "icon-1",
+      getPlayerIcons: () => [],
+      getLastTrailHint: () => null,
+      apiSetTrail: vi.fn(),
+      refreshTrailMenu: vi.fn(),
+      toggleTrailMenu: vi.fn(),
+      setTrailHint,
+      applyTrailSelection: vi.fn(),
+      ensureLoggedInForSave: vi.fn(),
+      openPurchaseModal: vi.fn(),
+      handleTrailSaveResponse: vi.fn(),
+      setNetUser: vi.fn(),
+      setUserHint: vi.fn(),
+      buildTrailHint: vi.fn(),
+      normalizeTrails: vi.fn(),
+      syncUnlockablesCatalog: vi.fn(),
+      syncIconCatalog: vi.fn(),
+      syncPipeTextureCatalog: vi.fn(),
+      applyIconSelection: vi.fn(),
+      getAuthStatusFromResponse: vi.fn(),
+      recoverSession: vi.fn(),
+      sortTrailsForDisplay: vi.fn().mockReturnValue([]),
+      computeUnlockedTrailSet: vi.fn().mockReturnValue(new Set()),
+      describeTrailLock: vi.fn(),
+      trailHoverText: vi.fn(),
+      DEFAULT_TRAIL_HINT: "Pick a trail",
+      DEFAULT_CURRENCY_ID: "coin",
+      UNLOCKABLE_TYPES: { trail: "trail" }
+    });
+
+    handlers.handleOptionsMouseOut({ relatedTarget: child });
+
+    expect(setTrailHint).not.toHaveBeenCalled();
+  });
   it("handles unlocked trail selection and save flow", async () => {
     const document = buildDom();
     const button = document.querySelector("button[data-trail-id='spark']");

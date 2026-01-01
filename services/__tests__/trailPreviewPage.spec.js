@@ -13,6 +13,12 @@ describe("trailPreviewPage", () => {
       expect(wantsPreviewHtml({ acceptHeader: "application/json" })).toBe(false);
       expect(wantsPreviewHtml({})).toBe(false);
     });
+
+    it("treats format and accept headers case-insensitively", () => {
+      expect(wantsPreviewHtml({ formatParam: "HTML" })).toBe(true);
+      expect(wantsPreviewHtml({ formatParam: "JsOn" })).toBe(false);
+      expect(wantsPreviewHtml({ acceptHeader: "application/json, TEXT/HTML;q=0.9" })).toBe(true);
+    });
   });
 
   describe("renderTrailPreviewPage", () => {
@@ -50,6 +56,29 @@ describe("trailPreviewPage", () => {
       expect(html).toContain('data-preview-index="0"');
       expect(html).toContain('new TrailPreview({ canvas })');
       expect(html).toContain('"id":"ember"');
+    });
+
+    it("renders an empty state when no previews are available", () => {
+      const html = renderTrailPreviewPage({ previews: [] });
+
+      expect(html).toContain("No trail previews are available.");
+      expect(html).toContain("const previews = []");
+    });
+
+    it("defaults missing fields and escapes serialized content safely", () => {
+      const html = renderTrailPreviewPage({
+        generatedAt: "2024-01-02",
+        previews: [
+          { name: "Trail & Co.", minScore: NaN, previewSeed: "<seed>" },
+          { id: "", name: "", previewSeed: "" }
+        ]
+      });
+
+      expect(html).toContain("Trail &amp; Co.");
+      expect(html).toContain("Unlocks at 0 score");
+      expect(html).toContain("trail-preview-trail-2");
+      expect(html).toContain("\\u003cseed\\u003e");
+      expect(html).toContain('"minScore":0');
     });
   });
 });
