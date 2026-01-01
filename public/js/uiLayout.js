@@ -128,16 +128,18 @@ function createHowToCard(doc, refs) {
 
   const settingsAction = createElement(doc, refs, "label", {
     className: "cta-btn wide card-nav settings-nav",
-    attrs: { for: "viewSettings", role: "button", tabindex: "0" },
-    text: "Settings"
+    attrs: { for: "viewSettings", role: "button", tabindex: "0" }
   });
-  const settingsHint = createElement(doc, refs, "div", {
-    className: "nav-callout settings-callout",
-    text: "Change skill behaviors and key bindings"
-  });
+  const settingsLabel = doc.createElement("span");
+  settingsLabel.className = "settings-nav-title";
+  settingsLabel.textContent = "Settings";
+  const settingsHint = doc.createElement("span");
+  settingsHint.className = "settings-nav-subtext";
+  settingsHint.textContent = "(Change skill behaviors and key bindings)";
+  settingsAction.append(settingsLabel, settingsHint);
   const actions = doc.createElement("div");
-  actions.className = "card-actions center callout-stack";
-  actions.append(settingsAction, settingsHint);
+  actions.className = "card-actions center";
+  actions.append(settingsAction);
 
   card.append(header, wrapper, actions);
   return card;
@@ -1252,7 +1254,7 @@ function createMenuScreen(doc, refs) {
   });
   const themeCallout = createElement(doc, refs, "div", {
     className: "nav-callout theme-callout",
-    text: "↘ Change pipe colors and menu theme"
+    text: "Change pipe colors and menu theme ↘"
   });
   mainPanel.append(mainGrid);
 
