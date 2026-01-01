@@ -42,7 +42,15 @@ const setupGame = () => {
     fillText: () => {},
     strokeText: () => {}
   };
-  const canvas = { style: {}, width: 800, height: 600, getContext: () => ctx };
+  const canvas = {
+    style: {},
+    width: 800,
+    height: 600,
+    _logicalW: 800,
+    _logicalH: 600,
+    getContext: () => ctx,
+    getBoundingClientRect: () => ({ left: 0, top: 0, width: 800, height: 600 })
+  };
   const game = new Game({
     canvas,
     ctx,
@@ -120,7 +128,7 @@ describe("Tutorial skill variants", () => {
 
     expect(game.skillSettings.dashBehavior).toBe("ricochet");
 
-    tutorial._nextStep(); // moves into dash_destroy
+    tutorial._nextStep(); // moves into skill_teleport
     expect(game.skillSettings.dashBehavior).toBe("destroy");
     tutorial.stop();
   });
@@ -274,7 +282,7 @@ describe("Tutorial copy, guides, and slow-field flows", () => {
     expect(copyFor("perfect").body).toContain("dashed line");
     expect(copyFor("skill_phase").hotkey.label).toBeTruthy();
     expect(copyFor("skill_dash").objective).toContain("Dash");
-    expect(copyFor("dash_destroy").body).toContain("Destroy variant");
+    expect(copyFor("dash_destroy").body).toContain("smashes");
     expect(copyFor("skill_teleport").hotkey.label).toBeTruthy();
     expect(copyFor("skill_slow").title).toContain("Slow Field");
     expect(copyFor("slow_explosion").objective).toContain("explosive");
@@ -337,6 +345,9 @@ describe("Tutorial copy, guides, and slow-field flows", () => {
       tutorial.game.perfectT = 1;
       tutorial._prevPerfectT = 0;
       tutorial._stepPerfect(0.1);
+      tutorial.game.perfectT = 1;
+      tutorial._prevPerfectT = 0;
+      tutorial._stepPerfect(0.1);
       tutorial._stepPerfect(1.0);
     });
 
@@ -357,17 +368,17 @@ describe("Tutorial copy, guides, and slow-field flows", () => {
       tutorial._stepSkillDash(1.0);
     });
 
-    completeStep("dash_reflect", () => {
-      tutorial._spawnDashReflectScenario();
-      tutorial._reflectSuccessDelay = 0.1;
-      tutorial._stepDashReflect(0.2);
-    });
-
     completeStep("dash_destroy", () => {
       tutorial._spawnDashDestroyScenario();
       tutorial.game.lastPipeShatter = { cause: "dashDestroy" };
       tutorial._stepDashDestroy(0.1);
       tutorial._stepDashDestroy(1.0);
+    });
+
+    completeStep("dash_reflect", () => {
+      tutorial._spawnDashReflectScenario();
+      tutorial._reflectSuccessDelay = 0.1;
+      tutorial._stepDashReflect(0.2);
     });
 
     completeStep("skill_teleport", () => {
@@ -478,6 +489,48 @@ describe("Tutorial copy, guides, and slow-field flows", () => {
     expect(reflectCtx.strokeRect).toHaveBeenCalledTimes(2);
 
     expect(runGuides("skill_teleport").fill).toHaveBeenCalled();
+    tutorial.stop();
+  });
+
+  it("allows stage navigation via tutorial buttons", () => {
+    const game = setupGame();
+    const tutorial = new Tutorial({ game, input: game.input, getBinds: () => ({}), onExit: () => {} });
+    tutorial.start();
+
+    tutorial._enterStep(1);
+    tutorial._navButtons = {
+      prev: { x: 10, y: 10, w: 40, h: 30 },
+      next: { x: 60, y: 10, w: 40, h: 30 }
+    };
+
+    const spy = vi.spyOn(tutorial, "_enterStep");
+    const backEvent = {
+      clientX: 15,
+      clientY: 15,
+      target: game.canvas,
+      preventDefault: vi.fn(),
+      stopPropagation: vi.fn()
+    };
+    tutorial._boundPointerDown(backEvent);
+
+    expect(backEvent.preventDefault).toHaveBeenCalled();
+    expect(spy).toHaveBeenCalledWith(0);
+
+    spy.mockClear();
+    tutorial._stepIndex = 0;
+    tutorial._navButtons = {
+      prev: null,
+      next: { x: 60, y: 10, w: 40, h: 30 }
+    };
+    const nextEvent = {
+      clientX: 70,
+      clientY: 15,
+      target: game.canvas,
+      preventDefault: vi.fn(),
+      stopPropagation: vi.fn()
+    };
+    tutorial._boundPointerDown(nextEvent);
+    expect(spy).toHaveBeenCalledWith(1);
     tutorial.stop();
   });
 
