@@ -112,8 +112,13 @@ describe("trailStyles", () => {
     expect(starlight.particleShape).toBe("heart");
     expect(starlight.sparkle.particleShape).toBe("star");
     expect(starlight.glint.particleShape).toBe("heart");
-    expect(starlight.life[1]).toBeGreaterThan(starlight.life[0]);
+    expect(starlight.life).toEqual([0.32, 0.6]);
+    expect(starlight.size).toEqual([5.6, 11.2]);
     expect(starlight.sparkle.rate).toBeCloseTo(starlight.rate * 0.1, 5);
+    expect(starlight.glint.life).toEqual([0.36, 0.6]);
+    expect(starlight.glint.size).toEqual([3.2, 6.4]);
+    expect(starlight.aura.life).toEqual([0.8, 1.24]);
+    expect(starlight.aura.size).toEqual([7.6, 13.6]);
     const sparkleColor = starlight.sparkle.color({ rand: () => 0, hue: 0, i: 0 });
     const baseColor = starlight.color({ rand: () => 0, i: 0 });
     expect(sparkleColor).toContain("hsla(");

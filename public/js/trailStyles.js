@@ -291,8 +291,8 @@ const TRAIL_STYLES = Object.freeze({
   },
   starlight_pop: {
     rate: 90,
-    life: [0.16, 0.3],
-    size: [2.8, 5.6],
+    life: [0.32, 0.6],
+    size: [5.6, 11.2],
     speed: [32, 128],
     drag: 12.2,
     add: true,
@@ -311,16 +311,16 @@ const TRAIL_STYLES = Object.freeze({
     glint: {
       ...glintDefaults,
       rate: 0,
-      life: [0.18, 0.3],
-      size: [1.6, 3.2],
+      life: [0.36, 0.6],
+      size: [3.2, 6.4],
       speed: [46, 130],
       color: starlightHeartColor,
       particleShape: "heart"
     },
     aura: {
       rate: 6,
-      size: [3.8, 6.8],
-      life: [0.4, 0.62],
+      size: [7.6, 13.6],
+      life: [0.8, 1.24],
       color: ({ rand: r }) => hsla((332 + r(-12, 12)) % 360, 80, 74, 0.32),
       particleShape: "heart"
     }

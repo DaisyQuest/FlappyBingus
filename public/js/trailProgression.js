@@ -20,7 +20,7 @@ export const DEFAULT_TRAILS = Object.freeze([
   { id: "nebula", name: "Starfall Drift", minScore: 2350, achievementId: "trail_nebula_2350" },
   { id: "honeycomb", name: "Honeycomb Drift", achievementId: "pipes_broken_explosion_10" },
   { id: "lemon_slice", name: "Lemon Slice", achievementId: "run_time_60" },
-  { id: "starlight_pop", name: "Starlight Pop", unlock: { type: "purchase", cost: 100 } },
+  { id: "starlight_pop", name: "Hearts", unlock: { type: "purchase", cost: 100 } },
   { id: "dragonfire", name: "Dragonfire", minScore: 2600, achievementId: "trail_dragonfire_2600" },
   { id: "ultraviolet", name: "Ultraviolet Pulse", minScore: 2800, achievementId: "trail_ultraviolet_2800" },
   { id: "world_record", name: "World Record Cherry Blossom", minScore: 3000, achievementId: "trail_world_record_3000", requiresRecordHolder: true }
