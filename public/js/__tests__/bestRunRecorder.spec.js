@@ -44,6 +44,39 @@ describe("buildReplayEnvelope", () => {
     expect(envelope.ticks[0].actions[0].cursor).toEqual({ x: 64.125, y: 128.75, has: false });
   });
 
+  it("normalizes mixed action shapes when building replay payloads", () => {
+    const run = baseRun();
+    run.ticks = [
+      {
+        move: { dx: 0, dy: 0 },
+        cursor: { x: 1, y: 2, has: true },
+        actions: [
+          { id: "dash" },
+          { action: "phase", cursor: { x: 3, y: 4, has: true } },
+          { actionId: "teleport", cursor: { x: 5, y: 6, has: false } },
+          { name: "slowField" },
+          "dashDestroy",
+          { id: null },
+          123
+        ]
+      }
+    ];
+
+    const envelope = buildReplayEnvelope(run, { finalScore: 5 });
+    const actions = envelope.ticks[0].actions;
+
+    expect(actions).toHaveLength(5);
+    expect(actions.map((action) => action.id)).toEqual([
+      "dash",
+      "phase",
+      "teleport",
+      "slowField",
+      "dashDestroy"
+    ]);
+    expect(actions[1].cursor).toEqual({ x: 3, y: 4, has: true });
+    expect(actions[2].cursor).toEqual({ x: 5, y: 6, has: false });
+  });
+
   it("falls back to zeros when replay inputs are non-numeric", () => {
     const run = baseRun();
     run.ticks = [

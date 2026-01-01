@@ -12,6 +12,15 @@ function normalizeNumber(value, fallback = 0) {
   return Number.isFinite(num) ? num : fallback;
 }
 
+function normalizeReplayAction(action) {
+  if (!action) return null;
+  if (typeof action === "string") return { id: action };
+  if (typeof action !== "object") return null;
+  const id = action.id || action.action || action.actionId || action.name;
+  if (!id) return null;
+  return { id, cursor: action.cursor };
+}
+
 export function buildReplayEnvelope(run, { finalScore = 0, runStats = null, recordedAt = Date.now(), tickMs = DEFAULT_TICK_MS } = {}) {
   if (!run || !run.ended || !Array.isArray(run.ticks) || run.ticks.length === 0) return null;
 
@@ -27,6 +36,7 @@ export function buildReplayEnvelope(run, { finalScore = 0, runStats = null, reco
     },
     actions: Array.isArray(tk?.actions)
       ? tk.actions
+          .map(normalizeReplayAction)
           .filter(Boolean)
           .map((a) => ({
             id: a.id,
