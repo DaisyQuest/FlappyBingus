@@ -141,7 +141,7 @@ function createHowToCard(doc, refs) {
   settingsHint.textContent = "(Change skill behaviors and key bindings)";
   settingsAction.append(settingsLabel, settingsHint);
   const actions = doc.createElement("div");
-  actions.className = "card-actions center";
+  actions.className = "card-actions center howto-actions";
   actions.append(settingsAction);
 
   card.append(header, wrapper, actions);

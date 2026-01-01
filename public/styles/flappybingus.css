@@ -242,6 +242,9 @@ canvas{position:absolute;inset:0;width:100%;height:100%;display:block;background
   gap:4px;
   text-align:center;
 }
+.howto-card .howto-actions{
+  flex-wrap:wrap;
+}
 
 button,.card-nav{
   appearance:none;border:1px solid var(--surface-border);background:linear-gradient(180deg,var(--button-bg-start),var(--button-bg-end));
