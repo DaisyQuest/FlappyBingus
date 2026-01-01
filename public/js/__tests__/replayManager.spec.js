@@ -1,6 +1,7 @@
 import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
 import { createReplayManager, createReplayRun, cloneReplayRun, __testables } from "../replayManager.js";
 import { playbackTicks } from "../replayUtils.js";
+import { SIM_DT } from "../simPrecision.js";
 
 function makeClassList(initial = []) {
   const classes = new Set(initial);
@@ -137,7 +138,7 @@ describe("replayManager", () => {
       seededRand,
       playbackTicks,
       playbackTicksDeterministic,
-      simDt: 1 / 120,
+      simDt: SIM_DT,
       requestFrame
     });
 
@@ -179,7 +180,7 @@ describe("replayManager", () => {
       over,
       playbackTicks,
       playbackTicksDeterministic,
-      simDt: 1 / 120,
+      simDt: SIM_DT,
       requestFrame: null
     });
 
@@ -229,7 +230,7 @@ describe("replayManager", () => {
       game,
       playbackTicks,
       playbackTicksDeterministic,
-      simDt: 1 / 120
+      simDt: SIM_DT
     });
 
     manager.startRecording("seed");
@@ -258,7 +259,7 @@ describe("replayManager", () => {
       game,
       playbackTicks,
       playbackTicksDeterministic,
-      simDt: 1 / 120,
+      simDt: SIM_DT,
       requestFrame: null
     });
 
@@ -287,7 +288,7 @@ describe("replayManager", () => {
       game,
       playbackTicks,
       playbackTicksDeterministic,
-      simDt: 1 / 120,
+      simDt: SIM_DT,
       requestFrame
     });
 
@@ -344,7 +345,7 @@ describe("replayManager", () => {
       over,
       playbackTicks,
       playbackTicksDeterministic: vi.fn(),
-      simDt: 1 / 120,
+      simDt: SIM_DT,
       requestFrame: makeIncrementalRaf(100)
     });
 
@@ -429,7 +430,7 @@ describe("replayManager", () => {
       game,
       playbackTicks,
       playbackTicksDeterministic: vi.fn(),
-      simDt: 1 / 120,
+      simDt: SIM_DT,
       requestFrame: makeIncrementalRaf(16)
     });
 

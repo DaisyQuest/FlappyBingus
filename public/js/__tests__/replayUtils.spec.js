@@ -5,6 +5,7 @@ import {
   chooseReplayRandSource,
   __testables
 } from "../replayUtils.js";
+import { SIM_DT, SIM_TPS } from "../simPrecision.js";
 
 function makeGame() {
   return {
@@ -55,8 +56,6 @@ function makeSequentialRaf(stepMs, count) {
 }
 
 describe("playbackTicks", () => {
-  const SIM_DT = 1 / 120;
-
   it("plays ticks in real time and renders each frame when capturing", async () => {
     const game = makeGame();
     const replayInput = makeReplayInput();
@@ -382,8 +381,6 @@ describe("playbackTicks", () => {
 });
 
 describe("playbackTicksDeterministic", () => {
-  const SIM_DT = 1 / 120;
-
   it("plays the same tick list deterministically across runs", async () => {
     const ticks = [
       { move: { dx: 1, dy: 2 }, cursor: { x: 3, y: 4 }, actions: [{ id: "a1" }, { id: "a2" }] },
@@ -659,7 +656,7 @@ describe("chooseReplayRandSource", () => {
 describe("constants", () => {
   it("exposes defaults", () => {
     expect(__testables.REPLAY_TARGET_FPS).toBe(60);
-    expect(__testables.REPLAY_TPS).toBe(120);
+    expect(__testables.REPLAY_TPS).toBe(SIM_TPS);
     expect(__testables.MAX_FRAME_DT).toBeCloseTo(1 / 10);
   });
 });

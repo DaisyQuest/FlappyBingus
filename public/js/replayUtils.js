@@ -1,5 +1,7 @@
+import { SIM_TPS } from "./simPrecision.js";
+
 const REPLAY_TARGET_FPS = 60;
-const REPLAY_TPS = 120;
+const REPLAY_TPS = SIM_TPS;
 const MAX_FRAME_DT = 1 / 10; // cap catch-up to avoid runaway loops
 
 function normalizeAction(action) {

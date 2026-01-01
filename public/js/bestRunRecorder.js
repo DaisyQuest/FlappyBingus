@@ -1,5 +1,7 @@
+import { SIM_TICK_MS } from "./simPrecision.js";
+
 const MAX_REPLAY_UPLOAD_BYTES = 5 * 1024 * 1024;
-const DEFAULT_TICK_MS = 1000 / 120;
+const DEFAULT_TICK_MS = SIM_TICK_MS;
 
 function clampInt(n) {
   const num = Number(n);
