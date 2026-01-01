@@ -2,7 +2,13 @@
 // FILE: public/js/main.js
 // =====================
 import { DEFAULT_CONFIG, loadConfig } from "./config.js";
-import { DEFAULT_SKILL_SETTINGS, normalizeSkillSettings, skillSettingsEqual } from "./settings.js";
+import {
+  DEFAULT_SKILL_SETTINGS,
+  DEFAULT_TEXT_STYLE_CUSTOM,
+  normalizeSkillSettings,
+  normalizeTextStyleCustom,
+  skillSettingsEqual
+} from "./settings.js";
 import {
   apiGetMe,
   apiRegister,
@@ -212,7 +218,34 @@ const {
   teleportBehaviorOptions,
   invulnBehaviorOptions,
   slowFieldBehaviorOptions,
-  comicBookModeSelect,
+  textStylePresetSelect,
+  textCustomPanel,
+  textFontFamily,
+  textFontWeight,
+  textFontWeightValue,
+  textSizeScale,
+  textSizeScaleValue,
+  textUseGameColors,
+  textColor,
+  textUseGameGlow,
+  textGlowColor,
+  textStrokeColor,
+  textStrokeWidth,
+  textStrokeWidthValue,
+  textShadowBoost,
+  textShadowBoostValue,
+  textShadowOffsetY,
+  textShadowOffsetYValue,
+  textWobble,
+  textWobbleValue,
+  textSpin,
+  textSpinValue,
+  textShimmer,
+  textShimmerValue,
+  textSparkle,
+  textUseGradient,
+  textGradientStart,
+  textGradientEnd,
   hsWrap,
   pbText,
   trailText,
@@ -1401,13 +1434,83 @@ function renderBindUI(listeningActionId = null) {
   }
 }
 
+function setTextCustomDisabledState(custom = DEFAULT_TEXT_STYLE_CUSTOM) {
+  const disableColors = !!custom.useGameColors;
+  if (textColor) textColor.disabled = disableColors;
+  if (textUseGradient) textUseGradient.disabled = disableColors;
+  if (textGradientStart) textGradientStart.disabled = disableColors || !custom.useGradient;
+  if (textGradientEnd) textGradientEnd.disabled = disableColors || !custom.useGradient;
+
+  const disableGlow = !!custom.useGameGlow;
+  if (textGlowColor) textGlowColor.disabled = disableGlow;
+}
+
+function updateTextCustomValueDisplays(custom) {
+  if (textFontWeightValue) textFontWeightValue.textContent = `${custom.fontWeight}`;
+  if (textSizeScaleValue) textSizeScaleValue.textContent = `x${custom.sizeScale.toFixed(2)}`;
+  if (textStrokeWidthValue) textStrokeWidthValue.textContent = custom.strokeWidth.toFixed(1);
+  if (textShadowBoostValue) textShadowBoostValue.textContent = `${custom.shadowBoost}`;
+  if (textShadowOffsetYValue) textShadowOffsetYValue.textContent = `${custom.shadowOffsetY}`;
+  if (textWobbleValue) textWobbleValue.textContent = custom.wobble.toFixed(1);
+  if (textSpinValue) textSpinValue.textContent = custom.spin.toFixed(2);
+  if (textShimmerValue) textShimmerValue.textContent = custom.shimmer.toFixed(2);
+}
+
+function applyTextStyleCustomToUI(custom = DEFAULT_TEXT_STYLE_CUSTOM) {
+  if (textFontFamily) textFontFamily.value = custom.fontFamily;
+  if (textFontWeight) textFontWeight.value = String(custom.fontWeight);
+  if (textSizeScale) textSizeScale.value = String(custom.sizeScale);
+  if (textUseGameColors) textUseGameColors.checked = custom.useGameColors;
+  if (textColor) textColor.value = custom.color;
+  if (textUseGameGlow) textUseGameGlow.checked = custom.useGameGlow;
+  if (textGlowColor) textGlowColor.value = custom.glowColor;
+  if (textStrokeColor) textStrokeColor.value = custom.strokeColor;
+  if (textStrokeWidth) textStrokeWidth.value = String(custom.strokeWidth);
+  if (textShadowBoost) textShadowBoost.value = String(custom.shadowBoost);
+  if (textShadowOffsetY) textShadowOffsetY.value = String(custom.shadowOffsetY);
+  if (textWobble) textWobble.value = String(custom.wobble);
+  if (textSpin) textSpin.value = String(custom.spin);
+  if (textShimmer) textShimmer.value = String(custom.shimmer);
+  if (textSparkle) textSparkle.checked = custom.sparkle;
+  if (textUseGradient) textUseGradient.checked = custom.useGradient;
+  if (textGradientStart) textGradientStart.value = custom.gradientStart;
+  if (textGradientEnd) textGradientEnd.value = custom.gradientEnd;
+  updateTextCustomValueDisplays(custom);
+  setTextCustomDisabledState(custom);
+}
+
+function readTextStyleCustomFromUI() {
+  return normalizeTextStyleCustom({
+    fontFamily: textFontFamily?.value ?? DEFAULT_TEXT_STYLE_CUSTOM.fontFamily,
+    fontWeight: textFontWeight?.value ?? DEFAULT_TEXT_STYLE_CUSTOM.fontWeight,
+    sizeScale: textSizeScale?.value ?? DEFAULT_TEXT_STYLE_CUSTOM.sizeScale,
+    useGameColors: textUseGameColors?.checked ?? DEFAULT_TEXT_STYLE_CUSTOM.useGameColors,
+    useGameGlow: textUseGameGlow?.checked ?? DEFAULT_TEXT_STYLE_CUSTOM.useGameGlow,
+    color: textColor?.value ?? DEFAULT_TEXT_STYLE_CUSTOM.color,
+    glowColor: textGlowColor?.value ?? DEFAULT_TEXT_STYLE_CUSTOM.glowColor,
+    strokeColor: textStrokeColor?.value ?? DEFAULT_TEXT_STYLE_CUSTOM.strokeColor,
+    strokeWidth: textStrokeWidth?.value ?? DEFAULT_TEXT_STYLE_CUSTOM.strokeWidth,
+    shadowBoost: textShadowBoost?.value ?? DEFAULT_TEXT_STYLE_CUSTOM.shadowBoost,
+    shadowOffsetY: textShadowOffsetY?.value ?? DEFAULT_TEXT_STYLE_CUSTOM.shadowOffsetY,
+    wobble: textWobble?.value ?? DEFAULT_TEXT_STYLE_CUSTOM.wobble,
+    spin: textSpin?.value ?? DEFAULT_TEXT_STYLE_CUSTOM.spin,
+    shimmer: textShimmer?.value ?? DEFAULT_TEXT_STYLE_CUSTOM.shimmer,
+    sparkle: textSparkle?.checked ?? DEFAULT_TEXT_STYLE_CUSTOM.sparkle,
+    useGradient: textUseGradient?.checked ?? DEFAULT_TEXT_STYLE_CUSTOM.useGradient,
+    gradientStart: textGradientStart?.value ?? DEFAULT_TEXT_STYLE_CUSTOM.gradientStart,
+    gradientEnd: textGradientEnd?.value ?? DEFAULT_TEXT_STYLE_CUSTOM.gradientEnd
+  });
+}
+
 function applySkillSettingsToUI(settings = skillSettings) {
   const normalized = normalizeSkillSettings(settings || DEFAULT_SKILL_SETTINGS);
   markSkillOptionSelection(dashBehaviorOptions, normalized.dashBehavior);
   markSkillOptionSelection(teleportBehaviorOptions, normalized.teleportBehavior);
   markSkillOptionSelection(invulnBehaviorOptions, normalized.invulnBehavior);
   markSkillOptionSelection(slowFieldBehaviorOptions, normalized.slowFieldBehavior);
-  if (comicBookModeSelect) comicBookModeSelect.value = normalized.comicBookMode;
+  if (textStylePresetSelect) textStylePresetSelect.value = normalized.textStylePreset;
+  if (textCustomPanel) textCustomPanel.hidden = normalized.textStylePreset !== "custom";
+  applyTextStyleCustomToUI(normalized.textStyleCustom);
 }
 
 async function updateSkillSettings(next, { persist = true } = {}) {
@@ -2098,9 +2201,42 @@ bindSkillOptionGroup(invulnBehaviorOptions, (value) => {
 bindSkillOptionGroup(slowFieldBehaviorOptions, (value) => {
   updateSkillSettings({ ...skillSettings, slowFieldBehavior: value });
 });
-comicBookModeSelect?.addEventListener("change", (e) => {
+const updateTextCustomSettings = () => {
+  const custom = readTextStyleCustomFromUI();
+  updateSkillSettings({ ...skillSettings, textStyleCustom: custom });
+};
+
+textStylePresetSelect?.addEventListener("change", (e) => {
   const value = e.target?.value;
-  updateSkillSettings({ ...skillSettings, comicBookMode: value });
+  updateSkillSettings({ ...skillSettings, textStylePreset: value });
+});
+
+[
+  textFontFamily,
+  textFontWeight,
+  textSizeScale,
+  textUseGameColors,
+  textColor,
+  textUseGameGlow,
+  textGlowColor,
+  textStrokeColor,
+  textStrokeWidth,
+  textShadowBoost,
+  textShadowOffsetY,
+  textWobble,
+  textSpin,
+  textShimmer,
+  textSparkle,
+  textUseGradient,
+  textGradientStart,
+  textGradientEnd
+].forEach((input) => {
+  if (!input) return;
+  const handler = () => updateTextCustomSettings();
+  input.addEventListener("change", handler);
+  if (input instanceof HTMLInputElement && input.type === "range") {
+    input.addEventListener("input", handler);
+  }
 });
 
 overStatsToggle?.addEventListener("click", () => {

@@ -336,10 +336,26 @@ describe("uiLayout", () => {
     expect(secondary?.querySelector("#sfxVolume")).toBeInstanceOf(window.HTMLInputElement);
     expect(settingsGrid?.querySelector(".muted-note")).toBeNull();
 
-    const comicMode = settingsGrid?.querySelector("#comicBookModeSelect");
-    expect(comicMode).toBeInstanceOf(window.HTMLSelectElement);
-    const comicOptions = Array.from(comicMode?.querySelectorAll("option") || []).map((el) => el.value);
-    expect(comicOptions).toEqual(["none", "mild", "extreme"]);
+    const textPreset = settingsGrid?.querySelector("#textStylePresetSelect");
+    expect(textPreset).toBeInstanceOf(window.HTMLSelectElement);
+    const presetOptions = Array.from(textPreset?.querySelectorAll("option") || []).map((el) => el.value);
+    expect(presetOptions).toEqual([
+      "basic",
+      "comic_book_mild",
+      "comic_book_extreme",
+      "digital",
+      "clean",
+      "neon_pulse",
+      "holographic",
+      "sticker_blast",
+      "random",
+      "disabled",
+      "custom"
+    ]);
+    const customPanel = settingsGrid?.querySelector("#textCustomPanel");
+    expect(customPanel?.querySelector("#textFontFamily")).toBeInstanceOf(window.HTMLSelectElement);
+    expect(customPanel?.querySelector("#textFontWeight")).toBeInstanceOf(window.HTMLInputElement);
+    expect(customPanel?.querySelector("#textColor")).toBeInstanceOf(window.HTMLInputElement);
 
     const utilityTitles = Array.from(settingsGrid?.querySelectorAll(".settings-utility .section-title") || []).map(
       el => el?.textContent

@@ -70,7 +70,7 @@ describe("FloatText", () => {
   });
 
   it("applies gentle comic styling in mild mode", () => {
-    FloatText.setComicBookMode("mild");
+    FloatText.setTextStylePreset("comic_book_mild");
     const ft = new FloatText("Pow", 0, 0, "#fff");
     const ctx = createCtx();
     ft.draw(ctx);
@@ -79,18 +79,62 @@ describe("FloatText", () => {
     expect(fontCall?.v).toMatch(/Comic Sans|Impact/i);
     expect(ft.strokeWidth).toBeGreaterThan(1.8);
     expect(ft.shadowBoost).toBeGreaterThan(0);
-    FloatText.setComicBookMode("none");
+    FloatText.setTextStylePreset("basic");
   });
 
   it("ramps up styling for extreme comic mode while honoring custom fonts", () => {
-    FloatText.setComicBookMode("extreme");
+    FloatText.setTextStylePreset("comic_book_extreme");
     const ft = new FloatText("Zap", 0, 0, "#fff", { fontFamily: "serif" });
 
     expect(ft.fontFamily).toBe("serif");
     expect(ft.sparkle).toBe(true);
     expect(ft.size).toBeGreaterThan(18);
 
-    FloatText.setComicBookMode("bogus");
-    expect(FloatText.comicBookMode).toBe("none");
+    FloatText.setTextStylePreset("bogus");
+    expect(FloatText.textStylePreset).toBe("basic");
+  });
+
+  it("applies custom preferences for colors, gradients, and motion", () => {
+    FloatText.setTextPreferences({
+      preset: "custom",
+      custom: {
+        fontFamily: "mono",
+        fontWeight: 500,
+        sizeScale: 1.2,
+        useGameColors: false,
+        useGameGlow: false,
+        color: "#ff0000",
+        glowColor: "#00ff00",
+        strokeColor: "#111111",
+        strokeWidth: 3,
+        shadowBoost: 5,
+        shadowOffsetY: 1,
+        wobble: 1,
+        spin: 0.2,
+        shimmer: 0.6,
+        sparkle: true,
+        useGradient: true,
+        gradientStart: "#111111",
+        gradientEnd: "#222222"
+      }
+    });
+
+    const ft = new FloatText("Glow", 0, 0, "#fff");
+    expect(ft.fontFamily).toMatch(/JetBrains Mono|Fira Code|SFMono/i);
+    expect(ft.fontWeight).toBe(500);
+    expect(ft.color).toBe("#ff0000");
+    expect(ft.glowColor).toBe("#00ff00");
+    expect(ft.strokeWidth).toBe(3);
+    expect(ft.shadowBoost).toBe(5);
+    expect(ft.palette).toEqual(["#111111", "#222222"]);
+    expect(ft.sparkle).toBe(true);
+    FloatText.setTextStylePreset("basic");
+  });
+
+  it("disables floating text when the disabled preset is selected", () => {
+    FloatText.setTextStylePreset("disabled");
+    const ft = new FloatText("Mute", 0, 0, "#fff");
+    expect(ft.life).toBe(0);
+    FloatText.setTextStylePreset("basic");
   });
 });

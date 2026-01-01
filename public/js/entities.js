@@ -1,5 +1,6 @@
 // Shared entity logic extracted from game.js for reuse and headless tests.
 import { clamp, rand } from "./util.js";
+import { DEFAULT_TEXT_STYLE_CUSTOM, normalizeTextStyleCustom, normalizeTextStylePreset } from "./settings.js";
 
 export class Pipe {
   constructor(x, y, w, h, vx, vy) {
@@ -252,27 +253,54 @@ export class Part {
 
 const FLOAT_TEXT_FONT_STACK = "system-ui,-apple-system,Segoe UI,Roboto,sans-serif";
 const COMIC_TEXT_FONT_STACK = "'Bangers','Comic Sans MS','Impact','Arial Black',system-ui,-apple-system,Segoe UI,Roboto,sans-serif";
-const COMIC_TEXT_MODES = new Set(["none", "mild", "extreme"]);
+const DIGITAL_TEXT_FONT_STACK = "'Orbitron','Rajdhani','Trebuchet MS',system-ui,-apple-system,Segoe UI,Roboto,sans-serif";
+const SERIF_TEXT_FONT_STACK = "'Merriweather','Georgia','Times New Roman',serif";
+const MONO_TEXT_FONT_STACK = "'JetBrains Mono','Fira Code','SFMono-Regular',monospace";
+const TEXT_FONT_STACKS = Object.freeze({
+  system: FLOAT_TEXT_FONT_STACK,
+  comic: COMIC_TEXT_FONT_STACK,
+  digital: DIGITAL_TEXT_FONT_STACK,
+  serif: SERIF_TEXT_FONT_STACK,
+  mono: MONO_TEXT_FONT_STACK
+});
 
-function normalizeComicBookMode(mode) {
-  return COMIC_TEXT_MODES.has(mode) ? mode : "none";
+const RANDOM_TEXT_STYLE_POOL = Object.freeze([
+  "basic",
+  "comic_book_mild",
+  "comic_book_extreme",
+  "digital",
+  "clean",
+  "neon_pulse",
+  "holographic",
+  "sticker_blast"
+]);
+
+function resolveFontFamily(key) {
+  return TEXT_FONT_STACKS[key] || key || FLOAT_TEXT_FONT_STACK;
+}
+
+function pickRandomPreset() {
+  const idx = Math.floor(rand(0, RANDOM_TEXT_STYLE_POOL.length));
+  return RANDOM_TEXT_STYLE_POOL[idx] || "basic";
 }
 
 export class FloatText {
   constructor(txt, x, y, color, style = {}) {
+    const hasColor = Object.prototype.hasOwnProperty.call(style, "color");
     const hasFontFamily = Object.prototype.hasOwnProperty.call(style, "fontFamily");
     const hasFontWeight = Object.prototype.hasOwnProperty.call(style, "fontWeight");
     const hasStrokeColor = Object.prototype.hasOwnProperty.call(style, "strokeColor");
     const hasGlowColor = Object.prototype.hasOwnProperty.call(style, "glowColor");
+    const hasSize = Object.prototype.hasOwnProperty.call(style, "size");
     this.txt = txt; this.x = x; this.y = y;
     this.vx = rand(-18, 18); this.vy = rand(-90, -55);
     this.life = 0.9; this.max = 0.9;
-    this.color = color || "rgba(255,255,255,.95)";
+    this.color = hasColor ? style.color : (color || "rgba(255,255,255,.95)");
     this.palette = Array.isArray(style.palette) ? style.palette.slice(0, 4) : null;
     this.glowColor = hasGlowColor ? style.glowColor : "rgba(255,255,255,.95)";
     this.strokeColor = hasStrokeColor ? style.strokeColor : "rgba(0,0,0,.55)";
     this.strokeWidth = style.strokeWidth ?? 1.8;
-    this.size = style.size || 18;
+    this.size = hasSize ? style.size : 18;
     this.wobble = style.wobble || 0;
     this.spin = style.spin || 0;
     this.shimmer = style.shimmer || 0;
@@ -283,23 +311,33 @@ export class FloatText {
     this.fontWeight = hasFontWeight ? style.fontWeight : 900;
     this.shadowBoost = style.shadowBoost ?? 0;
     this.shadowOffsetY = style.shadowOffsetY ?? 3;
+    this._colorCustom = hasColor;
     this._fontFamilyCustom = hasFontFamily;
     this._fontWeightCustom = hasFontWeight;
     this._strokeColorCustom = hasStrokeColor;
+    this._glowColorCustom = hasGlowColor;
+    this._sizeCustom = hasSize;
 
     this.rotation = 0;
     this.phase = 0;
     this.sparkleSeed = rand(0, Math.PI * 2);
 
-    this._applyComicBookMode(style.comicBookMode ?? FloatText.comicBookMode);
+    this._applyTextPreferences({
+      preset: style.textStylePreset ?? FloatText.textStylePreset,
+      custom: style.textStyleCustom ?? FloatText.textStyleCustom
+    });
   }
-  static setComicBookMode(mode) {
-    FloatText.comicBookMode = normalizeComicBookMode(mode);
+  static setTextStylePreset(preset) {
+    FloatText.textStylePreset = normalizeTextStylePreset(preset);
   }
-  _applyComicBookMode(mode) {
-    const normalized = normalizeComicBookMode(mode);
-    if (normalized === "none") return;
-    const extreme = normalized === "extreme";
+  static setTextStyleCustom(custom) {
+    FloatText.textStyleCustom = normalizeTextStyleCustom(custom);
+  }
+  static setTextPreferences({ preset, custom } = {}) {
+    if (preset !== undefined) FloatText.textStylePreset = normalizeTextStylePreset(preset);
+    if (custom !== undefined) FloatText.textStyleCustom = normalizeTextStyleCustom(custom);
+  }
+  _applyComicBookStyle(extreme) {
     const intensity = extreme ? 1 : 0.45;
 
     if (!this._fontFamilyCustom) this.fontFamily = COMIC_TEXT_FONT_STACK;
@@ -320,6 +358,117 @@ export class FloatText {
         : ["#fff3c4", "#ffd5f0"];
     }
     if (extreme) this.sparkle = true;
+  }
+  _applyPresetStyle(preset) {
+    switch (preset) {
+      case "comic_book_mild":
+        this._applyComicBookStyle(false);
+        break;
+      case "comic_book_extreme":
+        this._applyComicBookStyle(true);
+        break;
+      case "digital":
+        if (!this._fontFamilyCustom) this.fontFamily = DIGITAL_TEXT_FONT_STACK;
+        if (!this._fontWeightCustom) this.fontWeight = 700;
+        if (!this._strokeColorCustom) this.strokeColor = "rgba(8,12,20,.8)";
+        if (!this._glowColorCustom) this.glowColor = "rgba(160,240,255,.95)";
+        this.strokeWidth = Math.max(this.strokeWidth, 2.2);
+        this.shadowBoost = Math.max(this.shadowBoost, 12);
+        this.shadowOffsetY = 0;
+        this.wobble = Math.max(this.wobble, 0.35);
+        this.shimmer = Math.max(this.shimmer, 0.5);
+        this.palette = ["#b2f5ff", "#9da7ff", "#6d7bff"];
+        break;
+      case "clean":
+        if (!this._fontFamilyCustom) this.fontFamily = FLOAT_TEXT_FONT_STACK;
+        if (!this._fontWeightCustom) this.fontWeight = 700;
+        this.strokeWidth = 0;
+        this.shadowBoost = Math.min(this.shadowBoost, 2);
+        this.shadowOffsetY = 0;
+        this.wobble = 0;
+        this.spin = 0;
+        this.shimmer = 0;
+        this.sparkle = false;
+        this.palette = null;
+        break;
+      case "neon_pulse":
+        if (!this._fontFamilyCustom) this.fontFamily = DIGITAL_TEXT_FONT_STACK;
+        if (!this._fontWeightCustom) this.fontWeight = 800;
+        if (!this._strokeColorCustom) this.strokeColor = "rgba(6,10,16,.9)";
+        if (!this._glowColorCustom) this.glowColor = "rgba(140,255,236,.95)";
+        this.strokeWidth = Math.max(this.strokeWidth, 2.8);
+        this.shadowBoost = Math.max(this.shadowBoost, 18);
+        this.shadowOffsetY = 0;
+        this.wobble = Math.max(this.wobble, 0.6);
+        this.shimmer = Math.max(this.shimmer, 0.7);
+        this.sparkle = true;
+        this.palette = ["#9cfffb", "#ff7bd4", "#7b8bff"];
+        break;
+      case "holographic":
+        if (!this._fontFamilyCustom) this.fontFamily = FLOAT_TEXT_FONT_STACK;
+        if (!this._fontWeightCustom) this.fontWeight = 850;
+        if (!this._strokeColorCustom) this.strokeColor = "rgba(255,255,255,.7)";
+        if (!this._glowColorCustom) this.glowColor = "rgba(210,255,255,.95)";
+        this.strokeWidth = Math.max(this.strokeWidth, 2.4);
+        this.shadowBoost = Math.max(this.shadowBoost, 14);
+        this.shadowOffsetY = 1;
+        this.wobble = Math.max(this.wobble, 0.8);
+        this.spin = this.spin || rand(-0.2, 0.2);
+        this.shimmer = Math.max(this.shimmer, 0.75);
+        this.sparkle = true;
+        this.palette = ["#f8bfff", "#b7f7ff", "#ffe6a6"];
+        break;
+      case "sticker_blast":
+        if (!this._fontFamilyCustom) this.fontFamily = COMIC_TEXT_FONT_STACK;
+        if (!this._fontWeightCustom) this.fontWeight = 900;
+        if (!this._strokeColorCustom) this.strokeColor = "rgba(0,0,0,.95)";
+        this.strokeWidth = Math.max(this.strokeWidth, 4.2);
+        this.shadowBoost = Math.max(this.shadowBoost, 12);
+        this.shadowOffsetY = 2;
+        this.wobble = Math.max(this.wobble, 0.4);
+        this.shimmer = Math.max(this.shimmer, 0.25);
+        this.palette = ["#fff3a6", "#ff8bd1", "#7ce9ff"];
+        break;
+      default:
+        break;
+    }
+  }
+  _applyCustomStyle(custom) {
+    const normalized = normalizeTextStyleCustom(custom || DEFAULT_TEXT_STYLE_CUSTOM);
+    this.fontFamily = resolveFontFamily(normalized.fontFamily);
+    this.fontWeight = normalized.fontWeight;
+    this.size *= normalized.sizeScale;
+    this.strokeColor = normalized.strokeColor;
+    this.strokeWidth = normalized.strokeWidth;
+    this.shadowBoost = normalized.shadowBoost;
+    this.shadowOffsetY = normalized.shadowOffsetY;
+    this.wobble = normalized.wobble;
+    this.spin = normalized.spin;
+    this.shimmer = normalized.shimmer;
+    this.sparkle = normalized.sparkle;
+
+    if (!normalized.useGameColors) {
+      this.color = normalized.color;
+      this.palette = normalized.useGradient ? [normalized.gradientStart, normalized.gradientEnd] : null;
+    }
+    if (!normalized.useGameGlow) this.glowColor = normalized.glowColor;
+  }
+  _applyTextPreferences({ preset, custom } = {}) {
+    const normalizedPreset = normalizeTextStylePreset(preset);
+    const resolvedPreset = normalizedPreset === "random" ? pickRandomPreset() : normalizedPreset;
+    this._resolvedTextPreset = resolvedPreset;
+
+    if (resolvedPreset === "disabled") {
+      this.life = 0;
+      this.max = 0;
+      return;
+    }
+    if (resolvedPreset === "custom") {
+      this._applyCustomStyle(custom);
+      return;
+    }
+    if (resolvedPreset === "basic") return;
+    this._applyPresetStyle(resolvedPreset);
   }
   update(dt) {
     this.life -= dt;
@@ -390,4 +539,5 @@ export class FloatText {
   }
 }
 
-FloatText.comicBookMode = "none";
+FloatText.textStylePreset = "basic";
+FloatText.textStyleCustom = normalizeTextStyleCustom(DEFAULT_TEXT_STYLE_CUSTOM);

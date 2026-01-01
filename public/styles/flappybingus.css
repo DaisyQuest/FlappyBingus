@@ -663,6 +663,46 @@ input[type="text"]::placeholder{color:rgba(255,255,255,.45)}
 .settings-grid .settings-utility .hint{
   color:var(--muted);
 }
+.text-custom-panel{
+  margin-top:10px;
+  padding-top:10px;
+  border-top:1px solid var(--surface-border);
+  display:flex;
+  flex-direction:column;
+  gap:10px;
+}
+.text-custom-grid{
+  display:grid;
+  grid-template-columns:repeat(auto-fit,minmax(180px,1fr));
+  gap:10px;
+}
+.text-custom-field{gap:6px}
+.text-custom-label{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:8px;
+}
+.text-custom-value{
+  font-size:12px;
+  color:var(--muted);
+  min-width:34px;
+  text-align:right;
+}
+.text-custom-toggle{
+  display:flex;
+  align-items:center;
+  gap:8px;
+  font-size:12.5px;
+  color:var(--text);
+}
+.text-color-input{
+  height:32px;
+  padding:0 4px;
+  border-radius:8px;
+  border:1px solid var(--surface-border);
+  background:rgba(8,12,20,.55);
+}
 .theme-overlay{
   position:fixed;
   inset:0;

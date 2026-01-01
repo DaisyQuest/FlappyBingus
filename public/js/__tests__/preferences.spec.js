@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { JSDOM } from "jsdom";
-import { DEFAULT_SKILL_SETTINGS } from "../settings.js";
+import { DEFAULT_SKILL_SETTINGS, DEFAULT_TEXT_STYLE_CUSTOM } from "../settings.js";
 import {
   genRandomSeed,
   readIconCookie,
@@ -65,12 +65,18 @@ describe("preferences", () => {
   });
 
   it("round-trips settings cookies through normalization", () => {
-    writeSettingsCookie({ dashBehavior: "destroy", slowFieldBehavior: "invalid", comicBookMode: "mild" });
+    writeSettingsCookie({
+      dashBehavior: "destroy",
+      slowFieldBehavior: "invalid",
+      textStylePreset: "digital",
+      textStyleCustom: { ...DEFAULT_TEXT_STYLE_CUSTOM, sparkle: true }
+    });
     const settings = readSettingsCookie();
     expect(settings).toEqual({
       ...DEFAULT_SKILL_SETTINGS,
       dashBehavior: "destroy",
-      comicBookMode: "mild"
+      textStylePreset: "digital",
+      textStyleCustom: { ...DEFAULT_TEXT_STYLE_CUSTOM, sparkle: true }
     });
   });
 

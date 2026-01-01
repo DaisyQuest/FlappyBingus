@@ -2,6 +2,7 @@
 // FILE: public/js/uiLayout.js
 // =====================
 import { DEFAULT_CONFIG } from "./config.js";
+import { TEXT_FONT_FAMILY_OPTIONS, TEXT_STYLE_PRESET_OPTIONS } from "./settings.js";
 import { OFFLINE_STATUS_TEXT, SIGNED_OUT_TEXT } from "./userStatusCopy.js";
 import { formatWorldwideRuns } from "./worldwideStats.js";
 
@@ -526,30 +527,27 @@ function createVolumeCard(doc, refs) {
   return card;
 }
 
-function createComicModeCard(doc, refs) {
+function createTextPreferencesCard(doc, refs) {
   const card = doc.createElement("div");
-  card.className = "info-card settings-secondary comic-mode-card";
+  card.className = "info-card settings-secondary text-preferences-card";
 
   const title = doc.createElement("div");
   title.className = "section-title";
-  title.textContent = "Comic Book Mode";
+  title.textContent = "Text Preferences";
 
   const field = doc.createElement("div");
   field.className = "field";
 
   const label = doc.createElement("div");
   label.className = "lbl";
-  label.textContent = "Floating text style";
+  label.textContent = "Preset";
 
   const select = createElement(doc, refs, "select", {
-    id: "comicBookModeSelect",
-    attrs: { "aria-label": "Comic Book Mode" }
+    id: "textStylePresetSelect",
+    attrs: { "aria-label": "Text style preset" }
   });
-  [
-    { value: "none", label: "NONE" },
-    { value: "mild", label: "MILD" },
-    { value: "extreme", label: "EXTREME" }
-  ].forEach(({ value, label: text }) => {
+
+  TEXT_STYLE_PRESET_OPTIONS.forEach(({ value, label: text }) => {
     const option = doc.createElement("option");
     option.value = value;
     option.textContent = text;
@@ -558,10 +556,173 @@ function createComicModeCard(doc, refs) {
 
   const hint = doc.createElement("div");
   hint.className = "hint";
-  hint.textContent = "Stylize floating text popups across the game.";
+  hint.textContent = "Tune floating text popups across the game.";
+
+  const customPanel = createElement(doc, refs, "div", {
+    id: "textCustomPanel",
+    className: "text-custom-panel"
+  });
+  customPanel.hidden = true;
+
+  const customTitle = doc.createElement("div");
+  customTitle.className = "section-title";
+  customTitle.textContent = "Custom Text Settings";
+
+  const customHint = doc.createElement("div");
+  customHint.className = "hint";
+  customHint.textContent = "Fine-tune font, color, glow, and effects when Custom is active.";
+
+  const customGrid = doc.createElement("div");
+  customGrid.className = "text-custom-grid";
+
+  const createRangeField = (labelText, input, { valueId, hintText } = {}) => {
+    const wrapper = doc.createElement("div");
+    wrapper.className = "field text-custom-field";
+
+    const labelRow = doc.createElement("div");
+    labelRow.className = "text-custom-label";
+    const lbl = doc.createElement("div");
+    lbl.className = "lbl";
+    lbl.textContent = labelText;
+    labelRow.append(lbl);
+    if (valueId) {
+      const output = createElement(doc, refs, "output", {
+        id: valueId,
+        className: "text-custom-value"
+      });
+      labelRow.append(output);
+    }
+
+    wrapper.append(labelRow, input);
+    if (hintText) {
+      const hintEl = doc.createElement("div");
+      hintEl.className = "hint";
+      hintEl.textContent = hintText;
+      wrapper.append(hintEl);
+    }
+    return wrapper;
+  };
+
+  const createToggleField = (id, labelText, hintText) => {
+    const wrapper = doc.createElement("div");
+    wrapper.className = "field text-custom-field";
+    const row = doc.createElement("div");
+    row.className = "text-custom-toggle";
+    const input = createElement(doc, refs, "input", { id, attrs: { type: "checkbox" } });
+    const labelEl = doc.createElement("label");
+    labelEl.setAttribute("for", id);
+    labelEl.textContent = labelText;
+    row.append(input, labelEl);
+    wrapper.append(row);
+    if (hintText) {
+      const hintEl = doc.createElement("div");
+      hintEl.className = "hint";
+      hintEl.textContent = hintText;
+      wrapper.append(hintEl);
+    }
+    return { wrapper, input };
+  };
+
+  const fontSelect = createElement(doc, refs, "select", {
+    id: "textFontFamily",
+    attrs: { "aria-label": "Text font family" }
+  });
+  TEXT_FONT_FAMILY_OPTIONS.forEach(({ value, label: text }) => {
+    const option = doc.createElement("option");
+    option.value = value;
+    option.textContent = text;
+    fontSelect.append(option);
+  });
+
+  const fontWeight = createElement(doc, refs, "input", {
+    id: "textFontWeight",
+    attrs: { type: "range", min: "400", max: "950", step: "50", "aria-label": "Font weight" }
+  });
+  const sizeScale = createElement(doc, refs, "input", {
+    id: "textSizeScale",
+    attrs: { type: "range", min: "0.7", max: "1.6", step: "0.05", "aria-label": "Text size scale" }
+  });
+
+  const useGameColors = createToggleField("textUseGameColors", "Use game colors");
+  const textColor = createElement(doc, refs, "input", {
+    id: "textColor",
+    className: "text-color-input",
+    attrs: { type: "color", "aria-label": "Text color" }
+  });
+  const useGameGlow = createToggleField("textUseGameGlow", "Use game glow");
+  const glowColor = createElement(doc, refs, "input", {
+    id: "textGlowColor",
+    className: "text-color-input",
+    attrs: { type: "color", "aria-label": "Glow color" }
+  });
+
+  const strokeColor = createElement(doc, refs, "input", {
+    id: "textStrokeColor",
+    className: "text-color-input",
+    attrs: { type: "color", "aria-label": "Stroke color" }
+  });
+  const strokeWidth = createElement(doc, refs, "input", {
+    id: "textStrokeWidth",
+    attrs: { type: "range", min: "0", max: "6", step: "0.2", "aria-label": "Stroke width" }
+  });
+  const shadowBoost = createElement(doc, refs, "input", {
+    id: "textShadowBoost",
+    attrs: { type: "range", min: "-10", max: "30", step: "1", "aria-label": "Shadow strength" }
+  });
+  const shadowOffset = createElement(doc, refs, "input", {
+    id: "textShadowOffsetY",
+    attrs: { type: "range", min: "-6", max: "12", step: "1", "aria-label": "Shadow offset" }
+  });
+  const wobble = createElement(doc, refs, "input", {
+    id: "textWobble",
+    attrs: { type: "range", min: "0", max: "6", step: "0.1", "aria-label": "Wobble amount" }
+  });
+  const spin = createElement(doc, refs, "input", {
+    id: "textSpin",
+    attrs: { type: "range", min: "-1", max: "1", step: "0.05", "aria-label": "Spin speed" }
+  });
+  const shimmer = createElement(doc, refs, "input", {
+    id: "textShimmer",
+    attrs: { type: "range", min: "0", max: "1", step: "0.05", "aria-label": "Shimmer intensity" }
+  });
+  const sparkle = createToggleField("textSparkle", "Enable sparkles");
+  const useGradient = createToggleField("textUseGradient", "Use gradient");
+  const gradientStart = createElement(doc, refs, "input", {
+    id: "textGradientStart",
+    className: "text-color-input",
+    attrs: { type: "color", "aria-label": "Gradient start color" }
+  });
+  const gradientEnd = createElement(doc, refs, "input", {
+    id: "textGradientEnd",
+    className: "text-color-input",
+    attrs: { type: "color", "aria-label": "Gradient end color" }
+  });
+
+  customGrid.append(
+    createRangeField("Font Family", fontSelect),
+    createRangeField("Font Weight", fontWeight, { valueId: "textFontWeightValue" }),
+    createRangeField("Size Scale", sizeScale, { valueId: "textSizeScaleValue" }),
+    useGameColors.wrapper,
+    createRangeField("Text Color", textColor),
+    useGameGlow.wrapper,
+    createRangeField("Glow Color", glowColor),
+    createRangeField("Stroke Color", strokeColor),
+    createRangeField("Stroke Width", strokeWidth, { valueId: "textStrokeWidthValue" }),
+    createRangeField("Shadow Boost", shadowBoost, { valueId: "textShadowBoostValue" }),
+    createRangeField("Shadow Offset Y", shadowOffset, { valueId: "textShadowOffsetYValue" }),
+    createRangeField("Wobble", wobble, { valueId: "textWobbleValue" }),
+    createRangeField("Spin", spin, { valueId: "textSpinValue" }),
+    createRangeField("Shimmer", shimmer, { valueId: "textShimmerValue" }),
+    sparkle.wrapper,
+    useGradient.wrapper,
+    createRangeField("Gradient Start", gradientStart),
+    createRangeField("Gradient End", gradientEnd)
+  );
+
+  customPanel.append(customTitle, customHint, customGrid);
 
   field.append(label, select, hint);
-  card.append(title, field);
+  card.append(title, field, customPanel);
   return card;
 }
 
@@ -1406,7 +1567,7 @@ function createMenuScreen(doc, refs) {
     createSkillSettingsCard(doc, refs),
     createBindCard(doc, refs),
     createVolumeCard(doc, refs),
-    createComicModeCard(doc, refs),
+    createTextPreferencesCard(doc, refs),
     createSeedCard(doc, refs),
     createStatusCard(doc, refs)
   );
