@@ -149,7 +149,7 @@ export function createReplayManager({
 
   const isReplaying = () => replaying;
 
-  const play = async ({ captureMode = "none", run = activeRun } = {}) => {
+  const play = async ({ captureMode = "none", run = activeRun, playbackMode = "realtime" } = {}) => {
     stopMusic?.();
 
     if (!hasReplayData(run)) {
@@ -195,11 +195,21 @@ export function createReplayManager({
         }));
       }
 
-      const canUseRealtime = captureMode === "none"
+      const isCapture = captureMode !== "none";
+      const canUseRealtime = !isCapture
         && (typeof requestFrame === "function" || typeof requestAnimationFrame === "function");
-      const playbackFn = (captureMode === "none" && !canUseRealtime)
-        ? playbackTicksDeterministic
-        : playbackTicks;
+      const wantsDeterministic = !isCapture && playbackMode === "deterministic";
+      const playbackFn = isCapture
+        ? playbackTicks
+        : (wantsDeterministic
+          ? playbackTicksDeterministic
+          : (canUseRealtime ? playbackTicks : playbackTicksDeterministic));
+      const yieldBetweenRenders = wantsDeterministic && canUseRealtime
+        ? () => new Promise((resolve) => {
+          const raf = requestFrame || requestAnimationFrame;
+          raf(resolve);
+        })
+        : null;
 
       if (typeof playbackFn === "function") {
         await playbackFn({
@@ -207,10 +217,11 @@ export function createReplayManager({
           game,
           replayInput,
           captureMode,
-          playbackMode: canUseRealtime ? "realtime" : "deterministic",
+          playbackMode: wantsDeterministic ? "deterministic" : "realtime",
           simDt,
           requestFrame,
-          step
+          step,
+          yieldBetweenRenders
         });
       }
 

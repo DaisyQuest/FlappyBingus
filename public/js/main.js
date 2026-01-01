@@ -727,7 +727,11 @@ async function handlePlayHighscore(username) {
       return;
     }
 
-    const played = await replayManager.play({ captureMode: "none", run: playbackRun });
+    const played = await replayManager.play({
+      captureMode: "none",
+      run: playbackRun,
+      playbackMode: "deterministic"
+    });
     if (played) {
       updateReplayModal({
         title: modalTitle,

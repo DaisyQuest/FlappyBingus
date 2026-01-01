@@ -111,10 +111,10 @@ describe("replayManager", () => {
     const tapePlayer = vi.fn(() => "tape");
     const seededRand = vi.fn(() => "seeded");
 
-    const playbackTicks = vi.fn();
-    const playbackTicksDeterministic = vi.fn(({ game: playbackGame, replayInput }) => {
+    const playbackTicks = vi.fn(({ game: playbackGame, replayInput }) => {
       expect(playbackGame.input).toBe(replayInput);
     });
+    const playbackTicksDeterministic = vi.fn();
     const requestFrame = vi.fn((cb) => cb(0));
 
     const manager = createReplayManager({
@@ -238,7 +238,9 @@ describe("replayManager", () => {
   it("falls back to deterministic playback when requestFrame is unavailable", async () => {
     const game = { input: { name: "real" }, startRun: vi.fn() };
     const playbackTicks = vi.fn();
-    const playbackTicksDeterministic = vi.fn();
+    const playbackTicksDeterministic = vi.fn(({ yieldBetweenRenders }) => {
+      expect(yieldBetweenRenders).toBeNull();
+    });
     const originalRaf = global.requestAnimationFrame;
     global.requestAnimationFrame = undefined;
 
@@ -259,5 +261,32 @@ describe("replayManager", () => {
     expect(playbackTicksDeterministic).toHaveBeenCalled();
     expect(playbackTicks).not.toHaveBeenCalled();
     global.requestAnimationFrame = originalRaf;
+  });
+
+  it("uses deterministic playback when requested and paces with requestFrame", async () => {
+    const game = { input: { name: "real" }, startRun: vi.fn() };
+    const playbackTicks = vi.fn();
+    const playbackTicksDeterministic = vi.fn(({ yieldBetweenRenders, playbackMode }) => {
+      expect(playbackMode).toBe("deterministic");
+      expect(typeof yieldBetweenRenders).toBe("function");
+    });
+    const requestFrame = vi.fn((cb) => cb(0));
+
+    const manager = createReplayManager({
+      game,
+      playbackTicks,
+      playbackTicksDeterministic,
+      simDt: 1 / 120,
+      requestFrame
+    });
+
+    manager.startRecording("seed");
+    manager.recordTick({ move: { dx: 1, dy: 1 }, cursor: { x: 0, y: 0 } }, []);
+    manager.markEnded();
+
+    await manager.play({ captureMode: "none", playbackMode: "deterministic" });
+
+    expect(playbackTicksDeterministic).toHaveBeenCalled();
+    expect(playbackTicks).not.toHaveBeenCalled();
   });
 });
