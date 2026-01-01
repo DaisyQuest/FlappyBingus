@@ -98,8 +98,13 @@ describe("uiLayout", () => {
     expect(ui.pipeTextureHint?.textContent).toContain("Unlock pipe textures");
     const settingsCallout = howtoCard?.querySelector(".settings-callout");
     expect(settingsCallout?.textContent).toContain("Change skill behaviors and key bindings");
+    const settingsAction = howtoCard?.querySelector(".card-actions .card-nav[for='viewSettings']");
+    const settingsActions = settingsCallout?.parentElement;
+    expect(settingsActions?.classList.contains("callout-stack")).toBe(true);
+    expect(settingsActions?.firstElementChild).toBe(settingsAction);
+    expect(settingsActions?.lastElementChild).toBe(settingsCallout);
     const themeCallout = mount.querySelector(".theme-callout");
-    expect(themeCallout?.textContent).toContain("Change pipe colors and menu theme");
+    expect(themeCallout?.textContent).toContain("↘ Change pipe colors and menu theme");
   });
 
   it("moves Settings and Achievements navigation into the primary cards", () => {
@@ -123,6 +128,19 @@ describe("uiLayout", () => {
 
     settingsNav?.dispatchEvent(new window.KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
     expect(settingsRadio?.checked).toBe(true);
+  });
+
+  it("renders floating callouts without bubble styling", () => {
+    buildGameUI({ document, mount });
+    applyStyles(document);
+
+    const settingsCallout = mount.querySelector(".settings-callout");
+    const themeCallout = mount.querySelector(".theme-callout");
+    const settingsStyle = window.getComputedStyle(settingsCallout);
+    const themeStyle = window.getComputedStyle(themeCallout);
+
+    expect(settingsStyle.whiteSpace).toBe("nowrap");
+    expect(themeStyle.whiteSpace).toBe("nowrap");
   });
 
   it("renders all expected controls needed by main.js wiring", () => {
