@@ -6,6 +6,7 @@ class FakeBestRunsCollection {
     this.doc = doc;
     this.lastUpdate = null;
     this.lastFind = null;
+    this.finds = [];
     this.updateOne = vi.fn(async (query, update) => {
       this.lastUpdate = { query, update };
       this.doc = { ...(this.doc || {}), ...(update.$set || {}) };
@@ -15,7 +16,11 @@ class FakeBestRunsCollection {
 
   async findOne(query) {
     this.lastFind = query;
-    return this.doc ? { ...this.doc } : null;
+    this.finds.push(query);
+    if (!this.doc) return null;
+    const entries = Object.entries(query || {});
+    const matches = entries.every(([key, value]) => this.doc?.[key] === value);
+    return matches ? { ...this.doc } : null;
   }
 }
 
@@ -126,7 +131,7 @@ describe("MongoDataStore.recordBestRun", () => {
 
   it("retrieves a stored best run by username", async () => {
     const existing = {
-      key: "user-key",
+      key: "user",
       username: "User",
       bestScore: 80,
       replayJson: "{}"
@@ -138,6 +143,23 @@ describe("MongoDataStore.recordBestRun", () => {
 
     const found = await store.getBestRunByUsername("User");
     expect(found).toMatchObject(existing);
+    expect(collection.finds).toEqual([{ key: "user" }]);
+  });
+
+  it("falls back to username lookup when the key search misses", async () => {
+    const existing = {
+      username: "User",
+      bestScore: 80,
+      replayJson: "{}"
+    };
+    const store = new MongoDataStore({ uri: "mongodb://test", dbName: "db" });
+    store.ensureConnected = vi.fn();
+    const collection = new FakeBestRunsCollection(existing);
+    store.bestRunsCollection = () => collection;
+
+    const found = await store.getBestRunByUsername("User");
+    expect(found).toMatchObject(existing);
+    expect(collection.finds).toEqual([{ key: "user" }, { username: "User" }]);
   });
 
   it("returns null when no stored best run exists", async () => {
