@@ -253,6 +253,15 @@ function runLiveGame({ totalTicks, seed, playerImg }) {
         manager.queueAction(action);
       }
 
+      if (actionsForTick.length) {
+        const lastActionCursor = [...actionsForTick].reverse().find((action) => action?.cursor)?.cursor;
+        if (lastActionCursor) {
+          input.cursor.x = lastActionCursor.x;
+          input.cursor.y = lastActionCursor.y;
+          input.cursor.has = !!lastActionCursor.has;
+        }
+      }
+
       const snap = input.snapshot();
       const actions = manager.drainPendingActions();
 

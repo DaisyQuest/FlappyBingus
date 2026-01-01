@@ -20,7 +20,8 @@ function applyReplayTick({ tick, game, replayInput, simDt, step }) {
   const tk = tick || {};
 
   replayInput._move = tk.move || { dx: 0, dy: 0 };
-  if (tk.cursor && typeof tk.cursor === "object") {
+  const hasTickCursor = !!(tk.cursor && typeof tk.cursor === "object");
+  if (hasTickCursor) {
     const nextX = tk.cursor.x;
     const nextY = tk.cursor.y;
     if (Number.isFinite(nextX)) replayInput.cursor.x = nextX;
@@ -32,6 +33,14 @@ function applyReplayTick({ tick, game, replayInput, simDt, step }) {
   const actions = normalizeActions(tk.actions);
   if (typeof step === "function") {
     step(simDt, actions);
+    if (!hasTickCursor) {
+      const lastActionCursor = [...actions].reverse().find((action) => action?.cursor)?.cursor;
+      if (lastActionCursor) {
+        replayInput.cursor.x = Number.isFinite(lastActionCursor.x) ? lastActionCursor.x : replayInput.cursor.x;
+        replayInput.cursor.y = Number.isFinite(lastActionCursor.y) ? lastActionCursor.y : replayInput.cursor.y;
+        if ("has" in lastActionCursor) replayInput.cursor.has = !!lastActionCursor.has;
+      }
+    }
     return;
   }
 
@@ -42,9 +51,15 @@ function applyReplayTick({ tick, game, replayInput, simDt, step }) {
       replayInput.cursor.has = !!a.cursor.has;
     }
     game.handleAction(a.id);
-    replayInput.cursor.x = baseCursor.x;
-    replayInput.cursor.y = baseCursor.y;
-    replayInput.cursor.has = baseCursor.has;
+    if (hasTickCursor) {
+      replayInput.cursor.x = baseCursor.x;
+      replayInput.cursor.y = baseCursor.y;
+      replayInput.cursor.has = baseCursor.has;
+    } else if (a.cursor) {
+      baseCursor.x = replayInput.cursor.x;
+      baseCursor.y = replayInput.cursor.y;
+      baseCursor.has = replayInput.cursor.has;
+    }
   }
 
   game.update(simDt);

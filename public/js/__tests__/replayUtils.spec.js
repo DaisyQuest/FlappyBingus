@@ -118,7 +118,7 @@ describe("playbackTicks", () => {
     const replayInput = makeReplayInput();
     const ticks = [{
       actions: [{ id: "a1" }, { action: "a2" }, "a3", { id: null }, null]
-    }, { actions: [{ id: "a4" }] }];
+    }, { actions: [{ id: "a4", cursor: { x: 9, y: 12, has: true } }] }];
     const step = vi.fn();
 
     const ts = [0, 16, 32, 48];
@@ -132,9 +132,10 @@ describe("playbackTicks", () => {
       { id: "a2", cursor: undefined },
       { id: "a3", cursor: undefined }
     ]);
-    expect(step).toHaveBeenNthCalledWith(2, SIM_DT, [{ id: "a4", cursor: undefined }]);
+    expect(step).toHaveBeenNthCalledWith(2, SIM_DT, [{ id: "a4", cursor: { x: 9, y: 12, has: true } }]);
     expect(game.update).not.toHaveBeenCalled();
     expect(game.handleAction).not.toHaveBeenCalled();
+    expect(replayInput.cursor).toEqual({ x: 9, y: 12, has: true });
   });
 
   it("applies action cursor updates before handling each action", async () => {
@@ -172,7 +173,7 @@ describe("playbackTicks", () => {
     const game = {
       state: 1,
       update: vi.fn(function () {
-        expect(replayInput.cursor).toEqual({ x: 5, y: 6, has: true });
+        expect(replayInput.cursor).toEqual({ x: 30, y: 40, has: false });
       }),
       render: vi.fn(),
       handleAction: vi.fn()
@@ -190,7 +191,7 @@ describe("playbackTicks", () => {
 
     expect(game.handleAction).toHaveBeenCalledTimes(2);
     expect(game.update).toHaveBeenCalledTimes(1);
-    expect(replayInput.cursor).toEqual({ x: 5, y: 6, has: true });
+    expect(replayInput.cursor).toEqual({ x: 30, y: 40, has: false });
   });
 
   it("updates the cursor from legacy tick data when present", async () => {
@@ -203,6 +204,21 @@ describe("playbackTicks", () => {
     await playbackTicks({ ticks, game, replayInput, captureMode: "webm", simDt: SIM_DT, requestFrame: raf });
 
     expect(replayInput.cursor).toEqual({ x: 12, y: 24, has: true });
+  });
+
+  it("restores legacy tick cursor after action cursor overrides", async () => {
+    const replayInput = makeReplayInput();
+    const game = makeGame();
+    const ticks = [{
+      cursor: { x: 4, y: 8, has: true },
+      actions: [{ id: "teleport", cursor: { x: 20, y: 30, has: true } }]
+    }];
+    const ts = [0, 16];
+    const raf = makeRaf(ts);
+
+    await playbackTicks({ ticks, game, replayInput, captureMode: "webm", simDt: SIM_DT, requestFrame: raf });
+
+    expect(replayInput.cursor).toEqual({ x: 4, y: 8, has: true });
   });
 
   it("normalizes action ids before calling game.handleAction", async () => {
@@ -369,7 +385,11 @@ describe("playbackTicks", () => {
     expect(game.actions[game.actions.length - 2]).toBe(`boost-${(totalTicks - 1) % 4}`);
     expect(game.actions[game.actions.length - 1]).toBe(`dash-${(totalTicks - 1) % 3}`);
     expect(replayInput._move).toEqual(lastTick.move);
-    expect(replayInput.cursor).toEqual({ x: 0, y: 0, has: false });
+    expect(replayInput.cursor).toEqual({
+      x: (totalTicks - 1) * 5 % 300,
+      y: (totalTicks - 1) * 7 % 300,
+      has: (totalTicks - 1) % 3 === 0
+    });
   });
 
   it("matches capture-mode outcomes when replaying in realtime", async () => {
