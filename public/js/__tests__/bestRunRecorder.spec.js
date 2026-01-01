@@ -76,26 +76,12 @@ describe("buildReplayEnvelope", () => {
     expect(actions[2].cursor).toEqual({ x: 5, y: 6, has: false });
   });
 
-  it("retains legacy tick cursor data when present", () => {
-    const run = baseRun();
-    run.ticks = [
-      {
-        move: { dx: 0.25, dy: -0.25 },
-        cursor: { x: 11.5, y: 22.75, has: true },
-        actions: []
-      }
-    ];
-
-    const envelope = buildReplayEnvelope(run, { finalScore: 4 });
-
-    expect(envelope.ticks[0].cursor).toEqual({ x: 11.5, y: 22.75, has: true });
-  });
-
   it("falls back to zeros when replay inputs are non-numeric", () => {
     const run = baseRun();
     run.ticks = [
       {
         move: { dx: "nope", dy: NaN },
+        cursor: { x: undefined, y: Infinity, has: false },
         actions: [{ id: "dash", cursor: { x: null, y: "bad", has: true } }]
       }
     ];

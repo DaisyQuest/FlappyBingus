@@ -61,10 +61,10 @@ describe("playbackTicks", () => {
     const game = makeGame();
     const replayInput = makeReplayInput();
     const ticks = [
-      { move: { dx: 1, dy: 2 }, actions: [{ id: "a1" }] },
-      { move: { dx: 5, dy: 6 }, actions: [{ id: "a2" }] },
+      { move: { dx: 1, dy: 2 }, actions: [{ id: "a1", cursor: { x: 2, y: 3, has: true } }] },
+      { move: { dx: 5, dy: 6 }, actions: [{ id: "a2", cursor: { x: 4, y: 5, has: false } }] },
       { move: { dx: 9, dy: 10 }, actions: [{ id: "a3" }] },
-      { move: { dx: 13, dy: 14 }, actions: [{ id: "a4" }] }
+      { move: { dx: 13, dy: 14 }, actions: [{ id: "a4", cursor: { x: 7, y: 8, has: true } }] }
     ];
 
     // Five animation frames at 60fps, expect all ticks to complete
@@ -76,7 +76,7 @@ describe("playbackTicks", () => {
     expect(game.update).toHaveBeenCalledTimes(4);
     expect(game.render).toHaveBeenCalledTimes(4);
     expect(game.actions).toEqual(["a1", "a2", "a3", "a4"]);
-    expect(replayInput.cursor).toEqual({ x: 0, y: 0, has: false });
+    expect(replayInput.cursor).toEqual({ x: 7, y: 8, has: true });
     expect(replayInput._move).toEqual({ dx: 13, dy: 14 });
   });
 
@@ -194,31 +194,17 @@ describe("playbackTicks", () => {
     expect(replayInput.cursor).toEqual({ x: 30, y: 40, has: false });
   });
 
-  it("updates the cursor from legacy tick data when present", async () => {
+  it("ignores legacy tick cursor data during playback", async () => {
     const replayInput = makeReplayInput();
+    replayInput.cursor = { x: 6, y: 9, has: true };
     const game = makeGame();
-    const ticks = [{ cursor: { x: 12, y: 24, has: true }, actions: [] }];
+    const ticks = [{ cursor: { x: 12, y: 24, has: false }, actions: [] }];
     const ts = [0, 16];
     const raf = makeRaf(ts);
 
     await playbackTicks({ ticks, game, replayInput, captureMode: "webm", simDt: SIM_DT, requestFrame: raf });
 
-    expect(replayInput.cursor).toEqual({ x: 12, y: 24, has: true });
-  });
-
-  it("restores legacy tick cursor after action cursor overrides", async () => {
-    const replayInput = makeReplayInput();
-    const game = makeGame();
-    const ticks = [{
-      cursor: { x: 4, y: 8, has: true },
-      actions: [{ id: "teleport", cursor: { x: 20, y: 30, has: true } }]
-    }];
-    const ts = [0, 16];
-    const raf = makeRaf(ts);
-
-    await playbackTicks({ ticks, game, replayInput, captureMode: "webm", simDt: SIM_DT, requestFrame: raf });
-
-    expect(replayInput.cursor).toEqual({ x: 4, y: 8, has: true });
+    expect(replayInput.cursor).toEqual({ x: 6, y: 9, has: true });
   });
 
   it("normalizes action ids before calling game.handleAction", async () => {
@@ -370,7 +356,7 @@ describe("playbackTicks", () => {
       requestFrame: raf
     });
 
-    const tickStep = Math.max(SIM_DT, 1 / (__testables.REPLAY_TPS * 2));
+    const tickStep = SIM_DT;
     const firstFrameDt = Math.min(__testables.MAX_FRAME_DT, 1 / __testables.REPLAY_TARGET_FPS);
     const ticksFirstFrame = Math.floor((firstFrameDt + 1e-9) / tickStep);
     const ticksPerFrame = Math.floor((__testables.MAX_FRAME_DT + 1e-9) / tickStep);
