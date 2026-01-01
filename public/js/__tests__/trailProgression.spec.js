@@ -26,6 +26,20 @@ describe("trailProgression helpers", () => {
     expect(unlocked).toContain("world_record");
   });
 
+  it("unlocks purchasable trails only after they are owned", () => {
+    const trails = [
+      { id: "classic", achievementId: "a", alwaysUnlocked: true },
+      { id: "starlight_pop", unlock: { type: "purchase", cost: 100 } }
+    ];
+
+    const locked = getUnlockedTrails(trails, null, { ownedIds: [] });
+    expect(locked).toContain("classic");
+    expect(locked).not.toContain("starlight_pop");
+
+    const unlocked = getUnlockedTrails(trails, null, { ownedIds: ["starlight_pop"] });
+    expect(unlocked).toContain("starlight_pop");
+  });
+
   it("keeps classic available even without achievements", () => {
     const unlocked = getUnlockedTrails(DEFAULT_TRAILS, null, { isRecordHolder: false });
     expect(unlocked).toContain("classic");
@@ -39,7 +53,8 @@ describe("trailProgression helpers", () => {
       }, {})
     };
 
-    const unlocked = getUnlockedTrails(DEFAULT_TRAILS, achievements, { isRecordHolder: true });
+    const ownedIds = DEFAULT_TRAILS.filter((trail) => trail.unlock?.type === "purchase").map((trail) => trail.id);
+    const unlocked = getUnlockedTrails(DEFAULT_TRAILS, achievements, { isRecordHolder: true, ownedIds });
     expect(new Set(unlocked)).toEqual(new Set(DEFAULT_TRAILS.map((t) => t.id)));
   });
 

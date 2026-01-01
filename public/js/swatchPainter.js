@@ -42,6 +42,11 @@ export function paintIconCanvas(canvas, icon, { sprite = null, size = 96 } = {})
   if (canvas.height !== height) canvas.height = height;
   ctx.clearRect?.(0, 0, width, height);
   ctx.drawImage(target, 0, 0, width, height);
+  if (target.__image && !target.__image.complete) {
+    target.__image.addEventListener?.("load", () => {
+      paintIconCanvas(canvas, icon, { sprite: target, size });
+    }, { once: true });
+  }
   return { width, height };
 }
 

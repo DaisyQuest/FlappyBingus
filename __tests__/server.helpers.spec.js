@@ -119,6 +119,24 @@ describe("server helpers (trails)", () => {
     expect(unlocked).not.toContain("honeycomb");
   });
 
+  it("locks purchasable trails until the user owns them", () => {
+    const u = { ...baseUser(), selectedTrail: "starlight_pop", ownedUnlockables: [] };
+    server.ensureUserSchema(u, { recordHolder: false });
+    expect(u.selectedTrail).toBe("classic");
+
+    const locked = server.unlockedTrails(
+      { achievements: u.achievements, bestScore: u.bestScore, ownedIds: [] },
+      { recordHolder: false }
+    );
+    expect(locked).not.toContain("starlight_pop");
+
+    const unlocked = server.unlockedTrails(
+      { achievements: u.achievements, bestScore: u.bestScore, ownedIds: ["starlight_pop"] },
+      { recordHolder: false }
+    );
+    expect(unlocked).toContain("starlight_pop");
+  });
+
   it("normalizes invalid binds/settings and clamps counters", () => {
     const u = {
       username: "champ",

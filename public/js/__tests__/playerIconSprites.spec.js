@@ -44,6 +44,65 @@ describe("player icon sprites", () => {
     expect(sprite.naturalWidth).toBe(32);
   });
 
+  it("draws image-based icons when a sprite source is provided", () => {
+    const drawImage = vi.fn();
+    const ctx = {
+      save: () => {},
+      restore: () => {},
+      translate: () => {},
+      beginPath: () => {},
+      arc: () => {},
+      clip: () => {},
+      fill: () => {},
+      stroke: () => {},
+      clearRect: () => {},
+      drawImage,
+      set lineWidth(v) { this._lineWidth = v; },
+      set strokeStyle(v) { this._strokeStyle = v; },
+      set shadowColor(v) { this._shadowColor = v; },
+      set shadowBlur(v) { this._shadowBlur = v; }
+    };
+    const canvas = {
+      width: 64,
+      height: 64,
+      naturalWidth: 64,
+      naturalHeight: 64,
+      complete: true,
+      getContext: () => ctx
+    };
+    global.document = {
+      createElement: (tag) => (tag === "canvas" ? canvas : {})
+    };
+    const prevImage = global.Image;
+    class MockImage {
+      constructor() {
+        this.complete = false;
+        this.width = 32;
+        this.height = 32;
+        this.naturalWidth = 32;
+        this.naturalHeight = 32;
+        this._listeners = {};
+      }
+      addEventListener(event, cb) {
+        this._listeners[event] = cb;
+      }
+      set src(value) {
+        this._src = value;
+        this.complete = true;
+        this._listeners.load?.();
+      }
+    }
+    global.Image = MockImage;
+
+    try {
+      const sprite = createPlayerIconSprite({ imageSrc: "/file.png", style: { fill: "#000" } }, { size: 64 });
+      expect(sprite.__image).toBeInstanceOf(MockImage);
+      expect(drawImage).toHaveBeenCalled();
+    } finally {
+      global.Image = prevImage;
+    }
+  });
+
   it("applies a zigzag pattern when defined", () => {
     const calls = [];
     const ctx = {

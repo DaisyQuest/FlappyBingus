@@ -63,6 +63,8 @@ const emberSpark = () => "rgba(255,124,92,.92)";
 const lightningColor = ({ rand: r }) => hsla((205 + r(-12, 20)) % 360, 100, 82, 0.92);
 const petalColor = ({ rand: r, i }) =>
   hsla((332 + r(-10, 10) + i * 1.8) % 360, 80, 86, 0.9);
+const starlightColor = ({ hue, rand: r, i }) =>
+  hsla((hue * 0.5 + 210 + r(-30, 30) + i * 2.4) % 360, 92, 82, 0.86);
 
 const TRAIL_STYLES = Object.freeze({
   classic: {
@@ -284,6 +286,35 @@ const TRAIL_STYLES = Object.freeze({
     sparkle: { ...sparkleDefaults, rate: 32, size: [1.3, 2.8], color: lemonGlow },
     glint: { ...glintDefaults, rate: 26, size: [1.8, 3.6], speed: [44, 130], color: ({ rand: r }) => hsla(52 + r(-8, 10), 92, 78, 0.88) },
     aura: { rate: 14, size: [4.4, 8.0], life: [0.52, 0.82], color: ({ rand: r }) => hsla(56 + r(-8, 8), 86, 72, 0.32) }
+  },
+  starlight_pop: {
+    rate: 76,
+    life: [0.14, 0.26],
+    size: [2.6, 5.2],
+    speed: [34, 140],
+    drag: 12.4,
+    add: true,
+    color: starlightColor,
+    particleShape: "star",
+    sparkle: {
+      ...sparkleDefaults,
+      rate: 64,
+      life: [0.12, 0.22],
+      size: [1.2, 2.6],
+      speed: [28, 92],
+      color: ({ hue, rand: r }) => hsla((hue + r(0, 120)) % 360, 100, 86, 0.9),
+      particleShape: "star"
+    },
+    glint: {
+      ...glintDefaults,
+      rate: 46,
+      life: [0.16, 0.28],
+      size: [1.6, 3.4],
+      speed: [52, 150],
+      color: ({ hue, rand: r }) => hsla((hue + r(-10, 40)) % 360, 96, 80, 0.88),
+      particleShape: "star"
+    },
+    aura: { rate: 18, size: [3.6, 6.8], life: [0.38, 0.6], color: ({ hue, rand: r }) => hsla((hue + r(-18, 18)) % 360, 80, 78, 0.35) }
   },
   dragonfire: {
     rate: 122,

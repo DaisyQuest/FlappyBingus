@@ -20,6 +20,7 @@ export const DEFAULT_TRAILS = Object.freeze([
   { id: "nebula", name: "Starfall Drift", minScore: 2350, achievementId: "trail_nebula_2350" },
   { id: "honeycomb", name: "Honeycomb Drift", achievementId: "pipes_broken_explosion_10" },
   { id: "lemon_slice", name: "Lemon Slice", achievementId: "run_time_60" },
+  { id: "starlight_pop", name: "Starlight Pop", unlock: { type: "purchase", cost: 100 } },
   { id: "dragonfire", name: "Dragonfire", minScore: 2600, achievementId: "trail_dragonfire_2600" },
   { id: "ultraviolet", name: "Ultraviolet Pulse", minScore: 2800, achievementId: "trail_ultraviolet_2800" },
   { id: "world_record", name: "World Record Cherry Blossom", minScore: 3000, achievementId: "trail_world_record_3000", requiresRecordHolder: true }
@@ -31,16 +32,25 @@ export function normalizeTrails(list, { allowEmpty = false } = {}) {
   return list;
 }
 
-export function getUnlockedTrails(trails, achievements, { isRecordHolder = false } = {}) {
+export function getUnlockedTrails(trails, achievements, { isRecordHolder = false, ownedIds = [] } = {}) {
   const defs = Array.isArray(trails) ? trails : DEFAULT_TRAILS;
   const unlockedAchievements = achievements?.unlocked && typeof achievements.unlocked === "object"
     ? achievements.unlocked
     : {};
+  const owned = new Set(
+    Array.isArray(ownedIds)
+      ? ownedIds.map((id) => (typeof id === "string" ? id : null)).filter(Boolean)
+      : []
+  );
 
   return defs
     .filter((t) => {
+      if (t.unlock?.type === "purchase") return owned.has(t.unlock.id || t.id);
+      if (t.unlock?.type === "free") return true;
+      if (t.unlock?.type === "record") return isRecordHolder;
       if (t.alwaysUnlocked) return true;
       if (t.requiresRecordHolder && !isRecordHolder) return false;
+      if (t.unlock?.type === "achievement") return Boolean(unlockedAchievements[t.unlock.id]);
       const required = t.achievementId;
       return required ? Boolean(unlockedAchievements[required]) : false;
     })
