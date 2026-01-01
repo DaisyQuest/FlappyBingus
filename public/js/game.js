@@ -128,7 +128,7 @@ export class Game {
     this.lastSlowBlast = null;
 
     this.cds = { dash: 0, phase: 0, teleport: 0, slowField: 0 };
-    this.skillSettings = normalizeSkillSettings(DEFAULT_SKILL_SETTINGS);
+    this.setSkillSettings(DEFAULT_SKILL_SETTINGS);
 
     // trail emission
     this.trailAcc = 0;
@@ -157,6 +157,7 @@ export class Game {
 
   setSkillSettings(settings) {
     this.skillSettings = normalizeSkillSettings(settings || DEFAULT_SKILL_SETTINGS);
+    FloatText.setComicBookMode(this.skillSettings.comicBookMode);
   }
 
   setPlayerImage(playerImg) {

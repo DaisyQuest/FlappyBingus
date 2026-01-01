@@ -212,6 +212,7 @@ const {
   teleportBehaviorOptions,
   invulnBehaviorOptions,
   slowFieldBehaviorOptions,
+  comicBookModeSelect,
   hsWrap,
   pbText,
   trailText,
@@ -1406,6 +1407,7 @@ function applySkillSettingsToUI(settings = skillSettings) {
   markSkillOptionSelection(teleportBehaviorOptions, normalized.teleportBehavior);
   markSkillOptionSelection(invulnBehaviorOptions, normalized.invulnBehavior);
   markSkillOptionSelection(slowFieldBehaviorOptions, normalized.slowFieldBehavior);
+  if (comicBookModeSelect) comicBookModeSelect.value = normalized.comicBookMode;
 }
 
 async function updateSkillSettings(next, { persist = true } = {}) {
@@ -2095,6 +2097,10 @@ bindSkillOptionGroup(invulnBehaviorOptions, (value) => {
 });
 bindSkillOptionGroup(slowFieldBehaviorOptions, (value) => {
   updateSkillSettings({ ...skillSettings, slowFieldBehavior: value });
+});
+comicBookModeSelect?.addEventListener("change", (e) => {
+  const value = e.target?.value;
+  updateSkillSettings({ ...skillSettings, comicBookMode: value });
 });
 
 overStatsToggle?.addEventListener("click", () => {

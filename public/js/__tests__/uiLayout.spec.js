@@ -336,6 +336,11 @@ describe("uiLayout", () => {
     expect(secondary?.querySelector("#sfxVolume")).toBeInstanceOf(window.HTMLInputElement);
     expect(settingsGrid?.querySelector(".muted-note")).toBeNull();
 
+    const comicMode = settingsGrid?.querySelector("#comicBookModeSelect");
+    expect(comicMode).toBeInstanceOf(window.HTMLSelectElement);
+    const comicOptions = Array.from(comicMode?.querySelectorAll("option") || []).map((el) => el.value);
+    expect(comicOptions).toEqual(["none", "mild", "extreme"]);
+
     const utilityTitles = Array.from(settingsGrid?.querySelectorAll(".settings-utility .section-title") || []).map(
       el => el?.textContent
     );

@@ -17,7 +17,8 @@ const baseUser = () => ({
     dashBehavior: "destroy",
     slowFieldBehavior: "explosion",
     teleportBehavior: "normal",
-    invulnBehavior: "long"
+    invulnBehavior: "long",
+    comicBookMode: "none"
   },
   runs: 3,
   totalScore: 5000,
@@ -154,6 +155,7 @@ describe("server routes and helpers", () => {
     expect(savedSettings.dashBehavior).toBe("destroy");
     expect(savedSettings.teleportBehavior).toBe("normal");
     expect(savedSettings.invulnBehavior).toBe("long");
+    expect(savedSettings.comicBookMode).toBe("none");
     expect(readJson(successHttp).sessionToken).toMatch(/^\S+\.\S+\.\S+$/);
 
     const successForwarded = createRes();
@@ -424,7 +426,8 @@ describe("server routes and helpers", () => {
           dashBehavior: "destroy",
           slowFieldBehavior: "explosion",
           teleportBehavior: "explode",
-          invulnBehavior: "long"
+          invulnBehavior: "long",
+          comicBookMode: "mild"
         }
       }))
     });
@@ -440,7 +443,8 @@ describe("server routes and helpers", () => {
       dashBehavior: "destroy",
       slowFieldBehavior: "explosion",
       teleportBehavior: "explode",
-      invulnBehavior: "long"
+      invulnBehavior: "long",
+      comicBookMode: "mild"
     });
     expect(readJson(res).icons?.length).toBeGreaterThan(0);
     expect(readJson(res).pipeTextures?.length).toBeGreaterThan(0);
@@ -792,7 +796,8 @@ describe("server routes and helpers", () => {
             dashBehavior: "destroy",
             slowFieldBehavior: "explosion",
             teleportBehavior: "explode",
-            invulnBehavior: "long"
+            invulnBehavior: "long",
+            comicBookMode: "extreme"
           }
         }),
         headers: { cookie: buildSessionCookie(server, "PlayerOne") }
@@ -805,13 +810,15 @@ describe("server routes and helpers", () => {
       dashBehavior: "destroy",
       slowFieldBehavior: "explosion",
       teleportBehavior: "explode",
-      invulnBehavior: "long"
+      invulnBehavior: "long",
+      comicBookMode: "extreme"
     });
     expect(readJson(valid).user.settings).toEqual({
       dashBehavior: "destroy",
       slowFieldBehavior: "explosion",
       teleportBehavior: "explode",
-      invulnBehavior: "long"
+      invulnBehavior: "long",
+      comicBookMode: "extreme"
     });
   });
 

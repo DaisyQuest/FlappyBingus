@@ -136,7 +136,8 @@ const DEFAULT_SETTINGS = Object.freeze({
   dashBehavior: "destroy",
   slowFieldBehavior: "explosion",
   teleportBehavior: "normal",
-  invulnBehavior: "long"
+  invulnBehavior: "long",
+  comicBookMode: "none"
 });
 
 const TRAILS = Object.freeze([
@@ -557,11 +558,13 @@ function normalizeSettings(settings) {
   const validSlow = src.slowFieldBehavior === "slow" || src.slowFieldBehavior === "explosion";
   const validTp = src.teleportBehavior === "normal" || src.teleportBehavior === "explode";
   const validInv = src.invulnBehavior === "short" || src.invulnBehavior === "long";
+  const validComic = src.comicBookMode === "none" || src.comicBookMode === "mild" || src.comicBookMode === "extreme";
   const dash = validDash ? src.dashBehavior : DEFAULT_SETTINGS.dashBehavior;
   const slow = validSlow ? src.slowFieldBehavior : DEFAULT_SETTINGS.slowFieldBehavior;
   const tp = validTp ? src.teleportBehavior : DEFAULT_SETTINGS.teleportBehavior;
   const inv = validInv ? src.invulnBehavior : DEFAULT_SETTINGS.invulnBehavior;
-  return { dashBehavior: dash, slowFieldBehavior: slow, teleportBehavior: tp, invulnBehavior: inv };
+  const comicBookMode = validComic ? src.comicBookMode : DEFAULT_SETTINGS.comicBookMode;
+  return { dashBehavior: dash, slowFieldBehavior: slow, teleportBehavior: tp, invulnBehavior: inv, comicBookMode };
 }
 
 function validateSettingsPayload(settings) {
@@ -570,12 +573,14 @@ function validateSettingsPayload(settings) {
   const slow = settings.slowFieldBehavior;
   const tp = settings.teleportBehavior;
   const inv = settings.invulnBehavior;
+  const comic = settings.comicBookMode;
   const validDash = dash === "ricochet" || dash === "destroy";
   const validSlow = slow === "slow" || slow === "explosion";
   const validTp = tp === "normal" || tp === "explode";
   const validInv = inv === "short" || inv === "long";
-  if (!validDash || !validSlow || !validTp || !validInv) return null;
-  return { dashBehavior: dash, slowFieldBehavior: slow, teleportBehavior: tp, invulnBehavior: inv };
+  const validComic = comic === "none" || comic === "mild" || comic === "extreme";
+  if (!validDash || !validSlow || !validTp || !validInv || !validComic) return null;
+  return { dashBehavior: dash, slowFieldBehavior: slow, teleportBehavior: tp, invulnBehavior: inv, comicBookMode: comic };
 }
 
 function normalizeBind(b) {

@@ -526,6 +526,45 @@ function createVolumeCard(doc, refs) {
   return card;
 }
 
+function createComicModeCard(doc, refs) {
+  const card = doc.createElement("div");
+  card.className = "info-card settings-secondary comic-mode-card";
+
+  const title = doc.createElement("div");
+  title.className = "section-title";
+  title.textContent = "Comic Book Mode";
+
+  const field = doc.createElement("div");
+  field.className = "field";
+
+  const label = doc.createElement("div");
+  label.className = "lbl";
+  label.textContent = "Floating text style";
+
+  const select = createElement(doc, refs, "select", {
+    id: "comicBookModeSelect",
+    attrs: { "aria-label": "Comic Book Mode" }
+  });
+  [
+    { value: "none", label: "NONE" },
+    { value: "mild", label: "MILD" },
+    { value: "extreme", label: "EXTREME" }
+  ].forEach(({ value, label: text }) => {
+    const option = doc.createElement("option");
+    option.value = value;
+    option.textContent = text;
+    select.append(option);
+  });
+
+  const hint = doc.createElement("div");
+  hint.className = "hint";
+  hint.textContent = "Stylize floating text popups across the game.";
+
+  field.append(label, select, hint);
+  card.append(title, field);
+  return card;
+}
+
 function createBindCard(doc, refs) {
   const card = doc.createElement("div");
   card.className = "info-card settings-feature";
@@ -1367,6 +1406,7 @@ function createMenuScreen(doc, refs) {
     createSkillSettingsCard(doc, refs),
     createBindCard(doc, refs),
     createVolumeCard(doc, refs),
+    createComicModeCard(doc, refs),
     createSeedCard(doc, refs),
     createStatusCard(doc, refs)
   );
