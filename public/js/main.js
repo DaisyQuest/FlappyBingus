@@ -4,9 +4,7 @@
 import { DEFAULT_CONFIG, loadConfig } from "./config.js";
 import {
   DEFAULT_SKILL_SETTINGS,
-  DEFAULT_TEXT_STYLE_CUSTOM,
   normalizeSkillSettings,
-  normalizeTextStyleCustom,
   skillSettingsEqual
 } from "./settings.js";
 import {
@@ -182,6 +180,12 @@ import { createTrailMenuHandlers } from "./trailMenuHandlers.js";
 import { createIconMenuHandlers } from "./iconMenuHandlers.js";
 import { createPipeTextureMenuHandlers } from "./pipeTextureMenuHandlers.js";
 import { createSessionFlows } from "./sessionFlows.js";
+import {
+  applyTextStyleCustomToUI,
+  readTextStyleCustomFromUI
+} from "./textStyleControls.js";
+import { initSeedControls } from "./seedControls.js";
+import { createRebindController, renderBindUI } from "./rebindControls.js";
 
 
 // ---- DOM ----
@@ -334,6 +338,35 @@ const {
   updateSkillCooldowns
 } = ui;
 
+const textStyleElements = {
+  textFontFamily,
+  textFontWeight,
+  textFontWeightValue,
+  textSizeScale,
+  textSizeScaleValue,
+  textUseGameColors,
+  textColor,
+  textUseGameGlow,
+  textGlowColor,
+  textStrokeColor,
+  textStrokeWidth,
+  textStrokeWidthValue,
+  textShadowBoost,
+  textShadowBoostValue,
+  textShadowOffsetY,
+  textShadowOffsetYValue,
+  textWobble,
+  textWobbleValue,
+  textSpin,
+  textSpinValue,
+  textShimmer,
+  textShimmerValue,
+  textSparkle,
+  textUseGradient,
+  textGradientStart,
+  textGradientEnd
+};
+
 // ---- Local best fallback cookie (legacy support) ----
 function updatePersonalBestUIWrapper(finalScore, userBestScore) {
   updatePersonalBestUI({
@@ -484,6 +517,16 @@ const uploadBestRunArtifacts = createBestRunUploader({
     if (text !== undefined) replayStatus.textContent = text;
   }
 });
+
+const renderBindUIWrapper = (listeningActionId = null) => {
+  renderBindUI({
+    bindWrap,
+    binds,
+    actions: ACTIONS,
+    listeningActionId,
+    humanizeBind
+  });
+};
 
 
 // Seed of the most recently finished run (used for "Retry Previous Seed")
@@ -1420,102 +1463,6 @@ achievementsHideCompleted?.addEventListener("change", () => {
   input?.addEventListener("change", () => renderAchievements());
 });
 
-function renderBindUI(listeningActionId = null) {
-  bindWrap.innerHTML = "";
-  for (const a of ACTIONS) {
-    const row = document.createElement("div");
-    row.className = "bindRow" + (listeningActionId === a.id ? " listen" : "");
-    row.dataset.action = a.id;
-
-    const name = document.createElement("div");
-    name.className = "bindName";
-    name.textContent = a.label;
-
-    const key = document.createElement("div");
-    key.className = "bindKey kbd";
-    key.textContent = humanizeBind(binds[a.id]);
-
-    const btn = document.createElement("button");
-    btn.className = "bindBtn";
-    btn.textContent = (listeningActionId === a.id) ? "Listening…" : "Rebind";
-    btn.disabled = (listeningActionId !== null);
-    btn.dataset.action = a.id;
-
-    row.appendChild(name);
-    row.appendChild(key);
-    row.appendChild(btn);
-    bindWrap.appendChild(row);
-  }
-}
-
-function setTextCustomDisabledState(custom = DEFAULT_TEXT_STYLE_CUSTOM) {
-  const disableColors = !!custom.useGameColors;
-  if (textColor) textColor.disabled = disableColors;
-  if (textUseGradient) textUseGradient.disabled = disableColors;
-  if (textGradientStart) textGradientStart.disabled = disableColors || !custom.useGradient;
-  if (textGradientEnd) textGradientEnd.disabled = disableColors || !custom.useGradient;
-
-  const disableGlow = !!custom.useGameGlow;
-  if (textGlowColor) textGlowColor.disabled = disableGlow;
-}
-
-function updateTextCustomValueDisplays(custom) {
-  if (textFontWeightValue) textFontWeightValue.textContent = `${custom.fontWeight}`;
-  if (textSizeScaleValue) textSizeScaleValue.textContent = `x${custom.sizeScale.toFixed(2)}`;
-  if (textStrokeWidthValue) textStrokeWidthValue.textContent = custom.strokeWidth.toFixed(1);
-  if (textShadowBoostValue) textShadowBoostValue.textContent = `${custom.shadowBoost}`;
-  if (textShadowOffsetYValue) textShadowOffsetYValue.textContent = `${custom.shadowOffsetY}`;
-  if (textWobbleValue) textWobbleValue.textContent = custom.wobble.toFixed(1);
-  if (textSpinValue) textSpinValue.textContent = custom.spin.toFixed(2);
-  if (textShimmerValue) textShimmerValue.textContent = custom.shimmer.toFixed(2);
-}
-
-function applyTextStyleCustomToUI(custom = DEFAULT_TEXT_STYLE_CUSTOM) {
-  if (textFontFamily) textFontFamily.value = custom.fontFamily;
-  if (textFontWeight) textFontWeight.value = String(custom.fontWeight);
-  if (textSizeScale) textSizeScale.value = String(custom.sizeScale);
-  if (textUseGameColors) textUseGameColors.checked = custom.useGameColors;
-  if (textColor) textColor.value = custom.color;
-  if (textUseGameGlow) textUseGameGlow.checked = custom.useGameGlow;
-  if (textGlowColor) textGlowColor.value = custom.glowColor;
-  if (textStrokeColor) textStrokeColor.value = custom.strokeColor;
-  if (textStrokeWidth) textStrokeWidth.value = String(custom.strokeWidth);
-  if (textShadowBoost) textShadowBoost.value = String(custom.shadowBoost);
-  if (textShadowOffsetY) textShadowOffsetY.value = String(custom.shadowOffsetY);
-  if (textWobble) textWobble.value = String(custom.wobble);
-  if (textSpin) textSpin.value = String(custom.spin);
-  if (textShimmer) textShimmer.value = String(custom.shimmer);
-  if (textSparkle) textSparkle.checked = custom.sparkle;
-  if (textUseGradient) textUseGradient.checked = custom.useGradient;
-  if (textGradientStart) textGradientStart.value = custom.gradientStart;
-  if (textGradientEnd) textGradientEnd.value = custom.gradientEnd;
-  updateTextCustomValueDisplays(custom);
-  setTextCustomDisabledState(custom);
-}
-
-function readTextStyleCustomFromUI() {
-  return normalizeTextStyleCustom({
-    fontFamily: textFontFamily?.value ?? DEFAULT_TEXT_STYLE_CUSTOM.fontFamily,
-    fontWeight: textFontWeight?.value ?? DEFAULT_TEXT_STYLE_CUSTOM.fontWeight,
-    sizeScale: textSizeScale?.value ?? DEFAULT_TEXT_STYLE_CUSTOM.sizeScale,
-    useGameColors: textUseGameColors?.checked ?? DEFAULT_TEXT_STYLE_CUSTOM.useGameColors,
-    useGameGlow: textUseGameGlow?.checked ?? DEFAULT_TEXT_STYLE_CUSTOM.useGameGlow,
-    color: textColor?.value ?? DEFAULT_TEXT_STYLE_CUSTOM.color,
-    glowColor: textGlowColor?.value ?? DEFAULT_TEXT_STYLE_CUSTOM.glowColor,
-    strokeColor: textStrokeColor?.value ?? DEFAULT_TEXT_STYLE_CUSTOM.strokeColor,
-    strokeWidth: textStrokeWidth?.value ?? DEFAULT_TEXT_STYLE_CUSTOM.strokeWidth,
-    shadowBoost: textShadowBoost?.value ?? DEFAULT_TEXT_STYLE_CUSTOM.shadowBoost,
-    shadowOffsetY: textShadowOffsetY?.value ?? DEFAULT_TEXT_STYLE_CUSTOM.shadowOffsetY,
-    wobble: textWobble?.value ?? DEFAULT_TEXT_STYLE_CUSTOM.wobble,
-    spin: textSpin?.value ?? DEFAULT_TEXT_STYLE_CUSTOM.spin,
-    shimmer: textShimmer?.value ?? DEFAULT_TEXT_STYLE_CUSTOM.shimmer,
-    sparkle: textSparkle?.checked ?? DEFAULT_TEXT_STYLE_CUSTOM.sparkle,
-    useGradient: textUseGradient?.checked ?? DEFAULT_TEXT_STYLE_CUSTOM.useGradient,
-    gradientStart: textGradientStart?.value ?? DEFAULT_TEXT_STYLE_CUSTOM.gradientStart,
-    gradientEnd: textGradientEnd?.value ?? DEFAULT_TEXT_STYLE_CUSTOM.gradientEnd
-  });
-}
-
 function applySkillSettingsToUI(settings = skillSettings) {
   const normalized = normalizeSkillSettings(settings || DEFAULT_SKILL_SETTINGS);
   markSkillOptionSelection(dashBehaviorOptions, normalized.dashBehavior);
@@ -1524,7 +1471,7 @@ function applySkillSettingsToUI(settings = skillSettings) {
   markSkillOptionSelection(slowFieldBehaviorOptions, normalized.slowFieldBehavior);
   if (textStylePresetSelect) textStylePresetSelect.value = normalized.textStylePreset;
   setTextCustomPanelVisibility(textCustomPanel, normalized.textStylePreset);
-  applyTextStyleCustomToUI(normalized.textStyleCustom);
+  applyTextStyleCustomToUI(textStyleElements, normalized.textStyleCustom);
 }
 
 async function updateSkillSettings(next, { persist = true } = {}) {
@@ -1575,7 +1522,7 @@ const { refreshProfileAndHighscores, recoverSession, registerUser } = createSess
   syncMenuProfileBindingsFromState,
   renderHighscoresUI,
   renderAchievements,
-  renderBindUI,
+  renderBindUI: renderBindUIWrapper,
   refreshBootUI,
   playerIcons,
   getCurrentIconId: () => currentIconId,
@@ -1764,91 +1711,24 @@ replayModal?.addEventListener("click", (e) => {
 });
 
 // ---- Keybind rebinding flow ----
-let rebindActive = null;
-let rebindCleanup = null;
-
-function beginRebind(actionId) {
-  if (rebindActive) return;
-  rebindActive = actionId;
-  bindHint.className = "hint good";
-  bindHint.textContent =
-    `Rebinding ${ACTIONS.find(a => a.id === actionId)?.label || actionId}… press a key or click a mouse button (Esc cancels).`;
-  renderBindUI(rebindActive);
-
-  const finish = async (newBind, cancel = false) => {
-    if (!rebindActive) return;
-
-    if (rebindCleanup) rebindCleanup();
-    rebindCleanup = null;
-
-    const action = rebindActive;
-    rebindActive = null;
-
-    if (cancel) {
-      bindHint.className = "hint";
-      bindHint.textContent = "Rebind cancelled.";
-      renderBindUI(null);
-      return;
-    }
-
-    const before = binds;
-    const { binds: updated, swappedWith } = applyRebindWithSwap(binds, action, newBind);
-    binds = updated;
-
-    if (net.user) {
-      const res = await apiSetKeybinds(binds);
-      if (res && res.ok) {
-      setNetUser(res.user);
-      } else {
-        binds = before;
-        bindHint.className = "hint bad";
-        bindHint.textContent = "Server rejected keybinds (conflict/invalid). Reverted.";
-      }
-    } else {
-      saveGuestBinds(binds);
-    }
-
-    if (swappedWith) {
-      bindHint.className = "hint warn";
-      bindHint.textContent =
-        `That input was already in use; swapped bindings with ${ACTIONS.find(a => a.id === swappedWith)?.label || swappedWith}.`;
-    } else {
-      bindHint.className = "hint good";
-      bindHint.textContent = "Keybind updated.";
-    }
-
-    renderBindUI(null);
-  };
-
-  const onKeyDownCapture = (e) => {
-    e.preventDefault();
-    e.stopImmediatePropagation();
-    if (e.code === "Escape") finish(null, true);
-    else finish(keyEventToBind(e), false);
-  };
-
-  const onPointerDownCapture = (e) => {
-    e.preventDefault();
-    e.stopImmediatePropagation();
-    finish(pointerEventToBind(e), false);
-  };
-
-  window.addEventListener("keydown", onKeyDownCapture, { capture: true });
-  window.addEventListener("pointerdown", onPointerDownCapture, { capture: true });
-
-  rebindCleanup = () => {
-    window.removeEventListener("keydown", onKeyDownCapture, { capture: true });
-    window.removeEventListener("pointerdown", onPointerDownCapture, { capture: true });
-  };
-}
-
-bindWrap.addEventListener("click", (e) => {
-  const btn = e.target.closest("button");
-  if (!btn) return;
-  const actionId = btn.dataset.action;
-  if (!actionId) return;
-  beginRebind(actionId);
+const rebindController = createRebindController({
+  bindWrap,
+  bindHint,
+  actions: ACTIONS,
+  getBinds: () => binds,
+  setBinds: (next) => { binds = next; },
+  getNetUser: () => net.user,
+  apiSetKeybinds,
+  saveGuestBinds,
+  setNetUser,
+  applyRebindWithSwap,
+  humanizeBind,
+  keyEventToBind,
+  pointerEventToBind,
+  renderBindUI: renderBindUIWrapper
 });
+
+bindWrap.addEventListener("click", (e) => rebindController.handleClick(e));
 
 bindSkillOptionGroup(dashBehaviorOptions, (value) => {
   updateSkillSettings({ ...skillSettings, dashBehavior: value });
@@ -1863,7 +1743,7 @@ bindSkillOptionGroup(slowFieldBehaviorOptions, (value) => {
   updateSkillSettings({ ...skillSettings, slowFieldBehavior: value });
 });
 const updateTextCustomSettings = () => {
-  const custom = readTextStyleCustomFromUI();
+  const custom = readTextStyleCustomFromUI(textStyleElements);
   updateSkillSettings({ ...skillSettings, textStyleCustom: custom });
 };
 
@@ -2007,9 +1887,7 @@ function toMenu() {
   tutorial?.stop();
 
   setUIMode(true);
-  if (rebindCleanup) rebindCleanup();
-  rebindCleanup = null;
-  rebindActive = null;
+  rebindController.reset();
 
   over.classList.add("hidden");
   menu.classList.remove("hidden");
@@ -2025,9 +1903,7 @@ function startTutorial() {
   pauseTrailPreview();
 
   setUIMode(false);
-  if (rebindCleanup) rebindCleanup();
-  rebindCleanup = null;
-  rebindActive = null;
+  rebindController.reset();
 
   input.reset();
   replayManager?.reset();
@@ -2052,9 +1928,7 @@ async function startGame({ mode = "new" } = {}) {
   pauseTrailPreview();
 
   setUIMode(false);
-  if (rebindCleanup) rebindCleanup();
-  rebindCleanup = null;
-  rebindActive = null;
+  rebindController.reset();
 
   input.reset();
 
@@ -2358,29 +2232,14 @@ function frame(ts) {
 
 // ---- Boot init ----
 (async function init() {
-  // Seed UI init (ONLY ONCE)
-  if (seedInput) seedInput.value = readSeed() || "";
-
-  if (seedRandomBtn) {
-    seedRandomBtn.addEventListener("click", () => {
-      const s = genRandomSeed();
-      if (seedInput) seedInput.value = s;
-      writeSeed(s);
-      if (seedHint) {
-        seedHint.className = "hint good";
-        seedHint.textContent = `Generated seed: ${s}`;
-      }
-    });
-  }
-  if (seedInput) {
-    seedInput.addEventListener("change", () => {
-      writeSeed(seedInput.value.trim());
-      if (seedHint) {
-        seedHint.className = "hint";
-        seedHint.textContent = "If two players use the same seed, pipe/orb spawns will match.";
-      }
-    });
-  }
+  initSeedControls({
+    seedInput,
+    seedRandomBtn,
+    seedHint,
+    readSeed,
+    writeSeed,
+    genRandomSeed
+  });
 
   primeVolumeControls();
   renderIconOptions(currentIconId, computeUnlockedIconSet(playerIcons), playerIcons);
@@ -2476,7 +2335,7 @@ function frame(ts) {
 
   game.resizeToWindow();
   game.setStateMenu();
-  renderBindUI();
+  renderBindUIWrapper();
 
   await refreshProfileAndHighscores();
   refreshBootUI();
