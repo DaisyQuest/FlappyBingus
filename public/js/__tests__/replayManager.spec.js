@@ -1,6 +1,7 @@
 import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
 import { createReplayManager, createReplayRun, cloneReplayRun, __testables } from "../replayManager.js";
 import { playbackTicks } from "../replayUtils.js";
+import { SIM_DT } from "../simPrecision.js";
 
 function makeClassList(initial = []) {
   const classes = new Set(initial);
@@ -137,7 +138,7 @@ describe("replayManager", () => {
       seededRand,
       playbackTicks,
       playbackTicksDeterministic,
-      simDt: 1 / 120,
+      simDt: SIM_DT,
       requestFrame
     });
 
@@ -166,6 +167,30 @@ describe("replayManager", () => {
     expect(manager.isReplaying()).toBe(false);
   });
 
+  it("defaults to the shared simulation dt when none is provided", async () => {
+    const game = { input: { name: "real" }, startRun: vi.fn(), setBackgroundRand: vi.fn() };
+    const input = { reset: vi.fn() };
+    const run = {
+      seed: "seed",
+      ended: true,
+      ticks: [{}],
+      rngTape: []
+    };
+    const playbackTicksDeterministic = vi.fn(async () => {});
+
+    const manager = createReplayManager({
+      game,
+      input,
+      playbackTicksDeterministic
+    });
+
+    await manager.play({ run, captureMode: "none", playbackMode: "deterministic" });
+
+    expect(playbackTicksDeterministic).toHaveBeenCalledWith(expect.objectContaining({
+      simDt: SIM_DT
+    }));
+  });
+
   it("restores hidden UI states after replay playback", async () => {
     const game = { input: { name: "real" }, startRun: vi.fn() };
     const menu = { classList: makeClassList(["hidden"]) };
@@ -179,7 +204,7 @@ describe("replayManager", () => {
       over,
       playbackTicks,
       playbackTicksDeterministic,
-      simDt: 1 / 120,
+      simDt: SIM_DT,
       requestFrame: null
     });
 
@@ -229,7 +254,7 @@ describe("replayManager", () => {
       game,
       playbackTicks,
       playbackTicksDeterministic,
-      simDt: 1 / 120
+      simDt: SIM_DT
     });
 
     manager.startRecording("seed");
@@ -258,7 +283,7 @@ describe("replayManager", () => {
       game,
       playbackTicks,
       playbackTicksDeterministic,
-      simDt: 1 / 120,
+      simDt: SIM_DT,
       requestFrame: null
     });
 
@@ -287,7 +312,7 @@ describe("replayManager", () => {
       game,
       playbackTicks,
       playbackTicksDeterministic,
-      simDt: 1 / 120,
+      simDt: SIM_DT,
       requestFrame
     });
 
@@ -344,7 +369,7 @@ describe("replayManager", () => {
       over,
       playbackTicks,
       playbackTicksDeterministic: vi.fn(),
-      simDt: 1 / 120,
+      simDt: SIM_DT,
       requestFrame: makeIncrementalRaf(100)
     });
 
@@ -429,7 +454,7 @@ describe("replayManager", () => {
       game,
       playbackTicks,
       playbackTicksDeterministic: vi.fn(),
-      simDt: 1 / 120,
+      simDt: SIM_DT,
       requestFrame: makeIncrementalRaf(16)
     });
 

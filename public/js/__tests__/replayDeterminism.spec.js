@@ -4,6 +4,7 @@ import { Game } from "../game.js";
 import { DEFAULT_CONFIG } from "../config.js";
 import { createReplayManager, cloneReplayRun } from "../replayManager.js";
 import { playbackTicks, playbackTicksDeterministic, __testables as replayTestables } from "../replayUtils.js";
+import { SIM_DT } from "../simPrecision.js";
 import {
   createTapeRandRecorder,
   createTapeRandPlayer,
@@ -25,8 +26,6 @@ vi.mock("../audio.js", () => ({
   sfxSlowField: vi.fn(),
   sfxSlowExplosion: vi.fn()
 }));
-
-const SIM_DT = 1 / 120;
 
 function makeClassList() {
   const classes = new Set();

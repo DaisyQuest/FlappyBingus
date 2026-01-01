@@ -32,6 +32,7 @@ import {
   createTapeRandPlayer,
   formatRunDuration
 } from "./util.js";
+import { SIM_DT } from "./simPrecision.js";
 
 import { Game } from "./game.js";
 import { GameDriver } from "/engine/gameDriver.js";
@@ -496,7 +497,6 @@ menuParallaxControl = createMenuParallaxController({
 const ctx = canvas.getContext("2d", { alpha: false });
 
 // Deterministic sim clock
-const SIM_DT = 1 / 120;
 const MAX_FRAME = 1 / 20;
 let acc = 0;
 let lastTs = 0;

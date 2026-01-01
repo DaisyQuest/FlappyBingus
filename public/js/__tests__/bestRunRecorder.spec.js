@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { buildReplayEnvelope, hydrateBestRunPayload, maybeUploadBestRun, serializeReplayEnvelope } from "../bestRunRecorder.js";
+import { SIM_TICK_MS } from "../simPrecision.js";
 
 const baseRun = () => ({
   ended: true,
@@ -25,6 +26,12 @@ describe("buildReplayEnvelope", () => {
     expect(envelope.rngTape).toEqual([0.1, 0.2]);
     expect(envelope.durationMs).toBeGreaterThan(0);
     expect(envelope.runStats).toEqual({ orbsCollected: 2 });
+  });
+
+  it("derives duration from the shared simulation tick precision by default", () => {
+    const run = baseRun();
+    const envelope = buildReplayEnvelope(run, { finalScore: 5 });
+    expect(envelope.durationMs).toBe(Math.round(run.ticks.length * SIM_TICK_MS));
   });
 
   it("returns null when the run is incomplete or empty", () => {
