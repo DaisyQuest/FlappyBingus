@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { GameEngine } from "../gameEngine.js";
 import { createFixedClock } from "../clock.js";
 import { createRng } from "../rng.js";
@@ -300,5 +300,47 @@ describe("GameEngine", () => {
     const phaseEnds = engine.events.events.filter((e) => e.type === "ability:phase:end");
     expect(phaseEnds).toHaveLength(1);
     expect(engine.state.player.invulnerable).toBe(false);
+  });
+
+  it("exposes deterministic system names", () => {
+    const engine = new GameEngine();
+
+    expect(engine.getSystemNames()).toEqual(["tickAbilities", "applyPhysics", "handleBounds"]);
+  });
+
+  it("accepts a custom system pipeline", () => {
+    const run = vi.fn();
+    const engine = new GameEngine({
+      pipeline: {
+        systems: [{ name: "custom", run }],
+        run
+      }
+    });
+
+    expect(engine.getSystemNames()).toEqual(["custom"]);
+    engine.step(0.01);
+    expect(run).toHaveBeenCalled();
+  });
+
+  it("keeps rng-driven systems deterministic for the same seed", () => {
+    const systems = [
+      {
+        name: "rng-score",
+        run: ({ world, rng }) => {
+          world.state.score.time = rng.next();
+        }
+      }
+    ];
+
+    const engineA = new GameEngine({ rngSeed: 10, systems });
+    const engineB = new GameEngine({ rngSeed: 10, systems });
+    const engineC = new GameEngine({ rngSeed: 11, systems });
+
+    engineA.step(0.01);
+    engineB.step(0.01);
+    engineC.step(0.01);
+
+    expect(engineA.state.score.time).toBeCloseTo(engineB.state.score.time, 7);
+    expect(engineA.state.score.time).not.toBe(engineC.state.score.time);
   });
 });

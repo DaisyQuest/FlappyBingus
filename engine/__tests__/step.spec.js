@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { createFixedClock } from "../clock.js";
 import { createWorld } from "../world.js";
+import { createSystemPipeline } from "../systemPipeline.js";
 import { stepWorld } from "../step.js";
 
 describe("stepWorld", () => {
@@ -40,5 +41,40 @@ describe("stepWorld", () => {
     const world = createWorld();
     stepWorld({ world, dt: 0.05, systems: [] });
     expect(world.state.tick).toBe(1);
+  });
+
+  it("uses an injected pipeline when provided", () => {
+    const world = createWorld();
+    const events = { emit: vi.fn() };
+    const pipeline = createSystemPipeline([
+      {
+        name: "mutator",
+        run: ({ world: ctxWorld }) => {
+          ctxWorld.state.score.perfect += 1;
+        }
+      }
+    ]);
+
+    stepWorld({ world, dt: 0.1, events, pipeline });
+
+    expect(world.state.score.perfect).toBe(1);
+  });
+
+  it("provides rng and clock in the context for context-mode systems", () => {
+    const world = createWorld();
+    const events = { emit: vi.fn() };
+    const clock = createFixedClock(0);
+    const rng = { next: vi.fn(() => 0.5) };
+    const system = vi.fn(({ rng: ctxRng, clock: ctxClock }) => {
+      ctxRng.next();
+      ctxClock.advance(10);
+    });
+    const pipeline = createSystemPipeline([{ name: "context", run: system }]);
+
+    stepWorld({ world, dt: 0.1, events, clock, rng, pipeline });
+
+    expect(system).toHaveBeenCalled();
+    expect(rng.next).toHaveBeenCalled();
+    expect(clock.now()).toBeCloseTo(110, 5);
   });
 });
