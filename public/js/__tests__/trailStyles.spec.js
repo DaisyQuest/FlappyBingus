@@ -26,6 +26,8 @@ describe("trailStyles", () => {
     expect(first).not.toBe(second);
     expect(first.sparkle).not.toBe(second.sparkle);
     expect(TRAIL_STYLE_IDS).toContain("rainbow");
+    expect(first.particleShape).toBe("pixel");
+    expect(first.banding?.count).toBeGreaterThan(3);
   });
 
   it("includes an extravagant record-holder blossom style", () => {
@@ -62,9 +64,11 @@ describe("trailStyles", () => {
 
     const rainbow = trailStyleFor("rainbow");
     const fixedRand = () => 0;
-    expect(rainbow.color({ rand: fixedRand, hue: 0, i: 0 })).toBe("rgba(255, 86, 102, 0.92)");
-    expect(rainbow.color({ rand: fixedRand, hue: 0, i: 1 })).toBe("rgba(255, 168, 104, 0.92)");
-    expect(rainbow.color({ rand: fixedRand, hue: 0, i: 2 })).toBe("rgba(255, 236, 112, 0.92)");
+    expect(rainbow.color({ rand: fixedRand, hue: 0, i: 0 })).toBe("rgba(255, 60, 68, 0.96)");
+    expect(rainbow.color({ rand: fixedRand, hue: 0, i: 1 })).toBe("rgba(255, 148, 66, 0.96)");
+    expect(rainbow.color({ rand: fixedRand, hue: 0, i: 2 })).toBe("rgba(255, 230, 96, 0.96)");
+    expect(rainbow.glint.rate).toBe(0);
+    expect(rainbow.sparkle.rate).toBe(0);
 
     const ocean = trailStyleFor("ocean");
     const oceanColor = ocean.color({ rand: () => 0, hue: 0, i: 0 });

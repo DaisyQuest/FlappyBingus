@@ -1306,6 +1306,47 @@ describe("Player movement and trail emission", () => {
     expect(hex?.lineWidth).toBe(2);
   });
 
+  it("bands pixel trails into stacked rainbow stripes", () => {
+    setRandSource(() => 0.5);
+    const { game } = buildGame();
+    game.player.x = 50;
+    game.player.y = 60;
+    game.player.vx = 100;
+    game.player.vy = 0;
+    game.player.r = 10;
+    game.getTrailId = () => "custom";
+    const style = {
+      rate: 3,
+      life: [1, 1],
+      size: [2, 2],
+      speed: [1, 1],
+      drag: 0,
+      add: false,
+      particleShape: "pixel",
+      banding: { count: 3, spreadScale: 1, jitterScale: 0 },
+      color: ({ i }) => `color-${i}`,
+      glint: { rate: 0 },
+      sparkle: { rate: 0 },
+      aura: { rate: 0 }
+    };
+    vi.spyOn(game, "_trailStyle").mockReturnValue(style);
+
+    try {
+      const prev = game.parts.length;
+      game._emitTrail(1);
+      const produced = game.parts.slice(prev);
+      const ys = produced.map((p) => Number(p.y.toFixed(2))).sort((a, b) => a - b);
+
+      expect(produced).toHaveLength(3);
+      expect(produced.every((p) => p.shape === "pixel")).toBe(true);
+      expect(produced.every((p) => p.rotation === 0)).toBe(true);
+      expect(produced.map((p) => p.color)).toEqual(["color-0", "color-1", "color-2"]);
+      expect(ys).toEqual([50, 60, 70]);
+    } finally {
+      setRandSource();
+    }
+  });
+
   it("emits an aura and lengthened particles for a mesmerizing trail cloud", () => {
     setRandSource(() => 0.5);
     const { game } = buildGame();

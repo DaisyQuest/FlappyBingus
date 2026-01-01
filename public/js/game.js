@@ -1241,13 +1241,13 @@ export class Game {
         prt.fillColor = hexStyle?.fill ?? prt.color;
         prt.lineWidth = hexStyle?.lineWidth ?? prt.lineWidth;
       }
-      prt.rotation = rand(0, Math.PI * 2);
+      prt.rotation = shape === "pixel" ? 0 : rand(0, Math.PI * 2);
     };
 
     this.trailHue = (this.trailHue + dt * (st.hueRate || 220)) % 360;
     this.trailAcc += dt * st.rate;
-    this.trailGlintAcc += dt * (glint.rate || st.rate * 0.55);
-    this.trailSparkAcc += dt * (sparkle.rate || 34);
+    this.trailGlintAcc += dt * (glint.rate ?? st.rate * 0.55);
+    this.trailSparkAcc += dt * (sparkle.rate ?? 34);
     this.trailAuraAcc += dt * auraRate;
 
     const n = this.trailAcc | 0;
@@ -1267,11 +1267,29 @@ export class Game {
     const bx = p.x + backX * p.r * 0.95;
     const by = p.y + backY * p.r * 0.95;
     const backA = Math.atan2(backY, backX);
+    const banding = st.banding;
+    const bandCount = banding?.count ?? 0;
+    const bandSpread = banding ? p.r * (banding.spreadScale ?? 0.9) : 0;
+    const bandJitter = banding ? p.r * (banding.jitterScale ?? 0.08) : 0;
+    const perpX = -backY;
+    const perpY = backX;
 
     for (let i = 0; i < n; i++) {
-      const jitter = rand(0, Math.PI * 2);
-      const jx = Math.cos(jitter) * rand(0, p.r * jitterScale);
-      const jy = Math.sin(jitter) * rand(0, p.r * jitterScale);
+      let jx = 0;
+      let jy = 0;
+      let bandIndex = i;
+      if (banding && bandCount > 0) {
+        bandIndex = i % bandCount;
+        const t = bandCount > 1 ? bandIndex / (bandCount - 1) : 0.5;
+        const offset = (t - 0.5) * 2 * bandSpread;
+        const wobble = rand(-bandJitter, bandJitter);
+        jx = perpX * (offset + wobble);
+        jy = perpY * (offset + wobble);
+      } else {
+        const jitter = rand(0, Math.PI * 2);
+        jx = Math.cos(jitter) * rand(0, p.r * jitterScale);
+        jy = Math.sin(jitter) * rand(0, p.r * jitterScale);
+      }
 
       const sp = rand(st.speed[0], st.speed[1]) * distanceScale;
       const a = rand(0, Math.PI * 2);
@@ -1281,7 +1299,8 @@ export class Game {
       const life = rand(st.life[0], st.life[1]) * baseLifeScale;
       const size = rand(st.size[0], st.size[1]) * 1.08;
 
-      const color = st.color ? st.color({ i, hue: this.trailHue, rand }) : "rgba(140,220,255,.62)";
+      const colorIndex = banding ? bandIndex : i;
+      const color = st.color ? st.color({ i: colorIndex, hue: this.trailHue, rand }) : "rgba(140,220,255,.62)";
 
       const prt = new Part(bx + jx, by + jy, vx, vy, life, size, color, st.add);
       applyShape(prt, st.particleShape, st.sliceStyle, st.hexStyle);

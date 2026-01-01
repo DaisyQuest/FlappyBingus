@@ -20,6 +20,7 @@ const makeMockCtx = () => {
     closePath: () => ops.push("closePath"),
     stroke: () => ops.push("stroke"),
     fill: () => ops.push("fill"),
+    fillRect: (...args) => ops.push(["fillRect", ...args]),
     arc: (...args) => ops.push(["arc", ...args]),
     createLinearGradient: () => ({
       addColorStop: (p, c) => gradientStops.push({ p, c })
@@ -129,6 +130,17 @@ describe("Part drawing", () => {
     expect(ctx.ops).toContain("stroke");
     expect(ctx.ops).toContain("closePath");
     expect(ctx.ops.some((op) => Array.isArray(op) && op[0] === "lineTo")).toBe(true);
+  });
+
+  it("renders pixel particles as crisp rectangles", () => {
+    const ctx = makeMockCtx();
+    const p = new Part(8, 10, 0, 0, 1, 5, "#f43f5e", false);
+    p.shape = "pixel";
+
+    p.draw(ctx);
+
+    expect(ctx.ops.some((op) => Array.isArray(op) && op[0] === "fillRect")).toBe(true);
+    expect(ctx.ops).not.toContain("rotate");
   });
 
   it("renders petals and leaves with curved segments", () => {

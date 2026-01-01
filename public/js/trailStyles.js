@@ -21,19 +21,17 @@ const haloColor = ({ hue, rand: r }) => hsla((hue + r(-12, 12)) % 360, 92, 76, 0
 const cometColor = ({ hue, rand: r }) => hsla((hue + r(-24, 24)) % 360, 100, 70, 0.9);
 const prismColor = ({ hue, i }) => hsla((hue + i * 18) % 360, 100, 70, 0.88);
 const NYAN_RAINBOW = Object.freeze([
-  [255, 86, 102],
-  [255, 168, 104],
-  [255, 236, 112],
-  [132, 255, 138],
-  [104, 214, 255],
-  [104, 140, 255],
-  [200, 130, 255]
+  [255, 60, 68],
+  [255, 148, 66],
+  [255, 230, 96],
+  [120, 248, 138],
+  [88, 210, 255],
+  [92, 140, 255]
 ]);
 const clampChannel = (value) => Math.max(0, Math.min(255, Math.round(value)));
-const nyanRainbowColor = ({ i, rand: r }) => {
+const nyanRibbonColor = ({ i }) => {
   const [red, green, blue] = NYAN_RAINBOW[i % NYAN_RAINBOW.length];
-  const wobble = r ? r(-6, 6) : 0;
-  return `rgba(${clampChannel(red + wobble)}, ${clampChannel(green + wobble)}, ${clampChannel(blue + wobble)}, 0.92)`;
+  return `rgba(${clampChannel(red)}, ${clampChannel(green)}, ${clampChannel(blue)}, 0.96)`;
 };
 const nebulaSmoke = ({ hue, rand: r }) => hsla((hue + r(-30, 30)) % 360, 64, 64, 0.55);
 const starGlow = ({ rand: r, i }) => hsla((52 + r(-18, 18) + i * 2) % 360, 96, 86, 0.9);
@@ -166,30 +164,22 @@ const TRAIL_STYLES = Object.freeze({
     aura: { rate: 30, size: [4.6, 9.2], life: [0.6, 0.9], color: haloColor }
   },
   rainbow: {
-    rate: 128,
-    life: [0.26, 0.46],
-    size: [6.4, 12.0],
-    speed: [28, 150],
-    drag: 8.8,
+    rate: 180,
+    life: [0.36, 0.6],
+    size: [4.2, 6.2],
+    speed: [18, 110],
+    drag: 10.6,
     add: false,
-    jitterScale: 0.22,
-    color: nyanRainbowColor,
-    sparkle: {
-      ...sparkleDefaults,
-      rate: 12,
-      size: [1.2, 2.2],
-      speed: [18, 48],
-      add: false,
-      color: nyanRainbowColor
+    jitterScale: 0.08,
+    particleShape: "pixel",
+    banding: {
+      count: NYAN_RAINBOW.length,
+      spreadScale: 0.95,
+      jitterScale: 0.08
     },
-    glint: {
-      ...glintDefaults,
-      rate: 8,
-      size: [1.1, 2.2],
-      speed: [24, 68],
-      add: false,
-      color: nyanRainbowColor
-    }
+    color: nyanRibbonColor,
+    sparkle: { ...sparkleDefaults, rate: 0, add: false, color: nyanRibbonColor },
+    glint: { ...glintDefaults, rate: 0, add: false, color: nyanRibbonColor }
   },
   solar: {
     rate: 96,
