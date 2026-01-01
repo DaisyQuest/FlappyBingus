@@ -277,6 +277,15 @@ describe("uiLayout", () => {
     expect(ui.socialDock).toBe(dock);
   });
 
+  it("widens the donate popover so each sentence can sit on its own line", () => {
+    const css = fs.readFileSync(new URL("../../styles/flappybingus.css", import.meta.url), "utf8");
+    const donateRuleMatch = css.match(/\.donate-popover\{[^}]*\}/);
+
+    expect(donateRuleMatch).not.toBeNull();
+    expect(donateRuleMatch?.[0]).toContain("max-width:460px");
+    expect(donateRuleMatch?.[0]).toContain("width:460px");
+  });
+
   it("positions the trail swatch to the left of the launcher text and exposes the overlay grid", () => {
     buildGameUI({ document, mount });
     const launcher = mount.querySelector("#trailLauncher");

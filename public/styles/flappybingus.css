@@ -524,7 +524,7 @@ input[type="text"]::placeholder{color:rgba(255,255,255,.45)}
 }
 .discord-popover{padding:8px}
 .discord-widget{border:0;border-radius:16px;display:block}
-.donate-popover{max-width:260px}
+.donate-popover{max-width:460px;width:460px}
 .donate-copy{
   margin:0 0 6px;
   font-size:13px;
