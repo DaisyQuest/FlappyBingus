@@ -135,6 +135,7 @@ import {
 import { SHOP_TABS, getPurchasableUnlockablesByType, renderShopItems } from "./shopMenu.js";
 import { playbackTicks, playbackTicksDeterministic } from "./replayUtils.js";
 import { createReplayManager, cloneReplayRun } from "./replayManager.js";
+import { createBestRunUploader, downloadBlob } from "./replayArtifacts.js";
 import { bindSkillOptionGroup, markSkillOptionSelection } from "./skillOptions.js";
 import { renderSkillUsageStats } from "./skillUsageStats.js";
 import { initThemeEditor } from "./themes.js";
@@ -180,6 +181,7 @@ import { initSocialDock } from "./socialDock.js";
 import { createTrailMenuHandlers } from "./trailMenuHandlers.js";
 import { createIconMenuHandlers } from "./iconMenuHandlers.js";
 import { createPipeTextureMenuHandlers } from "./pipeTextureMenuHandlers.js";
+import { createSessionFlows } from "./sessionFlows.js";
 
 
 // ---- DOM ----
@@ -466,13 +468,22 @@ const MAX_FRAME = 1 / 20;
 let acc = 0;
 let lastTs = 0;
 
-// Replay / run capture (managed via replayManager)
-let lastUploadedBestSeed = null;
-let lastUploadedBestScore = -Infinity;
-
 // Tutorial manager (initialized after Game is created, but referenced by the Input callback).
 let tutorial = null;
 let replayManager = null;
+
+const uploadBestRunArtifacts = createBestRunUploader({
+  getActiveRun: () => replayManager?.getActiveRun(),
+  getUser: () => net.user,
+  cloneReplayRun,
+  maybeUploadBestRun,
+  uploadBestRun: apiUploadBestRun,
+  setStatus: ({ className, text }) => {
+    if (!replayStatus) return;
+    if (className) replayStatus.className = className;
+    if (text !== undefined) replayStatus.textContent = text;
+  }
+});
 
 
 // Seed of the most recently finished run (used for "Retry Previous Seed")
@@ -1534,65 +1545,48 @@ async function updateSkillSettings(next, { persist = true } = {}) {
 }
 
 // ---- Server refresh ----
-async function refreshProfileAndHighscores({ keepUserOnFailure = false } = {}) {
-  const me = await apiGetMe();
-  if (!me?.ok) {
-    net.online = false;
-    if (!keepUserOnFailure) {
-      setNetUser(null);
-    }
-    syncIconCatalog(net.icons || playerIcons);
-    net.achievements = { definitions: ACHIEVEMENTS, state: normalizeAchievementState() };
-  } else {
-    net.online = true;
-    setNetUser(me.user || null);
-    net.trails = normalizeTrails(me.trails ?? net.trails, { allowEmpty: true });
-    syncUnlockablesCatalog({ trails: net.trails });
-    syncIconCatalog(me.icons || net.icons);
-    syncPipeTextureCatalog(me.pipeTextures || net.pipeTextures);
-    applyAchievementsPayload(me.achievements || { definitions: ACHIEVEMENTS, state: me.user?.achievements });
-    if (net.user?.keybinds) binds = mergeBinds(DEFAULT_KEYBINDS, net.user.keybinds);
-    if (net.user?.settings) await updateSkillSettings(net.user.settings, { persist: false });
-  }
-
-  const hs = await apiGetHighscores(20);
-  if (!hs?.ok) {
-    net.online = false;
-    net.highscores = [];
-  } else {
-    net.online = true;
-    net.highscores = hs.highscores || [];
-  }
-
-  const stats = await apiGetStats();
-  if (stats?.ok) {
-    setMenuSubtitle?.(formatWorldwideRuns(stats.totalRuns));
-  }
-
-  setUserHint();
-  const { selected, best } = refreshTrailMenu();
-  const iconId = applyIconSelection(net.user?.selectedIcon || currentIconId, playerIcons);
-  currentPipeTextureMode = normalizePipeTextureMode(net.user?.pipeTextureMode || currentPipeTextureMode);
-  writePipeTextureModeCookie(currentPipeTextureMode);
-  const pipeTextureId = net.user?.selectedPipeTexture || currentPipeTextureId;
-  const { selected: pipeSelected } = refreshPipeTextureMenu(pipeTextureId);
-  applyPipeTextureSelection(pipeSelected || pipeTextureId, net.pipeTextures);
-  syncMenuProfileBindingsFromState({
-    fallbackTrailId: selected,
-    fallbackIconId: iconId,
-    fallbackPipeTextureId: pipeSelected || pipeTextureId,
-    bestScoreFallback: best
-  });
-  renderHighscoresUI();
-  renderAchievements();
-  renderBindUI();
-  refreshBootUI();
-}
-
-async function recoverSession() {
-  await refreshProfileAndHighscores({ keepUserOnFailure: true });
-  return Boolean(net.user);
-}
+const { refreshProfileAndHighscores, recoverSession, registerUser } = createSessionFlows({
+  apiGetMe,
+  apiGetHighscores,
+  apiGetStats,
+  apiRegister,
+  apiSetKeybinds,
+  setMenuSubtitle,
+  formatWorldwideRuns,
+  net,
+  setNetUser,
+  normalizeTrails,
+  syncUnlockablesCatalog,
+  syncIconCatalog,
+  syncPipeTextureCatalog,
+  applyAchievementsPayload,
+  normalizeAchievementState,
+  ACHIEVEMENTS,
+  mergeBinds,
+  DEFAULT_KEYBINDS,
+  updateSkillSettings,
+  setUserHint,
+  refreshTrailMenu,
+  applyIconSelection,
+  normalizePipeTextureMode,
+  writePipeTextureModeCookie,
+  refreshPipeTextureMenu,
+  applyPipeTextureSelection,
+  syncMenuProfileBindingsFromState,
+  renderHighscoresUI,
+  renderAchievements,
+  renderBindUI,
+  refreshBootUI,
+  playerIcons,
+  getCurrentIconId: () => currentIconId,
+  getCurrentPipeTextureId: () => currentPipeTextureId,
+  getCurrentPipeTextureMode: () => currentPipeTextureMode,
+  setCurrentPipeTextureMode: (mode) => { currentPipeTextureMode = mode; },
+  setBinds: (nextBinds) => { binds = nextBinds; },
+  getSkillSettings: () => skillSettings,
+  usernameInput,
+  userHint
+});
 
 async function ensureLoggedInForSave() {
   if (net.user) return true;
@@ -1618,88 +1612,9 @@ async function ensureLoggedInForSave() {
 }
 
 // ---- Registration ----
-saveUserBtn.addEventListener("click", async () => {
-  const username = usernameInput.value.trim();
-  const res = await apiRegister(username);
-  if (!res) {
-    net.online = false;
-    setUserHint();
-    refreshBootUI();
-    return;
-  }
-  if (!res.ok) {
-    net.online = Boolean(res?.status && res.status < 500);
-    setUserHint();
-    if (userHint && res?.error === "invalid_username") {
-      userHint.className = "hint bad";
-      userHint.textContent = "Please enter a valid username.";
-    }
-    refreshBootUI();
-    return;
-  }
-  if (res.ok) {
-    net.online = true;
-    setNetUser(res.user);
-    net.trails = normalizeTrails(res.trails ?? net.trails, { allowEmpty: true });
-    syncUnlockablesCatalog({ trails: net.trails });
-    syncUnlockablesCatalog({ trails: net.trails });
-    syncIconCatalog(res.icons || net.icons);
-    syncPipeTextureCatalog(res.pipeTextures || net.pipeTextures);
-    applyAchievementsPayload(res.achievements || { definitions: ACHIEVEMENTS, state: res.user?.achievements });
-
-    binds = mergeBinds(DEFAULT_KEYBINDS, net.user.keybinds);
-    usernameInput.value = net.user.username;
-    await updateSkillSettings(res.user?.settings || skillSettings, { persist: false });
-
-    await apiSetKeybinds(binds);
-    await refreshProfileAndHighscores();
-  }
-});
+saveUserBtn.addEventListener("click", registerUser);
 
 // ---- Replay UI ----
-function downloadBlob(blob, filename) {
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = filename;
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
-  setTimeout(() => URL.revokeObjectURL(url), 2500);
-}
-
-async function uploadBestRunArtifacts(finalScore, runStats) {
-  const activeRun = replayManager?.getActiveRun();
-  if (!net.user || !activeRun?.ended) return;
-  const bestScore = net.user?.bestScore ?? 0;
-  if (finalScore < bestScore) return;
-  if (lastUploadedBestSeed === activeRun.seed && lastUploadedBestScore >= bestScore) return;
-
-  const runForUpload = cloneReplayRun(activeRun);
-  if (!runForUpload?.ticks?.length) return;
-
-  const uploaded = await maybeUploadBestRun({
-    activeRun: runForUpload,
-    finalScore,
-    runStats,
-    bestScore,
-    upload: apiUploadBestRun,
-    logger: (msg) => {
-      if (!replayStatus) return;
-      replayStatus.className = "hint";
-      replayStatus.textContent = msg;
-    }
-  });
-
-  if (uploaded) {
-    lastUploadedBestSeed = activeRun.seed;
-    lastUploadedBestScore = bestScore;
-    if (replayStatus) {
-      replayStatus.className = "hint good";
-      replayStatus.textContent = "Best run saved to server.";
-    }
-  }
-}
 
 // ---- Cosmetics selection ----
 createTrailMenuHandlers({
