@@ -167,6 +167,30 @@ describe("replayManager", () => {
     expect(manager.isReplaying()).toBe(false);
   });
 
+  it("defaults to the shared simulation dt when none is provided", async () => {
+    const game = { input: { name: "real" }, startRun: vi.fn(), setBackgroundRand: vi.fn() };
+    const input = { reset: vi.fn() };
+    const run = {
+      seed: "seed",
+      ended: true,
+      ticks: [{}],
+      rngTape: []
+    };
+    const playbackTicksDeterministic = vi.fn(async () => {});
+
+    const manager = createReplayManager({
+      game,
+      input,
+      playbackTicksDeterministic
+    });
+
+    await manager.play({ run, captureMode: "none", playbackMode: "deterministic" });
+
+    expect(playbackTicksDeterministic).toHaveBeenCalledWith(expect.objectContaining({
+      simDt: SIM_DT
+    }));
+  });
+
   it("restores hidden UI states after replay playback", async () => {
     const game = { input: { name: "real" }, startRun: vi.fn() };
     const menu = { classList: makeClassList(["hidden"]) };

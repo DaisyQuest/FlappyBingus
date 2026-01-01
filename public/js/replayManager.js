@@ -1,4 +1,5 @@
 import { chooseReplayRandSource } from "./replayUtils.js";
+import { SIM_DT } from "./simPrecision.js";
 import { createActionQueue } from "/engine/actionQueue.js";
 
 const DEFAULT_CAPTURE_FPS = 60;
@@ -82,7 +83,7 @@ export function createReplayManager({
   seededRand,
   playbackTicks,
   playbackTicksDeterministic,
-  simDt,
+  simDt = SIM_DT,
   requestFrame,
   stopMusic,
   onStatus,
