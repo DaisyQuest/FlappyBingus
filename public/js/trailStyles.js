@@ -20,10 +20,20 @@ const duskColor = ({ rand: r, i }) => hsla((335 + r(-12, 12) + i * 1.1) % 360, 6
 const haloColor = ({ hue, rand: r }) => hsla((hue + r(-12, 12)) % 360, 92, 76, 0.48);
 const cometColor = ({ hue, rand: r }) => hsla((hue + r(-24, 24)) % 360, 100, 70, 0.9);
 const prismColor = ({ hue, i }) => hsla((hue + i * 18) % 360, 100, 70, 0.88);
-const ROYGBIV_HUES = Object.freeze([0, 30, 55, 120, 200, 250, 285]);
-const roygbivColor = ({ i, rand: r }) => {
-  const hue = ROYGBIV_HUES[i % ROYGBIV_HUES.length];
-  return hsla((hue + r(-4, 4)) % 360, 96, 68, 0.9);
+const NYAN_RAINBOW = Object.freeze([
+  [255, 86, 102],
+  [255, 168, 104],
+  [255, 236, 112],
+  [132, 255, 138],
+  [104, 214, 255],
+  [104, 140, 255],
+  [200, 130, 255]
+]);
+const clampChannel = (value) => Math.max(0, Math.min(255, Math.round(value)));
+const nyanRainbowColor = ({ i, rand: r }) => {
+  const [red, green, blue] = NYAN_RAINBOW[i % NYAN_RAINBOW.length];
+  const wobble = r ? r(-6, 6) : 0;
+  return `rgba(${clampChannel(red + wobble)}, ${clampChannel(green + wobble)}, ${clampChannel(blue + wobble)}, 0.92)`;
 };
 const nebulaSmoke = ({ hue, rand: r }) => hsla((hue + r(-30, 30)) % 360, 64, 64, 0.55);
 const starGlow = ({ rand: r, i }) => hsla((52 + r(-18, 18) + i * 2) % 360, 96, 86, 0.9);
@@ -156,14 +166,30 @@ const TRAIL_STYLES = Object.freeze({
     aura: { rate: 30, size: [4.6, 9.2], life: [0.6, 0.9], color: haloColor }
   },
   rainbow: {
-    rate: 104,
-    life: [0.2, 0.36],
-    size: [5.6, 11.8],
-    speed: [36, 170],
-    drag: 9.6,
-    add: true,
-    color: roygbivColor,
-    sparkle: { ...sparkleDefaults, rate: 20, size: [1.4, 2.6], color: roygbivColor }
+    rate: 128,
+    life: [0.26, 0.46],
+    size: [6.4, 12.0],
+    speed: [28, 150],
+    drag: 8.8,
+    add: false,
+    jitterScale: 0.22,
+    color: nyanRainbowColor,
+    sparkle: {
+      ...sparkleDefaults,
+      rate: 12,
+      size: [1.2, 2.2],
+      speed: [18, 48],
+      add: false,
+      color: nyanRainbowColor
+    },
+    glint: {
+      ...glintDefaults,
+      rate: 8,
+      size: [1.1, 2.2],
+      speed: [24, 68],
+      add: false,
+      color: nyanRainbowColor
+    }
   },
   solar: {
     rate: 96,

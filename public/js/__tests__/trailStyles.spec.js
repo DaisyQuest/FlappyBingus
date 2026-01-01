@@ -62,9 +62,9 @@ describe("trailStyles", () => {
 
     const rainbow = trailStyleFor("rainbow");
     const fixedRand = () => 0;
-    expect(rainbow.color({ rand: fixedRand, hue: 0, i: 0 })).toContain("hsla(0,");
-    expect(rainbow.color({ rand: fixedRand, hue: 0, i: 1 })).toContain("hsla(30,");
-    expect(rainbow.color({ rand: fixedRand, hue: 0, i: 2 })).toContain("hsla(55,");
+    expect(rainbow.color({ rand: fixedRand, hue: 0, i: 0 })).toBe("rgba(255, 86, 102, 0.92)");
+    expect(rainbow.color({ rand: fixedRand, hue: 0, i: 1 })).toBe("rgba(255, 168, 104, 0.92)");
+    expect(rainbow.color({ rand: fixedRand, hue: 0, i: 2 })).toBe("rgba(255, 236, 112, 0.92)");
 
     const ocean = trailStyleFor("ocean");
     const oceanColor = ocean.color({ rand: () => 0, hue: 0, i: 0 });
