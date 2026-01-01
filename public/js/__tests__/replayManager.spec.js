@@ -1,5 +1,6 @@
 import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
 import { createReplayManager, createReplayRun, cloneReplayRun, __testables } from "../replayManager.js";
+import { playbackTicks } from "../replayUtils.js";
 
 function makeClassList(initial = []) {
   const classes = new Set(initial);
@@ -7,6 +8,14 @@ function makeClassList(initial = []) {
     add: vi.fn((name) => classes.add(name)),
     remove: vi.fn((name) => classes.delete(name)),
     contains: (name) => classes.has(name)
+  };
+}
+
+function makeIncrementalRaf(stepMs = 100) {
+  let ts = 0;
+  return (cb) => {
+    ts += stepMs;
+    cb(ts);
   };
 }
 
@@ -290,5 +299,150 @@ describe("replayManager", () => {
 
     expect(playbackTicksDeterministic).toHaveBeenCalled();
     expect(playbackTicks).not.toHaveBeenCalled();
+  });
+
+  it("replays long runs in real time without dropping ticks", async () => {
+    const totalTicks = 10_000;
+    const ticks = Array.from({ length: totalTicks }, (_, i) => ({
+      move: { dx: i % 7, dy: (i * 2) % 5 },
+      cursor: { x: i % 200, y: (i * 3) % 180, has: i % 2 === 0 },
+      actions: [
+        { id: `boost-${i % 4}`, cursor: { x: (i * 5) % 300, y: (i * 7) % 300, has: i % 3 === 0 } },
+        { id: `dash-${i % 3}` }
+      ]
+    }));
+    const run = {
+      seed: "seed",
+      backgroundSeed: "seed:background",
+      rngTape: [],
+      pendingActions: [],
+      ticks,
+      ended: true
+    };
+    const game = {
+      input: { name: "real" },
+      updates: 0,
+      renders: 0,
+      actions: [],
+      startRun: vi.fn(),
+      update: vi.fn(function update() {
+        this.updates += 1;
+      }),
+      render: vi.fn(function render() {
+        this.renders += 1;
+      }),
+      handleAction: vi.fn(function handleAction(id) {
+        this.actions.push(id);
+      })
+    };
+    const menu = { classList: makeClassList() };
+    const over = { classList: makeClassList() };
+
+    const manager = createReplayManager({
+      game,
+      menu,
+      over,
+      playbackTicks,
+      playbackTicksDeterministic: vi.fn(),
+      simDt: 1 / 120,
+      requestFrame: makeIncrementalRaf(100)
+    });
+
+    const result = await manager.play({ captureMode: "none", run, playbackMode: "realtime" });
+    const lastTick = ticks[ticks.length - 1];
+
+    expect(result).toBe(true);
+    expect(game.update).toHaveBeenCalledTimes(totalTicks);
+    expect(game.handleAction).toHaveBeenCalledTimes(totalTicks * 2);
+    expect(game.actions[0]).toBe("boost-0");
+    expect(game.actions[1]).toBe("dash-0");
+    expect(game.actions[game.actions.length - 2]).toBe(`boost-${(totalTicks - 1) % 4}`);
+    expect(game.actions[game.actions.length - 1]).toBe(`dash-${(totalTicks - 1) % 3}`);
+    expect(game.input).toEqual({ name: "real" });
+    expect(game.renders).toBeGreaterThan(0);
+    expect(game.renders).toBeLessThanOrEqual(totalTicks);
+    expect(game.update).toHaveBeenCalledTimes(totalTicks);
+    expect(lastTick.move).toEqual({ dx: (totalTicks - 1) % 7, dy: ((totalTicks - 1) * 2) % 5 });
+  });
+
+  it("captures long replays with elaborate inputs", async () => {
+    const totalTicks = 10_000;
+    const ticks = Array.from({ length: totalTicks }, (_, i) => ({
+      move: { dx: i % 5, dy: (i * 3) % 9 },
+      cursor: { x: i % 400, y: (i * 5) % 320, has: i % 2 === 1 },
+      actions: [
+        { id: `jump-${i % 6}`, cursor: { x: (i * 11) % 500, y: (i * 13) % 500, has: i % 4 === 0 } },
+        { id: `roll-${i % 4}` }
+      ]
+    }));
+    const run = {
+      seed: "seed",
+      backgroundSeed: "seed:background",
+      rngTape: [],
+      pendingActions: [],
+      ticks,
+      ended: true
+    };
+    const game = {
+      input: { name: "real" },
+      updates: 0,
+      renders: 0,
+      actions: [],
+      startRun: vi.fn(),
+      update: vi.fn(function update() {
+        this.updates += 1;
+      }),
+      render: vi.fn(function render() {
+        this.renders += 1;
+      }),
+      handleAction: vi.fn(function handleAction(id) {
+        this.actions.push(id);
+      })
+    };
+    const canvas = { captureStream: vi.fn(() => ({ stream: true })) };
+
+    class FakeMediaRecorder {
+      static isTypeSupported() {
+        return true;
+      }
+
+      constructor(stream, options) {
+        this.stream = stream;
+        this.mimeType = options?.mimeType || "video/webm";
+        this.ondataavailable = null;
+        this.onstop = null;
+      }
+
+      start() {
+        this.ondataavailable?.({ data: new Blob(["chunk"]) });
+      }
+
+      stop() {
+        this.onstop?.();
+      }
+    }
+
+    global.MediaRecorder = FakeMediaRecorder;
+
+    const manager = createReplayManager({
+      canvas,
+      game,
+      playbackTicks,
+      playbackTicksDeterministic: vi.fn(),
+      simDt: 1 / 120,
+      requestFrame: makeIncrementalRaf(16)
+    });
+
+    const result = await manager.play({ captureMode: "webm", run });
+
+    expect(result).toBeInstanceOf(Blob);
+    expect(game.update).toHaveBeenCalledTimes(totalTicks);
+    expect(game.handleAction).toHaveBeenCalledTimes(totalTicks * 2);
+    expect(game.actions[0]).toBe("jump-0");
+    expect(game.actions[1]).toBe("roll-0");
+    expect(game.actions[game.actions.length - 2]).toBe(`jump-${(totalTicks - 1) % 6}`);
+    expect(game.actions[game.actions.length - 1]).toBe(`roll-${(totalTicks - 1) % 4}`);
+    expect(game.renders).toBe(totalTicks);
+    expect(canvas.captureStream).toHaveBeenCalledWith(__testables.DEFAULT_CAPTURE_FPS);
   });
 });

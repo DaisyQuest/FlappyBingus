@@ -41,6 +41,19 @@ function makeRaf(timestamps) {
   };
 }
 
+function makeIncrementalRaf(stepMs = 100) {
+  let ts = 0;
+  return (cb) => {
+    ts += stepMs;
+    cb(ts);
+  };
+}
+
+function makeSequentialRaf(stepMs, count) {
+  const timestamps = Array.from({ length: count }, (_, i) => i * stepMs);
+  return makeRaf(timestamps);
+}
+
 describe("playbackTicks", () => {
   const SIM_DT = 1 / 120;
 
@@ -223,6 +236,128 @@ describe("playbackTicks", () => {
 
     expect(game.update).toHaveBeenCalledTimes(4);
     expect(game.render).toHaveBeenCalledTimes(3);
+  });
+
+  it("replays long real-time runs without dropping ticks", async () => {
+    const totalTicks = 10_000;
+    const game = makeGame();
+    const replayInput = makeReplayInput();
+    const ticks = Array.from({ length: totalTicks }, (_, i) => ({
+      move: { dx: i % 7, dy: (i * 2) % 5 },
+      cursor: { x: i % 200, y: (i * 3) % 180, has: i % 2 === 0 },
+      actions: [
+        { id: `boost-${i % 4}`, cursor: { x: (i * 5) % 300, y: (i * 7) % 300, has: i % 3 === 0 } },
+        { id: `dash-${i % 3}` }
+      ]
+    }));
+    const raf = makeIncrementalRaf(100);
+
+    await playbackTicks({
+      ticks,
+      game,
+      replayInput,
+      captureMode: "none",
+      playbackMode: "realtime",
+      simDt: SIM_DT,
+      requestFrame: raf
+    });
+
+    const tickStep = Math.max(SIM_DT, 1 / (__testables.REPLAY_TPS * 2));
+    const firstFrameDt = Math.min(__testables.MAX_FRAME_DT, 1 / __testables.REPLAY_TARGET_FPS);
+    const ticksFirstFrame = Math.floor((firstFrameDt + 1e-9) / tickStep);
+    const ticksPerFrame = Math.floor((__testables.MAX_FRAME_DT + 1e-9) / tickStep);
+    const expectedFrames = 1 + Math.ceil((totalTicks - ticksFirstFrame) / ticksPerFrame);
+    const lastTick = ticks[ticks.length - 1];
+    const lastActionCursor = lastTick.actions[0].cursor;
+
+    expect(game.update).toHaveBeenCalledTimes(totalTicks);
+    expect(game.render).toHaveBeenCalledTimes(expectedFrames);
+    expect(game.handleAction).toHaveBeenCalledTimes(totalTicks * 2);
+    expect(game.actions[0]).toBe("boost-0");
+    expect(game.actions[1]).toBe("dash-0");
+    expect(game.actions[game.actions.length - 2]).toBe(`boost-${(totalTicks - 1) % 4}`);
+    expect(game.actions[game.actions.length - 1]).toBe(`dash-${(totalTicks - 1) % 3}`);
+    expect(replayInput._move).toEqual(lastTick.move);
+    expect(replayInput.cursor).toEqual({
+      x: lastActionCursor.x,
+      y: lastActionCursor.y,
+      has: lastActionCursor.has
+    });
+  });
+
+  it("matches capture-mode outcomes when replaying in realtime", async () => {
+    const ticks = [
+      {
+        move: { dx: 1, dy: 2 },
+        cursor: { x: 10, y: 20, has: true },
+        actions: [{ id: "boost", cursor: { x: 15, y: 25, has: true } }, { id: "dash" }]
+      },
+      {
+        move: { dx: 3, dy: 4 },
+        cursor: { x: 11, y: 21, has: false },
+        actions: [{ id: "slide", cursor: { x: 18, y: 28, has: false } }]
+      },
+      {
+        move: { dx: 5, dy: 6 },
+        cursor: { x: 12, y: 22, has: true },
+        actions: [{ id: "hop" }, { id: "bank", cursor: { x: 30, y: 40, has: true } }]
+      },
+      {
+        move: { dx: 7, dy: 8 },
+        cursor: { x: 13, y: 23, has: false },
+        actions: [{ id: "boost" }]
+      },
+      {
+        move: { dx: 9, dy: 10 },
+        cursor: { x: 14, y: 24, has: true },
+        actions: [{ id: "flip" }, { id: "dash" }]
+      },
+      {
+        move: { dx: 11, dy: 12 },
+        cursor: { x: 15, y: 25, has: false },
+        actions: [{ id: "roll", cursor: { x: 44, y: 55, has: true } }]
+      }
+    ];
+
+    const runPlayback = async ({ captureMode, playbackMode, requestFrame }) => {
+      const game = makeGame();
+      const replayInput = makeReplayInput();
+
+      await playbackTicks({
+        ticks,
+        game,
+        replayInput,
+        captureMode,
+        playbackMode,
+        simDt: SIM_DT,
+        requestFrame
+      });
+
+      return {
+        updates: game.updates,
+        renders: game.renders,
+        actions: [...game.actions],
+        replayInput: { cursor: { ...replayInput.cursor }, move: { ...replayInput._move } }
+      };
+    };
+
+    const captureResults = await runPlayback({
+      captureMode: "webm",
+      playbackMode: "realtime",
+      requestFrame: makeSequentialRaf(16, ticks.length + 1)
+    });
+    const realtimeResults = await runPlayback({
+      captureMode: "none",
+      playbackMode: "realtime",
+      requestFrame: makeIncrementalRaf(100)
+    });
+
+    expect(captureResults.updates).toBe(ticks.length);
+    expect(realtimeResults.updates).toBe(ticks.length);
+    expect(realtimeResults.actions).toEqual(captureResults.actions);
+    expect(realtimeResults.replayInput).toEqual(captureResults.replayInput);
+    expect(realtimeResults.renders).toBeGreaterThan(0);
+    expect(captureResults.renders).toBe(ticks.length);
   });
 
   it("bails when realtime playback lacks requestAnimationFrame", async () => {
