@@ -177,6 +177,9 @@ import {
 
 import { handleMenuEscape } from "./menuEscapeHandler.js";
 import { initSocialDock } from "./socialDock.js";
+import { createTrailMenuHandlers } from "./trailMenuHandlers.js";
+import { createIconMenuHandlers } from "./iconMenuHandlers.js";
+import { createPipeTextureMenuHandlers } from "./pipeTextureMenuHandlers.js";
 
 
 // ---- DOM ----
@@ -1699,374 +1702,117 @@ async function uploadBestRunArtifacts(finalScore, runStats) {
 }
 
 // ---- Cosmetics selection ----
-trailLauncher?.addEventListener("click", () => {
-  refreshTrailMenu(currentTrailId);
-  toggleTrailMenu(trailOverlay, true);
-});
+createTrailMenuHandlers({
+  elements: {
+    trailLauncher,
+    trailOverlay,
+    trailOverlayClose,
+    trailOptions
+  },
+  getNet: () => net,
+  getCurrentTrailId: () => currentTrailId,
+  getCurrentIconId: () => currentIconId,
+  getPlayerIcons: () => playerIcons,
+  getLastTrailHint: () => lastTrailHint,
+  apiSetTrail,
+  refreshTrailMenu,
+  toggleTrailMenu,
+  setTrailHint,
+  applyTrailSelection,
+  ensureLoggedInForSave,
+  openPurchaseModal,
+  handleTrailSaveResponse,
+  setNetUser,
+  setUserHint,
+  buildTrailHint,
+  normalizeTrails,
+  syncUnlockablesCatalog,
+  syncIconCatalog,
+  syncPipeTextureCatalog,
+  applyIconSelection,
+  getAuthStatusFromResponse,
+  recoverSession,
+  sortTrailsForDisplay,
+  computeUnlockedTrailSet,
+  describeTrailLock,
+  trailHoverText,
+  DEFAULT_TRAIL_HINT,
+  DEFAULT_CURRENCY_ID,
+  UNLOCKABLE_TYPES
+}).bind();
 
-trailOverlayClose?.addEventListener("click", () => {
-  toggleTrailMenu(trailOverlay, false);
-  if (lastTrailHint) setTrailHint(lastTrailHint, { persist: false });
-});
+createPipeTextureMenuHandlers({
+  elements: {
+    pipeTextureLauncher,
+    pipeTextureOverlay,
+    pipeTextureOptions,
+    pipeTextureModeOptions,
+    pipeTextureHint
+  },
+  getNet: () => net,
+  getCurrentPipeTextureId: () => currentPipeTextureId,
+  setCurrentPipeTextureId: (id) => { currentPipeTextureId = id; },
+  getCurrentPipeTextureMode: () => currentPipeTextureMode,
+  setCurrentPipeTextureMode: (mode) => { currentPipeTextureMode = mode; },
+  refreshPipeTextureMenu,
+  togglePipeTextureMenu,
+  shouldClosePipeTextureMenu,
+  normalizePipeTextureMode,
+  writePipeTextureModeCookie,
+  renderPipeTextureModeButtons,
+  syncPipeTextureSwatch,
+  renderPipeTextureMenuOptions,
+  computeUnlockedPipeTextureSet,
+  openPurchaseModal,
+  applyPipeTextureSelection,
+  shouldTriggerSelectionSave,
+  triggerUserSave: () => saveUserBtn?.click?.(),
+  ensureLoggedInForSave,
+  apiSetPipeTexture,
+  getAuthStatusFromResponse,
+  recoverSession,
+  setUserHint,
+  setNetUser,
+  syncPipeTextureCatalog,
+  describePipeTextureLock,
+  pipeTextureHoverText,
+  DEFAULT_PIPE_TEXTURE_HINT,
+  DEFAULT_CURRENCY_ID,
+  UNLOCKABLE_TYPES
+}).bind();
 
-trailOverlay?.addEventListener("click", (e) => {
-  if (e.target === trailOverlay) {
-    toggleTrailMenu(trailOverlay, false);
-    if (lastTrailHint) setTrailHint(lastTrailHint, { persist: false });
-  }
-});
-
-trailOptions?.addEventListener("click", async (e) => {
-  const btn = e.target.closest("button[data-trail-id]");
-  if (!btn) return;
-  const id = btn.dataset.trailId;
-  const ordered = sortTrailsForDisplay(net.trails, { isRecordHolder: Boolean(net.user?.isRecordHolder) });
-  const unlocked = computeUnlockedTrailSet(ordered);
-  const best = net.user ? (net.user.bestScore | 0) : 0;
-  const targetTrail = ordered.find((t) => t.id === id) || { id, name: id };
-
-  if (!unlocked.has(id)) {
-    if (btn.dataset.unlockType === "purchase") {
-      openPurchaseModal({
-        id,
-        name: targetTrail.name || id,
-        type: UNLOCKABLE_TYPES.trail,
-        unlock: {
-          type: "purchase",
-          cost: Number(btn.dataset.unlockCost || 0),
-          currencyId: btn.dataset.unlockCurrency || DEFAULT_CURRENCY_ID
-        }
-      }, { source: "trail" });
-      return;
-    }
-    const lockText = btn.dataset.statusText
-      || describeTrailLock(targetTrail, {
-        unlocked: false,
-        bestScore: best,
-        isRecordHolder: Boolean(net.user?.isRecordHolder)
-      });
-    refreshTrailMenu(currentTrailId);
-    setTrailHint({ className: "hint bad", text: lockText }, { persist: false });
-    return;
-  }
-
-  if (net.user) {
-    setNetUser({ ...net.user, selectedTrail: id });
-  }
-  applyTrailSelection(id, ordered);
-  refreshTrailMenu(id);
-  setTrailHint({
-    className: net.user ? "hint" : "hint good",
-    text: net.user ? "Saving trail choice…" : "Equipped (guest mode)."
-  }, { persist: Boolean(net.user) });
-
-  if (!net.user && !(await ensureLoggedInForSave())) return;
-
-  const res = await apiSetTrail(id);
-  await handleTrailSaveResponse({
-    res,
-    net,
-    orderedTrails: ordered,
-    selectedTrailId: id,
-    currentTrailId,
-    currentIconId,
-    playerIcons,
-    setNetUser,
-    setUserHint,
-    setTrailHint,
-    buildTrailHint,
-    normalizeTrails,
-    syncUnlockablesCatalog,
-    syncIconCatalog,
-    syncPipeTextureCatalog,
-    refreshTrailMenu,
-    applyIconSelection,
-    getAuthStatusFromResponse,
-    recoverSession
-  });
-});
-
-trailOptions?.addEventListener("mouseover", (e) => {
-  const btn = e.target.closest("button[data-trail-id]");
-  if (!btn) return;
-  const id = btn.dataset.trailId;
-  const trail = net.trails.find((item) => item.id === id) || { id, name: btn.dataset.trailName || id };
-  const best = net.user ? (net.user.bestScore | 0) : 0;
-  const unlocked = computeUnlockedTrailSet(net.trails).has(id);
-  const lockText = btn.dataset.statusText
-    || describeTrailLock(trail, { unlocked, bestScore: best, isRecordHolder: Boolean(net.user?.isRecordHolder) });
-  const text = trailHoverText(trail, { unlocked, lockText });
-  setTrailHint({ className: unlocked ? "hint good" : "hint", text }, { persist: false });
-});
-
-trailOptions?.addEventListener("mouseout", (e) => {
-  if (!e.relatedTarget || !trailOptions.contains(e.relatedTarget)) {
-    setTrailHint(lastTrailHint || { className: "hint", text: DEFAULT_TRAIL_HINT }, { persist: false });
-  }
-});
-
-pipeTextureLauncher?.addEventListener("click", () => {
-  refreshPipeTextureMenu(currentPipeTextureId);
-  togglePipeTextureMenu(pipeTextureOverlay, true);
-});
-
-const closePipeTextureOverlay = () => {
-  togglePipeTextureMenu(pipeTextureOverlay, false);
-  if (pipeTextureHint) {
-    pipeTextureHint.className = "hint";
-    pipeTextureHint.textContent = DEFAULT_PIPE_TEXTURE_HINT;
-  }
-};
-
-pipeTextureOverlay?.addEventListener("click", (e) => {
-  if (shouldClosePipeTextureMenu(e, { overlay: pipeTextureOverlay })) {
-    closePipeTextureOverlay();
-  }
-});
-
-pipeTextureModeOptions?.addEventListener("click", async (e) => {
-  const btn = e.target.closest("button[data-pipe-texture-mode]");
-  if (!btn) return;
-  const nextMode = normalizePipeTextureMode(btn.dataset.pipeTextureMode);
-  if (nextMode === currentPipeTextureMode) return;
-  const previous = currentPipeTextureMode;
-  currentPipeTextureMode = nextMode;
-  writePipeTextureModeCookie(currentPipeTextureMode);
-  renderPipeTextureModeButtons(currentPipeTextureMode);
-  syncPipeTextureSwatch(currentPipeTextureId, net.pipeTextures);
-  renderPipeTextureMenuOptions(currentPipeTextureId, computeUnlockedPipeTextureSet(net.pipeTextures), net.pipeTextures);
-
-  if (!net.user && !(await ensureLoggedInForSave())) return;
-
-  const res = await apiSetPipeTexture(currentPipeTextureId, currentPipeTextureMode);
-  if (!res || !res.ok) {
-    const authStatus = getAuthStatusFromResponse(res);
-    net.online = authStatus.online;
-    if (authStatus.unauthorized) {
-      await recoverSession();
-    }
-    if (!authStatus.online || !net.user) {
-      setUserHint();
-    }
-    currentPipeTextureMode = previous;
-    writePipeTextureModeCookie(currentPipeTextureMode);
-    renderPipeTextureModeButtons(currentPipeTextureMode);
-    syncPipeTextureSwatch(currentPipeTextureId, net.pipeTextures);
-    if (pipeTextureHint) {
-      pipeTextureHint.className = "hint bad";
-      pipeTextureHint.textContent = res?.error === "pipe_texture_locked"
-        ? "That mode is locked with this texture."
-        : "Could not save pipe texture mode.";
-    }
-    return;
-  }
-
-  setNetUser(res.user);
-  syncPipeTextureCatalog(res.pipeTextures || net.pipeTextures);
-  currentPipeTextureMode = normalizePipeTextureMode(res.user?.pipeTextureMode || currentPipeTextureMode);
-  writePipeTextureModeCookie(currentPipeTextureMode);
-  renderPipeTextureModeButtons(currentPipeTextureMode);
-  syncPipeTextureSwatch(currentPipeTextureId, net.pipeTextures);
-  if (pipeTextureHint) {
-    pipeTextureHint.className = "hint good";
-    pipeTextureHint.textContent = "Pipe texture mode saved.";
-  }
-});
-
-pipeTextureOptions?.addEventListener("click", async (e) => {
-  const btn = e.target.closest("button[data-pipe-texture-id]");
-  if (!btn) return;
-  const id = btn.dataset.pipeTextureId;
-  const unlocked = computeUnlockedPipeTextureSet(net.pipeTextures);
-  if (!unlocked.has(id)) {
-    if (btn.dataset.unlockType === "purchase") {
-      const texture = net.pipeTextures.find((t) => t.id === id) || { id, name: id, unlock: {} };
-      openPurchaseModal({
-        id,
-        name: texture.name || id,
-        type: UNLOCKABLE_TYPES.pipeTexture,
-        unlock: {
-          type: "purchase",
-          cost: Number(btn.dataset.unlockCost || 0),
-          currencyId: btn.dataset.unlockCurrency || DEFAULT_CURRENCY_ID
-        }
-      }, { source: "pipe_texture" });
-      return;
-    }
-    if (pipeTextureHint) {
-      pipeTextureHint.className = "hint bad";
-      pipeTextureHint.textContent = describePipeTextureLock(
-        net.pipeTextures.find((t) => t.id === id) || { unlock: {} },
-        { unlocked: false }
-      );
-    }
-    renderPipeTextureMenuOptions(currentPipeTextureId, unlocked, net.pipeTextures);
-    return;
-  }
-
-  const previous = currentPipeTextureId;
-  applyPipeTextureSelection(id, net.pipeTextures, unlocked);
-  if (shouldTriggerSelectionSave({ previousId: previous, nextId: id })) {
-    saveUserBtn?.click?.();
-  }
-  if (pipeTextureHint) {
-    pipeTextureHint.className = net.user ? "hint" : "hint good";
-    pipeTextureHint.textContent = net.user ? "Saving pipe texture…" : "Equipped (guest mode).";
-  }
-
-  if (!net.user && !(await ensureLoggedInForSave())) return;
-
-  const res = await apiSetPipeTexture(id, currentPipeTextureMode);
-  if (!res || !res.ok) {
-    const authStatus = getAuthStatusFromResponse(res);
-    net.online = authStatus.online;
-    if (authStatus.unauthorized) {
-      await recoverSession();
-    }
-    if (!authStatus.online || !net.user) {
-      setUserHint();
-    }
-    applyPipeTextureSelection(previous, net.pipeTextures, unlocked);
-    if (pipeTextureHint) {
-      pipeTextureHint.className = "hint bad";
-      pipeTextureHint.textContent = res?.error === "pipe_texture_locked"
-        ? "That pipe texture is locked."
-        : "Could not save pipe texture.";
-    }
-    return;
-  }
-
-  setNetUser(res.user);
-  syncPipeTextureCatalog(res.pipeTextures || net.pipeTextures);
-  currentPipeTextureMode = normalizePipeTextureMode(res.user?.pipeTextureMode || currentPipeTextureMode);
-  applyPipeTextureSelection(res.user?.selectedPipeTexture || id, net.pipeTextures, computeUnlockedPipeTextureSet(net.pipeTextures));
-  if (pipeTextureHint) {
-    pipeTextureHint.className = "hint good";
-    pipeTextureHint.textContent = "Pipe texture saved.";
-  }
-});
-
-pipeTextureOptions?.addEventListener("mouseover", (e) => {
-  const btn = e.target.closest("button[data-pipe-texture-id]");
-  if (!btn) return;
-  const id = btn.dataset.pipeTextureId;
-  const texture = net.pipeTextures.find((t) => t.id === id);
-  const unlocked = computeUnlockedPipeTextureSet(net.pipeTextures).has(id);
-  if (pipeTextureHint) {
-    pipeTextureHint.className = unlocked ? "hint good" : "hint";
-    pipeTextureHint.textContent = pipeTextureHoverText(texture, { unlocked });
-  }
-});
-
-pipeTextureOptions?.addEventListener("mouseout", (e) => {
-  if (!e.relatedTarget || !pipeTextureOptions.contains(e.relatedTarget)) {
-    if (pipeTextureHint) {
-      pipeTextureHint.className = "hint";
-      pipeTextureHint.textContent = DEFAULT_PIPE_TEXTURE_HINT;
-    }
-  }
-});
-
-iconOptions?.addEventListener("click", async (e) => {
-  const btn = e.target.closest("button[data-icon-id]");
-  if (!btn) return;
-  const id = btn.dataset.iconId;
-  const unlocked = computeUnlockedIconSet(playerIcons);
-  if (!unlocked.has(id)) {
-    if (btn.dataset.unlockType === "purchase") {
-      const icon = playerIcons.find((i) => i.id === id) || { id, name: id, unlock: {} };
-      openPurchaseModal({
-        id,
-        name: icon.name || id,
-        type: UNLOCKABLE_TYPES.playerTexture,
-        unlock: {
-          type: "purchase",
-          cost: Number(btn.dataset.unlockCost || 0),
-          currencyId: btn.dataset.unlockCurrency || DEFAULT_CURRENCY_ID
-        }
-      }, { source: "icon" });
-      return;
-    }
-    if (iconHint) {
-      iconHint.className = "hint bad";
-      iconHint.textContent = describeIconLock(playerIcons.find((i) => i.id === id) || { unlock: {} }, { unlocked: false });
-    }
-    renderIconOptions(currentIconId, unlocked, playerIcons);
-    return;
-  }
-
-  const previous = currentIconId;
-  applyIconSelection(id, playerIcons, unlocked);
-  if (iconHint) {
-    iconHint.className = net.user ? "hint" : "hint good";
-    iconHint.textContent = net.user ? "Saving icon choice…" : "Equipped (guest mode).";
-  }
-
-  if (!net.user && !(await ensureLoggedInForSave())) return;
-
-  const res = await apiSetIcon(id);
-  const outcome = classifyIconSaveResponse(res);
-  net.online = outcome.online;
-
-  if (outcome.needsReauth) {
-    await recoverSession();
-  }
-
-  if (outcome.outcome === "saved" && res) {
-    setNetUser(res.user);
-    net.trails = normalizeTrails(res.trails ?? net.trails, { allowEmpty: true });
-    syncUnlockablesCatalog({ trails: net.trails });
-    syncIconCatalog(res.icons || net.icons);
-    syncPipeTextureCatalog(res.pipeTextures || net.pipeTextures);
-    applyIconSelection(res.user?.selectedIcon || id, playerIcons);
-  } else if (outcome.revert) {
-    applyIconSelection(previous, playerIcons);
-  }
-
-  if (!outcome.online || !net.user) {
-    setUserHint();
-  }
-
-  if (iconHint) {
-    iconHint.className = outcome.outcome === "saved" ? "hint good" : "hint bad";
-    iconHint.textContent = outcome.message;
-  }
-});
-
-iconOptions?.addEventListener("mouseover", (e) => {
-  const btn = e.target.closest("button[data-icon-id]");
-  if (!btn) return;
-  const id = btn.dataset.iconId;
-  const icon = playerIcons.find((i) => i.id === id);
-  const unlocked = computeUnlockedIconSet(playerIcons).has(id);
-  if (iconHint) {
-    iconHint.className = unlocked ? "hint good" : "hint";
-    iconHint.textContent = iconHoverText(icon, { unlocked, lockText: btn.dataset.statusText });
-  }
-});
-
-iconOptions?.addEventListener("mouseout", (e) => {
-  if (!e.relatedTarget || !iconOptions.contains(e.relatedTarget)) {
-    resetIconHint(iconHint);
-  }
-});
-
-iconLauncher?.addEventListener("click", () => {
-  renderIconOptions(currentIconId, computeUnlockedIconSet(playerIcons), playerIcons);
-  toggleIconMenu(iconOverlay, true);
-});
-
-iconOverlayClose?.addEventListener("click", () => {
-  toggleIconMenu(iconOverlay, false);
-  resetIconHint(iconHint);
-});
-
-iconOverlay?.addEventListener("click", (e) => {
-  if (e.target === iconOverlay) {
-    toggleIconMenu(iconOverlay, false);
-    resetIconHint(iconHint);
-  }
-});
+createIconMenuHandlers({
+  elements: {
+    iconOptions,
+    iconHint,
+    iconLauncher,
+    iconOverlay,
+    iconOverlayClose
+  },
+  getNet: () => net,
+  getPlayerIcons: () => playerIcons,
+  getCurrentIconId: () => currentIconId,
+  computeUnlockedIconSet,
+  openPurchaseModal,
+  applyIconSelection,
+  ensureLoggedInForSave,
+  apiSetIcon,
+  classifyIconSaveResponse,
+  setNetUser,
+  normalizeTrails,
+  syncUnlockablesCatalog,
+  syncIconCatalog,
+  syncPipeTextureCatalog,
+  setUserHint,
+  recoverSession,
+  renderIconOptions,
+  toggleIconMenu,
+  resetIconHint,
+  describeIconLock,
+  iconHoverText,
+  DEFAULT_CURRENCY_ID,
+  UNLOCKABLE_TYPES
+}).bind();
 
 const toggleThemeOverlay = (open) => {
   if (!themeOverlay) return;
