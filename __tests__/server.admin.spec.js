@@ -36,7 +36,13 @@ function readJson(res) {
   return JSON.parse(res.body || "{}");
 }
 
-async function importServer({ dataStoreOverrides = {}, configStoreOverrides = {}, gameConfigStoreOverrides = {}, gameConfigPath } = {}) {
+async function importServer({
+  dataStoreOverrides = {},
+  configStoreOverrides = {},
+  gameConfigStoreOverrides = {},
+  backgroundConfigStoreOverrides = {},
+  gameConfigPath
+} = {}) {
   vi.resetModules();
   if (gameConfigPath) process.env.GAME_CONFIG_PATH = gameConfigPath;
   const server = await import("../server.cjs");
@@ -66,7 +72,14 @@ async function importServer({ dataStoreOverrides = {}, configStoreOverrides = {}
     ...gameConfigStoreOverrides
   };
   server._setGameConfigStoreForTests(gameConfigStore);
-  return { server, mockDataStore, configStore, gameConfigStore };
+  const backgroundConfigStore = {
+    getConfig: vi.fn(() => ({ id: "bg-1", loopSeconds: 120 })),
+    getMeta: vi.fn(() => ({ lastLoadedAt: 789 })),
+    save: vi.fn(async (config) => config),
+    ...backgroundConfigStoreOverrides
+  };
+  server._setBackgroundConfigStoreForTests(backgroundConfigStore);
+  return { server, mockDataStore, configStore, gameConfigStore, backgroundConfigStore };
 }
 
 beforeEach(() => {
@@ -128,6 +141,22 @@ describe("admin routes", () => {
     expect(gameConfigStore.save).toHaveBeenCalledWith({ player: { maxSpeed: 420, accel: 900 } });
   });
 
+  it("reads and writes background configs via the background config store", async () => {
+    const { server, backgroundConfigStore } = await importServer();
+    const getRes = createRes();
+    await server.route(createReq({ method: "GET", url: "/api/background-configs" }), getRes);
+    expect(getRes.status).toBe(200);
+    expect(readJson(getRes).config.id).toBe("bg-1");
+
+    const putRes = createRes();
+    await server.route(
+      createReq({ method: "PUT", url: "/api/background-configs", body: JSON.stringify({ id: "bg-2" }) }),
+      putRes
+    );
+    expect(putRes.status).toBe(200);
+    expect(backgroundConfigStore.save).toHaveBeenCalledWith({ id: "bg-2" });
+  });
+
   it("persists unlockable menu updates through the server config store", async () => {
     const { server, configStore } = await importServer();
 
@@ -173,6 +202,24 @@ describe("admin routes", () => {
     );
     expect(putRes.status).toBe(500);
     expect(readJson(putRes).error).toBe("game_config_write_failed");
+  });
+
+  it("returns errors when background config persistence fails", async () => {
+    const { server } = await importServer({
+      backgroundConfigStoreOverrides: {
+        save: vi.fn(async () => {
+          throw new Error("boom");
+        })
+      }
+    });
+
+    const putRes = createRes();
+    await server.route(
+      createReq({ method: "PUT", url: "/api/background-configs", body: JSON.stringify({ id: "bg" }) }),
+      putRes
+    );
+    expect(putRes.status).toBe(500);
+    expect(readJson(putRes).error).toBe("background_config_write_failed");
   });
 
   it("lists, creates, and updates documents", async () => {

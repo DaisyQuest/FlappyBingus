@@ -209,6 +209,11 @@ class MongoDataStore {
     return this.db.collection("game_config");
   }
 
+  backgroundConfigsCollection() {
+    if (!this.db) throw new Error("db_not_connected");
+    return this.db.collection("background_configs");
+  }
+
   async listCollections() {
     await this.ensureConnected();
     const collections = await this.db.listCollections().toArray();
@@ -249,6 +254,18 @@ class MongoDataStore {
     await this.ensureConnected();
     const payload = { _id: "active", config, updatedAt: Date.now() };
     await this.gameConfigCollection().replaceOne({ _id: "active" }, payload, { upsert: true });
+    return payload;
+  }
+
+  async getBackgroundConfig() {
+    await this.ensureConnected();
+    return await this.backgroundConfigsCollection().findOne({ _id: "active" });
+  }
+
+  async saveBackgroundConfig(config) {
+    await this.ensureConnected();
+    const payload = { _id: "active", config, updatedAt: Date.now() };
+    await this.backgroundConfigsCollection().replaceOne({ _id: "active" }, payload, { upsert: true });
     return payload;
   }
 

@@ -50,6 +50,7 @@ import {
   refreshBackgroundLayer,
   updateBackgroundDots
 } from "./backgroundLayer.js";
+import { createBackgroundStudioRenderer } from "./backgroundStudioEngine.js";
 
 const TRAIL_LIFE_SCALE = 1.45;
 const TRAIL_DISTANCE_SCALE = 1.18;
@@ -80,6 +81,8 @@ export class Game {
     // Offscreen background (dots + vignette) to avoid repainting thousands of primitives per frame
     this.background = createBackgroundLayer();
     this.backgroundRand = () => Math.random();
+    this.backgroundStudio = null;
+    this.backgroundStudioConfig = null;
 
     this.player = {
       x: 0, y: 0, vx: 0, vy: 0,
@@ -152,6 +155,24 @@ export class Game {
     this.backgroundRand = (typeof randFn === "function") ? randFn : (() => Math.random());
     if (this.W > 0 && this.H > 0) {
       this._initBackground();
+    }
+  }
+
+  setBackgroundConfig(config) {
+    if (!config) {
+      this.backgroundStudio = null;
+      this.backgroundStudioConfig = null;
+      this._initBackground();
+      return;
+    }
+    this.backgroundStudioConfig = config;
+    if (!this.backgroundStudio) {
+      this.backgroundStudio = createBackgroundStudioRenderer({ config });
+    } else {
+      this.backgroundStudio.setConfig(config);
+    }
+    if (this.W > 0 && this.H > 0) {
+      this.backgroundStudio.resize(this.W, this.H);
     }
   }
 
@@ -453,6 +474,10 @@ export class Game {
   }
 
   _initBackground() {
+    if (this.backgroundStudio) {
+      this.backgroundStudio.resize(this.W, this.H);
+      return;
+    }
     initBackgroundLayer(this.background, {
       width: this.W,
       height: this.H,
@@ -462,6 +487,7 @@ export class Game {
   }
 
   _refreshBackgroundLayer() {
+    if (this.backgroundStudio) return;
     refreshBackgroundLayer(this.background, { width: this.W, height: this.H });
   }
 
@@ -1361,8 +1387,12 @@ export class Game {
     // MENU can have subtle background drift; OVER freezes everything.
     if (this.state === STATE.OVER) return;
 
-    // background drift
-    updateBackgroundDots(this.background, { width: this.W, height: this.H, dt, rand: this.backgroundRand });
+    if (this.backgroundStudio) {
+      this.backgroundStudio.update(dt, { width: this.W, height: this.H });
+    } else {
+      // background drift
+      updateBackgroundDots(this.background, { width: this.W, height: this.H, dt, rand: this.backgroundRand });
+    }
 
     if (this.state !== STATE.PLAY) return;
 
@@ -1637,11 +1667,15 @@ export class Game {
     /* v8 ignore start -- rendering paths are visual-only */
     const ctx = this.ctx;
 
-    // background (cached offscreen)
-    const backgroundDrawn = drawBackgroundLayer(this.background, ctx, { width: this.W, height: this.H });
-    if (!backgroundDrawn) {
-      ctx.fillStyle = "#07101a";
-      ctx.fillRect(0, 0, this.W, this.H);
+    if (this.backgroundStudio) {
+      this.backgroundStudio.render(ctx, { width: this.W, height: this.H });
+    } else {
+      // background (cached offscreen)
+      const backgroundDrawn = drawBackgroundLayer(this.background, ctx, { width: this.W, height: this.H });
+      if (!backgroundDrawn) {
+        ctx.fillStyle = "#07101a";
+        ctx.fillRect(0, 0, this.W, this.H);
+      }
     }
 
     // world

@@ -187,6 +187,28 @@ describe("Game core utilities", () => {
     expect(game.background.ctx).not.toBe(previousCtx);
   });
 
+  it("uses the background studio renderer when a config is set", () => {
+    const { game } = buildGame();
+    game.setBackgroundConfig({
+      id: "bg-test",
+      name: "Test",
+      loopSeconds: 6,
+      global: {
+        baseColor: "#000000",
+        gradient: { shape: "radial", colors: ["#000000", "#111111"], opacity: 0, radius: 1, angleDeg: 0, center: { x: 0.5, y: 0.5 } },
+        glow: { color: "#ffffff", intensity: 0, radius: 0.5, position: { x: 0.5, y: 0.5 } }
+      },
+      timeline: []
+    });
+
+    game.resizeToWindow();
+
+    expect(game.backgroundStudio).toBeTruthy();
+    const before = game.backgroundStudio.getTime();
+    game.update(0.5);
+    expect(game.backgroundStudio.getTime()).toBeGreaterThan(before);
+  });
+
   it("records a centered view rect for letterboxed viewports", () => {
     const { game, canvas } = buildGame();
     game.resizeToWindow();

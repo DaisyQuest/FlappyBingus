@@ -1,0 +1,171 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/bgs/bgs.css" />
+  <title>Background Generator Studio</title>
+</head>
+<body>
+  <div class="app">
+    <header class="app-header">
+      <div>
+        <p class="eyebrow">Background Generator Studio</p>
+        <h1>Background Config Studio</h1>
+        <p class="subhead">Build looping, time-aware backgrounds with deterministic playback for Flappy Bingus.</p>
+      </div>
+      <div class="header-actions">
+        <button class="btn ghost" id="save-config">Save to Server</button>
+        <button class="btn" id="export-json">Export JSON</button>
+      </div>
+    </header>
+
+    <main class="app-grid">
+      <section class="panel stack" aria-label="Global settings">
+        <div class="panel-head">
+          <h2>Global Layer</h2>
+          <p>These settings are always active across the loop.</p>
+        </div>
+        <div class="panel-body">
+          <label class="field">
+            <span>Background Name</span>
+            <input type="text" id="bg-name" placeholder="Aurora Drift" />
+          </label>
+          <label class="field">
+            <span>Loop Length (seconds)</span>
+            <input type="number" id="bg-loop" min="10" max="600" step="1" />
+          </label>
+
+          <div class="fieldset">
+            <h3>Base Color</h3>
+            <label class="field inline">
+              <span>Color</span>
+              <input type="color" id="base-color" />
+              <input type="text" id="base-color-text" class="mono" />
+            </label>
+          </div>
+
+          <div class="fieldset">
+            <h3>Gradient</h3>
+            <label class="field inline">
+              <span>Shape</span>
+              <select id="gradient-shape">
+                <option value="radial">Radial</option>
+                <option value="linear">Linear</option>
+              </select>
+            </label>
+            <div class="field-group">
+              <label class="field inline">
+                <span>Color A</span>
+                <input type="color" id="gradient-color-a" />
+                <input type="text" id="gradient-color-a-text" class="mono" />
+              </label>
+              <label class="field inline">
+                <span>Color B</span>
+                <input type="color" id="gradient-color-b" />
+                <input type="text" id="gradient-color-b-text" class="mono" />
+              </label>
+            </div>
+            <label class="field">
+              <span>Opacity</span>
+              <input type="range" id="gradient-opacity" min="0" max="1" step="0.01" />
+            </label>
+            <label class="field" id="gradient-angle-row">
+              <span>Angle (degrees)</span>
+              <input type="range" id="gradient-angle" min="0" max="360" step="1" />
+            </label>
+            <label class="field" id="gradient-radius-row">
+              <span>Radius</span>
+              <input type="range" id="gradient-radius" min="0.2" max="1.5" step="0.05" />
+            </label>
+          </div>
+
+          <div class="fieldset">
+            <h3>Global Glow</h3>
+            <label class="field inline">
+              <span>Color</span>
+              <input type="color" id="glow-color" />
+              <input type="text" id="glow-color-text" class="mono" />
+            </label>
+            <label class="field">
+              <span>Intensity</span>
+              <input type="range" id="glow-intensity" min="0" max="1" step="0.01" />
+            </label>
+            <label class="field">
+              <span>Radius</span>
+              <input type="range" id="glow-radius" min="0.1" max="1.4" step="0.05" />
+            </label>
+            <div class="field-group">
+              <label class="field">
+                <span>Position X</span>
+                <input type="range" id="glow-x" min="0" max="1" step="0.01" />
+              </label>
+              <label class="field">
+                <span>Position Y</span>
+                <input type="range" id="glow-y" min="0" max="1" step="0.01" />
+              </label>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel preview" aria-label="Preview">
+        <div class="panel-head">
+          <h2>Preview & Playback</h2>
+          <p>Everything below is time-aware and loops seamlessly.</p>
+        </div>
+        <div class="panel-body">
+          <div class="preview-canvas">
+            <canvas id="preview"></canvas>
+          </div>
+          <div class="playback">
+            <button class="btn" id="toggle-play">Play</button>
+            <div class="playback-info">
+              <span id="playback-time">0:00</span>
+              <span class="divider">/</span>
+              <span id="playback-duration">0:00</span>
+            </div>
+            <input type="range" id="playback-scrub" min="0" max="100" step="0.01" />
+          </div>
+        </div>
+      </section>
+
+      <section class="panel timeline" aria-label="Timeline">
+        <div class="panel-head">
+          <h2>Timeline Manager</h2>
+          <p>Manage time-sensitive events. Use the markers to jump quickly.</p>
+        </div>
+        <div class="panel-body">
+          <div class="timeline-bar" id="timeline-bar"></div>
+          <div class="timeline-actions">
+            <button class="btn ghost" data-add="baseColorChange">Add Base Color Change</button>
+            <button class="btn ghost" data-add="particleBurst">Add Particle Burst</button>
+            <button class="btn ghost" data-add="randomGlow">Add Random Glow</button>
+          </div>
+          <div id="timeline-list" class="timeline-list"></div>
+        </div>
+      </section>
+
+      <section class="panel" aria-label="Export and import">
+        <div class="panel-head">
+          <h2>Export / Import</h2>
+          <p>Share configs or version them with JSON.</p>
+        </div>
+        <div class="panel-body">
+          <textarea id="json-field" rows="14" spellcheck="false"></textarea>
+          <div class="panel-actions">
+            <button class="btn ghost" id="copy-json">Copy JSON</button>
+            <button class="btn" id="apply-json">Apply JSON</button>
+          </div>
+          <div class="status" id="save-status"></div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script type="module" src="/bgs/bgs.js"></script>
+</body>
+</html>

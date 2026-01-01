@@ -121,6 +121,16 @@ afterEach(() => {
 });
 
 describe("server routes and helpers", () => {
+  it("serves the background generator studio page", async () => {
+    const { server } = await importServer();
+    const res = createRes();
+
+    await server.route(createReq({ method: "GET", url: "/bgs" }), res);
+
+    expect(res.status).toBe(200);
+    expect(res.body).toContain("Background Config Studio");
+  });
+
   it("rejects malformed registration payloads and sets appropriate cookie flags on success", async () => {
     const { server } = await importServer();
 

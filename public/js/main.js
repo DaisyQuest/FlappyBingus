@@ -2,6 +2,7 @@
 // FILE: public/js/main.js
 // =====================
 import { DEFAULT_CONFIG, loadConfig } from "./config.js";
+import { loadBackgroundConfig } from "./backgroundConfigApi.js";
 import { DEFAULT_SKILL_SETTINGS, normalizeSkillSettings, skillSettingsEqual } from "./settings.js";
 import {
   apiGetMe,
@@ -2639,6 +2640,9 @@ function frame(ts) {
 
   game.cfg = CFG;
   updateSkillCooldownUI(CFG);
+
+  const backgroundRes = await loadBackgroundConfig();
+  game.setBackgroundConfig(backgroundRes.config);
   initThemeEditor({
     refs: {
       themeLauncher,

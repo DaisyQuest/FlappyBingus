@@ -23,6 +23,7 @@ const {
   DEFAULT_SERVER_CONFIG
 } = require("./services/serverConfig.cjs");
 const { createGameConfigStore } = require("./services/gameConfigStore.cjs");
+const { createBackgroundConfigStore } = require("./services/backgroundConfigStore.cjs");
 const {
   ACHIEVEMENTS,
   normalizeAchievementState,
@@ -68,6 +69,9 @@ const PUBLIC_DIR = process.env.PUBLIC_DIR
 const GAME_CONFIG_PATH = process.env.GAME_CONFIG_PATH
   ? path.resolve(process.env.GAME_CONFIG_PATH)
   : path.join(PUBLIC_DIR, "FLAPPY_BINGUS_CONFIG.json");
+const BACKGROUND_CONFIG_PATH = process.env.BACKGROUND_CONFIG_PATH
+  ? path.resolve(process.env.BACKGROUND_CONFIG_PATH)
+  : path.join(PUBLIC_DIR, "backgrounds", "background-config.json");
 
 const START_TIME = Date.now();
 
@@ -113,6 +117,10 @@ function _setConfigStoreForTests(mock) {
 
 function _setGameConfigStoreForTests(mock) {
   gameConfigStore = mock;
+}
+
+function _setBackgroundConfigStoreForTests(mock) {
+  backgroundConfigStore = mock;
 }
 
 // Cookie that holds username (legacy)
@@ -173,6 +181,7 @@ let serverConfigStore = createServerConfigStore({
   reloadIntervalMs: SERVER_CONFIG_RELOAD_MS
 });
 let gameConfigStore = createGameConfigStore({ configPath: GAME_CONFIG_PATH });
+let backgroundConfigStore = createBackgroundConfigStore({ configPath: BACKGROUND_CONFIG_PATH });
 
 function createServerConfigPersistence(store) {
   return {
@@ -194,6 +203,18 @@ function createGameConfigPersistence(store) {
     },
     save: async (config) => {
       await store.saveGameConfig(config);
+    }
+  };
+}
+
+function createBackgroundConfigPersistence(store) {
+  return {
+    load: async () => {
+      const doc = await store.getBackgroundConfig();
+      return doc?.config ?? null;
+    },
+    save: async (config) => {
+      await store.saveBackgroundConfig(config);
     }
   };
 }
@@ -1609,6 +1630,30 @@ async function route(req, res) {
     }
   }
 
+  if (pathname === "/api/background-configs") {
+    if (req.method === "GET") {
+      const config = backgroundConfigStore.getConfig();
+      sendJson(res, 200, { ok: true, config, path: BACKGROUND_CONFIG_PATH, meta: backgroundConfigStore.getMeta() });
+      return;
+    }
+    if (req.method === "PUT") {
+      let body;
+      try {
+        body = await readJsonBody(req);
+      } catch {
+        return badRequest(res, "invalid_json");
+      }
+      try {
+        const payload = body?.config ?? body;
+        const saved = await backgroundConfigStore.save(payload);
+        sendJson(res, 200, { ok: true, config: saved, path: BACKGROUND_CONFIG_PATH, meta: backgroundConfigStore.getMeta() });
+      } catch (err) {
+        sendJson(res, 500, { ok: false, error: "background_config_write_failed", detail: err?.message || String(err) });
+      }
+      return;
+    }
+  }
+
   if (pathname === "/api/admin/unlockables" && req.method === "GET") {
     sendJson(res, 200, {
       ok: true,
@@ -1681,6 +1726,16 @@ async function route(req, res) {
       sendHtml(res, 200, html);
     } catch (err) {
       sendJson(res, 404, { ok: false, error: "admin_not_found", detail: err?.message || String(err) });
+    }
+    return;
+  }
+
+  if (pathname === "/bgs" && req.method === "GET") {
+    try {
+      const html = await fs.readFile(path.join(PUBLIC_DIR, "bgs", "index.html"), "utf8");
+      sendHtml(res, 200, html);
+    } catch (err) {
+      sendJson(res, 404, { ok: false, error: "bgs_not_found", detail: err?.message || String(err) });
     }
     return;
   }
@@ -1818,6 +1873,7 @@ async function startServer() {
     console.log(`[bingus] database ready at ${st.uri} (db ${st.dbName})`);
     serverConfigStore.setPersistence(createServerConfigPersistence(dataStore));
     gameConfigStore.setPersistence(createGameConfigPersistence(dataStore));
+    backgroundConfigStore.setPersistence(createBackgroundConfigPersistence(dataStore));
   } catch (err) {
     console.error("[bingus] database connection failed at startup:", err);
   }
@@ -1830,6 +1886,11 @@ async function startServer() {
     await gameConfigStore.load();
   } catch (err) {
     console.error("[bingus] game config load failed:", err);
+  }
+  try {
+    await backgroundConfigStore.load();
+  } catch (err) {
+    console.error("[bingus] background config load failed:", err);
   }
 
   const server = http.createServer((req, res) => {
@@ -1865,6 +1926,7 @@ module.exports = {
   _setDataStoreForTests,
   _setConfigStoreForTests,
   _setGameConfigStoreForTests,
+  _setBackgroundConfigStoreForTests,
   route,
   startServer,
   __testables: {
