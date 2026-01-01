@@ -126,6 +126,16 @@ export class Part {
       }
       ctx.closePath();
       ctx.fill();
+    } else if (this.shape === "heart") {
+      ctx.translate(this.x, this.y);
+      if (this.rotation) ctx.rotate(this.rotation);
+      ctx.fillStyle = this.color;
+      ctx.beginPath();
+      ctx.moveTo(0, r * 0.9);
+      ctx.bezierCurveTo(r * 1.3, r * 0.35, r * 0.9, -r * 0.7, 0, -r * 0.2);
+      ctx.bezierCurveTo(-r * 0.9, -r * 0.7, -r * 1.3, r * 0.35, 0, r * 0.9);
+      ctx.closePath();
+      ctx.fill();
     } else if (this.shape === "lemon_slice") {
       const slice = this.slice || {};
       const rind = slice.rind || "rgba(255, 247, 195, 0.95)";

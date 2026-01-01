@@ -109,11 +109,17 @@ describe("trailStyles", () => {
   it("adds a sparkly starlight trail without blossom petals", () => {
     const starlight = trailStyleFor("starlight_pop");
     expect(TRAIL_STYLE_IDS).toContain("starlight_pop");
-    expect(starlight.particleShape).toBe("star");
+    expect(starlight.particleShape).toBe("heart");
     expect(starlight.sparkle.particleShape).toBe("star");
-    expect(starlight.glint.particleShape).toBe("star");
+    expect(starlight.glint.particleShape).toBe("heart");
     expect(starlight.life[1]).toBeGreaterThan(starlight.life[0]);
-    expect(starlight.sparkle.rate).toBeGreaterThan(0);
+    expect(starlight.sparkle.rate).toBeCloseTo(starlight.rate * 0.1, 5);
+    const sparkleColor = starlight.sparkle.color({ rand: () => 0, hue: 0, i: 0 });
+    const baseColor = starlight.color({ rand: () => 0, i: 0 });
+    expect(sparkleColor).toContain("hsla(");
+    expect(baseColor).toContain("hsla(");
+    expect(Number(sparkleColor.match(/hsla\((\d+)/)?.[1])).toBeGreaterThanOrEqual(300);
+    expect(Number(baseColor.match(/hsla\((\d+)/)?.[1])).toBeGreaterThanOrEqual(300);
   });
 
   it("uses honeycomb hexagons with a matching outline style", () => {

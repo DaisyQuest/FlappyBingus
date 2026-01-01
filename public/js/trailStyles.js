@@ -63,8 +63,10 @@ const emberSpark = () => "rgba(255,124,92,.92)";
 const lightningColor = ({ rand: r }) => hsla((205 + r(-12, 20)) % 360, 100, 82, 0.92);
 const petalColor = ({ rand: r, i }) =>
   hsla((332 + r(-10, 10) + i * 1.8) % 360, 80, 86, 0.9);
-const starlightColor = ({ hue, rand: r, i }) =>
-  hsla((hue * 0.5 + 210 + r(-30, 30) + i * 2.4) % 360, 92, 82, 0.86);
+const starlightHeartColor = ({ rand: r, i }) =>
+  hsla((330 + r(-16, 16) + i * 1.6) % 360, 88, 80, 0.9);
+const starlightSparkleColor = ({ rand: r }) =>
+  hsla((335 + r(-12, 12)) % 360, 96, 88, 0.88);
 
 const TRAIL_STYLES = Object.freeze({
   classic: {
@@ -288,33 +290,40 @@ const TRAIL_STYLES = Object.freeze({
     aura: { rate: 14, size: [4.4, 8.0], life: [0.52, 0.82], color: ({ rand: r }) => hsla(56 + r(-8, 8), 86, 72, 0.32) }
   },
   starlight_pop: {
-    rate: 76,
-    life: [0.14, 0.26],
-    size: [2.6, 5.2],
-    speed: [34, 140],
-    drag: 12.4,
+    rate: 90,
+    life: [0.16, 0.3],
+    size: [2.8, 5.6],
+    speed: [32, 128],
+    drag: 12.2,
     add: true,
-    color: starlightColor,
-    particleShape: "star",
+    color: starlightHeartColor,
+    particleShape: "heart",
     sparkle: {
       ...sparkleDefaults,
-      rate: 64,
-      life: [0.12, 0.22],
-      size: [1.2, 2.6],
-      speed: [28, 92],
-      color: ({ hue, rand: r }) => hsla((hue + r(0, 120)) % 360, 100, 86, 0.9),
-      particleShape: "star"
+      rate: 9,
+      life: [0.14, 0.24],
+      size: [1.0, 2.2],
+      speed: [26, 88],
+      color: starlightSparkleColor,
+      particleShape: "star",
+      add: true
     },
     glint: {
       ...glintDefaults,
-      rate: 46,
-      life: [0.16, 0.28],
-      size: [1.6, 3.4],
-      speed: [52, 150],
-      color: ({ hue, rand: r }) => hsla((hue + r(-10, 40)) % 360, 96, 80, 0.88),
-      particleShape: "star"
+      rate: 0,
+      life: [0.18, 0.3],
+      size: [1.6, 3.2],
+      speed: [46, 130],
+      color: starlightHeartColor,
+      particleShape: "heart"
     },
-    aura: { rate: 18, size: [3.6, 6.8], life: [0.38, 0.6], color: ({ hue, rand: r }) => hsla((hue + r(-18, 18)) % 360, 80, 78, 0.35) }
+    aura: {
+      rate: 6,
+      size: [3.8, 6.8],
+      life: [0.4, 0.62],
+      color: ({ rand: r }) => hsla((332 + r(-12, 12)) % 360, 80, 74, 0.32),
+      particleShape: "heart"
+    }
   },
   dragonfire: {
     rate: 122,
