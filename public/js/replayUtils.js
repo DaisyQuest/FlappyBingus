@@ -20,12 +20,20 @@ function applyReplayTick({ tick, game, replayInput, simDt, step }) {
   }
 
   if (typeof step === "function") {
-    step(simDt, actions);
+    const actionIds = actions
+      .map((a) => {
+        if (typeof a === "string") return a;
+        if (!a) return null;
+        return a.id || a.action || null;
+      })
+      .filter(Boolean);
+    step(simDt, actionIds);
     return;
   }
 
   for (const a of actions) {
-    game.handleAction(a.id);
+    const actionId = typeof a === "string" ? a : a?.id || a?.action;
+    if (actionId) game.handleAction(actionId);
   }
 
   game.update(simDt);
