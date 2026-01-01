@@ -127,7 +127,7 @@ function createHowToCard(doc, refs) {
   wrapper.append(howToTitle, list);
 
   const settingsAction = createElement(doc, refs, "label", {
-    className: "cta-btn wide card-nav",
+    className: "cta-btn wide card-nav settings-nav",
     attrs: { for: "viewSettings", role: "button", tabindex: "0" },
     text: "Settings"
   });

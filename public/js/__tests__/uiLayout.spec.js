@@ -101,6 +101,8 @@ describe("uiLayout", () => {
     expect(settingsCallout?.textContent).toContain("Change skill behaviors and key bindings");
     const settingsAction = howtoCard?.querySelector(".card-actions .card-nav[for='viewSettings']");
     const settingsActions = settingsCallout?.parentElement;
+    expect(settingsAction?.classList.contains("settings-nav")).toBe(true);
+    expect(settingsAction?.classList.contains("wide")).toBe(true);
     expect(settingsActions?.classList.contains("callout-stack")).toBe(true);
     expect(settingsActions?.firstElementChild).toBe(settingsAction);
     expect(settingsActions?.lastElementChild).toBe(settingsCallout);
