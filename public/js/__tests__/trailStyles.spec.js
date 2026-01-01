@@ -67,6 +67,10 @@ describe("trailStyles", () => {
     expect(rainbow.color({ rand: fixedRand, hue: 0, i: 0 })).toBe("rgba(255, 60, 68, 0.96)");
     expect(rainbow.color({ rand: fixedRand, hue: 0, i: 1 })).toBe("rgba(255, 148, 66, 0.96)");
     expect(rainbow.color({ rand: fixedRand, hue: 0, i: 2 })).toBe("rgba(255, 230, 96, 0.96)");
+    expect(rainbow.rate).toBeLessThanOrEqual(130);
+    expect(rainbow.jitterScale).toBeLessThanOrEqual(0.02);
+    expect(rainbow.banding?.spreadScale).toBeGreaterThanOrEqual(1);
+    expect(rainbow.banding?.jitterScale).toBe(0);
     expect(rainbow.glint.rate).toBe(0);
     expect(rainbow.sparkle.rate).toBe(0);
 

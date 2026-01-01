@@ -164,18 +164,18 @@ const TRAIL_STYLES = Object.freeze({
     aura: { rate: 30, size: [4.6, 9.2], life: [0.6, 0.9], color: haloColor }
   },
   rainbow: {
-    rate: 180,
-    life: [0.36, 0.6],
-    size: [4.2, 6.2],
-    speed: [18, 110],
-    drag: 10.6,
+    rate: 120,
+    life: [0.32, 0.54],
+    size: [4.6, 6.6],
+    speed: [16, 96],
+    drag: 11.4,
     add: false,
-    jitterScale: 0.08,
+    jitterScale: 0.02,
     particleShape: "pixel",
     banding: {
       count: NYAN_RAINBOW.length,
-      spreadScale: 0.95,
-      jitterScale: 0.08
+      spreadScale: 1.05,
+      jitterScale: 0
     },
     color: nyanRibbonColor,
     sparkle: { ...sparkleDefaults, rate: 0, add: false, color: nyanRibbonColor },
