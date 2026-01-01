@@ -2,7 +2,7 @@
 // FILE: public/js/game.js
 // =====================
 import {
-  clamp, lerp, rand, norm2, approach,
+  clamp, lerp, rand, norm2, approach, getRandSource,
   circleRect, circleRectInfo, circleCircle,
   hexToRgb, lerpC, rgb, shade, hsla, formatRunDuration
 } from "./util.js";
@@ -79,7 +79,7 @@ export class Game {
 
     // Offscreen background (dots + vignette) to avoid repainting thousands of primitives per frame
     this.background = createBackgroundLayer();
-    this.backgroundRand = () => Math.random();
+    this.backgroundRand = getRandSource();
 
     this.player = {
       x: 0, y: 0, vx: 0, vy: 0,
@@ -149,7 +149,7 @@ export class Game {
   }
 
   setBackgroundRand(randFn) {
-    this.backgroundRand = (typeof randFn === "function") ? randFn : (() => Math.random());
+    this.backgroundRand = (typeof randFn === "function") ? randFn : getRandSource();
     if (this.W > 0 && this.H > 0) {
       this._initBackground();
     }

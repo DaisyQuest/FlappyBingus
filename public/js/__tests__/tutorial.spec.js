@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { Tutorial } from "../tutorial.js";
 import { Game, WORLD_HEIGHT, WORLD_WIDTH } from "../game.js";
 import { DEFAULT_CONFIG } from "../config.js";
+import { Input } from "../input.js";
 
 beforeEach(() => {
   vi.spyOn(Game.prototype, "_initBackground").mockImplementation(() => {});
@@ -49,12 +50,13 @@ const setupGame = () => {
     getContext: () => ctx,
     getBoundingClientRect: () => ({ left: 0, top: 0, width: 800, height: 600 })
   };
+  const input = new Input(canvas, () => ({}));
   const game = new Game({
     canvas,
     ctx,
     config: structuredClone(DEFAULT_CONFIG),
     playerImg: { naturalWidth: 10, naturalHeight: 10 },
-    input: { getMove: () => ({ dx: 0, dy: 0 }), cursor: { has: false } },
+    input,
     getTrailId: () => "classic",
     getBinds: () => ({}),
     onGameOver: () => {}
@@ -63,14 +65,15 @@ const setupGame = () => {
   return game;
 };
 
-const logicalToClient = (canvas, x, y) => {
-  const rect = canvas.getBoundingClientRect();
-  const view = canvas._view || { x: 0, y: 0, width: rect.width, height: rect.height };
-  const nx = x / Math.max(1, canvas._logicalW || WORLD_WIDTH);
-  const ny = y / Math.max(1, canvas._logicalH || WORLD_HEIGHT);
+const logicalToClient = (input, x, y) => {
+  const view = input.view || { x: 0, y: 0, width: WORLD_WIDTH, height: WORLD_HEIGHT };
+  const logicalW = Number.isFinite(input.logicalSize?.width) && input.logicalSize.width > 0 ? input.logicalSize.width : WORLD_WIDTH;
+  const logicalH = Number.isFinite(input.logicalSize?.height) && input.logicalSize.height > 0 ? input.logicalSize.height : WORLD_HEIGHT;
+  const nx = x / Math.max(1, logicalW);
+  const ny = y / Math.max(1, logicalH);
   return {
-    clientX: rect.left + view.x + nx * view.width,
-    clientY: rect.top + view.y + ny * view.height
+    clientX: view.x + nx * view.width,
+    clientY: view.y + ny * view.height
   };
 };
 
@@ -514,7 +517,7 @@ describe("Tutorial copy, guides, and slow-field flows", () => {
 
     const spy = vi.spyOn(tutorial, "_enterStep");
     const backEvent = {
-      ...logicalToClient(game.canvas, 15, 15),
+      ...logicalToClient(game.input, 15, 15),
       target: game.canvas,
       preventDefault: vi.fn(),
       stopPropagation: vi.fn()
@@ -531,7 +534,7 @@ describe("Tutorial copy, guides, and slow-field flows", () => {
       next: { x: 60, y: 10, w: 40, h: 30 }
     };
     const nextEvent = {
-      ...logicalToClient(game.canvas, 70, 15),
+      ...logicalToClient(game.input, 70, 15),
       target: game.canvas,
       preventDefault: vi.fn(),
       stopPropagation: vi.fn()

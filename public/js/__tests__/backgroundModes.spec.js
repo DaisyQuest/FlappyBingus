@@ -1,10 +1,15 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, afterEach } from "vitest";
 import {
   createProceduralBackground,
   updateProceduralBackground,
   createMonochromeBackground,
   createVideoBackground
 } from "../backgroundModes.js";
+import { setRandSource } from "../util.js";
+
+afterEach(() => {
+  setRandSource();
+});
 
 describe("backgroundModes", () => {
   it("creates procedural background with seeded dots", () => {
@@ -17,6 +22,19 @@ describe("backgroundModes", () => {
     const bg = createProceduralBackground({ width: 100, height: 50, rand: () => 0.5 });
     bg.dots = [{ x: 0, y: 60, s: 5, r: 1 }];
     updateProceduralBackground(bg, { width: 100, height: 50, dt: 1, rand: () => 0.25 });
+    expect(bg.dots[0].y).toBe(-10);
+    expect(bg.dots[0].x).toBe(25);
+  });
+
+  it("uses the global rand source when none is provided", () => {
+    setRandSource(() => 0.1);
+    const bg = createProceduralBackground({ width: 100, height: 50 });
+    expect(bg.dots[0].x).toBeCloseTo(10);
+    expect(bg.dots[0].y).toBeCloseTo(5);
+
+    bg.dots = [{ x: 0, y: 60, s: 5, r: 1 }];
+    setRandSource(() => 0.25);
+    updateProceduralBackground(bg, { width: 100, height: 50, dt: 1 });
     expect(bg.dots[0].y).toBe(-10);
     expect(bg.dots[0].x).toBe(25);
   });

@@ -1,8 +1,12 @@
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi, afterEach } from "vitest";
 import { DEFAULT_CONFIG } from "../config.js";
 import { TrailPreview } from "../trailPreview.js";
-import { clamp } from "../util.js";
+import { clamp, setRandSource } from "../util.js";
 import * as trailStyles from "../trailStyles.js";
+
+afterEach(() => {
+  setRandSource();
+});
 
 const makeCtx = ({ linearGradient, radialGradient } = {}) => {
   const gradient = { addColorStop: vi.fn() };
@@ -191,6 +195,20 @@ describe("TrailPreview", () => {
     const target = preview._pickWanderTarget(0.2, 0.25, 0.9, 0.1);
     expect(target.x).toBeLessThanOrEqual(0.8);
     expect(target.y).toBeGreaterThanOrEqual(0.25);
+  });
+
+  it("falls back to the global rand source when the preview RNG is cleared", () => {
+    const { canvas } = makeCanvas();
+    const preview = new TrailPreview({
+      canvas,
+      playerImg: {},
+      requestFrame: null,
+      cancelFrame: null,
+      now: () => 0
+    });
+    setRandSource(() => 0.25);
+    preview._rand = null;
+    expect(preview._randRange(0, 4)).toBeCloseTo(1);
   });
 
   it("resets trail simulation state when switching trails", () => {

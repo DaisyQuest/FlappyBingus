@@ -1439,16 +1439,20 @@ describe("Game loop", () => {
   });
 
   it("wraps drifting background dots when they exit the playfield", () => {
-    const { game } = buildGame();
-    game._initBackground();
-    game.background.mode.dots = [{ x: 1, y: game.H + 20, s: 5, r: 1 }];
-    const randSpy = vi.spyOn(Math, "random").mockReturnValue(0.75);
+    try {
+      setRandSource(() => 0.75);
+      const { game } = buildGame();
+      game.setBackgroundRand(() => 0.75);
+      game._initBackground();
+      game.background.mode.dots = [{ x: 1, y: game.H + 20, s: 5, r: 1 }];
 
-    game.update(0.1);
+      game.update(0.1);
 
-    expect(game.background.mode.dots[0].y).toBe(-10);
-    expect(game.background.mode.dots[0].x).toBeCloseTo(game.W * 0.75);
-    randSpy.mockRestore();
+      expect(game.background.mode.dots[0].y).toBe(-10);
+      expect(game.background.mode.dots[0].x).toBeCloseTo(game.W * 0.75);
+    } finally {
+      setRandSource();
+    }
   });
 
   it("runs full PLAY update including orbs, gates, and scoring", () => {

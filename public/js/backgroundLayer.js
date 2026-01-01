@@ -1,4 +1,5 @@
 import { createProceduralBackground, updateProceduralBackground } from "./backgroundModes.js";
+import { getRandSource } from "./util.js";
 
 const DEFAULT_BACKGROUND_COLOR = "#07101a";
 
@@ -11,7 +12,7 @@ export function createBackgroundLayer() {
   };
 }
 
-export function initBackgroundLayer(layer, { width, height, rand = Math.random, mode } = {}) {
+export function initBackgroundLayer(layer, { width, height, rand = getRandSource(), mode } = {}) {
   if (!layer) throw new Error("Background layer is required.");
   const w = Math.max(1, width || 0);
   const h = Math.max(1, height || 0);
@@ -76,7 +77,7 @@ export function refreshBackgroundLayer(layer, { width, height, backgroundColor =
   layer.dirty = false;
 }
 
-export function updateBackgroundDots(layer, { width, height, dt, rand = Math.random } = {}) {
+export function updateBackgroundDots(layer, { width, height, dt, rand = getRandSource() } = {}) {
   if (!layer) throw new Error("Background layer is required.");
   const mode = layer.mode;
   if (mode?.type === "procedural") {

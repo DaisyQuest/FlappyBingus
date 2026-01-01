@@ -1,6 +1,7 @@
 import { describe, expect, it, beforeEach, afterEach, vi } from "vitest";
 import { createBackgroundRenderer } from "../backgroundRenderer.js";
 import { createMonochromeBackground, createVideoBackground } from "../backgroundModes.js";
+import { setRandSource } from "../util.js";
 
 const makeCtx = () => ({
   drawImage: vi.fn(),
@@ -32,6 +33,7 @@ describe("backgroundRenderer", () => {
 
   afterEach(() => {
     globalThis.OffscreenCanvas = originalOffscreen;
+    setRandSource();
   });
 
   it("initializes with a default procedural mode and renders", () => {
@@ -39,6 +41,16 @@ describe("backgroundRenderer", () => {
     const ctx = makeCtx();
     const drawn = renderer.render(ctx, { width: 100, height: 50 });
     expect(drawn).toBe(true);
+  });
+
+  it("uses the global rand source when no rand override is provided", () => {
+    setRandSource(() => 0.1);
+    const renderer = createBackgroundRenderer({ width: 100, height: 50 });
+    const ctx = makeCtx();
+    renderer.render(ctx, { width: 100, height: 50 });
+    const mode = renderer.getMode();
+    expect(mode?.dots?.[0]?.x).toBeCloseTo(10);
+    expect(mode?.dots?.[0]?.y).toBeCloseTo(5);
   });
 
   it("sets a monochrome mode and renders via background layer", () => {
