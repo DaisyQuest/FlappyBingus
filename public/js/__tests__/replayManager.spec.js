@@ -25,6 +25,7 @@ describe("replayManager", () => {
     expect(run.pendingActions).toEqual([]);
     expect(run.rngTape).toEqual([]);
     expect(run.ended).toBe(false);
+    expect(run.backgroundSeed).toBe("seed:background");
   });
 
   it("clones replay runs without mutating the original", () => {
@@ -32,28 +33,35 @@ describe("replayManager", () => {
     run.ticks.push({ move: { dx: 1, dy: 2 }, cursor: { x: 3, y: 4 }, actions: [] });
     run.pendingActions.push({ id: "dash" });
     run.rngTape.push(0.1);
+    run.backgroundSeed = "custom-bg";
 
     const clone = cloneReplayRun(run);
     expect(clone).not.toBe(run);
     expect(clone.ticks).toEqual(run.ticks);
     expect(clone.pendingActions).toEqual(run.pendingActions);
     expect(clone.rngTape).toEqual(run.rngTape);
+    expect(clone.backgroundSeed).toBe("custom-bg");
 
     clone.ticks.push({ move: { dx: 9, dy: 9 }, cursor: { x: 1, y: 2 }, actions: [] });
     expect(run.ticks.length).toBe(1);
   });
 
   it("starts recording, queues actions, drains them, and records ticks", () => {
+    const game = { setBackgroundRand: vi.fn() };
     const setRandSource = vi.fn();
     const tapeRecorder = vi.fn(() => "tape");
+    const seededRand = vi.fn(() => "bg-rand");
     const onStatus = vi.fn();
 
-    const manager = createReplayManager({ setRandSource, tapeRecorder, onStatus });
+    const manager = createReplayManager({ game, setRandSource, tapeRecorder, seededRand, onStatus });
     const run = manager.startRecording("abc");
 
     expect(run.seed).toBe("abc");
+    expect(run.backgroundSeed).toBe("abc:background");
     expect(setRandSource).toHaveBeenCalledWith("tape");
     expect(tapeRecorder).toHaveBeenCalledWith("abc", run.rngTape);
+    expect(seededRand).toHaveBeenCalledWith("abc:background");
+    expect(game.setBackgroundRand).toHaveBeenCalledWith("bg-rand");
     expect(onStatus).toHaveBeenCalledWith({
       className: "hint",
       text: "Recording replay… Seed: abc"
@@ -93,8 +101,8 @@ describe("replayManager", () => {
     expect(manager.isReplaying()).toBe(false);
   });
 
-  it("plays a replay using deterministic playback in non-capture mode", async () => {
-    const game = { input: { name: "real" }, startRun: vi.fn() };
+  it("plays a replay in real time when requestAnimationFrame is available", async () => {
+    const game = { input: { name: "real" }, startRun: vi.fn(), setBackgroundRand: vi.fn() };
     const input = { reset: vi.fn() };
     const menu = { classList: makeClassList() };
     const over = { classList: makeClassList() };
@@ -107,6 +115,7 @@ describe("replayManager", () => {
     const playbackTicksDeterministic = vi.fn(({ game: playbackGame, replayInput }) => {
       expect(playbackGame.input).toBe(replayInput);
     });
+    const requestFrame = vi.fn((cb) => cb(0));
 
     const manager = createReplayManager({
       game,
@@ -119,7 +128,8 @@ describe("replayManager", () => {
       seededRand,
       playbackTicks,
       playbackTicksDeterministic,
-      simDt: 1 / 120
+      simDt: 1 / 120,
+      requestFrame
     });
 
     manager.startRecording("seed");
@@ -132,12 +142,17 @@ describe("replayManager", () => {
     expect(stopMusic).toHaveBeenCalled();
     expect(setRandSource).toHaveBeenCalledWith("seeded");
     expect(tapePlayer).not.toHaveBeenCalled();
+    expect(seededRand).toHaveBeenCalledWith("seed:background");
+    expect(game.setBackgroundRand).toHaveBeenCalledWith("seeded");
     expect(game.input).toEqual({ name: "real" });
     expect(menu.classList.add).toHaveBeenCalledWith("hidden");
     expect(over.classList.add).toHaveBeenCalledWith("hidden");
     expect(over.classList.remove).toHaveBeenCalledWith("hidden");
-    expect(playbackTicksDeterministic).toHaveBeenCalled();
-    expect(playbackTicks).not.toHaveBeenCalled();
+    expect(playbackTicks).toHaveBeenCalledWith(expect.objectContaining({
+      captureMode: "none",
+      playbackMode: "realtime"
+    }));
+    expect(playbackTicksDeterministic).not.toHaveBeenCalled();
     expect(manager.isReplaying()).toBe(false);
   });
 
@@ -194,6 +209,8 @@ describe("replayManager", () => {
     const game = { input: { name: "real" }, startRun: vi.fn() };
     const playbackTicks = vi.fn();
     const playbackTicksDeterministic = vi.fn();
+    const originalRaf = global.requestAnimationFrame;
+    global.requestAnimationFrame = undefined;
 
     const manager = createReplayManager({
       game,
@@ -211,5 +228,6 @@ describe("replayManager", () => {
 
     expect(playbackTicksDeterministic).toHaveBeenCalled();
     expect(playbackTicks).not.toHaveBeenCalled();
+    global.requestAnimationFrame = originalRaf;
   });
 });

@@ -48,12 +48,14 @@ async function stopCapture({ recorder, recordedChunks }) {
 }
 
 export function createReplayRun(seed) {
+  const seedString = String(seed || "");
   return {
-    seed: String(seed || ""),
+    seed: seedString,
     ticks: [],
     pendingActions: [],
     ended: false,
-    rngTape: []
+    rngTape: [],
+    backgroundSeed: `${seedString}:background`
   };
 }
 
@@ -63,7 +65,8 @@ export function cloneReplayRun(run) {
     ...run,
     ticks: Array.isArray(run.ticks) ? run.ticks.slice() : [],
     rngTape: Array.isArray(run.rngTape) ? run.rngTape.slice() : [],
-    pendingActions: Array.isArray(run.pendingActions) ? run.pendingActions.slice() : []
+    pendingActions: Array.isArray(run.pendingActions) ? run.pendingActions.slice() : [],
+    backgroundSeed: run.backgroundSeed
   };
 }
 
@@ -99,6 +102,9 @@ export function createReplayManager({
     actionQueue = createActionQueue({ initial: activeRun.pendingActions });
     if (typeof setRandSource === "function" && typeof tapeRecorder === "function") {
       setRandSource(tapeRecorder(activeRun.seed, activeRun.rngTape));
+    }
+    if (typeof seededRand === "function" && typeof game?.setBackgroundRand === "function") {
+      game.setBackgroundRand(seededRand(activeRun.backgroundSeed));
     }
     notifyStatus({ className: "hint", text: `Recording replay… Seed: ${activeRun.seed}` });
     return activeRun;
@@ -164,6 +170,11 @@ export function createReplayManager({
         setRandSource(replayRandSource);
       }
 
+      if (typeof seededRand === "function" && typeof game?.setBackgroundRand === "function") {
+        const bgSeed = run?.backgroundSeed || (run?.seed ? `${run.seed}:background` : "");
+        if (bgSeed) game.setBackgroundRand(seededRand(bgSeed));
+      }
+
       if (game) {
         game.input = replayInput;
       }
@@ -180,8 +191,11 @@ export function createReplayManager({
         }));
       }
 
-      const useDeterministic = captureMode === "none";
-      const playbackFn = useDeterministic ? playbackTicksDeterministic : playbackTicks;
+      const canUseRealtime = captureMode === "none"
+        && (typeof requestFrame === "function" || typeof requestAnimationFrame === "function");
+      const playbackFn = (captureMode === "none" && !canUseRealtime)
+        ? playbackTicksDeterministic
+        : playbackTicks;
 
       if (typeof playbackFn === "function") {
         await playbackFn({
@@ -189,6 +203,7 @@ export function createReplayManager({
           game,
           replayInput,
           captureMode,
+          playbackMode: canUseRealtime ? "realtime" : "deterministic",
           simDt,
           requestFrame,
           step
