@@ -100,6 +100,20 @@ describe("Part drawing", () => {
     expect(ctx.ops.some((op) => Array.isArray(op) && op[0] === "translate")).toBe(true);
   });
 
+  it("renders heart particles with curved lobes", () => {
+    const ctx = makeMockCtx();
+    const p = new Part(4, 6, 0, 0, 1, 5, "#f472b6", false);
+    p.shape = "heart";
+    p.rotation = Math.PI / 3;
+
+    p.draw(ctx);
+
+    expect(ctx.ops).toContain("fill");
+    expect(ctx.ops).toContain("closePath");
+    expect(ctx.ops.some((op) => Array.isArray(op) && op[0] === "bezierCurveTo")).toBe(true);
+    expect(ctx.ops.some((op) => Array.isArray(op) && op[0] === "translate")).toBe(true);
+  });
+
   it("renders honeycomb hexagons with fills and outlines", () => {
     const ctx = makeMockCtx();
     const p = new Part(12, 14, 0, 0, 1, 6, "#fbbf24", true);
