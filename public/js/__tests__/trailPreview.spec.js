@@ -535,6 +535,64 @@ describe("TrailPreview", () => {
     styleSpy.mockRestore();
   });
 
+  it("bands pixel trails into stacked rainbow stripes", () => {
+    const { canvas } = makeCanvas();
+    const preview = new TrailPreview({
+      canvas,
+      playerImg: {},
+      requestFrame: null,
+      cancelFrame: null,
+      now: () => 0
+    });
+    preview.player.x = 50;
+    preview.player.y = 60;
+    preview.player.vx = 100;
+    preview.player.vy = 0;
+    preview.player.r = 10;
+    preview.player.phase = 0;
+    preview._rand = () => 0.5;
+
+    const style = {
+      rate: 4,
+      life: [1, 1],
+      size: [2, 2],
+      speed: [1, 1],
+      drag: 0,
+      add: false,
+      particleShape: "pixel",
+      banding: { count: 3, spreadScale: 1, jitterScale: 0 },
+      color: ({ i }) => `color-${i}`,
+      glint: { rate: 0 },
+      sparkle: { rate: 0 },
+      aura: { rate: 0 }
+    };
+    const styleSpy = vi.spyOn(trailStyles, "trailStyleFor").mockReturnValue(style);
+
+    const prev = preview.parts.length;
+    preview._emitTrail(1);
+
+    const produced = preview.parts.slice(prev);
+    const flow = 0.8 + 0.4 * Math.sin(preview.player.phase * 1.6);
+    const expectedCount = Math.floor(style.rate * flow);
+    const bandCount = style.banding.count;
+    const bandIndices = Array.from({ length: expectedCount }, (_, idx) => idx % bandCount);
+    const expectedColors = bandIndices.map((idx) => `color-${idx}`);
+    const expectedYs = bandIndices.map((idx) => {
+      const t = bandCount > 1 ? idx / (bandCount - 1) : 0.5;
+      const offset = (t - 0.5) * 2 * preview.player.r * style.banding.spreadScale;
+      return Number((preview.player.y - offset).toFixed(2));
+    }).sort((a, b) => a - b);
+    const ys = produced.map((p) => Number(p.y.toFixed(2))).sort((a, b) => a - b);
+
+    expect(produced).toHaveLength(expectedCount);
+    expect(produced.every((p) => p.shape === "pixel")).toBe(true);
+    expect(produced.every((p) => p.rotation === 0)).toBe(true);
+    expect(produced.map((p) => p.color)).toEqual(expectedColors);
+    expect(ys).toEqual(expectedYs);
+
+    styleSpy.mockRestore();
+  });
+
   it("scales secondary effects with flow so bright particles do not overpower color", () => {
     const { canvas } = makeCanvas();
     const preview = new TrailPreview({

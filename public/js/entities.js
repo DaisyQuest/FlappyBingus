@@ -223,6 +223,11 @@ export class Part {
         ctx.lineWidth = lineWidth;
         ctx.stroke();
       }
+    } else if (this.shape === "pixel") {
+      ctx.fillStyle = this.color;
+      const w = r * 1.8;
+      const h = r * 1.1;
+      ctx.fillRect(this.x - w * 0.5, this.y - h * 0.5, w, h);
     } else if (this.twinkle) {
       ctx.strokeStyle = this.color;
       ctx.lineWidth = Math.max(0.65, r * 0.35);
