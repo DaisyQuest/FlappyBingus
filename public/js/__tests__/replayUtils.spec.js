@@ -54,7 +54,7 @@ describe("playbackTicks", () => {
       { move: { dx: 13, dy: 14 }, cursor: { x: 15, y: 16 }, actions: [{ id: "a4" }] }
     ];
 
-    // Three animation frames at 60fps, expect all ticks to complete
+    // Five animation frames at 60fps, expect all ticks to complete
     const ts = [0, 16, 32, 48, 64];
     const raf = makeRaf(ts);
 
@@ -409,6 +409,56 @@ describe("playbackTicksDeterministic", () => {
     });
 
     expect(game.render).toHaveBeenCalledTimes(3);
+  });
+
+  it("paces playback with sim time when enabled", async () => {
+    const game = makeGame();
+    const replayInput = makeReplayInput();
+    const ticks = [{}, {}, {}];
+    const nowTimes = [0, 0, 4, 10];
+    const now = vi.fn(() => nowTimes.shift() ?? 10);
+    const waits = [];
+    const wait = vi.fn((ms) => {
+      waits.push(ms);
+      return Promise.resolve();
+    });
+
+    await playbackTicksDeterministic({
+      ticks,
+      game,
+      replayInput,
+      simDt: SIM_DT,
+      renderEveryTicks: 1,
+      paceWithSim: true,
+      now,
+      wait
+    });
+
+    expect(wait).toHaveBeenCalled();
+    expect(waits[0]).toBeCloseTo(8.33, 1);
+    expect(waits[1]).toBeCloseTo(12.66, 1);
+  });
+
+  it("skips pacing waits when playback is already ahead of schedule", async () => {
+    const game = makeGame();
+    const replayInput = makeReplayInput();
+    const ticks = [{}, {}];
+    const nowTimes = [0, 20, 40];
+    const now = vi.fn(() => nowTimes.shift() ?? 40);
+    const wait = vi.fn(() => Promise.resolve());
+
+    await playbackTicksDeterministic({
+      ticks,
+      game,
+      replayInput,
+      simDt: SIM_DT,
+      renderEveryTicks: 1,
+      paceWithSim: true,
+      now,
+      wait
+    });
+
+    expect(wait).not.toHaveBeenCalled();
   });
 
   it("uses requestAnimationFrame for yielding when available", async () => {
