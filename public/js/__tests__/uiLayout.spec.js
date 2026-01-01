@@ -97,17 +97,19 @@ describe("uiLayout", () => {
     expect(ui.tutorial?.className).not.toContain("small");
     expect(ui.iconHint?.textContent).toBe("");
     expect(ui.pipeTextureHint?.textContent).toContain("Unlock pipe textures");
-    const settingsCallout = howtoCard?.querySelector(".settings-callout");
-    expect(settingsCallout?.textContent).toContain("Change skill behaviors and key bindings");
     const settingsAction = howtoCard?.querySelector(".card-actions .card-nav[for='viewSettings']");
-    const settingsActions = settingsCallout?.parentElement;
+    const settingsActions = settingsAction?.parentElement;
+    const settingsTitle = settingsAction?.querySelector(".settings-nav-title");
+    const settingsSubtext = settingsAction?.querySelector(".settings-nav-subtext");
+    expect(settingsTitle?.textContent).toBe("Settings");
+    expect(settingsSubtext?.textContent).toBe("(Change skill behaviors and key bindings)");
     expect(settingsAction?.classList.contains("settings-nav")).toBe(true);
     expect(settingsAction?.classList.contains("wide")).toBe(true);
-    expect(settingsActions?.classList.contains("callout-stack")).toBe(true);
+    expect(settingsActions?.classList.contains("callout-stack")).toBe(false);
     expect(settingsActions?.firstElementChild).toBe(settingsAction);
-    expect(settingsActions?.lastElementChild).toBe(settingsCallout);
+    expect(settingsActions?.lastElementChild).toBe(settingsAction);
     const themeCallout = mount.querySelector(".theme-callout");
-    expect(themeCallout?.textContent).toContain("↘ Change pipe colors and menu theme");
+    expect(themeCallout?.textContent).toContain("Change pipe colors and menu theme ↘");
   });
 
   it("moves Settings and Achievements navigation into the primary cards", () => {
@@ -137,12 +139,9 @@ describe("uiLayout", () => {
     buildGameUI({ document, mount });
     applyStyles(document);
 
-    const settingsCallout = mount.querySelector(".settings-callout");
     const themeCallout = mount.querySelector(".theme-callout");
-    const settingsStyle = window.getComputedStyle(settingsCallout);
     const themeStyle = window.getComputedStyle(themeCallout);
 
-    expect(settingsStyle.whiteSpace).toBe("nowrap");
     expect(themeStyle.whiteSpace).toBe("nowrap");
   });
 
