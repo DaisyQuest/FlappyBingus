@@ -134,7 +134,6 @@ export function createReplayManager({
     if (!activeRun || activeRun.ended) return;
     activeRun.ticks.push({
       move: snapshot.move,
-      cursor: snapshot.cursor,
       actions
     });
   };

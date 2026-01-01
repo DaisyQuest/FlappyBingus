@@ -5,8 +5,8 @@ const baseRun = () => ({
   ended: true,
   seed: "abc",
   ticks: [
-    { move: { dx: 1, dy: 2 }, cursor: { x: 3, y: 4, has: true }, actions: [{ id: "dash", cursor: { x: 5, y: 6, has: true } }] },
-    { move: { dx: 0, dy: 0 }, cursor: { x: 0, y: 0, has: false }, actions: [] }
+    { move: { dx: 1, dy: 2 }, actions: [{ id: "dash", cursor: { x: 5, y: 6, has: true } }] },
+    { move: { dx: 0, dy: 0 }, actions: [] }
   ],
   rngTape: [0.1, 0.2]
 });
@@ -20,19 +20,18 @@ describe("buildReplayEnvelope", () => {
     expect(envelope.score).toBe(99);
     expect(envelope.recordedAt).toBe(1234);
     expect(envelope.ticks).toHaveLength(2);
-    expect(envelope.ticks[0].cursor).toEqual({ x: 3, y: 4, has: true });
+    expect(envelope.ticks[0].cursor).toBeUndefined();
     expect(envelope.ticks[0].actions[0].cursor).toEqual({ x: 5, y: 6, has: true });
     expect(envelope.rngTape).toEqual([0.1, 0.2]);
     expect(envelope.durationMs).toBeGreaterThan(0);
     expect(envelope.runStats).toEqual({ orbsCollected: 2 });
   });
 
-  it("preserves fractional cursor and movement data", () => {
+  it("preserves fractional movement data and action cursor precision", () => {
     const run = baseRun();
     run.ticks = [
       {
         move: { dx: -0.5, dy: 0.75 },
-        cursor: { x: 12.25, y: 42.5, has: true },
         actions: [{ id: "teleport", cursor: { x: 64.125, y: 128.75, has: false } }]
       }
     ];
@@ -40,7 +39,7 @@ describe("buildReplayEnvelope", () => {
     const envelope = buildReplayEnvelope(run, { finalScore: 7 });
 
     expect(envelope.ticks[0].move).toEqual({ dx: -0.5, dy: 0.75 });
-    expect(envelope.ticks[0].cursor).toEqual({ x: 12.25, y: 42.5, has: true });
+    expect(envelope.ticks[0].cursor).toBeUndefined();
     expect(envelope.ticks[0].actions[0].cursor).toEqual({ x: 64.125, y: 128.75, has: false });
   });
 
@@ -77,12 +76,26 @@ describe("buildReplayEnvelope", () => {
     expect(actions[2].cursor).toEqual({ x: 5, y: 6, has: false });
   });
 
+  it("retains legacy tick cursor data when present", () => {
+    const run = baseRun();
+    run.ticks = [
+      {
+        move: { dx: 0.25, dy: -0.25 },
+        cursor: { x: 11.5, y: 22.75, has: true },
+        actions: []
+      }
+    ];
+
+    const envelope = buildReplayEnvelope(run, { finalScore: 4 });
+
+    expect(envelope.ticks[0].cursor).toEqual({ x: 11.5, y: 22.75, has: true });
+  });
+
   it("falls back to zeros when replay inputs are non-numeric", () => {
     const run = baseRun();
     run.ticks = [
       {
         move: { dx: "nope", dy: NaN },
-        cursor: { x: undefined, y: Infinity, has: false },
         actions: [{ id: "dash", cursor: { x: null, y: "bad", has: true } }]
       }
     ];
@@ -90,7 +103,7 @@ describe("buildReplayEnvelope", () => {
     const envelope = buildReplayEnvelope(run, { finalScore: 3 });
 
     expect(envelope.ticks[0].move).toEqual({ dx: 0, dy: 0 });
-    expect(envelope.ticks[0].cursor).toEqual({ x: 0, y: 0, has: false });
+    expect(envelope.ticks[0].cursor).toBeUndefined();
     expect(envelope.ticks[0].actions[0].cursor).toEqual({ x: 0, y: 0, has: true });
   });
 

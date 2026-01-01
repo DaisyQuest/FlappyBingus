@@ -61,10 +61,10 @@ describe("playbackTicks", () => {
     const game = makeGame();
     const replayInput = makeReplayInput();
     const ticks = [
-      { move: { dx: 1, dy: 2 }, cursor: { x: 3, y: 4 }, actions: [{ id: "a1" }] },
-      { move: { dx: 5, dy: 6 }, cursor: { x: 7, y: 8 }, actions: [{ id: "a2" }] },
-      { move: { dx: 9, dy: 10 }, cursor: { x: 11, y: 12 }, actions: [{ id: "a3" }] },
-      { move: { dx: 13, dy: 14 }, cursor: { x: 15, y: 16 }, actions: [{ id: "a4" }] }
+      { move: { dx: 1, dy: 2 }, actions: [{ id: "a1" }] },
+      { move: { dx: 5, dy: 6 }, actions: [{ id: "a2" }] },
+      { move: { dx: 9, dy: 10 }, actions: [{ id: "a3" }] },
+      { move: { dx: 13, dy: 14 }, actions: [{ id: "a4" }] }
     ];
 
     // Five animation frames at 60fps, expect all ticks to complete
@@ -76,7 +76,7 @@ describe("playbackTicks", () => {
     expect(game.update).toHaveBeenCalledTimes(4);
     expect(game.render).toHaveBeenCalledTimes(4);
     expect(game.actions).toEqual(["a1", "a2", "a3", "a4"]);
-    expect(replayInput.cursor).toEqual({ x: 15, y: 16, has: false });
+    expect(replayInput.cursor).toEqual({ x: 0, y: 0, has: false });
     expect(replayInput._move).toEqual({ dx: 13, dy: 14 });
   });
 
@@ -149,7 +149,6 @@ describe("playbackTicks", () => {
       })
     };
     const ticks = [{
-      cursor: { x: 1, y: 2, has: true },
       actions: [
         { id: "teleport", cursor: { x: 10, y: 20, has: true } },
         { id: "dash", cursor: { x: 30, y: 40, has: true } }
@@ -167,8 +166,9 @@ describe("playbackTicks", () => {
     ]);
   });
 
-  it("restores the tick cursor after each action before updating", async () => {
+  it("restores the prior cursor after each action before updating", async () => {
     const replayInput = makeReplayInput();
+    replayInput.cursor = { x: 5, y: 6, has: true };
     const game = {
       state: 1,
       update: vi.fn(function () {
@@ -178,7 +178,6 @@ describe("playbackTicks", () => {
       handleAction: vi.fn()
     };
     const ticks = [{
-      cursor: { x: 5, y: 6, has: true },
       actions: [
         { id: "teleport", cursor: { x: 10, y: 20, has: true } },
         { id: "dash", cursor: { x: 30, y: 40, has: false } }
@@ -192,6 +191,18 @@ describe("playbackTicks", () => {
     expect(game.handleAction).toHaveBeenCalledTimes(2);
     expect(game.update).toHaveBeenCalledTimes(1);
     expect(replayInput.cursor).toEqual({ x: 5, y: 6, has: true });
+  });
+
+  it("updates the cursor from legacy tick data when present", async () => {
+    const replayInput = makeReplayInput();
+    const game = makeGame();
+    const ticks = [{ cursor: { x: 12, y: 24, has: true }, actions: [] }];
+    const ts = [0, 16];
+    const raf = makeRaf(ts);
+
+    await playbackTicks({ ticks, game, replayInput, captureMode: "webm", simDt: SIM_DT, requestFrame: raf });
+
+    expect(replayInput.cursor).toEqual({ x: 12, y: 24, has: true });
   });
 
   it("normalizes action ids before calling game.handleAction", async () => {
@@ -326,7 +337,6 @@ describe("playbackTicks", () => {
     const replayInput = makeReplayInput();
     const ticks = Array.from({ length: totalTicks }, (_, i) => ({
       move: { dx: i % 7, dy: (i * 2) % 5 },
-      cursor: { x: i % 200, y: (i * 3) % 180, has: i % 2 === 0 },
       actions: [
         { id: `boost-${i % 4}`, cursor: { x: (i * 5) % 300, y: (i * 7) % 300, has: i % 3 === 0 } },
         { id: `dash-${i % 3}` }
@@ -359,43 +369,33 @@ describe("playbackTicks", () => {
     expect(game.actions[game.actions.length - 2]).toBe(`boost-${(totalTicks - 1) % 4}`);
     expect(game.actions[game.actions.length - 1]).toBe(`dash-${(totalTicks - 1) % 3}`);
     expect(replayInput._move).toEqual(lastTick.move);
-    expect(replayInput.cursor).toEqual({
-      x: lastTick.cursor.x,
-      y: lastTick.cursor.y,
-      has: lastTick.cursor.has
-    });
+    expect(replayInput.cursor).toEqual({ x: 0, y: 0, has: false });
   });
 
   it("matches capture-mode outcomes when replaying in realtime", async () => {
     const ticks = [
       {
         move: { dx: 1, dy: 2 },
-        cursor: { x: 10, y: 20, has: true },
         actions: [{ id: "boost", cursor: { x: 15, y: 25, has: true } }, { id: "dash" }]
       },
       {
         move: { dx: 3, dy: 4 },
-        cursor: { x: 11, y: 21, has: false },
         actions: [{ id: "slide", cursor: { x: 18, y: 28, has: false } }]
       },
       {
         move: { dx: 5, dy: 6 },
-        cursor: { x: 12, y: 22, has: true },
         actions: [{ id: "hop" }, { id: "bank", cursor: { x: 30, y: 40, has: true } }]
       },
       {
         move: { dx: 7, dy: 8 },
-        cursor: { x: 13, y: 23, has: false },
         actions: [{ id: "boost" }]
       },
       {
         move: { dx: 9, dy: 10 },
-        cursor: { x: 14, y: 24, has: true },
         actions: [{ id: "flip" }, { id: "dash" }]
       },
       {
         move: { dx: 11, dy: 12 },
-        cursor: { x: 15, y: 25, has: false },
         actions: [{ id: "roll", cursor: { x: 44, y: 55, has: true } }]
       }
     ];
@@ -467,9 +467,9 @@ describe("playbackTicksDeterministic", () => {
 
   it("plays the same tick list deterministically across runs", async () => {
     const ticks = [
-      { move: { dx: 1, dy: 2 }, cursor: { x: 3, y: 4 }, actions: [{ id: "a1" }, { id: "a2" }] },
-      { move: { dx: 5, dy: 6 }, cursor: { x: 7, y: 8 }, actions: [{ id: "a3" }] },
-      { move: { dx: 9, dy: 10 }, cursor: { x: 11, y: 12 }, actions: [{ id: "a4" }] }
+      { move: { dx: 1, dy: 2 }, actions: [{ id: "a1" }, { id: "a2" }] },
+      { move: { dx: 5, dy: 6 }, actions: [{ id: "a3" }] },
+      { move: { dx: 9, dy: 10 }, actions: [{ id: "a4" }] }
     ];
 
     const runOnce = async () => {

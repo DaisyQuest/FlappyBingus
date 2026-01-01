@@ -153,7 +153,7 @@ function createRecordingContext() {
 function makeInput() {
   const moveRef = { dx: 0, dy: 0 };
   const input = {
-    cursor: { x: 0, y: 0, has: true },
+    cursor: { x: 0, y: 0, has: false },
     getMove: () => ({ dx: moveRef.dx, dy: moveRef.dy }),
     snapshot: () => ({
       move: { dx: moveRef.dx, dy: moveRef.dy },
@@ -209,9 +209,6 @@ function getActionSchedule() {
 function applyInputPattern({ tick, moveRef, input }) {
   moveRef.dx = (tick % 3) - 1;
   moveRef.dy = tick % 2;
-  input.cursor.x = 60 + tick * 2;
-  input.cursor.y = 40 + tick;
-  input.cursor.has = true;
 }
 
 function runLiveGame({ totalTicks, seed, playerImg }) {
@@ -262,6 +259,7 @@ function runLiveGame({ totalTicks, seed, playerImg }) {
       manager.recordTick(snap, actions);
 
       if (actions.length) {
+        const baseCursor = { ...input.cursor };
         for (const action of actions) {
           if (action.cursor) {
             input.cursor.x = action.cursor.x;
@@ -269,6 +267,9 @@ function runLiveGame({ totalTicks, seed, playerImg }) {
             input.cursor.has = !!action.cursor.has;
           }
           game.handleAction(action.id);
+          input.cursor.x = baseCursor.x;
+          input.cursor.y = baseCursor.y;
+          input.cursor.has = baseCursor.has;
         }
       }
 

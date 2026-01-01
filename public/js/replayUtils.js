@@ -20,9 +20,13 @@ function applyReplayTick({ tick, game, replayInput, simDt, step }) {
   const tk = tick || {};
 
   replayInput._move = tk.move || { dx: 0, dy: 0 };
-  replayInput.cursor.x = tk.cursor?.x ?? 0;
-  replayInput.cursor.y = tk.cursor?.y ?? 0;
-  replayInput.cursor.has = !!tk.cursor?.has;
+  if (tk.cursor && typeof tk.cursor === "object") {
+    const nextX = tk.cursor.x;
+    const nextY = tk.cursor.y;
+    if (Number.isFinite(nextX)) replayInput.cursor.x = nextX;
+    if (Number.isFinite(nextY)) replayInput.cursor.y = nextY;
+    if ("has" in tk.cursor) replayInput.cursor.has = !!tk.cursor.has;
+  }
   const baseCursor = { ...replayInput.cursor };
 
   const actions = normalizeActions(tk.actions);

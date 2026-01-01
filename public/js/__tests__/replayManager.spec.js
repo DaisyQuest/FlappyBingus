@@ -39,7 +39,7 @@ describe("replayManager", () => {
 
   it("clones replay runs without mutating the original", () => {
     const run = createReplayRun("seed");
-    run.ticks.push({ move: { dx: 1, dy: 2 }, cursor: { x: 3, y: 4 }, actions: [] });
+    run.ticks.push({ move: { dx: 1, dy: 2 }, actions: [] });
     run.pendingActions.push({ id: "dash" });
     run.rngTape.push(0.1);
     run.backgroundSeed = "custom-bg";
@@ -51,7 +51,7 @@ describe("replayManager", () => {
     expect(clone.rngTape).toEqual(run.rngTape);
     expect(clone.backgroundSeed).toBe("custom-bg");
 
-    clone.ticks.push({ move: { dx: 9, dy: 9 }, cursor: { x: 1, y: 2 }, actions: [] });
+    clone.ticks.push({ move: { dx: 9, dy: 9 }, actions: [] });
     expect(run.ticks.length).toBe(1);
   });
 
@@ -89,6 +89,7 @@ describe("replayManager", () => {
     );
 
     expect(run.ticks).toHaveLength(1);
+    expect(run.ticks[0].cursor).toBeUndefined();
     expect(run.ticks[0].actions[0].id).toBe("dash");
 
     manager.markEnded();
@@ -377,7 +378,6 @@ describe("replayManager", () => {
     const totalTicks = 10_000;
     const ticks = Array.from({ length: totalTicks }, (_, i) => ({
       move: { dx: i % 7, dy: (i * 2) % 5 },
-      cursor: { x: i % 200, y: (i * 3) % 180, has: i % 2 === 0 },
       actions: [
         { id: `boost-${i % 4}`, cursor: { x: (i * 5) % 300, y: (i * 7) % 300, has: i % 3 === 0 } },
         { id: `dash-${i % 3}` }
@@ -441,7 +441,6 @@ describe("replayManager", () => {
     const totalTicks = 10_000;
     const ticks = Array.from({ length: totalTicks }, (_, i) => ({
       move: { dx: i % 5, dy: (i * 3) % 9 },
-      cursor: { x: i % 400, y: (i * 5) % 320, has: i % 2 === 1 },
       actions: [
         { id: `jump-${i % 6}`, cursor: { x: (i * 11) % 500, y: (i * 13) % 500, has: i % 4 === 0 } },
         { id: `roll-${i % 4}` }

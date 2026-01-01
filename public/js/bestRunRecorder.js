@@ -29,11 +29,15 @@ export function buildReplayEnvelope(run, { finalScore = 0, runStats = null, reco
       dx: normalizeNumber(tk?.move?.dx),
       dy: normalizeNumber(tk?.move?.dy)
     },
-    cursor: {
-      x: normalizeNumber(tk?.cursor?.x),
-      y: normalizeNumber(tk?.cursor?.y),
-      has: !!tk?.cursor?.has
-    },
+    ...(tk?.cursor
+      ? {
+          cursor: {
+            x: normalizeNumber(tk?.cursor?.x),
+            y: normalizeNumber(tk?.cursor?.y),
+            has: !!tk?.cursor?.has
+          }
+        }
+      : {}),
     actions: Array.isArray(tk?.actions)
       ? tk.actions
           .map(normalizeReplayAction)
