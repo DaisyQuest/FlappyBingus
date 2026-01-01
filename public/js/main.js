@@ -2390,24 +2390,35 @@ function frame(ts) {
 
       // Apply actions for this tick to the live game (tutorial or normal run)
       const canAdvanceSim = !(tutorial?.active && tutorial.pauseSim);
+      let actionsToApply = actions;
       if (game.state === 1 /* PLAY */ && actions.length && canAdvanceSim) {
-        for (const a of actions) {
-          // For teleport: ensure the input cursor reflects the recorded cursor for that action
-          if (a && a.cursor) {
-            input.cursor.x = a.cursor.x;
-            input.cursor.y = a.cursor.y;
-            input.cursor.has = !!a.cursor.has;
-          }
-
-          if (tutorial?.active) {
+        if (tutorial?.active) {
+          actionsToApply = [];
+          for (const a of actions) {
             if (!tutorial.allowAction(a.id)) {
               tutorial.notifyBlockedAction(a.id);
               continue;
             }
+            actionsToApply.push(a);
           }
+        }
 
-          game.handleAction(a.id);
-          tutorial?.onActionApplied(a.id);
+        if (!driver) {
+          for (const a of actionsToApply) {
+            // For teleport: ensure the input cursor reflects the recorded cursor for that action
+            if (a && a.cursor) {
+              input.cursor.x = a.cursor.x;
+              input.cursor.y = a.cursor.y;
+              input.cursor.has = !!a.cursor.has;
+            }
+            game.handleAction(a.id);
+          }
+        }
+
+        if (tutorial?.active) {
+          for (const a of actionsToApply) {
+            tutorial.onActionApplied(a.id);
+          }
         }
       }
 
@@ -2415,7 +2426,7 @@ function frame(ts) {
       if (tutorial?.active) tutorial.beforeSimTick(SIM_DT);
       if (!(tutorial?.active && tutorial.pauseSim)) {
         if (driver) {
-          driver.step(SIM_DT, actions);
+          driver.step(SIM_DT, actionsToApply);
         } else {
           game.update(SIM_DT);
         }
