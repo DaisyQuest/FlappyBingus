@@ -132,10 +132,10 @@ function createHowToCard(doc, refs) {
   });
   const settingsHint = createElement(doc, refs, "div", {
     className: "nav-callout settings-callout",
-    text: "↑ Change skill behaviors and key bindings"
+    text: "Change skill behaviors and key bindings"
   });
   const actions = doc.createElement("div");
-  actions.className = "card-actions center";
+  actions.className = "card-actions center callout-stack";
   actions.append(settingsAction, settingsHint);
 
   card.append(header, wrapper, actions);
@@ -1249,7 +1249,7 @@ function createMenuScreen(doc, refs) {
   });
   const themeCallout = createElement(doc, refs, "div", {
     className: "nav-callout theme-callout",
-    text: "↖ Change pipe colors and menu theme"
+    text: "↘ Change pipe colors and menu theme"
   });
   mainPanel.append(mainGrid);
 
