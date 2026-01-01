@@ -41,8 +41,8 @@ describe("uiLayout", () => {
     const readyCard = mount.querySelector(".panel-main .info-card");
     const readyFields = readyCard?.querySelectorAll(".field");
     expect(readyFields?.[0]?.querySelector("#iconOptions")).toBeInstanceOf(window.HTMLElement);
-    expect(readyFields?.[1]?.querySelector("#pipeTextureLauncher")).toBeInstanceOf(window.HTMLElement);
-    expect(readyFields?.[2]?.querySelector("#trailLauncher")).toBeInstanceOf(window.HTMLElement);
+    expect(readyFields?.[1]?.querySelector("#trailLauncher")).toBeInstanceOf(window.HTMLElement);
+    expect(readyFields?.[2]?.querySelector("#pipeTextureLauncher")).toBeInstanceOf(window.HTMLElement);
     expect(ui.iconLauncher).toBeInstanceOf(window.HTMLElement);
     expect(ui.iconLauncher?.querySelector(".icon-swatch-canvas")).toBeInstanceOf(window.HTMLCanvasElement);
     expect(ui.iconOverlay?.classList.contains("hidden")).toBe(true);
