@@ -279,8 +279,13 @@ export class Tutorial {
       const { left, top, width, height } = canvas.getBoundingClientRect();
       const lw = Math.max(1, canvas._logicalW || canvas.width || 1);
       const lh = Math.max(1, canvas._logicalH || canvas.height || 1);
-      const nx = (e.clientX - left) / Math.max(1, width);
-      const ny = (e.clientY - top) / Math.max(1, height);
+      const view = canvas._view;
+      const viewW = (view && Number.isFinite(view.width) && view.width > 0) ? view.width : width;
+      const viewH = (view && Number.isFinite(view.height) && view.height > 0) ? view.height : height;
+      const viewX = left + ((view && Number.isFinite(view.x)) ? view.x : 0);
+      const viewY = top + ((view && Number.isFinite(view.y)) ? view.y : 0);
+      const nx = (e.clientX - viewX) / Math.max(1, viewW);
+      const ny = (e.clientY - viewY) / Math.max(1, viewH);
       const x = nx * lw;
       const y = ny * lh;
 

@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, it, beforeAll, beforeEach, afterEach, expect, vi } from "vitest";
-import { Game } from "../game.js";
+import { Game, WORLD_HEIGHT, WORLD_WIDTH } from "../game.js";
 import { DEFAULT_CONFIG } from "../config.js";
 import { setRandSource } from "../util.js";
 import * as pipeColors from "../pipeColors.js";
@@ -173,8 +173,8 @@ describe("Game core utilities", () => {
 
     expect(canvas.style.width).toBe("320px");
     expect(canvas.style.height).toBe("200px");
-    expect(game.W).toBeGreaterThan(0);
-    expect(game.H).toBeGreaterThan(0);
+    expect(game.W).toBe(WORLD_WIDTH);
+    expect(game.H).toBe(WORLD_HEIGHT);
     expect(game.player.r).toBeGreaterThan(0);
     expect(game.background.canvas).toBeTruthy();
     expect(game.background.dirty).toBe(false);
@@ -185,6 +185,43 @@ describe("Game core utilities", () => {
     game._refreshBackgroundLayer();
     expect(game.background.ctx).not.toBeNull();
     expect(game.background.ctx).not.toBe(previousCtx);
+  });
+
+  it("records a centered view rect for letterboxed viewports", () => {
+    const { game, canvas } = buildGame();
+    game.resizeToWindow();
+
+    expect(canvas._view).toEqual(expect.objectContaining({
+      width: 320,
+      height: 180,
+      x: 0,
+      y: 10
+    }));
+    expect(canvas._view.scale).toBeCloseTo(0.25);
+  });
+
+  it("falls back to world size when viewport dimensions are invalid", () => {
+    const ctx = mockCtx();
+    const canvas = makeCanvas(ctx);
+    const config = cloneConfig();
+    const input = makeInput();
+
+    Object.defineProperty(window, "visualViewport", { value: undefined, writable: true });
+    Object.defineProperty(window, "innerWidth", { value: 0, writable: true });
+    Object.defineProperty(window, "innerHeight", { value: 0, writable: true });
+    Object.defineProperty(window, "devicePixelRatio", { value: 0, writable: true });
+
+    const game = new Game({ canvas, ctx, config, playerImg: {}, input });
+    game.resizeToWindow();
+
+    expect(canvas.style.width).toBe(`${WORLD_WIDTH}px`);
+    expect(canvas.style.height).toBe(`${WORLD_HEIGHT}px`);
+    expect(canvas._view).toEqual(expect.objectContaining({
+      width: WORLD_WIDTH,
+      height: WORLD_HEIGHT,
+      x: 0,
+      y: 0
+    }));
   });
 
   it("toggles audio and guards SFX triggers", async () => {
@@ -886,6 +923,8 @@ describe("Player movement and trail emission", () => {
 
     expect(canvas.style.width).toBe("420px");
     expect(canvas.style.height).toBe("240px");
+    expect(game.W).toBe(WORLD_WIDTH);
+    expect(game.H).toBe(WORLD_HEIGHT);
     expect(game.getTrailId()).toBe("classic");
     expect(game.getBinds()).toEqual({});
 

@@ -37,11 +37,26 @@ describe("Input cursor mapping", () => {
     canvas._logicalW = 300;
     canvas._logicalH = 200;
     canvas.getBoundingClientRect = vi.fn(() => ({ left: 10, top: 20, width: 600, height: 400 }));
+    canvas._view = { x: 60, y: 40, width: 300, height: 200, scale: 1 };
 
     input.install();
-    listeners.pointermove({ clientX: 310, clientY: 220 });
+    listeners.pointermove({ clientX: 220, clientY: 160 });
 
     expect(input.cursor).toEqual({ x: 150, y: 100, has: true });
+  });
+
+  it("falls back to the full canvas rect when view metadata is invalid", () => {
+    canvas._logicalW = 400;
+    canvas._logicalH = 200;
+    canvas._view = { x: 0, y: 0, width: 0, height: -5, scale: 1 };
+    canvas.getBoundingClientRect = vi.fn(() => ({ left: 0, top: 0, width: 800, height: 400 }));
+
+    input.install();
+    listeners.pointermove({ clientX: 400, clientY: 200 });
+
+    expect(input.cursor.x).toBeCloseTo(200);
+    expect(input.cursor.y).toBeCloseTo(100);
+    expect(input.cursor.has).toBe(true);
   });
 
   it("falls back to canvas width/height when logical size is unavailable", () => {
@@ -60,6 +75,7 @@ describe("Input cursor mapping", () => {
   it("dispatches mouse-bound actions using the mapped cursor coordinates", () => {
     canvas._logicalW = 200;
     canvas._logicalH = 100;
+    canvas._view = { x: 50, y: 25, width: 200, height: 100, scale: 1 };
     canvas.getBoundingClientRect = vi.fn(() => ({ left: 0, top: 0, width: 400, height: 200 }));
     getBinds.mockReturnValue({ teleport: { type: "mouse", button: 0 } });
 
@@ -67,8 +83,8 @@ describe("Input cursor mapping", () => {
     const preventDefault = vi.fn();
     listeners.pointerdown({
       button: 0,
-      clientX: 200,
-      clientY: 100,
+      clientX: 150,
+      clientY: 75,
       target: canvas,
       preventDefault
     });
