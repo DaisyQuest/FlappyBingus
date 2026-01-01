@@ -135,6 +135,7 @@ import {
 import { SHOP_TABS, getPurchasableUnlockablesByType, renderShopItems } from "./shopMenu.js";
 import { playbackTicks, playbackTicksDeterministic } from "./replayUtils.js";
 import { createReplayManager, cloneReplayRun } from "./replayManager.js";
+import { createBestRunUploader, downloadBlob } from "./replayArtifacts.js";
 import { bindSkillOptionGroup, markSkillOptionSelection } from "./skillOptions.js";
 import { renderSkillUsageStats } from "./skillUsageStats.js";
 import { initThemeEditor } from "./themes.js";
@@ -463,13 +464,22 @@ const MAX_FRAME = 1 / 20;
 let acc = 0;
 let lastTs = 0;
 
-// Replay / run capture (managed via replayManager)
-let lastUploadedBestSeed = null;
-let lastUploadedBestScore = -Infinity;
-
 // Tutorial manager (initialized after Game is created, but referenced by the Input callback).
 let tutorial = null;
 let replayManager = null;
+
+const uploadBestRunArtifacts = createBestRunUploader({
+  getActiveRun: () => replayManager?.getActiveRun(),
+  getUser: () => net.user,
+  cloneReplayRun,
+  maybeUploadBestRun,
+  uploadBestRun: apiUploadBestRun,
+  setStatus: ({ className, text }) => {
+    if (!replayStatus) return;
+    if (className) replayStatus.className = className;
+    if (text !== undefined) replayStatus.textContent = text;
+  }
+});
 
 
 // Seed of the most recently finished run (used for "Retry Previous Seed")
@@ -1654,49 +1664,6 @@ saveUserBtn.addEventListener("click", async () => {
 });
 
 // ---- Replay UI ----
-function downloadBlob(blob, filename) {
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = filename;
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
-  setTimeout(() => URL.revokeObjectURL(url), 2500);
-}
-
-async function uploadBestRunArtifacts(finalScore, runStats) {
-  const activeRun = replayManager?.getActiveRun();
-  if (!net.user || !activeRun?.ended) return;
-  const bestScore = net.user?.bestScore ?? 0;
-  if (finalScore < bestScore) return;
-  if (lastUploadedBestSeed === activeRun.seed && lastUploadedBestScore >= bestScore) return;
-
-  const runForUpload = cloneReplayRun(activeRun);
-  if (!runForUpload?.ticks?.length) return;
-
-  const uploaded = await maybeUploadBestRun({
-    activeRun: runForUpload,
-    finalScore,
-    runStats,
-    bestScore,
-    upload: apiUploadBestRun,
-    logger: (msg) => {
-      if (!replayStatus) return;
-      replayStatus.className = "hint";
-      replayStatus.textContent = msg;
-    }
-  });
-
-  if (uploaded) {
-    lastUploadedBestSeed = activeRun.seed;
-    lastUploadedBestScore = bestScore;
-    if (replayStatus) {
-      replayStatus.className = "hint good";
-      replayStatus.textContent = "Best run saved to server.";
-    }
-  }
-}
 
 // ---- Cosmetics selection ----
 trailLauncher?.addEventListener("click", () => {
