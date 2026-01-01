@@ -115,6 +115,18 @@ describe("uiLayout", () => {
     expect(themeCallout?.textContent).toContain("Change pipe colors and menu theme ↘");
   });
 
+  it("keeps the how-to settings action wrapped inside the card actions container", () => {
+    buildGameUI({ document, mount });
+    applyStyles(document);
+
+    const settingsAction = mount.querySelector(".howto-card .card-nav[for='viewSettings']");
+    const settingsActions = settingsAction?.parentElement;
+    const actionsStyle = window.getComputedStyle(settingsActions);
+
+    expect(settingsActions?.classList.contains("howto-actions")).toBe(true);
+    expect(actionsStyle.flexWrap).toBe("wrap");
+  });
+
   it("moves Settings and Achievements navigation into the primary cards", () => {
     buildGameUI({ document, mount });
 
