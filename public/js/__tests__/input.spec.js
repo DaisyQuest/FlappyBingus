@@ -96,6 +96,63 @@ describe("Input cursor mapping", () => {
     expect(input.cursor.has).toBe(true);
   });
 
+  it("prefers engine-provided logical size and view metadata", () => {
+    canvas._logicalW = 999;
+    canvas._logicalH = 999;
+    canvas._view = { x: 0, y: 0, width: 300, height: 200, scale: 1 };
+    canvas.getBoundingClientRect = vi.fn(() => ({ left: 0, top: 0, width: 600, height: 400 }));
+
+    input.setLogicalSize(300, 200);
+    input.setView({ x: 60, y: 40, width: 300, height: 200, scale: 1 });
+    input.install();
+    listeners.pointermove({ clientX: 210, clientY: 140 });
+
+    expect(input.cursor).toEqual({ x: 150, y: 100, has: true });
+  });
+
+  it("clears engine-provided logical size when invalid and falls back", () => {
+    canvas.width = 400;
+    canvas.height = 200;
+    canvas._logicalW = 250;
+    canvas._logicalH = 125;
+    canvas.getBoundingClientRect = vi.fn(() => ({ left: 0, top: 0, width: 800, height: 400 }));
+
+    input.setLogicalSize(-1, 0);
+    input.install();
+    listeners.pointermove({ clientX: 400, clientY: 200 });
+
+    expect(input.cursor.x).toBeCloseTo(125);
+    expect(input.cursor.y).toBeCloseTo(62.5);
+    expect(input.cursor.has).toBe(true);
+  });
+
+  it("falls back to canvas view metadata when the engine view is cleared", () => {
+    canvas._logicalW = 200;
+    canvas._logicalH = 100;
+    canvas._view = { x: 20, y: 10, width: 200, height: 100, scale: 1 };
+    canvas.getBoundingClientRect = vi.fn(() => ({ left: 0, top: 0, width: 400, height: 200 }));
+
+    input.setView(null);
+    input.install();
+    listeners.pointermove({ clientX: 120, clientY: 60 });
+
+    expect(input.cursor.x).toBeCloseTo(100);
+    expect(input.cursor.y).toBeCloseTo(50);
+  });
+
+  it("ignores invalid view overrides and keeps using canvas bounds", () => {
+    canvas._logicalW = 200;
+    canvas._logicalH = 100;
+    canvas.getBoundingClientRect = vi.fn(() => ({ left: 0, top: 0, width: 400, height: 200 }));
+
+    input.setView("bad");
+    input.install();
+    listeners.pointermove({ clientX: 200, clientY: 100 });
+
+    expect(input.cursor.x).toBeCloseTo(100);
+    expect(input.cursor.y).toBeCloseTo(50);
+  });
+
   it("ignores pointerdown events originating from UI controls", () => {
     const button = document.createElement("button");
     getBinds.mockReturnValue({ teleport: { type: "mouse", button: 2 } });
