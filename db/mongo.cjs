@@ -457,8 +457,18 @@ class MongoDataStore {
 
   async getBestRunByUsername(username) {
     await this.ensureConnected();
-    const doc = await this.bestRunsCollection().findOne({ username });
-    return doc || null;
+    const raw = typeof username === "string" ? username.trim() : "";
+    const key = raw ? raw.toLowerCase() : "";
+    const collection = this.bestRunsCollection();
+    if (key) {
+      const byKey = await collection.findOne({ key });
+      if (byKey) return byKey;
+    }
+    if (raw) {
+      const byName = await collection.findOne({ username: raw });
+      if (byName) return byName;
+    }
+    return null;
   }
 
   async setTrail(key, trailId) {
