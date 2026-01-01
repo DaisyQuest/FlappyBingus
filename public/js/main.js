@@ -276,6 +276,8 @@ const {
   themeExportBtn,
   themeImportBtn,
   themeStatus,
+  themeChaosToggle,
+  themeSmartRandomToggle,
   shopLauncher,
   shopOverlay,
   shopOverlayClose,
@@ -2653,7 +2655,9 @@ function frame(ts) {
       themeExportField,
       themeExportBtn,
       themeImportBtn,
-      themeStatus
+      themeStatus,
+      themeChaosToggle,
+      themeSmartRandomToggle
     },
     config: CFG,
     onApply: (values) => {

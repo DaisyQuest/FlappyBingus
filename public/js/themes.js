@@ -4,7 +4,7 @@
 import { clamp } from "./util.js";
 
 const THEME_STORAGE_KEY = "bingus_theme_state";
-const THEME_STORAGE_VERSION = 1;
+const THEME_STORAGE_VERSION = 2;
 const THEME_EXPORT_VERSION = 1;
 
 const COLOR_RE = /^#([0-9a-fA-F]{6})$/;
@@ -558,6 +558,83 @@ export const THEME_FIELDS = [
   }
 ];
 
+const THEME_FIELD_DESCRIPTIONS = {
+  bg0: "The deepest background color behind everything.",
+  bg1: "Secondary backdrop tone that fades into the horizon.",
+  bgGlow1: "Primary aurora glow tint.",
+  bgGlow1Alpha: "Opacity of the primary aurora glow.",
+  bgGlow2: "Secondary glow tint layered over the backdrop.",
+  bgGlow2Alpha: "Opacity of the secondary glow.",
+  bgGlow3: "Tertiary glow tint for extra depth.",
+  bgGlow3Alpha: "Opacity of the tertiary glow.",
+  canvas: "Tint applied to the game canvas.",
+  canvasAlpha: "Opacity of the canvas tint overlay.",
+  parallaxOpacity: "Visibility of the parallax ambience layer.",
+  ambientGlow: "Toggle ambient background glow effects.",
+  panel: "Base color for panels and cards.",
+  panelAlpha: "Transparency of the panel base.",
+  panelAlt: "Darker panel layer color.",
+  panelAltAlpha: "Transparency of the darker panel layer.",
+  surfaceBase: "Base color used for surface overlays.",
+  surfaceStrongAlpha: "Opacity of strong surface overlays.",
+  surfaceSoftAlpha: "Opacity of soft surface overlays.",
+  surfaceFaintAlpha: "Opacity of faint surface overlays.",
+  surfaceBorderAlpha: "Opacity of surface borders.",
+  panelBlur: "Backdrop blur strength for glass panels.",
+  glassEnabled: "Toggle glass blur on panels.",
+  text: "Primary text color.",
+  textAlpha: "Opacity for primary text.",
+  muted: "Muted text color.",
+  mutedAlpha: "Opacity for muted text.",
+  titleText: "Title text color.",
+  titleGlow: "Title glow color.",
+  titleGlowAlpha: "Intensity of the title glow.",
+  accent: "Primary accent color.",
+  accentAlpha: "Opacity of the primary accent.",
+  accentStrong: "Brighter accent for emphasis.",
+  accentStrongAlpha: "Opacity of the bright accent.",
+  accentAlt: "Alternate accent color.",
+  accentAltAlpha: "Opacity of the alternate accent.",
+  bubble: "Highlight bubble color.",
+  bubbleAlpha: "Opacity of the highlight bubble.",
+  deepGlow: "Deep glow accent color.",
+  deepGlowAlpha: "Intensity of the deep glow.",
+  danger: "Danger/negative state color.",
+  dangerAlpha: "Opacity of the danger color.",
+  ok: "Success/positive state color.",
+  okAlpha: "Opacity of the success color.",
+  buttonStart: "Button gradient top color.",
+  buttonStartAlpha: "Opacity of the button top gradient.",
+  buttonEnd: "Button gradient bottom color.",
+  buttonEndAlpha: "Opacity of the button bottom gradient.",
+  buttonHoverStart: "Hover gradient top color.",
+  buttonHoverStartAlpha: "Opacity of the hover top gradient.",
+  buttonHoverEnd: "Hover gradient bottom color.",
+  buttonHoverEndAlpha: "Opacity of the hover bottom gradient.",
+  primaryStart: "Primary button gradient top color.",
+  primaryStartAlpha: "Opacity of the primary top gradient.",
+  primaryEnd: "Primary button gradient bottom color.",
+  primaryEndAlpha: "Opacity of the primary bottom gradient.",
+  primaryHoverStart: "Primary hover gradient top color.",
+  primaryHoverStartAlpha: "Opacity of the primary hover top gradient.",
+  primaryHoverEnd: "Primary hover gradient bottom color.",
+  primaryHoverEndAlpha: "Opacity of the primary hover bottom gradient.",
+  focus: "Focus ring color.",
+  focusAlpha: "Opacity of the focus ring.",
+  sparkle: "Sparkle glow color.",
+  sparkleEnabled: "Toggle sparkle/glint effects.",
+  pipeGreen: "Green pipe color.",
+  pipeBlue: "Blue pipe color.",
+  pipeWisteria: "Wisteria pipe color.",
+  pipeRed: "Red pipe color.",
+  scrollbarTrack: "Scrollbar track color.",
+  scrollbarTrackAlpha: "Opacity of the scrollbar track.",
+  scrollbarThumbStart: "Scrollbar thumb top color.",
+  scrollbarThumbStartAlpha: "Opacity of the thumb top.",
+  scrollbarThumbEnd: "Scrollbar thumb bottom color.",
+  scrollbarThumbEndAlpha: "Opacity of the thumb bottom."
+};
+
 export const THEME_DEFAULT_VALUES = {
   bg0: "#0b0c2d",
   bg1: "#151447",
@@ -757,6 +834,81 @@ const THEME_PRESETS = {
       pipeWisteria: "#9be8d0",
       pipeRed: "#ff7a8a"
     }
+  },
+  nebula: {
+    name: "Nebula Rose",
+    values: {
+      bg0: "#140818",
+      bg1: "#2a0c2a",
+      bgGlow1: "#ff9bd6",
+      bgGlow2: "#b38bff",
+      bgGlow3: "#ff6bb7",
+      panel: "#201129",
+      panelAlt: "#30163b",
+      accent: "#ffb3e6",
+      accentStrong: "#ffe0f5",
+      accentAlt: "#cba6ff",
+      bubble: "#ffd0f1",
+      deepGlow: "#a88bff",
+      ok: "#9fffd4",
+      danger: "#ff7aa8",
+      primaryStart: "#ffb3e6",
+      primaryEnd: "#b38bff",
+      pipeGreen: "#b0ffd9",
+      pipeBlue: "#a0b9ff",
+      pipeWisteria: "#caa6ff",
+      pipeRed: "#ff7aa8"
+    }
+  },
+  arctic: {
+    name: "Arctic Pulse",
+    values: {
+      bg0: "#08131c",
+      bg1: "#0d2533",
+      bgGlow1: "#7ce4ff",
+      bgGlow2: "#7ad1ff",
+      bgGlow3: "#9fffe0",
+      panel: "#102634",
+      panelAlt: "#123145",
+      accent: "#8fe8ff",
+      accentStrong: "#d7f7ff",
+      accentAlt: "#9dbbff",
+      bubble: "#a6ffe8",
+      deepGlow: "#7ad1ff",
+      ok: "#8dffcf",
+      danger: "#ff8fb8",
+      primaryStart: "#8fe8ff",
+      primaryEnd: "#6bbdff",
+      pipeGreen: "#8dffcf",
+      pipeBlue: "#79c9ff",
+      pipeWisteria: "#a9c2ff",
+      pipeRed: "#ff8fb8"
+    }
+  },
+  drift: {
+    name: "Desert Drift",
+    values: {
+      bg0: "#160d08",
+      bg1: "#2f1a0b",
+      bgGlow1: "#ffca8a",
+      bgGlow2: "#ff9b5f",
+      bgGlow3: "#ffd6a8",
+      panel: "#22140b",
+      panelAlt: "#32190c",
+      accent: "#ffcc7a",
+      accentStrong: "#ffe8c2",
+      accentAlt: "#ff9b5f",
+      bubble: "#ffd9a6",
+      deepGlow: "#ffb36a",
+      ok: "#ffd089",
+      danger: "#ff7a6a",
+      primaryStart: "#ffca8a",
+      primaryEnd: "#ff9b5f",
+      pipeGreen: "#ffd089",
+      pipeBlue: "#ffb36a",
+      pipeWisteria: "#ffcaa8",
+      pipeRed: "#ff7a6a"
+    }
   }
 };
 
@@ -930,7 +1082,9 @@ export function saveThemeState(state) {
       version: THEME_STORAGE_VERSION,
       activeThemeId: state.activeThemeId,
       lastPresetId: state.lastPresetId,
-      customValues: state.customValues
+      customValues: state.customValues,
+      chaosMode: state.chaosMode,
+      smartRandom: state.smartRandom
     }));
   } catch {
     // ignore storage errors
@@ -1003,10 +1157,123 @@ function groupFields(fields) {
   return grouped;
 }
 
+function randomBetween(min, max) {
+  const bytes = new Uint32Array(1);
+  crypto.getRandomValues(bytes);
+  const unit = bytes[0] / 0xffffffff;
+  return min + (max - min) * unit;
+}
+
+function randomBool() {
+  return randomBetween(0, 1) >= 0.5;
+}
+
 function randomHex() {
   const bytes = new Uint8Array(3);
   crypto.getRandomValues(bytes);
   return `#${Array.from(bytes).map(v => v.toString(16).padStart(2, "0")).join("")}`;
+}
+
+function snapToStep(value, min, step) {
+  if (!step) return value;
+  const snapped = Math.round((value - min) / step) * step + min;
+  return Number(snapped.toFixed(4));
+}
+
+function hslToHex(hue, saturation, lightness) {
+  const s = clamp(saturation / 100, 0, 1);
+  const l = clamp(lightness / 100, 0, 1);
+  const c = (1 - Math.abs(2 * l - 1)) * s;
+  const h = ((hue % 360) + 360) % 360;
+  const hp = h / 60;
+  const x = c * (1 - Math.abs((hp % 2) - 1));
+  let r = 0;
+  let g = 0;
+  let b = 0;
+
+  if (hp >= 0 && hp < 1) [r, g, b] = [c, x, 0];
+  else if (hp >= 1 && hp < 2) [r, g, b] = [x, c, 0];
+  else if (hp >= 2 && hp < 3) [r, g, b] = [0, c, x];
+  else if (hp >= 3 && hp < 4) [r, g, b] = [0, x, c];
+  else if (hp >= 4 && hp < 5) [r, g, b] = [x, 0, c];
+  else if (hp >= 5 && hp < 6) [r, g, b] = [c, 0, x];
+
+  const m = l - c / 2;
+  const toHex = (value) => Math.round((value + m) * 255).toString(16).padStart(2, "0");
+  return `#${toHex(r)}${toHex(g)}${toHex(b)}`;
+}
+
+function offsetHue(hue, offset) {
+  return (hue + offset + 360) % 360;
+}
+
+function generateChaosThemeValues() {
+  const nextValues = { ...THEME_DEFAULT_VALUES };
+  THEME_FIELDS.forEach((field) => {
+    if (field.type === "color") {
+      nextValues[field.id] = randomHex();
+    } else if (field.type === "range") {
+      const min = Number(field.min ?? 0);
+      const max = Number(field.max ?? 1);
+      const value = randomBetween(min, max);
+      nextValues[field.id] = snapToStep(value, min, field.step ?? 0.01);
+    } else if (field.type === "toggle") {
+      nextValues[field.id] = randomBool();
+    }
+  });
+  return nextValues;
+}
+
+function generateSmartThemeValues() {
+  const baseHue = Math.floor(randomBetween(0, 360));
+  const accentHue = offsetHue(baseHue, randomBetween(110, 170));
+  const accentAltHue = offsetHue(accentHue, randomBetween(-40, 40));
+  const glowHue = offsetHue(baseHue, randomBetween(-20, 20));
+
+  const values = { ...THEME_DEFAULT_VALUES };
+  values.bg0 = hslToHex(baseHue, 40, 10);
+  values.bg1 = hslToHex(baseHue, 50, 16);
+  values.bgGlow1 = hslToHex(glowHue, 70, 68);
+  values.bgGlow2 = hslToHex(offsetHue(glowHue, 18), 65, 60);
+  values.bgGlow3 = hslToHex(offsetHue(glowHue, -18), 60, 56);
+  values.canvas = hslToHex(baseHue, 45, 8);
+  values.panel = hslToHex(baseHue, 35, 18);
+  values.panelAlt = hslToHex(baseHue, 38, 22);
+  values.surfaceBase = hslToHex(baseHue, 20, 98);
+
+  values.text = hslToHex(offsetHue(baseHue, 8), 20, 96);
+  values.muted = hslToHex(offsetHue(baseHue, 6), 18, 82);
+  values.titleText = hslToHex(offsetHue(baseHue, 10), 25, 98);
+  values.titleGlow = hslToHex(accentHue, 80, 78);
+
+  values.accent = hslToHex(accentHue, 80, 70);
+  values.accentStrong = hslToHex(accentHue, 85, 82);
+  values.accentAlt = hslToHex(accentAltHue, 75, 68);
+  values.bubble = hslToHex(offsetHue(accentHue, 18), 70, 78);
+  values.deepGlow = hslToHex(offsetHue(accentHue, -18), 70, 62);
+  values.ok = hslToHex(offsetHue(accentHue, -120), 70, 60);
+  values.danger = hslToHex(offsetHue(accentHue, 120), 70, 60);
+
+  values.buttonStart = hslToHex(accentHue, 50, 98);
+  values.buttonEnd = hslToHex(accentHue, 45, 92);
+  values.buttonHoverStart = hslToHex(accentHue, 60, 98);
+  values.buttonHoverEnd = hslToHex(accentHue, 55, 94);
+  values.primaryStart = hslToHex(accentHue, 80, 80);
+  values.primaryEnd = hslToHex(accentHue, 75, 68);
+  values.primaryHoverStart = hslToHex(accentHue, 85, 86);
+  values.primaryHoverEnd = hslToHex(accentHue, 75, 72);
+  values.focus = hslToHex(accentHue, 80, 78);
+  values.sparkle = hslToHex(accentHue, 15, 100);
+
+  values.pipeGreen = hslToHex(offsetHue(accentHue, -90), 70, 60);
+  values.pipeBlue = hslToHex(offsetHue(accentHue, -140), 70, 60);
+  values.pipeWisteria = hslToHex(offsetHue(accentHue, 30), 60, 68);
+  values.pipeRed = hslToHex(offsetHue(accentHue, 140), 70, 60);
+
+  values.scrollbarTrack = hslToHex(baseHue, 20, 98);
+  values.scrollbarThumbStart = hslToHex(accentHue, 40, 86);
+  values.scrollbarThumbEnd = hslToHex(accentHue, 45, 76);
+  return values;
 }
 
 function createControlRow(doc, field, value) {
@@ -1014,7 +1281,21 @@ function createControlRow(doc, field, value) {
   row.className = "theme-control";
   const label = doc.createElement("label");
   label.className = "theme-control-label";
-  label.textContent = field.label;
+  const labelText = doc.createElement("span");
+  labelText.textContent = field.label;
+  label.append(labelText);
+
+  const description = THEME_FIELD_DESCRIPTIONS[field.id];
+  if (description) {
+    const info = doc.createElement("button");
+    info.type = "button";
+    info.className = "theme-info";
+    info.dataset.tooltip = description;
+    info.setAttribute("aria-label", `${field.label} info`);
+    info.setAttribute("title", description);
+    info.textContent = "i";
+    label.append(info);
+  }
 
   let input;
   let output;
@@ -1066,7 +1347,9 @@ export function initThemeEditor({ refs, config, onApply }) {
   const state = {
     activeThemeId,
     lastPresetId: stored?.lastPresetId || activeThemeId,
-    customValues
+    customValues,
+    chaosMode: Boolean(stored?.chaosMode),
+    smartRandom: Boolean(stored?.smartRandom)
   };
 
   const applyFromState = (values) => {
@@ -1154,7 +1437,18 @@ export function initThemeEditor({ refs, config, onApply }) {
     }
   };
 
-  applyTheme(state.customValues, state.activeThemeId);
+  const applyAutoTheme = (mode) => {
+    const nextValues = mode === "chaos" ? generateChaosThemeValues() : generateSmartThemeValues();
+    applyTheme(nextValues, "custom");
+  };
+
+  if (state.chaosMode) {
+    applyAutoTheme("chaos");
+  } else if (state.smartRandom) {
+    applyAutoTheme("smart");
+  } else {
+    applyTheme(state.customValues, state.activeThemeId);
+  }
 
   if (select) {
     select.addEventListener("change", () => {
@@ -1232,6 +1526,40 @@ export function initThemeEditor({ refs, config, onApply }) {
         nextValues[key] = randomHex();
       });
       applyTheme(nextValues, "custom");
+    });
+  }
+
+  const syncModeToggles = () => {
+    if (refs.themeChaosToggle) refs.themeChaosToggle.checked = state.chaosMode;
+    if (refs.themeSmartRandomToggle) refs.themeSmartRandomToggle.checked = state.smartRandom;
+  };
+
+  const enableMode = (mode, enabled) => {
+    if (mode === "chaos") {
+      state.chaosMode = enabled;
+      if (enabled) state.smartRandom = false;
+    } else {
+      state.smartRandom = enabled;
+      if (enabled) state.chaosMode = false;
+    }
+    syncModeToggles();
+    saveThemeState(state);
+    if (enabled) {
+      applyAutoTheme(mode);
+    }
+  };
+
+  if (refs.themeChaosToggle) {
+    syncModeToggles();
+    refs.themeChaosToggle.addEventListener("change", () => {
+      enableMode("chaos", refs.themeChaosToggle.checked);
+    });
+  }
+
+  if (refs.themeSmartRandomToggle) {
+    syncModeToggles();
+    refs.themeSmartRandomToggle.addEventListener("change", () => {
+      enableMode("smart", refs.themeSmartRandomToggle.checked);
     });
   }
 

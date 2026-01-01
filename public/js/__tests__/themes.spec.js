@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, beforeEach, vi } from "vitest";
 import { JSDOM } from "jsdom";
 import {
   THEME_DEFAULT_VALUES,
+  THEME_FIELDS,
   applyThemeValues,
   buildThemeLibrary,
   exportThemeString,
@@ -36,6 +37,11 @@ function createStorageMock() {
 }
 
 const fallbackStorage = createStorageMock();
+const createToggle = () => {
+  const input = document.createElement("input");
+  input.type = "checkbox";
+  return input;
+};
 
 beforeEach(() => {
   if (!globalThis.localStorage) {
@@ -94,6 +100,8 @@ describe("theme helpers", () => {
     const library = buildThemeLibrary();
     expect(library.aurora?.name).toBe("Aurora Dream");
     expect(library.ember?.values.bg0).toBeTruthy();
+    expect(library.nebula?.name).toBe("Nebula Rose");
+    expect(library.arctic?.values.accent).toBeTruthy();
   });
 
   it("applies theme values to CSS variables", () => {
@@ -157,13 +165,17 @@ describe("theme helpers", () => {
     saveThemeState({
       activeThemeId: "aurora",
       lastPresetId: "ember",
-      customValues: { bg0: "#010203" }
+      customValues: { bg0: "#010203" },
+      chaosMode: true,
+      smartRandom: false
     });
 
     const loaded = loadThemeState();
     expect(loaded?.activeThemeId).toBe("aurora");
     expect(loaded?.lastPresetId).toBe("ember");
     expect(loaded?.customValues?.bg0).toBe("#010203");
+    expect(loaded?.chaosMode).toBe(true);
+    expect(loaded?.smartRandom).toBe(false);
   });
 
   it("returns null when storage is invalid", () => {
@@ -184,7 +196,9 @@ describe("theme editor", () => {
       themeStatus: document.createElement("div"),
       themeExportBtn: document.createElement("button"),
       themeImportBtn: document.createElement("button"),
-      themeExportField: document.createElement("textarea")
+      themeExportField: document.createElement("textarea"),
+      themeChaosToggle: createToggle(),
+      themeSmartRandomToggle: createToggle()
     };
 
     Object.values(refs).forEach((el) => document.body.append(el));
@@ -196,6 +210,12 @@ describe("theme editor", () => {
     expect(refs.themePresetSelect.querySelectorAll("option").length).toBeGreaterThan(1);
     expect(refs.themeEditor.querySelectorAll(".theme-group").length).toBeGreaterThan(0);
     expect(refs.themePaletteRow.querySelectorAll("button").length).toBeGreaterThan(0);
+    expect(refs.themeEditor.querySelectorAll(".theme-info").length).toBe(THEME_FIELDS.length);
+    refs.themeEditor.querySelectorAll(".theme-info").forEach((btn) => {
+      expect(btn.dataset.tooltip).toBeTruthy();
+    });
+    expect(refs.themeChaosToggle.checked).toBe(false);
+    expect(refs.themeSmartRandomToggle.checked).toBe(false);
   });
 
   it("handles preset selection, input edits, and export/import flows", () => {
@@ -209,7 +229,9 @@ describe("theme editor", () => {
       themeStatus: document.createElement("div"),
       themeExportBtn: document.createElement("button"),
       themeImportBtn: document.createElement("button"),
-      themeExportField: document.createElement("textarea")
+      themeExportField: document.createElement("textarea"),
+      themeChaosToggle: createToggle(),
+      themeSmartRandomToggle: createToggle()
     };
 
     Object.values(refs).forEach((el) => document.body.append(el));
@@ -250,5 +272,48 @@ describe("theme editor", () => {
     expect(refs.themeStatus.textContent).toContain("Import failed");
 
     expect(result.state.activeThemeId).toBeDefined();
+  });
+
+  it("applies chaos mode and smart random toggles", () => {
+    saveThemeState({
+      activeThemeId: "aurora",
+      lastPresetId: "aurora",
+      customValues: { bg0: "#0f0f0f" },
+      chaosMode: true,
+      smartRandom: false
+    });
+
+    const refs = {
+      themePresetSelect: document.createElement("select"),
+      themeResetBtn: document.createElement("button"),
+      themeRandomizeBtn: document.createElement("button"),
+      themeRandomAccentBtn: document.createElement("button"),
+      themePaletteRow: document.createElement("div"),
+      themeEditor: document.createElement("div"),
+      themeStatus: document.createElement("div"),
+      themeExportBtn: document.createElement("button"),
+      themeImportBtn: document.createElement("button"),
+      themeExportField: document.createElement("textarea"),
+      themeChaosToggle: createToggle(),
+      themeSmartRandomToggle: createToggle()
+    };
+
+    Object.values(refs).forEach((el) => document.body.append(el));
+
+    const result = initThemeEditor({ refs, config: baseConfig });
+    expect(refs.themeChaosToggle.checked).toBe(true);
+    expect(refs.themeSmartRandomToggle.checked).toBe(false);
+    expect(result.state.customValues.bg0).toBe("#112233");
+
+    refs.themeSmartRandomToggle.checked = true;
+    refs.themeSmartRandomToggle.dispatchEvent(new window.Event("change"));
+    expect(result.state.smartRandom).toBe(true);
+    expect(result.state.chaosMode).toBe(false);
+
+    refs.themeChaosToggle.checked = true;
+    refs.themeChaosToggle.dispatchEvent(new window.Event("change"));
+    expect(result.state.chaosMode).toBe(true);
+    expect(result.state.smartRandom).toBe(false);
+    expect(result.state.activeThemeId).toBe("custom");
   });
 });
