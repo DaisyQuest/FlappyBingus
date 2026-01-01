@@ -238,6 +238,35 @@ describe("replayManager", () => {
     expect(over.classList.remove).not.toHaveBeenCalledWith("hidden");
   });
 
+  it("keeps UI visibility unchanged when hideUI is disabled", async () => {
+    const game = { input: { name: "real" }, startRun: vi.fn() };
+    const menu = { classList: makeClassList() };
+    const over = { classList: makeClassList() };
+    const playbackTicks = vi.fn();
+    const playbackTicksDeterministic = vi.fn();
+
+    const manager = createReplayManager({
+      game,
+      menu,
+      over,
+      playbackTicks,
+      playbackTicksDeterministic,
+      simDt: 1 / 120,
+      requestFrame: null
+    });
+
+    manager.startRecording("seed");
+    manager.recordTick({ move: { dx: 1, dy: 1 }, cursor: { x: 0, y: 0 } }, []);
+    manager.markEnded();
+
+    await manager.play({ captureMode: "none", playbackMode: "deterministic", hideUI: false });
+
+    expect(menu.classList.add).not.toHaveBeenCalled();
+    expect(over.classList.add).not.toHaveBeenCalled();
+    expect(menu.classList.remove).not.toHaveBeenCalled();
+    expect(over.classList.remove).not.toHaveBeenCalled();
+  });
+
   it("captures a replay when capture mode is enabled", async () => {
     const game = { input: { name: "real" }, startRun: vi.fn() };
     const canvas = { captureStream: vi.fn(() => ({ stream: true })) };

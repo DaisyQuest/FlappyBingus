@@ -754,6 +754,7 @@ async function playReplayRunInModal({ run, title, label } = {}) {
     captureMode: "none",
     run,
     playbackMode: "deterministic",
+    hideUI: false,
     shouldPause: controller.shouldPause,
     waitForResume: controller.waitForResume,
     shouldStop: controller.shouldStop,

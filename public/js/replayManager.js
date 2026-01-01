@@ -153,6 +153,7 @@ export function createReplayManager({
     captureMode = "none",
     run = activeRun,
     playbackMode = "realtime",
+    hideUI = true,
     shouldPause = null,
     waitForResume = null,
     shouldStop = null,
@@ -192,8 +193,10 @@ export function createReplayManager({
       }
 
       input?.reset?.();
-      menuClassList?.add("hidden");
-      overClassList?.add("hidden");
+      if (hideUI) {
+        menuClassList?.add("hidden");
+        overClassList?.add("hidden");
+      }
       game?.startRun?.();
 
       if (captureMode !== "none") {
@@ -246,13 +249,15 @@ export function createReplayManager({
       if (game) {
         game.input = originalInput;
       }
-      if (menuClassList) {
-        if (menuWasHidden) menuClassList.add("hidden");
-        else menuClassList.remove("hidden");
-      }
-      if (overClassList) {
-        if (overWasHidden) overClassList.add("hidden");
-        else overClassList.remove("hidden");
+      if (hideUI) {
+        if (menuClassList) {
+          if (menuWasHidden) menuClassList.add("hidden");
+          else menuClassList.remove("hidden");
+        }
+        if (overClassList) {
+          if (overWasHidden) overClassList.add("hidden");
+          else overClassList.remove("hidden");
+        }
       }
       replaying = false;
     }

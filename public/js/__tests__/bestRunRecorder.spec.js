@@ -27,6 +27,40 @@ describe("buildReplayEnvelope", () => {
     expect(envelope.runStats).toEqual({ orbsCollected: 2 });
   });
 
+  it("preserves fractional cursor and movement data", () => {
+    const run = baseRun();
+    run.ticks = [
+      {
+        move: { dx: -0.5, dy: 0.75 },
+        cursor: { x: 12.25, y: 42.5, has: true },
+        actions: [{ id: "teleport", cursor: { x: 64.125, y: 128.75, has: false } }]
+      }
+    ];
+
+    const envelope = buildReplayEnvelope(run, { finalScore: 7 });
+
+    expect(envelope.ticks[0].move).toEqual({ dx: -0.5, dy: 0.75 });
+    expect(envelope.ticks[0].cursor).toEqual({ x: 12.25, y: 42.5, has: true });
+    expect(envelope.ticks[0].actions[0].cursor).toEqual({ x: 64.125, y: 128.75, has: false });
+  });
+
+  it("falls back to zeros when replay inputs are non-numeric", () => {
+    const run = baseRun();
+    run.ticks = [
+      {
+        move: { dx: "nope", dy: NaN },
+        cursor: { x: undefined, y: Infinity, has: false },
+        actions: [{ id: "dash", cursor: { x: null, y: "bad", has: true } }]
+      }
+    ];
+
+    const envelope = buildReplayEnvelope(run, { finalScore: 3 });
+
+    expect(envelope.ticks[0].move).toEqual({ dx: 0, dy: 0 });
+    expect(envelope.ticks[0].cursor).toEqual({ x: 0, y: 0, has: false });
+    expect(envelope.ticks[0].actions[0].cursor).toEqual({ x: 0, y: 0, has: true });
+  });
+
   it("returns null when the run is incomplete or empty", () => {
     expect(buildReplayEnvelope(null)).toBeNull();
     expect(buildReplayEnvelope({ ended: true, ticks: [] })).toBeNull();

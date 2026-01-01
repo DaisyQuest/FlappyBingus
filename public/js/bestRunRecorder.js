@@ -7,17 +7,22 @@ function clampInt(n) {
   return Math.floor(num);
 }
 
+function normalizeNumber(value, fallback = 0) {
+  const num = Number(value);
+  return Number.isFinite(num) ? num : fallback;
+}
+
 export function buildReplayEnvelope(run, { finalScore = 0, runStats = null, recordedAt = Date.now(), tickMs = DEFAULT_TICK_MS } = {}) {
   if (!run || !run.ended || !Array.isArray(run.ticks) || run.ticks.length === 0) return null;
 
   const ticks = run.ticks.map((tk) => ({
     move: {
-      dx: clampInt(tk?.move?.dx),
-      dy: clampInt(tk?.move?.dy)
+      dx: normalizeNumber(tk?.move?.dx),
+      dy: normalizeNumber(tk?.move?.dy)
     },
     cursor: {
-      x: clampInt(tk?.cursor?.x),
-      y: clampInt(tk?.cursor?.y),
+      x: normalizeNumber(tk?.cursor?.x),
+      y: normalizeNumber(tk?.cursor?.y),
       has: !!tk?.cursor?.has
     },
     actions: Array.isArray(tk?.actions)
@@ -26,7 +31,7 @@ export function buildReplayEnvelope(run, { finalScore = 0, runStats = null, reco
           .map((a) => ({
             id: a.id,
             cursor: a.cursor
-              ? { x: clampInt(a.cursor.x), y: clampInt(a.cursor.y), has: !!a.cursor.has }
+              ? { x: normalizeNumber(a.cursor.x), y: normalizeNumber(a.cursor.y), has: !!a.cursor.has }
               : undefined
           }))
       : []
