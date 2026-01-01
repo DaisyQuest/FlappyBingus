@@ -377,7 +377,9 @@ export class Game {
       scale
     };
 
-    this._computePlayerSize();
+    if (this.cfg?.player) {
+      this._computePlayerSize();
+    }
     this._initBackground();
   }
 

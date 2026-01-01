@@ -275,6 +275,24 @@ describe("Game core utilities", () => {
     }));
   });
 
+  it("skips player sizing when config is not yet available", () => {
+    const ctx = mockCtx();
+    const canvas = makeCanvas(ctx);
+    const input = makeInput();
+    const game = new Game({ canvas, ctx, config: null, playerImg: {}, input });
+
+    window.visualViewport.width = 2560;
+    window.visualViewport.height = 1440;
+
+    expect(() => {
+      game.setViewSettings({ viewNormalization: "reference", viewScale: REFERENCE_VIEW_SCALE });
+    }).not.toThrow();
+    expect(canvas._view).toEqual(expect.objectContaining({
+      width: WORLD_WIDTH * REFERENCE_VIEW_SCALE,
+      height: WORLD_HEIGHT * REFERENCE_VIEW_SCALE
+    }));
+  });
+
   it("toggles audio and guards SFX triggers", async () => {
     const audio = await import("../audio.js");
     const { game } = buildGame();
