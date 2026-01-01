@@ -57,19 +57,24 @@ export class Input {
     };
   }
 
-  _getViewRect() {
+  _getViewRect(rect) {
     const candidate = this.view;
+    const rectLeft = Number.isFinite(rect?.left) ? rect.left : 0;
+    const rectTop = Number.isFinite(rect?.top) ? rect.top : 0;
+    const rectWidth = Number.isFinite(rect?.width) && rect.width > 0 ? rect.width : 1;
+    const rectHeight = Number.isFinite(rect?.height) && rect.height > 0 ? rect.height : 1;
     const { width, height } = this._getLogicalSize();
-    const viewW = (candidate && Number.isFinite(candidate.width) && candidate.width > 0) ? candidate.width : width;
-    const viewH = (candidate && Number.isFinite(candidate.height) && candidate.height > 0) ? candidate.height : height;
-    const viewX = (candidate && Number.isFinite(candidate.x)) ? candidate.x : 0;
-    const viewY = (candidate && Number.isFinite(candidate.y)) ? candidate.y : 0;
+    const viewW = (candidate && Number.isFinite(candidate.width) && candidate.width > 0) ? candidate.width : rectWidth;
+    const viewH = (candidate && Number.isFinite(candidate.height) && candidate.height > 0) ? candidate.height : rectHeight;
+    const viewX = rectLeft + ((candidate && Number.isFinite(candidate.x)) ? candidate.x : 0);
+    const viewY = rectTop + ((candidate && Number.isFinite(candidate.y)) ? candidate.y : 0);
     return { viewW, viewH, viewX, viewY };
   }
 
   mapClientToLogical(clientX, clientY) {
+    const rect = this.canvas?.getBoundingClientRect?.();
     const { width, height } = this._getLogicalSize();
-    const { viewW, viewH, viewX, viewY } = this._getViewRect();
+    const { viewW, viewH, viewX, viewY } = this._getViewRect(rect);
     const nx = (clientX - viewX) / Math.max(1, viewW);
     const ny = (clientY - viewY) / Math.max(1, viewH);
     return {

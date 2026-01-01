@@ -21,6 +21,14 @@ describe("Input cursor mapping", () => {
     getBinds = vi.fn(() => ({}));
     onAction = vi.fn();
     input = new Input(canvas, getBinds, onAction);
+    vi.spyOn(canvas, "getBoundingClientRect").mockReturnValue({
+      left: 100,
+      top: 50,
+      width: 600,
+      height: 400,
+      right: 700,
+      bottom: 450
+    });
     vi.spyOn(window, "addEventListener").mockImplementation((type, handler) => {
       listeners[type] = handler;
     });
@@ -37,9 +45,20 @@ describe("Input cursor mapping", () => {
     input.setView({ x: 10, y: 20, width: 600, height: 400, scale: 1 });
 
     input.install();
-    listeners.pointermove({ clientX: 310, clientY: 220 });
+    listeners.pointermove({ clientX: 410, clientY: 270 });
 
     expect(input.cursor).toEqual({ x: 150, y: 100, has: true });
+  });
+
+  it("handles missing bounding client rect data when mapping cursor", () => {
+    canvas.getBoundingClientRect.mockReturnValue(null);
+    input.setLogicalSize(2, 2);
+    input.setView(null);
+
+    input.install();
+    listeners.pointermove({ clientX: 1, clientY: 1 });
+
+    expect(input.cursor).toEqual({ x: 2, y: 2, has: true });
   });
 
   it("falls back to logical dimensions when view metadata is invalid", () => {
@@ -47,7 +66,7 @@ describe("Input cursor mapping", () => {
     input.setView({ x: 0, y: 0, width: 0, height: -5, scale: 1 });
 
     input.install();
-    listeners.pointermove({ clientX: 200, clientY: 100 });
+    listeners.pointermove({ clientX: 400, clientY: 250 });
 
     expect(input.cursor.x).toBeCloseTo(200);
     expect(input.cursor.y).toBeCloseTo(100);
@@ -58,7 +77,7 @@ describe("Input cursor mapping", () => {
     input.setView({ x: 0, y: 0, width: 800, height: 400, scale: 1 });
 
     input.install();
-    listeners.pointermove({ clientX: 400, clientY: 200 });
+    listeners.pointermove({ clientX: 500, clientY: 250 });
 
     expect(input.cursor.x).toBeCloseTo(0.5);
     expect(input.cursor.y).toBeCloseTo(0.5);
@@ -74,8 +93,8 @@ describe("Input cursor mapping", () => {
     const preventDefault = vi.fn();
     listeners.pointerdown({
       button: 0,
-      clientX: 150,
-      clientY: 75,
+      clientX: 250,
+      clientY: 125,
       target: canvas,
       preventDefault
     });
@@ -91,7 +110,7 @@ describe("Input cursor mapping", () => {
     input.setLogicalSize(300, 200);
     input.setView({ x: 60, y: 40, width: 300, height: 200, scale: 1 });
     input.install();
-    listeners.pointermove({ clientX: 210, clientY: 140 });
+    listeners.pointermove({ clientX: 310, clientY: 190 });
 
     expect(input.cursor).toEqual({ x: 150, y: 100, has: true });
   });
@@ -100,7 +119,7 @@ describe("Input cursor mapping", () => {
     input.setView({ x: 0, y: 0, width: 800, height: 400, scale: 1 });
     input.setLogicalSize(-1, 0);
     input.install();
-    listeners.pointermove({ clientX: 400, clientY: 200 });
+    listeners.pointermove({ clientX: 500, clientY: 250 });
 
     expect(input.cursor.x).toBeCloseTo(0.5);
     expect(input.cursor.y).toBeCloseTo(0.5);
@@ -111,7 +130,7 @@ describe("Input cursor mapping", () => {
     input.setLogicalSize(200, 100);
     input.setView(null);
     input.install();
-    listeners.pointermove({ clientX: 100, clientY: 50 });
+    listeners.pointermove({ clientX: 400, clientY: 250 });
 
     expect(input.cursor.x).toBeCloseTo(100);
     expect(input.cursor.y).toBeCloseTo(50);
@@ -121,7 +140,7 @@ describe("Input cursor mapping", () => {
     input.setLogicalSize(200, 100);
     input.setView("bad");
     input.install();
-    listeners.pointermove({ clientX: 100, clientY: 50 });
+    listeners.pointermove({ clientX: 400, clientY: 250 });
 
     expect(input.cursor.x).toBeCloseTo(100);
     expect(input.cursor.y).toBeCloseTo(50);
