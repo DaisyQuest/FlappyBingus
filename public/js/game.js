@@ -157,7 +157,10 @@ export class Game {
 
   setSkillSettings(settings) {
     this.skillSettings = normalizeSkillSettings(settings || DEFAULT_SKILL_SETTINGS);
-    FloatText.setComicBookMode(this.skillSettings.comicBookMode);
+    FloatText.setTextPreferences({
+      preset: this.skillSettings.textStylePreset,
+      custom: this.skillSettings.textStyleCustom
+    });
   }
 
   setPlayerImage(playerImg) {

@@ -132,12 +132,48 @@ const DEFAULT_KEYBINDS = Object.freeze({
   slowField: { type: "key", code: "KeyE" }
 });
 
+const TEXT_STYLE_PRESET_VALUES = new Set([
+  "basic",
+  "comic_book_mild",
+  "comic_book_extreme",
+  "digital",
+  "clean",
+  "neon_pulse",
+  "holographic",
+  "sticker_blast",
+  "random",
+  "disabled",
+  "custom"
+]);
+
+const DEFAULT_TEXT_STYLE_CUSTOM = Object.freeze({
+  fontFamily: "system",
+  fontWeight: 900,
+  sizeScale: 1,
+  useGameColors: true,
+  useGameGlow: true,
+  color: "#ffffff",
+  glowColor: "#ffffff",
+  strokeColor: "#000000",
+  strokeWidth: 1.8,
+  shadowBoost: 0,
+  shadowOffsetY: 3,
+  wobble: 0,
+  spin: 0,
+  shimmer: 0,
+  sparkle: false,
+  useGradient: false,
+  gradientStart: "#fff3a6",
+  gradientEnd: "#7ce9ff"
+});
+
 const DEFAULT_SETTINGS = Object.freeze({
   dashBehavior: "destroy",
   slowFieldBehavior: "explosion",
   teleportBehavior: "normal",
   invulnBehavior: "long",
-  comicBookMode: "none"
+  textStylePreset: "basic",
+  textStyleCustom: DEFAULT_TEXT_STYLE_CUSTOM
 });
 
 const TRAILS = Object.freeze([
@@ -539,6 +575,55 @@ function normalizeCount(v) {
   return Math.max(0, Math.floor(n));
 }
 
+const LEGACY_TEXT_STYLE_MAP = Object.freeze({
+  none: "basic",
+  mild: "comic_book_mild",
+  extreme: "comic_book_extreme"
+});
+
+function normalizeNumber(value, fallback, { min = -Infinity, max = Infinity } = {}) {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return fallback;
+  return Math.min(max, Math.max(min, n));
+}
+
+function normalizeColor(value, fallback) {
+  return (typeof value === "string" && value.trim()) ? value.trim() : fallback;
+}
+
+function normalizeBoolean(value, fallback) {
+  return (typeof value === "boolean") ? value : fallback;
+}
+
+function normalizeTextStylePreset(value) {
+  return TEXT_STYLE_PRESET_VALUES.has(value) ? value : DEFAULT_SETTINGS.textStylePreset;
+}
+
+function normalizeTextStyleCustom(custom = {}) {
+  const src = custom && typeof custom === "object" ? custom : {};
+  const allowedFonts = new Set(["system", "comic", "digital", "serif", "mono"]);
+  return {
+    fontFamily: allowedFonts.has(src.fontFamily) ? src.fontFamily : DEFAULT_TEXT_STYLE_CUSTOM.fontFamily,
+    fontWeight: normalizeNumber(src.fontWeight, DEFAULT_TEXT_STYLE_CUSTOM.fontWeight, { min: 400, max: 950 }),
+    sizeScale: normalizeNumber(src.sizeScale, DEFAULT_TEXT_STYLE_CUSTOM.sizeScale, { min: 0.7, max: 1.6 }),
+    useGameColors: normalizeBoolean(src.useGameColors, DEFAULT_TEXT_STYLE_CUSTOM.useGameColors),
+    useGameGlow: normalizeBoolean(src.useGameGlow, DEFAULT_TEXT_STYLE_CUSTOM.useGameGlow),
+    color: normalizeColor(src.color, DEFAULT_TEXT_STYLE_CUSTOM.color),
+    glowColor: normalizeColor(src.glowColor, DEFAULT_TEXT_STYLE_CUSTOM.glowColor),
+    strokeColor: normalizeColor(src.strokeColor, DEFAULT_TEXT_STYLE_CUSTOM.strokeColor),
+    strokeWidth: normalizeNumber(src.strokeWidth, DEFAULT_TEXT_STYLE_CUSTOM.strokeWidth, { min: 0, max: 6 }),
+    shadowBoost: normalizeNumber(src.shadowBoost, DEFAULT_TEXT_STYLE_CUSTOM.shadowBoost, { min: -10, max: 30 }),
+    shadowOffsetY: normalizeNumber(src.shadowOffsetY, DEFAULT_TEXT_STYLE_CUSTOM.shadowOffsetY, { min: -6, max: 12 }),
+    wobble: normalizeNumber(src.wobble, DEFAULT_TEXT_STYLE_CUSTOM.wobble, { min: 0, max: 6 }),
+    spin: normalizeNumber(src.spin, DEFAULT_TEXT_STYLE_CUSTOM.spin, { min: -1, max: 1 }),
+    shimmer: normalizeNumber(src.shimmer, DEFAULT_TEXT_STYLE_CUSTOM.shimmer, { min: 0, max: 1 }),
+    sparkle: normalizeBoolean(src.sparkle, DEFAULT_TEXT_STYLE_CUSTOM.sparkle),
+    useGradient: normalizeBoolean(src.useGradient, DEFAULT_TEXT_STYLE_CUSTOM.useGradient),
+    gradientStart: normalizeColor(src.gradientStart, DEFAULT_TEXT_STYLE_CUSTOM.gradientStart),
+    gradientEnd: normalizeColor(src.gradientEnd, DEFAULT_TEXT_STYLE_CUSTOM.gradientEnd)
+  };
+}
+
 function normalizeTotal(v) {
   const n = Number(v);
   if (!Number.isFinite(n)) return 0;
@@ -558,13 +643,15 @@ function normalizeSettings(settings) {
   const validSlow = src.slowFieldBehavior === "slow" || src.slowFieldBehavior === "explosion";
   const validTp = src.teleportBehavior === "normal" || src.teleportBehavior === "explode";
   const validInv = src.invulnBehavior === "short" || src.invulnBehavior === "long";
-  const validComic = src.comicBookMode === "none" || src.comicBookMode === "mild" || src.comicBookMode === "extreme";
+  const presetCandidate = src.textStylePreset ?? LEGACY_TEXT_STYLE_MAP[src.comicBookMode];
+  const validPreset = TEXT_STYLE_PRESET_VALUES.has(presetCandidate);
   const dash = validDash ? src.dashBehavior : DEFAULT_SETTINGS.dashBehavior;
   const slow = validSlow ? src.slowFieldBehavior : DEFAULT_SETTINGS.slowFieldBehavior;
   const tp = validTp ? src.teleportBehavior : DEFAULT_SETTINGS.teleportBehavior;
   const inv = validInv ? src.invulnBehavior : DEFAULT_SETTINGS.invulnBehavior;
-  const comicBookMode = validComic ? src.comicBookMode : DEFAULT_SETTINGS.comicBookMode;
-  return { dashBehavior: dash, slowFieldBehavior: slow, teleportBehavior: tp, invulnBehavior: inv, comicBookMode };
+  const textStylePreset = validPreset ? presetCandidate : DEFAULT_SETTINGS.textStylePreset;
+  const textStyleCustom = normalizeTextStyleCustom(src.textStyleCustom);
+  return { dashBehavior: dash, slowFieldBehavior: slow, teleportBehavior: tp, invulnBehavior: inv, textStylePreset, textStyleCustom };
 }
 
 function validateSettingsPayload(settings) {
@@ -573,14 +660,21 @@ function validateSettingsPayload(settings) {
   const slow = settings.slowFieldBehavior;
   const tp = settings.teleportBehavior;
   const inv = settings.invulnBehavior;
-  const comic = settings.comicBookMode;
+  const presetCandidate = settings.textStylePreset ?? LEGACY_TEXT_STYLE_MAP[settings.comicBookMode];
   const validDash = dash === "ricochet" || dash === "destroy";
   const validSlow = slow === "slow" || slow === "explosion";
   const validTp = tp === "normal" || tp === "explode";
   const validInv = inv === "short" || inv === "long";
-  const validComic = comic === "none" || comic === "mild" || comic === "extreme";
-  if (!validDash || !validSlow || !validTp || !validInv || !validComic) return null;
-  return { dashBehavior: dash, slowFieldBehavior: slow, teleportBehavior: tp, invulnBehavior: inv, comicBookMode: comic };
+  const validPreset = TEXT_STYLE_PRESET_VALUES.has(presetCandidate);
+  if (!validDash || !validSlow || !validTp || !validInv || !validPreset) return null;
+  return {
+    dashBehavior: dash,
+    slowFieldBehavior: slow,
+    teleportBehavior: tp,
+    invulnBehavior: inv,
+    textStylePreset: presetCandidate,
+    textStyleCustom: normalizeTextStyleCustom(settings.textStyleCustom)
+  };
 }
 
 function normalizeBind(b) {

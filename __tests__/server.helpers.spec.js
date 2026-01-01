@@ -60,7 +60,27 @@ describe("server helpers (trails)", () => {
       slowFieldBehavior: "explosion",
       teleportBehavior: "normal",
       invulnBehavior: "long",
-      comicBookMode: "none"
+      textStylePreset: "basic",
+      textStyleCustom: {
+        fontFamily: "system",
+        fontWeight: 900,
+        sizeScale: 1,
+        useGameColors: true,
+        useGameGlow: true,
+        color: "#ffffff",
+        glowColor: "#ffffff",
+        strokeColor: "#000000",
+        strokeWidth: 1.8,
+        shadowBoost: 0,
+        shadowOffsetY: 3,
+        wobble: 0,
+        spin: 0,
+        shimmer: 0,
+        sparkle: false,
+        useGradient: false,
+        gradientStart: "#fff3a6",
+        gradientEnd: "#7ce9ff"
+      }
     });
   });
 
@@ -155,6 +175,7 @@ describe("server helpers (trails)", () => {
         slowFieldBehavior: "plasma",
         teleportBehavior: "storm",
         invulnBehavior: "forever",
+        textStylePreset: "warp",
         comicBookMode: "maximal"
       },
       runs: -10,
@@ -173,7 +194,27 @@ describe("server helpers (trails)", () => {
       slowFieldBehavior: "explosion",
       teleportBehavior: "normal",
       invulnBehavior: "long",
-      comicBookMode: "none"
+      textStylePreset: "basic",
+      textStyleCustom: {
+        fontFamily: "system",
+        fontWeight: 900,
+        sizeScale: 1,
+        useGameColors: true,
+        useGameGlow: true,
+        color: "#ffffff",
+        glowColor: "#ffffff",
+        strokeColor: "#000000",
+        strokeWidth: 1.8,
+        shadowBoost: 0,
+        shadowOffsetY: 3,
+        wobble: 0,
+        spin: 0,
+        shimmer: 0,
+        sparkle: false,
+        useGradient: false,
+        gradientStart: "#fff3a6",
+        gradientEnd: "#7ce9ff"
+      }
     });
     expect(u.runs).toBe(0);
     expect(u.totalScore).toBe(0);

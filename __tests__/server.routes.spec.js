@@ -18,7 +18,27 @@ const baseUser = () => ({
     slowFieldBehavior: "explosion",
     teleportBehavior: "normal",
     invulnBehavior: "long",
-    comicBookMode: "none"
+    textStylePreset: "basic",
+    textStyleCustom: {
+      fontFamily: "system",
+      fontWeight: 900,
+      sizeScale: 1,
+      useGameColors: true,
+      useGameGlow: true,
+      color: "#ffffff",
+      glowColor: "#ffffff",
+      strokeColor: "#000000",
+      strokeWidth: 1.8,
+      shadowBoost: 0,
+      shadowOffsetY: 3,
+      wobble: 0,
+      spin: 0,
+      shimmer: 0,
+      sparkle: false,
+      useGradient: false,
+      gradientStart: "#fff3a6",
+      gradientEnd: "#7ce9ff"
+    }
   },
   runs: 3,
   totalScore: 5000,
@@ -155,7 +175,12 @@ describe("server routes and helpers", () => {
     expect(savedSettings.dashBehavior).toBe("destroy");
     expect(savedSettings.teleportBehavior).toBe("normal");
     expect(savedSettings.invulnBehavior).toBe("long");
-    expect(savedSettings.comicBookMode).toBe("none");
+    expect(savedSettings.textStylePreset).toBe("basic");
+    expect(savedSettings.textStyleCustom).toMatchObject({
+      fontFamily: "system",
+      useGameColors: true,
+      useGameGlow: true
+    });
     expect(readJson(successHttp).sessionToken).toMatch(/^\S+\.\S+\.\S+$/);
 
     const successForwarded = createRes();
@@ -427,7 +452,27 @@ describe("server routes and helpers", () => {
           slowFieldBehavior: "explosion",
           teleportBehavior: "explode",
           invulnBehavior: "long",
-          comicBookMode: "mild"
+          textStylePreset: "comic_book_mild",
+          textStyleCustom: {
+            fontFamily: "system",
+            fontWeight: 900,
+            sizeScale: 1,
+            useGameColors: true,
+            useGameGlow: true,
+            color: "#ffffff",
+            glowColor: "#ffffff",
+            strokeColor: "#000000",
+            strokeWidth: 1.8,
+            shadowBoost: 0,
+            shadowOffsetY: 3,
+            wobble: 0,
+            spin: 0,
+            shimmer: 0,
+            sparkle: false,
+            useGradient: false,
+            gradientStart: "#fff3a6",
+            gradientEnd: "#7ce9ff"
+          }
         }
       }))
     });
@@ -444,7 +489,27 @@ describe("server routes and helpers", () => {
       slowFieldBehavior: "explosion",
       teleportBehavior: "explode",
       invulnBehavior: "long",
-      comicBookMode: "mild"
+      textStylePreset: "comic_book_mild",
+      textStyleCustom: {
+        fontFamily: "system",
+        fontWeight: 900,
+        sizeScale: 1,
+        useGameColors: true,
+        useGameGlow: true,
+        color: "#ffffff",
+        glowColor: "#ffffff",
+        strokeColor: "#000000",
+        strokeWidth: 1.8,
+        shadowBoost: 0,
+        shadowOffsetY: 3,
+        wobble: 0,
+        spin: 0,
+        shimmer: 0,
+        sparkle: false,
+        useGradient: false,
+        gradientStart: "#fff3a6",
+        gradientEnd: "#7ce9ff"
+      }
     });
     expect(readJson(res).icons?.length).toBeGreaterThan(0);
     expect(readJson(res).pipeTextures?.length).toBeGreaterThan(0);
@@ -797,7 +862,27 @@ describe("server routes and helpers", () => {
             slowFieldBehavior: "explosion",
             teleportBehavior: "explode",
             invulnBehavior: "long",
-            comicBookMode: "extreme"
+            textStylePreset: "neon_pulse",
+            textStyleCustom: {
+              fontFamily: "system",
+              fontWeight: 900,
+              sizeScale: 1,
+              useGameColors: true,
+              useGameGlow: true,
+              color: "#ffffff",
+              glowColor: "#ffffff",
+              strokeColor: "#000000",
+              strokeWidth: 1.8,
+              shadowBoost: 0,
+              shadowOffsetY: 3,
+              wobble: 0,
+              spin: 0,
+              shimmer: 0,
+              sparkle: false,
+              useGradient: false,
+              gradientStart: "#fff3a6",
+              gradientEnd: "#7ce9ff"
+            }
           }
         }),
         headers: { cookie: buildSessionCookie(server, "PlayerOne") }
@@ -811,14 +896,54 @@ describe("server routes and helpers", () => {
       slowFieldBehavior: "explosion",
       teleportBehavior: "explode",
       invulnBehavior: "long",
-      comicBookMode: "extreme"
+      textStylePreset: "neon_pulse",
+      textStyleCustom: {
+        fontFamily: "system",
+        fontWeight: 900,
+        sizeScale: 1,
+        useGameColors: true,
+        useGameGlow: true,
+        color: "#ffffff",
+        glowColor: "#ffffff",
+        strokeColor: "#000000",
+        strokeWidth: 1.8,
+        shadowBoost: 0,
+        shadowOffsetY: 3,
+        wobble: 0,
+        spin: 0,
+        shimmer: 0,
+        sparkle: false,
+        useGradient: false,
+        gradientStart: "#fff3a6",
+        gradientEnd: "#7ce9ff"
+      }
     });
     expect(readJson(valid).user.settings).toEqual({
       dashBehavior: "destroy",
       slowFieldBehavior: "explosion",
       teleportBehavior: "explode",
       invulnBehavior: "long",
-      comicBookMode: "extreme"
+      textStylePreset: "neon_pulse",
+      textStyleCustom: {
+        fontFamily: "system",
+        fontWeight: 900,
+        sizeScale: 1,
+        useGameColors: true,
+        useGameGlow: true,
+        color: "#ffffff",
+        glowColor: "#ffffff",
+        strokeColor: "#000000",
+        strokeWidth: 1.8,
+        shadowBoost: 0,
+        shadowOffsetY: 3,
+        wobble: 0,
+        spin: 0,
+        shimmer: 0,
+        sparkle: false,
+        useGradient: false,
+        gradientStart: "#fff3a6",
+        gradientEnd: "#7ce9ff"
+      }
     });
   });
 
