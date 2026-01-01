@@ -130,9 +130,13 @@ function createHowToCard(doc, refs) {
     attrs: { for: "viewSettings", role: "button", tabindex: "0" },
     text: "Settings"
   });
+  const settingsHint = createElement(doc, refs, "div", {
+    className: "nav-callout settings-callout",
+    text: "↑ Change skill behaviors and key bindings"
+  });
   const actions = doc.createElement("div");
   actions.className = "card-actions center";
-  actions.append(settingsAction);
+  actions.append(settingsAction, settingsHint);
 
   card.append(header, wrapper, actions);
   return card;
@@ -1243,6 +1247,10 @@ function createMenuScreen(doc, refs) {
     text: "🖌️",
     attrs: { "aria-label": "Customize theme" }
   });
+  const themeCallout = createElement(doc, refs, "div", {
+    className: "nav-callout theme-callout",
+    text: "↖ Change pipe colors and menu theme"
+  });
   mainPanel.append(mainGrid);
 
   const settingsPanel = doc.createElement("div");
@@ -1276,7 +1284,7 @@ function createMenuScreen(doc, refs) {
   sideStack.className = "side-stack";
   sideStack.append(createProfileCard(doc, refs), createHighscoreCard(doc, refs));
 
-  shell.append(mainCard, sideStack, themeLauncher, createThemeOverlay(doc, refs));
+  shell.append(mainCard, sideStack, themeLauncher, themeCallout, createThemeOverlay(doc, refs));
   const achievementsHeaderBack = refs.achievementsHeaderBack;
   const settingsHeaderBack = refs.settingsHeaderBack;
 

@@ -1112,7 +1112,7 @@ export class Game {
     this.slowExplosion = { x: p.x, y: p.y, r: rad, t: dur, tm: dur };
     this.cds.slowField = Math.max(0, Number(s.cooldown) || 0);
     this._slowExplosionSfx();
-    this.floats.push(new FloatText("SLOW BURST", p.x, p.y - p.r * 1.8, "rgba(255,210,150,.95)"));
+    this.floats.push(new FloatText("Explode", p.x, p.y - p.r * 1.8, "rgba(255,210,150,.95)"));
 
     const shards = [];
     for (let i = 0; i < blastParticles; i++) {

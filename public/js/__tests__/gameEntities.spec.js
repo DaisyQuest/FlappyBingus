@@ -253,6 +253,7 @@ describe("Game audio enable/disable", () => {
     const { game, audio, cleanup } = await createGameForAudio();
     const { sfxDashBounce } = audio;
 
+    game.setSkillSettings({ dashBehavior: "ricochet" });
     game.setAudioEnabled(true);
     game.startRun();
     game.W = 200;

@@ -576,8 +576,8 @@ describe("Skill usage", () => {
     expect(game.floats.some((f) => f.txt === "TELEPORT")).toBe(true);
 
     game._useSkill("slowField");
-    expect(game.slowField).toBeTruthy();
-    expect(game.floats.some((f) => f.txt === "SLOW FIELD")).toBe(true);
+    expect(game.slowExplosion).toBeTruthy();
+    expect(game.floats.some((f) => f.txt === "Explode")).toBe(true);
   });
 
   it("shatters overlapping pipes and doubles cooldown with exploding teleport", () => {
@@ -710,6 +710,7 @@ describe("Player movement and trail emission", () => {
     const move = { dx: 1, dy: 0 };
     const { game } = buildGame({}, move);
     game.W = 120; game.H = 120; game.player.r = 6;
+    game.setSkillSettings({ dashBehavior: "ricochet" });
 
     game._updatePlayer(0.016);
     expect(game.player.lastX).toBe(1);
@@ -804,6 +805,7 @@ describe("Player movement and trail emission", () => {
   it("reflects off walls while dashing when hitting playfield edges", () => {
     const { game } = buildGame();
     game.resizeToWindow();
+    game.setSkillSettings({ dashBehavior: "ricochet" });
     const reflectSpy = vi.spyOn(game, "_applyDashReflect");
     game.pipeT = 10;
     game.specialT = 10;
@@ -1503,6 +1505,7 @@ describe("Game loop", () => {
   it("breaks collision processing after a dash reflection", () => {
     const { game } = buildGame();
     game.state = 1;
+    game.setSkillSettings({ dashBehavior: "ricochet" });
     game.player.invT = 0;
     game.player.dashT = 0.1;
     game.pipeT = 10;
@@ -1660,6 +1663,7 @@ describe("Game loop", () => {
     game._useSkill("teleport");
 
     game.cds.slowField = 0;
+    game.setSkillSettings({ slowFieldBehavior: "slow" });
     game._useSkill("slowField");
     expect(game.slowField).toBeTruthy();
 

@@ -4,10 +4,10 @@
 // Shared helpers for player-configurable skill behaviors.
 
 export const DEFAULT_SKILL_SETTINGS = Object.freeze({
-  dashBehavior: "ricochet",
-  slowFieldBehavior: "slow",
+  dashBehavior: "destroy",
+  slowFieldBehavior: "explosion",
   teleportBehavior: "normal",
-  invulnBehavior: "short"
+  invulnBehavior: "long"
 });
 
 export const SKILL_BEHAVIOR_OPTIONS = Object.freeze({

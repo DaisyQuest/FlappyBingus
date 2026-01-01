@@ -1093,7 +1093,13 @@ export function initThemeEditor({ refs, config, onApply }) {
   refs.themeEditor.innerHTML = "";
   const controls = new Map();
   const grouped = groupFields(THEME_FIELDS);
-  grouped.forEach((fields, groupName) => {
+  const preferredOrder = ["Pipes", "Backdrop"];
+  const orderedGroupNames = [
+    ...preferredOrder.filter((name) => grouped.has(name)),
+    ...Array.from(grouped.keys()).filter((name) => !preferredOrder.includes(name))
+  ];
+  orderedGroupNames.forEach((groupName) => {
+    const fields = grouped.get(groupName) || [];
     const group = doc.createElement("div");
     group.className = "theme-group";
     const heading = doc.createElement("div");
