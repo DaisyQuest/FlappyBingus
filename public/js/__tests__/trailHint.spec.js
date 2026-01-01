@@ -29,6 +29,22 @@ describe("buildTrailHint", () => {
     expect(hint.text).toContain("99");
   });
 
+  it("highlights the shop when purchasable trails are still locked", () => {
+    const hint = buildTrailHint({
+      online: true,
+      user: { username: "pilot", ownedUnlockables: [] },
+      bestScore: 500,
+      trails: [
+        { id: "classic", achievementId: "a", alwaysUnlocked: true },
+        { id: "starlight_pop", unlock: { type: "purchase", cost: 100 } }
+      ],
+      achievements: { unlocked: { a: 1 } }
+    });
+
+    expect(hint.text).toContain("shop");
+    expect(hint.text).toContain("500");
+  });
+
   it("celebrates when all trails are unlocked", () => {
     const hint = buildTrailHint({
       online: true,

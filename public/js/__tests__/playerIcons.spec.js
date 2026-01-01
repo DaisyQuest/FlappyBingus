@@ -125,6 +125,14 @@ describe("player icon helpers", () => {
     );
   });
 
+  it("ships the file icon as a purchasable sprite-backed cosmetic", () => {
+    const fileIcon = DEFAULT_PLAYER_ICONS.find((icon) => icon.id === "file_icon");
+    expect(fileIcon?.unlock).toEqual({ type: "purchase", cost: 100 });
+    expect(fileIcon?.imageSrc).toBe("/file.png");
+    const unlocked = getUnlockedPlayerIcons(DEFAULT_PLAYER_ICONS, { ownedIconIds: ["file_icon"] });
+    expect(unlocked).toContain("file_icon");
+  });
+
   it("normalizes icon selection to the first unlocked choice", () => {
     const unlocked = new Set(["hi_vis_orange"]);
     const selection = normalizeIconSelection({
@@ -155,7 +163,13 @@ describe("player icon helpers", () => {
       return acc;
     }, {});
 
-    const unlocked = getUnlockedPlayerIcons(DEFAULT_PLAYER_ICONS, { achievements: { unlocked: achievementMap } });
+    const ownedIconIds = DEFAULT_PLAYER_ICONS
+      .filter((icon) => icon.unlock?.type === "purchase")
+      .map((icon) => icon.id);
+    const unlocked = getUnlockedPlayerIcons(DEFAULT_PLAYER_ICONS, {
+      achievements: { unlocked: achievementMap },
+      ownedIconIds
+    });
     const unlockedSet = new Set(unlocked);
 
     expect(unlockedSet.size).toBe(DEFAULT_PLAYER_ICONS.length);

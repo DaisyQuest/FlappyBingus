@@ -53,16 +53,18 @@ export function buildUnlockablesCatalog({ trails = [], icons = [], pipeTextures 
     const id = String(trail.id || "").trim();
     if (!id) return;
     const minScore = Number.isFinite(trail.minScore) ? trail.minScore : 0;
-    const unlock = trail.requiresRecordHolder
-      ? normalizeUnlock({ type: "record", label: "Record holder" })
-      : trail.alwaysUnlocked
-        ? normalizeUnlock({ type: "free", label: "Free" })
-        : normalizeUnlock({
-          type: "achievement",
-          id: trail.achievementId || `trail_${id}`,
-          minScore,
-          label: minScore ? `Score ${minScore}+` : "Achievement"
-        });
+    const unlock = trail.unlock
+      ? normalizeUnlock(trail.unlock)
+      : trail.requiresRecordHolder
+        ? normalizeUnlock({ type: "record", label: "Record holder" })
+        : trail.alwaysUnlocked
+          ? normalizeUnlock({ type: "free", label: "Free" })
+          : normalizeUnlock({
+            type: "achievement",
+            id: trail.achievementId || `trail_${id}`,
+            minScore,
+            label: minScore ? `Score ${minScore}+` : "Achievement"
+          });
     unlockables.push({
       id,
       name: trail.name || id,

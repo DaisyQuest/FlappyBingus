@@ -12,7 +12,8 @@ import {
 
 const sampleTrails = [
   { id: "classic", name: "Classic", minScore: 0, achievementId: "trail_classic_1", alwaysUnlocked: true },
-  { id: "ember", name: "Ember", minScore: 100, achievementId: "trail_ember_100" }
+  { id: "ember", name: "Ember", minScore: 100, achievementId: "trail_ember_100" },
+  { id: "shop_trail", name: "Shop Trail", unlock: { type: "purchase", cost: 10 } }
 ];
 
 const sampleIcons = [
@@ -65,6 +66,7 @@ describe("unlockables", () => {
     expect(unlockables.some((u) => u.type === UNLOCKABLE_TYPES.trail)).toBe(true);
     expect(unlockables.some((u) => u.type === UNLOCKABLE_TYPES.playerTexture)).toBe(true);
     expect(unlockables.some((u) => u.type === UNLOCKABLE_TYPES.pipeTexture)).toBe(true);
+    expect(unlockables.find((item) => item.id === "shop_trail")?.unlock?.type).toBe("purchase");
 
     const result = syncUnlockablesState(
       { unlocked: {} },

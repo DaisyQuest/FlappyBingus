@@ -541,6 +541,45 @@ function renderIconFrame(ctx, canvas, icon = {}, { animationPhase = 0 } = {}) {
   ctx.restore?.();
 }
 
+function drawImageIconFrame(ctx, canvas, icon, image) {
+  if (!ctx || !canvas) return;
+  const style = icon?.style || {};
+  const fill = style.fill || DEFAULT_FILL;
+  const rim = style.rim || DEFAULT_RIM;
+  const glow = style.glow || DEFAULT_GLOW;
+
+  ctx.clearRect?.(0, 0, canvas.width, canvas.height);
+  ctx.save?.();
+  ctx.translate?.(canvas.width * 0.5, canvas.height * 0.5);
+
+  const outer = canvas.width * 0.46;
+  fillCircle(ctx, outer, fill, { color: glow, blur: Math.max(6, canvas.width * 0.12) });
+
+  const imgWidth = image?.naturalWidth || image?.width || 0;
+  const imgHeight = image?.naturalHeight || image?.height || 0;
+  if (imgWidth > 0 && imgHeight > 0 && ctx.beginPath && ctx.arc && ctx.clip) {
+    ctx.save?.();
+    ctx.beginPath();
+    ctx.arc(0, 0, outer * 0.92, 0, Math.PI * 2);
+    ctx.clip();
+    const scale = Math.max((outer * 2) / imgWidth, (outer * 2) / imgHeight);
+    const drawWidth = imgWidth * scale;
+    const drawHeight = imgHeight * scale;
+    ctx.drawImage?.(image, -drawWidth * 0.5, -drawHeight * 0.5, drawWidth, drawHeight);
+    ctx.restore?.();
+  }
+
+  if (ctx.lineWidth !== undefined) {
+    ctx.shadowBlur = 0;
+    ctx.lineWidth = Math.max(2, canvas.width * 0.06);
+    ctx.strokeStyle = rim;
+    ctx.beginPath();
+    ctx.arc(0, 0, outer * 0.96, 0, Math.PI * 2);
+    ctx.stroke();
+  }
+  ctx.restore?.();
+}
+
 function maybeStartSpriteAnimation(canvas, icon, renderFrame) {
   const animation = icon?.style?.animation;
   if (!animation || (animation.type !== "lava" && animation.type !== "cape_flow" && animation.type !== "zigzag_scroll")) {
@@ -583,10 +622,24 @@ export function createPlayerIconSprite(icon = {}, { size = 96 } = {}) {
   }
 
   if (ctx) {
-    const renderFrame = (opts = {}) => renderIconFrame(ctx, canvas, icon, opts);
-    renderFrame();
-    const animation = maybeStartSpriteAnimation(canvas, icon, renderFrame);
-    if (animation) canvas.__animation = animation;
+    const imageSrc = icon?.imageSrc || icon?.image?.src || null;
+    if (imageSrc && typeof Image === "function") {
+      const image = new Image();
+      canvas.__image = image;
+      const renderImage = () => drawImageIconFrame(ctx, canvas, icon, image);
+      image.addEventListener?.("load", () => {
+        renderImage();
+        canvas.__imageLoaded = true;
+        canvas.__notifyImageLoad?.();
+      }, { once: true });
+      image.src = imageSrc;
+      renderImage();
+    } else {
+      const renderFrame = (opts = {}) => renderIconFrame(ctx, canvas, icon, opts);
+      renderFrame();
+      const animation = maybeStartSpriteAnimation(canvas, icon, renderFrame);
+      if (animation) canvas.__animation = animation;
+    }
   }
 
   return canvas;
@@ -602,6 +655,7 @@ export const __testables = {
   createCapeFlowGradient,
   drawCapeEmbers,
   drawCobblestone,
+  drawImageIconFrame,
   renderIconFrame,
   maybeStartSpriteAnimation
 };

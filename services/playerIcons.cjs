@@ -28,6 +28,18 @@ const PLAYER_ICONS = Object.freeze([
     }
   },
   {
+    id: "file_icon",
+    name: "File Icon",
+    unlock: { type: "purchase", cost: 100 },
+    imageSrc: "/file.png",
+    style: {
+      fill: "#1f2937",
+      core: "#f8fafc",
+      rim: "#0f172a",
+      glow: "rgba(147,197,253,0.65)"
+    }
+  },
+  {
     id: "perfect_ten_liner",
     name: "Perfect Line Beacon",
     unlock: { type: "achievement", id: "perfects_run_10", label: "Perfect Ten" },

@@ -15,14 +15,18 @@ function coerceScore(v) {
 export function buildTrailHint({ online, user, bestScore, trails, achievements } = {}) {
   const best = coerceScore(bestScore);
   const isRecordHolder = Boolean(user?.isRecordHolder);
+  const ownedIds = Array.isArray(user?.ownedUnlockables) ? user.ownedUnlockables : [];
   const recordLocked = Array.isArray(trails)
     ? trails.some((t) => t?.requiresRecordHolder)
     : false;
   const totalTrails = Array.isArray(trails)
     ? trails.filter((t) => !t.requiresRecordHolder || isRecordHolder).length
     : 0;
-  const unlockedTrailIds = getUnlockedTrails(trails, achievements, { isRecordHolder });
+  const unlockedTrailIds = getUnlockedTrails(trails, achievements, { isRecordHolder, ownedIds });
   const lockedCount = Math.max(0, totalTrails - unlockedTrailIds.length);
+  const purchasableLocked = Array.isArray(trails)
+    ? trails.some((t) => t?.unlock?.type === "purchase" && !unlockedTrailIds.includes(t.id))
+    : false;
 
   if (!online) {
     return {
@@ -46,7 +50,9 @@ export function buildTrailHint({ online, user, bestScore, trails, achievements }
   }
 
   const detail = lockedCount > 0
-    ? `Complete achievements to unlock ${lockedCount} more trail${lockedCount === 1 ? "" : "s"}.`
+    ? purchasableLocked
+      ? `Visit the shop or complete achievements to unlock ${lockedCount} more trail${lockedCount === 1 ? "" : "s"}.`
+      : `Complete achievements to unlock ${lockedCount} more trail${lockedCount === 1 ? "" : "s"}.`
     : "All trails unlocked!";
 
   return {

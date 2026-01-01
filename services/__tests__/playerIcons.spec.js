@@ -44,6 +44,7 @@ describe("server player icon catalog", () => {
     const honeycomb = PLAYER_ICONS.find((icon) => icon.id === "honeycomb");
     const midnight = PLAYER_ICONS.find((icon) => icon.id === "midnight_honeycomb");
     const lemon = PLAYER_ICONS.find((icon) => icon.id === "lemon_slice");
+    const fileIcon = PLAYER_ICONS.find((icon) => icon.id === "file_icon");
 
     expect(bee?.unlock).toEqual({ type: "achievement", id: "orb_combo_20", label: "Orb Crescendo" });
     expect(bee?.style?.pattern?.type).toBe("stripes");
@@ -53,6 +54,8 @@ describe("server player icon catalog", () => {
     expect(midnight?.style?.pattern?.type).toBe("honeycomb");
     expect(lemon?.unlock).toEqual({ type: "achievement", id: "pipes_broken_run_100", label: "Shatterstorm Run" });
     expect(lemon?.style?.pattern?.type).toBe("citrus_slice");
+    expect(fileIcon?.unlock).toEqual({ type: "purchase", cost: 100 });
+    expect(fileIcon?.imageSrc).toBe("/file.png");
 
     const unlocked = unlockedIcons(
       {

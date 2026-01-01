@@ -31,6 +31,29 @@ describe("swatchPainter", () => {
     expect(drawImage).toHaveBeenCalledWith(sprite, 0, 0, 64, 64);
   });
 
+  it("repaints swatches once image-backed sprites finish loading", () => {
+    const drawImage = vi.fn();
+    const clearRect = vi.fn();
+    const ctx = { drawImage, clearRect };
+    const canvas = { width: 1, height: 1, getContext: vi.fn(() => ctx) };
+    const image = {
+      complete: false,
+      addEventListener: vi.fn((event, cb) => {
+        if (event === "load") image._onload = cb;
+      })
+    };
+    const sprite = { width: 48, height: 48, __image: image };
+
+    paintIconCanvas(canvas, { id: "img" }, { sprite });
+
+    expect(image.addEventListener).toHaveBeenCalledWith("load", expect.any(Function), { once: true });
+
+    image.complete = true;
+    image._onload?.();
+
+    expect(drawImage).toHaveBeenCalledTimes(2);
+  });
+
   it("caches sprites by icon id and size", () => {
     const icon = { id: "cache-me" };
     const first = getCachedIconSprite(icon, { size: 72 });

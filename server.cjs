@@ -156,6 +156,7 @@ const TRAILS = Object.freeze([
   { id: "nebula", name: "Starfall Drift", minScore: 2350, achievementId: "trail_nebula_2350" },
   { id: "honeycomb", name: "Honeycomb Drift", achievementId: "pipes_broken_explosion_10" },
   { id: "lemon_slice", name: "Lemon Slice", achievementId: "run_time_60" },
+  { id: "starlight_pop", name: "Starlight Pop", unlock: { type: "purchase", cost: 100 } },
   { id: "dragonfire", name: "Dragonfire", minScore: 2600, achievementId: "trail_dragonfire_2600" },
   { id: "ultraviolet", name: "Ultraviolet Pulse", minScore: 2800, achievementId: "trail_ultraviolet_2800" },
   { id: "world_record", name: "World Record Cherry Blossom", minScore: 3000, achievementId: "trail_world_record_3000", requiresRecordHolder: true }
@@ -410,12 +411,23 @@ function keyForUsername(username) {
   return String(username).trim().toLowerCase();
 }
 
-function unlockedTrails({ achievements, bestScore = 0 } = {}, { recordHolder = false } = {}) {
+function unlockedTrails({ achievements, bestScore = 0, ownedIds = [] } = {}, { recordHolder = false } = {}) {
   const normalized = normalizeAchievementState(achievements);
   const unlockedAchievements = normalized.unlocked || {};
   const best = Math.max(Number(bestScore) || 0, normalized.progress?.bestScore || 0);
+  const owned = new Set(
+    Array.isArray(ownedIds)
+      ? ownedIds.map((id) => (typeof id === "string" ? id : null)).filter(Boolean)
+      : []
+  );
 
   return TRAILS.filter((t) => {
+    if (t.unlock) {
+      return isUnlockSatisfied(
+        { id: t.id, unlock: t.unlock },
+        { achievements: normalized, bestScore: best, ownedIds: Array.from(owned), recordHolder }
+      );
+    }
     if (t.alwaysUnlocked) return true;
     if (t.requiresRecordHolder && !recordHolder) return false;
     const required = t.achievementId;
@@ -492,7 +504,10 @@ function ensureUserSchema(u, { recordHolder = false } = {}) {
   ).state;
 
   // Ensure selected trail is unlocked
-  const unlocked = unlockedTrails({ achievements: u.achievements, bestScore: u.bestScore }, { recordHolder });
+  const unlocked = unlockedTrails(
+    { achievements: u.achievements, bestScore: u.bestScore, ownedIds: u.ownedUnlockables },
+    { recordHolder }
+  );
   if (!unlocked.includes(u.selectedTrail)) u.selectedTrail = "classic";
 
   const availableIconIds = unlockedIcons(u, { icons: ICONS, recordHolder });
@@ -631,7 +646,10 @@ function publicUser(u, { recordHolder = false } = {}) {
     currencies: normalizeCurrencyWallet(u.currencies, { [DEFAULT_CURRENCY_ID]: u.bustercoins }),
     skillTotals: normalizeSkillTotals(u.skillTotals || DEFAULT_SKILL_TOTALS),
     achievements: normalizeAchievementState(u.achievements),
-    unlockedTrails: unlockedTrails({ achievements: u.achievements, bestScore: u.bestScore }, { recordHolder }),
+    unlockedTrails: unlockedTrails(
+      { achievements: u.achievements, bestScore: u.bestScore, ownedIds: u.ownedUnlockables },
+      { recordHolder }
+    ),
     unlockedIcons: unlockedIcons(u, { icons: ICONS, recordHolder }),
     unlockedPipeTextures: getUnlockedIdsByType({
       unlockables: UNLOCKABLES.unlockables,
@@ -1328,7 +1346,10 @@ async function route(req, res) {
     if (!exists) return badRequest(res, "invalid_trail");
 
     const recordHolder = Boolean(u?.isRecordHolder);
-    const unlocked = unlockedTrails({ achievements: u.achievements, bestScore: u.bestScore }, { recordHolder });
+    const unlocked = unlockedTrails(
+      { achievements: u.achievements, bestScore: u.bestScore, ownedIds: u.ownedUnlockables },
+      { recordHolder }
+    );
     if (!unlocked.includes(trailId)) return badRequest(res, "trail_locked");
 
     const updated = await dataStore.setTrail(u.key, trailId);

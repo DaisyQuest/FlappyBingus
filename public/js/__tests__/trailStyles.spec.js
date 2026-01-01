@@ -106,6 +106,16 @@ describe("trailStyles", () => {
     expect(lemon.sliceStyle?.segment).toBe("rgba(255, 184, 36, 0.95)");
   });
 
+  it("adds a sparkly starlight trail without blossom petals", () => {
+    const starlight = trailStyleFor("starlight_pop");
+    expect(TRAIL_STYLE_IDS).toContain("starlight_pop");
+    expect(starlight.particleShape).toBe("star");
+    expect(starlight.sparkle.particleShape).toBe("star");
+    expect(starlight.glint.particleShape).toBe("star");
+    expect(starlight.life[1]).toBeGreaterThan(starlight.life[0]);
+    expect(starlight.sparkle.rate).toBeGreaterThan(0);
+  });
+
   it("uses honeycomb hexagons with a matching outline style", () => {
     const honey = trailStyleFor("honeycomb");
     expect(honey.particleShape).toBe("hexagon");

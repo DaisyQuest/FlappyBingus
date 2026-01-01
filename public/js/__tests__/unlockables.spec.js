@@ -28,10 +28,15 @@ describe("unlockables client helpers", () => {
 
   it("builds catalogs and returns unlocked ids by type", () => {
     const catalog = buildUnlockablesCatalog({
-      trails: [{ id: "classic", name: "Classic", minScore: 0, alwaysUnlocked: true }],
+      trails: [
+        { id: "classic", name: "Classic", minScore: 0, alwaysUnlocked: true },
+        { id: "shop_trail", name: "Shop Trail", unlock: { type: "purchase", cost: 50 } }
+      ],
       icons: [{ id: "icon", name: "Icon", unlock: { type: "free" } }],
       pipeTextures: [{ id: "basic", name: "Basic", unlock: { type: "score", minScore: 10 } }]
     });
+    const shopTrail = catalog.unlockables.find((item) => item.id === "shop_trail");
+    expect(shopTrail?.unlock?.type).toBe("purchase");
     const unlocked = getUnlockedIdsByType({
       unlockables: catalog.unlockables,
       type: UNLOCKABLE_TYPES.pipeTexture,
