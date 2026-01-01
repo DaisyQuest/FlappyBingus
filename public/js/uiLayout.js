@@ -390,7 +390,7 @@ function createTrailCard(doc, refs) {
   trailOverlay.append(trailOverlayPanel);
 
   trailField.append(trailLauncher, trailOverlay, trailHint);
-  card.append(actions, divider, iconField, pipeTextureField, trailField, actionsRow);
+  card.append(actions, divider, iconField, trailField, pipeTextureField, actionsRow);
   return card;
 }
 
