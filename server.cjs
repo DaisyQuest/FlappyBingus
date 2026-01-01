@@ -121,22 +121,22 @@ const SESSION_COOKIE = "bingus_session";
 let SESSION_SECRET = process.env.SESSION_SECRET || crypto.randomBytes(32).toString("hex");
 
 // Default skill keybinds (requested defaults):
-// Q = Invulnerability (phase)
-// E = Slow Field
-// Left Mouse = Teleport
 // Space = Dash
+// Left Mouse = Teleport
+// Right Mouse = Invulnerability (phase)
+// E = Slow Field
 const DEFAULT_KEYBINDS = Object.freeze({
   dash: { type: "key", code: "Space" },
-  phase: { type: "key", code: "KeyQ" },
+  phase: { type: "mouse", button: 2 },
   teleport: { type: "mouse", button: 0 },
   slowField: { type: "key", code: "KeyE" }
 });
 
 const DEFAULT_SETTINGS = Object.freeze({
-  dashBehavior: "ricochet",
-  slowFieldBehavior: "slow",
+  dashBehavior: "destroy",
+  slowFieldBehavior: "explosion",
   teleportBehavior: "normal",
-  invulnBehavior: "short"
+  invulnBehavior: "long"
 });
 
 const TRAILS = Object.freeze([
@@ -538,10 +538,14 @@ function mergeKeybinds(base, inc) {
 
 function normalizeSettings(settings) {
   const src = settings && typeof settings === "object" ? settings : {};
-  const dash = src.dashBehavior === "destroy" ? "destroy" : "ricochet";
-  const slow = src.slowFieldBehavior === "explosion" ? "explosion" : "slow";
-  const tp = src.teleportBehavior === "explode" ? "explode" : "normal";
-  const inv = src.invulnBehavior === "long" ? "long" : "short";
+  const validDash = src.dashBehavior === "ricochet" || src.dashBehavior === "destroy";
+  const validSlow = src.slowFieldBehavior === "slow" || src.slowFieldBehavior === "explosion";
+  const validTp = src.teleportBehavior === "normal" || src.teleportBehavior === "explode";
+  const validInv = src.invulnBehavior === "short" || src.invulnBehavior === "long";
+  const dash = validDash ? src.dashBehavior : DEFAULT_SETTINGS.dashBehavior;
+  const slow = validSlow ? src.slowFieldBehavior : DEFAULT_SETTINGS.slowFieldBehavior;
+  const tp = validTp ? src.teleportBehavior : DEFAULT_SETTINGS.teleportBehavior;
+  const inv = validInv ? src.invulnBehavior : DEFAULT_SETTINGS.invulnBehavior;
   return { dashBehavior: dash, slowFieldBehavior: slow, teleportBehavior: tp, invulnBehavior: inv };
 }
 

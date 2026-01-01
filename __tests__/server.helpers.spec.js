@@ -56,10 +56,10 @@ describe("server helpers (trails)", () => {
     const u = baseUser();
     server.ensureUserSchema(u, { recordHolder: false });
     expect(u.settings).toEqual({
-      dashBehavior: "ricochet",
-      slowFieldBehavior: "slow",
+      dashBehavior: "destroy",
+      slowFieldBehavior: "explosion",
       teleportBehavior: "normal",
-      invulnBehavior: "short"
+      invulnBehavior: "long"
     });
   });
 
@@ -144,10 +144,10 @@ describe("server helpers (trails)", () => {
     expect(u.keybinds.phase).toEqual({ type: "mouse", button: 2 });
     expect(u.keybinds.slowField).toEqual({ type: "key", code: "KeyE" });
     expect(u.settings).toEqual({
-      dashBehavior: "ricochet",
-      slowFieldBehavior: "slow",
+      dashBehavior: "destroy",
+      slowFieldBehavior: "explosion",
       teleportBehavior: "normal",
-      invulnBehavior: "short"
+      invulnBehavior: "long"
     });
     expect(u.runs).toBe(0);
     expect(u.totalScore).toBe(0);

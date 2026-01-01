@@ -14,10 +14,10 @@ const baseUser = () => ({
   ownedUnlockables: [],
   keybinds: {},
   settings: {
-    dashBehavior: "ricochet",
-    slowFieldBehavior: "slow",
+    dashBehavior: "destroy",
+    slowFieldBehavior: "explosion",
     teleportBehavior: "normal",
-    invulnBehavior: "short"
+    invulnBehavior: "long"
   },
   runs: 3,
   totalScore: 5000,
@@ -150,9 +150,9 @@ describe("server routes and helpers", () => {
     const token = sessionCookie.split(";")[0].split("=")[1];
     expect(server.__testables.verifySessionToken(token).ok).toBe(true);
     const savedSettings = readJson(successHttp).user.settings;
-    expect(savedSettings.dashBehavior).toBe("ricochet");
+    expect(savedSettings.dashBehavior).toBe("destroy");
     expect(savedSettings.teleportBehavior).toBe("normal");
-    expect(savedSettings.invulnBehavior).toBe("short");
+    expect(savedSettings.invulnBehavior).toBe("long");
     expect(readJson(successHttp).sessionToken).toMatch(/^\S+\.\S+\.\S+$/);
 
     const successForwarded = createRes();

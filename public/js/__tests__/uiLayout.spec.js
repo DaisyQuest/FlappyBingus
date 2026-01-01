@@ -96,6 +96,10 @@ describe("uiLayout", () => {
     expect(ui.tutorial?.className).not.toContain("small");
     expect(ui.iconHint?.textContent).toBe("");
     expect(ui.pipeTextureHint?.textContent).toContain("Unlock pipe textures");
+    const settingsCallout = howtoCard?.querySelector(".settings-callout");
+    expect(settingsCallout?.textContent).toContain("Change skill behaviors and key bindings");
+    const themeCallout = mount.querySelector(".theme-callout");
+    expect(themeCallout?.textContent).toContain("Change pipe colors and menu theme");
   });
 
   it("moves Settings and Achievements navigation into the primary cards", () => {

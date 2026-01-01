@@ -14,10 +14,10 @@ const baseUser = () => ({
   ownedUnlockables: [],
   keybinds: {},
   settings: {
-    dashBehavior: "ricochet",
-    slowFieldBehavior: "slow",
+    dashBehavior: "destroy",
+    slowFieldBehavior: "explosion",
     teleportBehavior: "normal",
-    invulnBehavior: "short"
+    invulnBehavior: "long"
   },
   runs: 1,
   totalScore: 100,
