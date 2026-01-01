@@ -7,6 +7,7 @@ import {
   apiGetMe,
   apiRegister,
   apiGetHighscores,
+  apiGetStats,
   apiSetTrail,
   apiSetIcon,
   apiSetPipeTexture,
@@ -143,6 +144,7 @@ import { applyNetUserUpdate } from "./netUser.js";
 import { handleTrailSaveResponse } from "./trailSaveResponse.js";
 import { readSessionUsername } from "./session.js";
 import { recoverUserFromUsername } from "./sessionRecovery.js";
+import { formatWorldwideRuns } from "./worldwideStats.js";
 import {
   resolveReauthUsername,
   shouldTriggerGuestSave,
@@ -277,6 +279,7 @@ const {
   purchaseModalStatus,
   purchaseModalCancel,
   purchaseModalConfirm,
+  setMenuSubtitle,
   updateSkillCooldowns
 } = ui;
 
@@ -1358,6 +1361,11 @@ async function refreshProfileAndHighscores({ keepUserOnFailure = false } = {}) {
   } else {
     net.online = true;
     net.highscores = hs.highscores || [];
+  }
+
+  const stats = await apiGetStats();
+  if (stats?.ok) {
+    setMenuSubtitle?.(formatWorldwideRuns(stats.totalRuns));
   }
 
   setUserHint();

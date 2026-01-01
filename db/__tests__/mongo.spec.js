@@ -42,6 +42,7 @@ const makeCollection = (overrides = {}) => ({
   findOne: vi.fn(),
   findOneAndUpdate: vi.fn(),
   countDocuments: vi.fn(),
+  aggregate: vi.fn(() => ({ toArray: vi.fn(async () => []) })),
   find: vi.fn(() => ({
     sort: vi.fn().mockReturnThis(),
     limit: vi.fn().mockReturnThis(),
@@ -374,6 +375,36 @@ describe("MongoDataStore mutations and reads", () => {
 
     const count = await store.userCount();
     expect(count).toBe(42);
+  });
+
+  it("sums total runs across users", async () => {
+    const { MongoDataStore } = await loadModule();
+    const aggregateResult = [{ totalRuns: 12.8 }];
+    const coll = makeCollection({
+      aggregate: vi.fn(() => ({ toArray: vi.fn(async () => aggregateResult) }))
+    });
+    const store = new MongoDataStore({ uri: "mongodb://ok", dbName: "db" });
+    store.ensureConnected = vi.fn();
+    store.usersCollection = () => coll;
+
+    const total = await store.totalRuns();
+    expect(total).toBe(12);
+    expect(coll.aggregate).toHaveBeenCalledWith([
+      { $group: { _id: null, totalRuns: { $sum: { $ifNull: ["$runs", 0] } } } }
+    ]);
+  });
+
+  it("defaults total runs to zero when aggregation returns nothing", async () => {
+    const { MongoDataStore } = await loadModule();
+    const coll = makeCollection({
+      aggregate: vi.fn(() => ({ toArray: vi.fn(async () => []) }))
+    });
+    const store = new MongoDataStore({ uri: "mongodb://ok", dbName: "db" });
+    store.ensureConnected = vi.fn();
+    store.usersCollection = () => coll;
+
+    const total = await store.totalRuns();
+    expect(total).toBe(0);
   });
 
   it("renames an existing user when the username changes", async () => {
