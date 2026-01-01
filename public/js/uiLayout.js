@@ -25,6 +25,9 @@ const SKILL_COOLDOWN_REFS = [
   { ref: "slowExplosionCooldownValue", key: "slowExplosion", label: "Explode cooldown" }
 ];
 
+const DONATE_MESSAGE = "Thank you so much for even considering to click this button! Any tips to support the development team are greatly appreciated!";
+const DONATE_VENMO = "Venmo: @Bingus69";
+
 function readCooldown(cfg, key, { multiplier = 1 } = {}) {
   const fallback = Number(DEFAULT_CONFIG?.skills?.[key]?.cooldown);
   const raw = Number(cfg?.skills?.[key]?.cooldown);
@@ -1516,6 +1519,75 @@ function createOverScreen(doc, refs) {
   return screen;
 }
 
+function createSocialDock(doc, refs) {
+  const dock = createElement(doc, refs, "div", {
+    id: "socialDock",
+    className: "social-dock"
+  });
+
+  const createSocialItem = ({ id, text, popoverId, popoverClass, ariaLabel, popoverContent }) => {
+    const item = doc.createElement("div");
+    item.className = "social-item";
+    const button = createElement(doc, refs, "button", {
+      id,
+      className: "cta-btn small social-btn",
+      text,
+      attrs: { type: "button", "aria-expanded": "false", "aria-controls": popoverId, "aria-label": ariaLabel }
+    });
+
+    const popover = createElement(doc, refs, "div", {
+      id: popoverId,
+      className: `social-popover ${popoverClass}`,
+      attrs: { role: "dialog", "aria-hidden": "true", "aria-label": ariaLabel }
+    });
+    popover.hidden = true;
+    popoverContent(popover);
+
+    item.append(button, popover);
+    return item;
+  };
+
+  const discordItem = createSocialItem({
+    id: "discordButton",
+    text: "Discord",
+    popoverId: "discordPopover",
+    popoverClass: "discord-popover",
+    ariaLabel: "Open the Discord community widget",
+    popoverContent: (popover) => {
+      const iframe = doc.createElement("iframe");
+      iframe.className = "discord-widget";
+      iframe.src = "https://discord.com/widget?id=1455397900019306623&theme=dark";
+      iframe.width = "350";
+      iframe.height = "500";
+      iframe.setAttribute("allowtransparency", "true");
+      iframe.setAttribute("frameborder", "0");
+      iframe.setAttribute("sandbox", "allow-popups allow-popups-to-escape-sandbox allow-same-origin allow-scripts");
+      iframe.title = "Discord community widget";
+      popover.append(iframe);
+    }
+  });
+
+  const donateItem = createSocialItem({
+    id: "donateButton",
+    text: "Donate",
+    popoverId: "donatePopover",
+    popoverClass: "donate-popover",
+    ariaLabel: "Show donation note",
+    popoverContent: (popover) => {
+      const copy = doc.createElement("p");
+      copy.className = "donate-copy";
+      copy.textContent = DONATE_MESSAGE;
+      const venmo = doc.createElement("p");
+      venmo.className = "donate-venmo";
+      venmo.textContent = DONATE_VENMO;
+      popover.append(copy, venmo);
+    }
+  });
+
+  dock.append(discordItem, donateItem);
+  return dock;
+}
+
 export function buildGameUI({ document = window.document, mount } = {}) {
   const doc = document || window.document;
   const target = mount || doc.getElementById("app") || doc.body;
@@ -1537,7 +1609,13 @@ export function buildGameUI({ document = window.document, mount } = {}) {
     className: "achievement-toasts"
   });
 
-  wrap.append(canvas, createMenuScreen(doc, refs), createOverScreen(doc, refs), achievementToasts);
+  wrap.append(
+    canvas,
+    createMenuScreen(doc, refs),
+    createOverScreen(doc, refs),
+    achievementToasts,
+    createSocialDock(doc, refs)
+  );
   target.append(wrap);
 
   return {
