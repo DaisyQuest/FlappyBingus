@@ -51,21 +51,36 @@ export class Input {
     if (Number.isFinite(width) && Number.isFinite(height) && width > 0 && height > 0) {
       return { width, height };
     }
-    const fallbackW = this.canvas._logicalW || this.canvas.width || 1;
-    const fallbackH = this.canvas._logicalH || this.canvas.height || 1;
     return {
-      width: Math.max(1, fallbackW),
-      height: Math.max(1, fallbackH)
+      width: 1,
+      height: 1
     };
   }
 
-  _getViewRect(canvasRect) {
-    const candidate = this.view || this.canvas._view;
-    const viewW = (candidate && Number.isFinite(candidate.width) && candidate.width > 0) ? candidate.width : canvasRect.width;
-    const viewH = (candidate && Number.isFinite(candidate.height) && candidate.height > 0) ? candidate.height : canvasRect.height;
-    const viewX = canvasRect.left + ((candidate && Number.isFinite(candidate.x)) ? candidate.x : 0);
-    const viewY = canvasRect.top + ((candidate && Number.isFinite(candidate.y)) ? candidate.y : 0);
+  _getViewRect(rect) {
+    const candidate = this.view;
+    const rectLeft = Number.isFinite(rect?.left) ? rect.left : 0;
+    const rectTop = Number.isFinite(rect?.top) ? rect.top : 0;
+    const rectWidth = Number.isFinite(rect?.width) && rect.width > 0 ? rect.width : 1;
+    const rectHeight = Number.isFinite(rect?.height) && rect.height > 0 ? rect.height : 1;
+    const { width, height } = this._getLogicalSize();
+    const viewW = (candidate && Number.isFinite(candidate.width) && candidate.width > 0) ? candidate.width : rectWidth;
+    const viewH = (candidate && Number.isFinite(candidate.height) && candidate.height > 0) ? candidate.height : rectHeight;
+    const viewX = rectLeft + ((candidate && Number.isFinite(candidate.x)) ? candidate.x : 0);
+    const viewY = rectTop + ((candidate && Number.isFinite(candidate.y)) ? candidate.y : 0);
     return { viewW, viewH, viewX, viewY };
+  }
+
+  mapClientToLogical(clientX, clientY) {
+    const rect = this.canvas?.getBoundingClientRect?.();
+    const { width, height } = this._getLogicalSize();
+    const { viewW, viewH, viewX, viewY } = this._getViewRect(rect);
+    const nx = (clientX - viewX) / Math.max(1, viewW);
+    const ny = (clientY - viewY) / Math.max(1, viewH);
+    return {
+      x: nx * width,
+      y: ny * height
+    };
   }
 
   // Treat any UI interaction as “hands off” for the game input layer.
@@ -86,15 +101,9 @@ export class Input {
   install() {
     // --- Cursor mapping: DOM client coords -> canvas internal pixel coords ---
     const updateCursor = (e) => {
-      const rect = this.canvas.getBoundingClientRect();
-      const { width, height } = this._getLogicalSize();
-      const { viewW, viewH, viewX, viewY } = this._getViewRect(rect);
-
-      const nx = (e.clientX - viewX) / Math.max(1, viewW);
-      const ny = (e.clientY - viewY) / Math.max(1, viewH);
-
-      this.cursor.x = nx * width;
-      this.cursor.y = ny * height;
+      const mapped = this.mapClientToLogical(e.clientX, e.clientY);
+      this.cursor.x = mapped.x;
+      this.cursor.y = mapped.y;
       this.cursor.has = true;
     };
 

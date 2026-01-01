@@ -2,7 +2,7 @@
 // FILE: public/js/trailPreview.js
 // =====================
 import { DEFAULT_CONFIG } from "./config.js";
-import { clamp, createSeededRand } from "./util.js";
+import { clamp, createSeededRand, getRandSource } from "./util.js";
 import { Part } from "./entities.js";
 import { trailStyleFor } from "./trailStyles.js";
 
@@ -152,7 +152,8 @@ export class TrailPreview {
   }
 
   _randRange(a, b) {
-    return a + (b - a) * (this._rand ? this._rand() : Math.random());
+    const fallback = getRandSource();
+    return a + (b - a) * (this._rand ? this._rand() : fallback());
   }
 
   _pickWanderTarget(marginX, marginY, currentX = 0.5, currentY = 0.5) {

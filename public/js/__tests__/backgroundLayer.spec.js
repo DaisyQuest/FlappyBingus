@@ -7,6 +7,7 @@ import {
   drawBackgroundLayer
 } from "../backgroundLayer.js";
 import { createProceduralBackground, createMonochromeBackground } from "../backgroundModes.js";
+import { setRandSource } from "../util.js";
 
 const makeCtx = () => ({
   setTransform: vi.fn(),
@@ -37,6 +38,7 @@ describe("backgroundLayer", () => {
 
   afterEach(() => {
     globalThis.OffscreenCanvas = originalOffscreen;
+    setRandSource();
   });
 
   it("initializes dots and marks dirty", () => {
@@ -62,6 +64,16 @@ describe("backgroundLayer", () => {
     updateBackgroundDots(layer, { width: 100, height: 50, dt: 1, rand: () => 0.75 });
     expect(layer.mode.dots[0].y).toBe(-10);
     expect(layer.mode.dots[0].x).toBe(75);
+  });
+
+  it("defaults to the global rand source when updating dots", () => {
+    const layer = createBackgroundLayer();
+    setRandSource(() => 0.2);
+    layer.mode = createProceduralBackground({ width: 100, height: 50 });
+    layer.mode.dots = [{ x: 0, y: 70, s: 5, r: 1 }];
+    updateBackgroundDots(layer, { width: 100, height: 50, dt: 1 });
+    expect(layer.mode.dots[0].y).toBe(-10);
+    expect(layer.mode.dots[0].x).toBe(20);
   });
 
   it("draws using the cached canvas when available", () => {

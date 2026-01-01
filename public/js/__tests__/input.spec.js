@@ -5,7 +5,6 @@ import { Input } from "../input.js";
 const makeCanvas = () => {
   const canvas = document.createElement("canvas");
   canvas.style = {};
-  canvas.getBoundingClientRect = vi.fn(() => ({ left: 0, top: 0, width: 300, height: 200 }));
   return canvas;
 };
 
@@ -22,6 +21,14 @@ describe("Input cursor mapping", () => {
     getBinds = vi.fn(() => ({}));
     onAction = vi.fn();
     input = new Input(canvas, getBinds, onAction);
+    vi.spyOn(canvas, "getBoundingClientRect").mockReturnValue({
+      left: 100,
+      top: 50,
+      width: 600,
+      height: 400,
+      right: 700,
+      bottom: 450
+    });
     vi.spyOn(window, "addEventListener").mockImplementation((type, handler) => {
       listeners[type] = handler;
     });
@@ -34,57 +41,60 @@ describe("Input cursor mapping", () => {
   });
 
   it("maps pointer coordinates into logical canvas space", () => {
-    canvas._logicalW = 300;
-    canvas._logicalH = 200;
-    canvas.getBoundingClientRect = vi.fn(() => ({ left: 10, top: 20, width: 600, height: 400 }));
-    canvas._view = { x: 60, y: 40, width: 300, height: 200, scale: 1 };
+    input.setLogicalSize(300, 200);
+    input.setView({ x: 10, y: 20, width: 600, height: 400, scale: 1 });
 
     input.install();
-    listeners.pointermove({ clientX: 220, clientY: 160 });
+    listeners.pointermove({ clientX: 410, clientY: 270 });
 
     expect(input.cursor).toEqual({ x: 150, y: 100, has: true });
   });
 
-  it("falls back to the full canvas rect when view metadata is invalid", () => {
-    canvas._logicalW = 400;
-    canvas._logicalH = 200;
-    canvas._view = { x: 0, y: 0, width: 0, height: -5, scale: 1 };
-    canvas.getBoundingClientRect = vi.fn(() => ({ left: 0, top: 0, width: 800, height: 400 }));
+  it("handles missing bounding client rect data when mapping cursor", () => {
+    canvas.getBoundingClientRect.mockReturnValue(null);
+    input.setLogicalSize(2, 2);
+    input.setView(null);
 
     input.install();
-    listeners.pointermove({ clientX: 400, clientY: 200 });
+    listeners.pointermove({ clientX: 1, clientY: 1 });
+
+    expect(input.cursor).toEqual({ x: 2, y: 2, has: true });
+  });
+
+  it("falls back to logical dimensions when view metadata is invalid", () => {
+    input.setLogicalSize(400, 200);
+    input.setView({ x: 0, y: 0, width: 0, height: -5, scale: 1 });
+
+    input.install();
+    listeners.pointermove({ clientX: 400, clientY: 250 });
 
     expect(input.cursor.x).toBeCloseTo(200);
     expect(input.cursor.y).toBeCloseTo(100);
     expect(input.cursor.has).toBe(true);
   });
 
-  it("falls back to canvas width/height when logical size is unavailable", () => {
-    canvas.width = 400;
-    canvas.height = 200;
-    canvas.getBoundingClientRect = vi.fn(() => ({ left: 0, top: 0, width: 800, height: 400 }));
+  it("defaults to unit logical size when the engine does not provide one", () => {
+    input.setView({ x: 0, y: 0, width: 800, height: 400, scale: 1 });
 
     input.install();
-    listeners.pointermove({ clientX: 400, clientY: 200 });
+    listeners.pointermove({ clientX: 500, clientY: 250 });
 
-    expect(input.cursor.x).toBeCloseTo(200);
-    expect(input.cursor.y).toBeCloseTo(100);
+    expect(input.cursor.x).toBeCloseTo(0.5);
+    expect(input.cursor.y).toBeCloseTo(0.5);
     expect(input.cursor.has).toBe(true);
   });
 
   it("dispatches mouse-bound actions using the mapped cursor coordinates", () => {
-    canvas._logicalW = 200;
-    canvas._logicalH = 100;
-    canvas._view = { x: 50, y: 25, width: 200, height: 100, scale: 1 };
-    canvas.getBoundingClientRect = vi.fn(() => ({ left: 0, top: 0, width: 400, height: 200 }));
+    input.setLogicalSize(200, 100);
+    input.setView({ x: 50, y: 25, width: 200, height: 100, scale: 1 });
     getBinds.mockReturnValue({ teleport: { type: "mouse", button: 0 } });
 
     input.install();
     const preventDefault = vi.fn();
     listeners.pointerdown({
       button: 0,
-      clientX: 150,
-      clientY: 75,
+      clientX: 250,
+      clientY: 125,
       target: canvas,
       preventDefault
     });
@@ -97,57 +107,40 @@ describe("Input cursor mapping", () => {
   });
 
   it("prefers engine-provided logical size and view metadata", () => {
-    canvas._logicalW = 999;
-    canvas._logicalH = 999;
-    canvas._view = { x: 0, y: 0, width: 300, height: 200, scale: 1 };
-    canvas.getBoundingClientRect = vi.fn(() => ({ left: 0, top: 0, width: 600, height: 400 }));
-
     input.setLogicalSize(300, 200);
     input.setView({ x: 60, y: 40, width: 300, height: 200, scale: 1 });
     input.install();
-    listeners.pointermove({ clientX: 210, clientY: 140 });
+    listeners.pointermove({ clientX: 310, clientY: 190 });
 
     expect(input.cursor).toEqual({ x: 150, y: 100, has: true });
   });
 
   it("clears engine-provided logical size when invalid and falls back", () => {
-    canvas.width = 400;
-    canvas.height = 200;
-    canvas._logicalW = 250;
-    canvas._logicalH = 125;
-    canvas.getBoundingClientRect = vi.fn(() => ({ left: 0, top: 0, width: 800, height: 400 }));
-
+    input.setView({ x: 0, y: 0, width: 800, height: 400, scale: 1 });
     input.setLogicalSize(-1, 0);
     input.install();
-    listeners.pointermove({ clientX: 400, clientY: 200 });
+    listeners.pointermove({ clientX: 500, clientY: 250 });
 
-    expect(input.cursor.x).toBeCloseTo(125);
-    expect(input.cursor.y).toBeCloseTo(62.5);
+    expect(input.cursor.x).toBeCloseTo(0.5);
+    expect(input.cursor.y).toBeCloseTo(0.5);
     expect(input.cursor.has).toBe(true);
   });
 
-  it("falls back to canvas view metadata when the engine view is cleared", () => {
-    canvas._logicalW = 200;
-    canvas._logicalH = 100;
-    canvas._view = { x: 20, y: 10, width: 200, height: 100, scale: 1 };
-    canvas.getBoundingClientRect = vi.fn(() => ({ left: 0, top: 0, width: 400, height: 200 }));
-
+  it("falls back to logical dimensions when the engine view is cleared", () => {
+    input.setLogicalSize(200, 100);
     input.setView(null);
     input.install();
-    listeners.pointermove({ clientX: 120, clientY: 60 });
+    listeners.pointermove({ clientX: 400, clientY: 250 });
 
     expect(input.cursor.x).toBeCloseTo(100);
     expect(input.cursor.y).toBeCloseTo(50);
   });
 
-  it("ignores invalid view overrides and keeps using canvas bounds", () => {
-    canvas._logicalW = 200;
-    canvas._logicalH = 100;
-    canvas.getBoundingClientRect = vi.fn(() => ({ left: 0, top: 0, width: 400, height: 200 }));
-
+  it("ignores invalid view overrides and keeps using logical dimensions", () => {
+    input.setLogicalSize(200, 100);
     input.setView("bad");
     input.install();
-    listeners.pointermove({ clientX: 200, clientY: 100 });
+    listeners.pointermove({ clientX: 400, clientY: 250 });
 
     expect(input.cursor.x).toBeCloseTo(100);
     expect(input.cursor.y).toBeCloseTo(50);

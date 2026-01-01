@@ -150,6 +150,71 @@ function createRecordingContext() {
   };
 }
 
+function createNoopContext() {
+  const noop = () => {};
+  const gradient = { addColorStop: noop };
+  const ctx = {
+    setTransform: noop,
+    clearRect: noop,
+    fillRect: noop,
+    beginPath: noop,
+    arc: noop,
+    arcTo: noop,
+    quadraticCurveTo: noop,
+    fill: noop,
+    stroke: noop,
+    strokeRect: noop,
+    drawImage: noop,
+    save: noop,
+    restore: noop,
+    fillText: noop,
+    strokeText: noop,
+    moveTo: noop,
+    lineTo: noop,
+    closePath: noop,
+    translate: noop,
+    rotate: noop,
+    rect: noop,
+    clip: noop,
+    setLineDash: noop,
+    measureText: () => ({ width: 0 }),
+    createLinearGradient: () => gradient,
+    createRadialGradient: () => gradient
+  };
+
+  const defineProp = (name) => {
+    let value = null;
+    Object.defineProperty(ctx, name, {
+      get() {
+        return value;
+      },
+      set(next) {
+        value = next;
+      }
+    });
+  };
+
+  [
+    "imageSmoothingEnabled",
+    "globalAlpha",
+    "fillStyle",
+    "strokeStyle",
+    "shadowColor",
+    "shadowBlur",
+    "shadowOffsetX",
+    "shadowOffsetY",
+    "lineWidth",
+    "textAlign",
+    "textBaseline",
+    "font",
+    "lineCap",
+    "lineJoin",
+    "globalCompositeOperation"
+  ].forEach(defineProp);
+
+  return ctx;
+}
+
 function makeInput() {
   const moveRef = { dx: 0, dy: 0 };
   const input = {
@@ -164,14 +229,31 @@ function makeInput() {
   return { input, moveRef };
 }
 
-function buildGame({ ctx, input, playerImg }) {
+function isPlainObject(value) {
+  return value && typeof value === "object" && !Array.isArray(value);
+}
+
+function mergeDeep(base, overrides) {
+  if (!isPlainObject(overrides)) return base;
+  const out = { ...base };
+  for (const [key, value] of Object.entries(overrides)) {
+    if (isPlainObject(value) && isPlainObject(base?.[key])) {
+      out[key] = mergeDeep(base[key], value);
+    } else {
+      out[key] = value;
+    }
+  }
+  return out;
+}
+
+function buildGame({ ctx, input, playerImg, configOverrides }) {
   const canvas = {
     style: {},
     width: 0,
     height: 0,
     getContext: vi.fn(() => ctx)
   };
-  const config = structuredClone(DEFAULT_CONFIG);
+  const config = mergeDeep(structuredClone(DEFAULT_CONFIG), configOverrides);
   const game = new Game({
     canvas,
     ctx,
@@ -214,12 +296,30 @@ function applyInputPattern({ tick, moveRef, input }) {
   input.cursor.has = true;
 }
 
-function runLiveGame({ totalTicks, seed, playerImg }) {
+function applyStaticInputPattern({ moveRef, input }) {
+  moveRef.dx = 0;
+  moveRef.dy = 0;
+  input.cursor.x = 80;
+  input.cursor.y = 80;
+  input.cursor.has = true;
+}
+
+function runLiveGame({
+  totalTicks,
+  seed,
+  playerImg,
+  configOverrides,
+  recordOps = true,
+  actionSchedule = getActionSchedule(),
+  inputPattern = applyInputPattern,
+  preSim = null
+}) {
   const frameMs = 1000 / replayTestables.REPLAY_TARGET_FPS;
   const frameTimestamps = Array.from({ length: totalTicks + 2 }, (_, i) => (i + 1) * frameMs);
-  const recorder = createRecordingContext();
+  const recorder = recordOps ? createRecordingContext() : null;
+  const ctx = recordOps ? recorder.ctx : createNoopContext();
   const { input, moveRef } = makeInput();
-  const { game } = buildGame({ ctx: recorder.ctx, input, playerImg });
+  const { game } = buildGame({ ctx, input, playerImg, configOverrides });
   const manager = createReplayManager({
     game,
     input,
@@ -234,10 +334,12 @@ function runLiveGame({ totalTicks, seed, playerImg }) {
 
   const run = manager.startRecording(seed);
   game.startRun();
-  recorder.reset();
-  const restoreRender = wrapRender(game, recorder.ops);
+  if (typeof preSim === "function") {
+    preSim({ game, input, moveRef });
+  }
+  recorder?.reset();
+  const restoreRender = recordOps ? wrapRender(game, recorder.ops) : null;
 
-  const actionSchedule = getActionSchedule();
   let ticksProcessed = 0;
   let acc = 0;
   let lastTs = frameTimestamps[0] - frameMs;
@@ -249,7 +351,7 @@ function runLiveGame({ totalTicks, seed, playerImg }) {
     acc += frameDt;
 
     while (acc >= SIM_DT && ticksProcessed < totalTicks && game.state === 1) {
-      applyInputPattern({ tick: ticksProcessed, moveRef, input });
+      inputPattern({ tick: ticksProcessed, moveRef, input });
 
       const actionsForTick = actionSchedule.get(ticksProcessed) || [];
       for (const action of actionsForTick) {
@@ -277,13 +379,15 @@ function runLiveGame({ totalTicks, seed, playerImg }) {
       ticksProcessed += 1;
     }
 
-    game.render();
+    if (recordOps) {
+      game.render();
+    }
   }
 
   manager.markEnded();
-  restoreRender();
+  restoreRender?.();
 
-  return { run, ops: recorder.ops, frameTimestamps };
+  return { run, ops: recorder?.ops || [], frameTimestamps, finalScore: game.score };
 }
 
 function makeFrameRequest(frameTimestamps) {
@@ -322,6 +426,32 @@ async function runReplay({ run, playerImg, frameTimestamps }) {
   restoreRender();
 
   return recorder.ops;
+}
+
+async function runReplayWithScore({ run, playerImg, frameTimestamps }) {
+  const ctx = createNoopContext();
+  const { input } = makeInput();
+  const { game } = buildGame({ ctx, input, playerImg });
+  const requestFrame = makeFrameRequest(frameTimestamps);
+
+  const manager = createReplayManager({
+    game,
+    input,
+    menu: { classList: makeClassList() },
+    over: { classList: makeClassList() },
+    stopMusic: vi.fn(),
+    setRandSource,
+    tapePlayer: createTapeRandPlayer,
+    seededRand: createSeededRand,
+    playbackTicks,
+    playbackTicksDeterministic,
+    simDt: SIM_DT,
+    requestFrame
+  });
+
+  await manager.play({ captureMode: "none", run: cloneReplayRun(run), playbackMode: "deterministic" });
+
+  return game.score;
 }
 
 beforeAll(() => {
@@ -371,4 +501,42 @@ describe("replay determinism", () => {
     expect(secondReplay).toEqual(liveOps);
     expect(thirdReplay).toEqual(liveOps);
   });
+
+  it("replays long deterministic runs with matching final scores", async () => {
+    const playerImg = { naturalWidth: 64, naturalHeight: 32, __assetId: "player" };
+    const totalTicks = 10050;
+    const configOverrides = {
+      pipes: {
+        spawnInterval: { start: 9999, end: 9999 },
+        special: { startCadence: 9999, endCadence: 9999 },
+        patternWeights: { wall: [0, 0], aimed: [0, 0] }
+      },
+      catalysts: { orbs: { enabled: false } }
+    };
+
+    const { run, frameTimestamps, finalScore } = runLiveGame({
+      totalTicks,
+      seed: "long-deterministic-seed",
+      playerImg,
+      configOverrides,
+      recordOps: false,
+      actionSchedule: new Map(),
+      inputPattern: applyStaticInputPattern,
+      preSim: ({ game }) => {
+        game.pipeT = 1e9;
+        game.specialT = 1e9;
+        game.orbT = 1e9;
+      }
+    });
+
+    expect(run.ticks.length).toBe(totalTicks);
+
+    const firstScore = await runReplayWithScore({ run, playerImg, frameTimestamps });
+    const secondScore = await runReplayWithScore({ run, playerImg, frameTimestamps });
+    const thirdScore = await runReplayWithScore({ run, playerImg, frameTimestamps });
+
+    expect(firstScore).toBe(finalScore);
+    expect(secondScore).toBe(finalScore);
+    expect(thirdScore).toBe(finalScore);
+  }, 15000);
 });

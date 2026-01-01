@@ -1,11 +1,12 @@
 import { createBackgroundLayer, drawBackgroundLayer, initBackgroundLayer, updateBackgroundDots } from "./backgroundLayer.js";
 import { createProceduralBackground } from "./backgroundModes.js";
+import { getRandSource } from "./util.js";
 
 export function createBackgroundRenderer({
   mode,
   width = 0,
   height = 0,
-  rand = Math.random,
+  rand = getRandSource(),
   createVideoElement
 } = {}) {
   const layer = createBackgroundLayer();

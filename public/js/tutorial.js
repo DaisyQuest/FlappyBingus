@@ -9,7 +9,7 @@
 // - Never rely on RNG for tutorial-critical setups.
 // - Keep scenarios extremely forgiving and visually guided.
 
-import { clamp, lerp } from "./util.js";
+import { clamp, lerp, rand } from "./util.js";
 import { ACTIONS, humanizeBind } from "./keybinds.js";
 
 function easeInOutCubic(t) {
@@ -155,7 +155,7 @@ function makeOrb({ x, y, r = 12, life = 8, vx = 0, vy = 0 }) {
     r,
     life,
     max: life,
-    ph: Math.random() * Math.PI * 2, // purely visual
+    ph: rand(0, Math.PI * 2), // purely visual
     update(dt, W, H) {
       this.life -= dt;
       this.ph += dt * 2.2;
@@ -276,18 +276,8 @@ export class Tutorial {
       if (!this._navButtons) return;
       const canvas = this.game?.canvas;
       if (!canvas || e.target !== canvas) return;
-      const { left, top, width, height } = canvas.getBoundingClientRect();
-      const lw = Math.max(1, canvas._logicalW || canvas.width || 1);
-      const lh = Math.max(1, canvas._logicalH || canvas.height || 1);
-      const view = canvas._view;
-      const viewW = (view && Number.isFinite(view.width) && view.width > 0) ? view.width : width;
-      const viewH = (view && Number.isFinite(view.height) && view.height > 0) ? view.height : height;
-      const viewX = left + ((view && Number.isFinite(view.x)) ? view.x : 0);
-      const viewY = top + ((view && Number.isFinite(view.y)) ? view.y : 0);
-      const nx = (e.clientX - viewX) / Math.max(1, viewW);
-      const ny = (e.clientY - viewY) / Math.max(1, viewH);
-      const x = nx * lw;
-      const y = ny * lh;
+      if (!this.input?.mapClientToLogical) return;
+      const { x, y } = this.input.mapClientToLogical(e.clientX, e.clientY);
 
       const hit = (btn) => btn && x >= btn.x && x <= btn.x + btn.w && y >= btn.y && y <= btn.y + btn.h;
       if (hit(this._navButtons.prev) || hit(this._navButtons.next)) {
