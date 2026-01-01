@@ -150,7 +150,8 @@ describe("api helpers", () => {
       apiSetPipeTexture,
       apiPurchaseUnlockable,
       apiSetKeybinds,
-      apiGetHighscores
+      apiGetHighscores,
+      apiGetStats
     } = await import("../api.js");
 
     const requests = [
@@ -164,7 +165,8 @@ describe("api helpers", () => {
       [apiSetPipeTexture, ["/api/cosmetics/pipe_texture", { method: "POST", body: JSON.stringify({ textureId: "basic", mode: "NORMAL" }) }]],
       [apiPurchaseUnlockable, ["/api/shop/purchase", { method: "POST", body: JSON.stringify({ id: "spark", type: "player_texture" }) }]],
       [apiSetKeybinds, ["/api/binds", { method: "POST", body: JSON.stringify({ keybinds: { jump: "Space" } }) }]],
-      [apiGetHighscores, ["/api/highscores?limit=25", { method: "GET" }]]
+      [apiGetHighscores, ["/api/highscores?limit=25", { method: "GET" }]],
+      [apiGetStats, ["/api/stats", { method: "GET" }]]
     ];
 
     await apiGetMe();
@@ -178,6 +180,7 @@ describe("api helpers", () => {
     await apiPurchaseUnlockable({ id: "spark", type: "player_texture" });
     await apiSetKeybinds({ jump: "Space" });
     await apiGetHighscores(25);
+    await apiGetStats();
 
     expect(fetchMock).toHaveBeenCalledTimes(requests.length);
     requests.forEach(([_, [expectedUrl, expectedInit]], idx) => {

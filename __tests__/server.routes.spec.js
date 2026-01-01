@@ -85,6 +85,7 @@ async function importServer(overrides = {}) {
     setSettings: vi.fn(async (_key, settings) => ({ ...baseUser(), settings })),
     purchaseUnlockable: vi.fn(async (_key, payload) => ({ ...baseUser(), ...payload })),
     getUserByKey: vi.fn(async () => baseUser()),
+    totalRuns: vi.fn(async () => 12),
     userCount: vi.fn(async () => 3),
     recentUsers: vi.fn(async () => [{ username: "recent", bestScore: 10, updatedAt: Date.now() }]),
     getStatus: vi.fn(() => ({ connected: true, dbName: "db", uri: "mongodb://***", lastAttemptAt: Date.now() })),
@@ -812,6 +813,17 @@ describe("server routes and helpers", () => {
       teleportBehavior: "explode",
       invulnBehavior: "long"
     });
+  });
+
+  it("returns worldwide stats including total runs", async () => {
+    const { server, mockDataStore } = await importServer();
+    const res = createRes();
+
+    await server.route(createReq({ url: "/api/stats" }), res);
+
+    expect(res.status).toBe(200);
+    expect(readJson(res)).toEqual({ ok: true, totalRuns: 12 });
+    expect(mockDataStore.totalRuns).toHaveBeenCalled();
   });
 
   it("serves previews as JSON by default and HTML when requested", async () => {

@@ -15,6 +15,7 @@ const DEFAULT_RATE_LIMIT_CONFIG = Object.freeze({
   "/api/binds": { limit: 30, windowMs: 60_000 },
   "/api/settings": { limit: 30, windowMs: 60_000 },
   "/api/highscores": { limit: 90, windowMs: 60_000 },
+  "/api/stats": { limit: 90, windowMs: 60_000 },
   "/api/run/best": { limit: 10, windowMs: 60_000 }
 });
 

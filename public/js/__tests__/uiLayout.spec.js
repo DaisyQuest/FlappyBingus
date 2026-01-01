@@ -3,6 +3,7 @@ import { describe, it, expect, beforeEach } from "vitest";
 import { JSDOM } from "jsdom";
 import { buildGameUI, formatCooldownSeconds } from "../uiLayout.js";
 import { OFFLINE_STATUS_TEXT, SIGNED_OUT_TEXT } from "../userStatusCopy.js";
+import { formatWorldwideRuns } from "../worldwideStats.js";
 
 const applyStyles = (doc) => {
   if (doc.head.querySelector("style[data-test-style='flappy']")) return;
@@ -523,6 +524,28 @@ describe("uiLayout", () => {
     expect(sideStack?.hidden).toBe(false);
     expect(achievementsBack?.hidden).toBe(true);
     expect(settingsBack?.hidden).toBe(true);
+  });
+
+  it("updates the menu subtitle text and keeps the latest value across view changes", () => {
+    const ui = buildGameUI({ document, mount });
+    const subtitle = document.querySelector(".menu-subtitle");
+    const achievementsRadio = document.getElementById("viewAchievements");
+    const mainRadio = document.getElementById("viewMain");
+
+    expect(subtitle?.textContent).toBe(formatWorldwideRuns(0));
+
+    ui.setMenuSubtitle("Games Played (Worldwide): 25");
+    expect(subtitle?.textContent).toBe("Games Played (Worldwide): 25");
+
+    achievementsRadio.checked = true;
+    achievementsRadio.dispatchEvent(new window.Event("change"));
+
+    ui.setMenuSubtitle("Games Played (Worldwide): 26");
+    expect(subtitle?.textContent).toBe("Games Played (Worldwide): 25");
+
+    mainRadio.checked = true;
+    mainRadio.dispatchEvent(new window.Event("change"));
+    expect(subtitle?.textContent).toBe("Games Played (Worldwide): 26");
   });
 
   it("places the achievements back control beside the centered menu title and removes the card heading", () => {

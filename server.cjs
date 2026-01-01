@@ -1665,6 +1665,15 @@ async function route(req, res) {
   }
 
   // Highscores JSON
+  if (pathname === "/api/stats" && req.method === "GET") {
+    if (rateLimit(req, res, "/api/stats")) return;
+    if (!(await ensureDatabase(res))) return;
+    const totalRuns = await dataStore.totalRuns();
+    sendJson(res, 200, { ok: true, totalRuns });
+    return;
+  }
+
+  // Highscores JSON
   if (pathname === "/api/highscores" && req.method === "GET") {
     if (rateLimit(req, res, "/api/highscores")) return;
     if (!(await ensureDatabase(res))) return;

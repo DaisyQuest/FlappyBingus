@@ -3,6 +3,7 @@
 // =====================
 import { DEFAULT_CONFIG } from "./config.js";
 import { OFFLINE_STATUS_TEXT, SIGNED_OUT_TEXT } from "./userStatusCopy.js";
+import { formatWorldwideRuns } from "./worldwideStats.js";
 
 const HOW_TO_STEPS = [
   'Move with <span class="kbd">W</span><span class="kbd">A</span><span class="kbd">S</span><span class="kbd">D</span>',
@@ -1204,10 +1205,12 @@ function createMenuScreen(doc, refs) {
 
   titleRow.append(backSlot, titleShell, backPlaceholder);
 
-  const subtitle = doc.createElement("p");
-  subtitle.className = "sub menu-subtitle";
-  const subtitleText = "Thank you for playing!";
-  subtitle.textContent = subtitleText;
+  let subtitleText = formatWorldwideRuns(0);
+  const subtitle = createElement(doc, refs, "p", {
+    className: "sub menu-subtitle",
+    text: subtitleText,
+    ref: "menuSubtitle"
+  });
 
   header.append(titleRow, subtitle);
 
@@ -1300,6 +1303,14 @@ function createMenuScreen(doc, refs) {
     if (achievementsHeaderBack) achievementsHeaderBack.hidden = view !== "achievements";
     if (settingsHeaderBack) settingsHeaderBack.hidden = view !== "settings";
     if (view !== "achievements") subtitle.textContent = subtitleText;
+  };
+
+  refs.setMenuSubtitle = (nextText) => {
+    if (typeof nextText !== "string" || nextText.trim() === "") return;
+    subtitleText = nextText;
+    if (!viewAchievements.checked) {
+      subtitle.textContent = subtitleText;
+    }
   };
 
   const wireNav = (el, radio) => {

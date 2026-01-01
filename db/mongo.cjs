@@ -550,6 +550,14 @@ class MongoDataStore {
     }));
   }
 
+  async totalRuns() {
+    await this.ensureConnected();
+    const totals = await this.usersCollection()
+      .aggregate([{ $group: { _id: null, totalRuns: { $sum: { $ifNull: ["$runs", 0] } } } }])
+      .toArray();
+    return normalizeCount(totals?.[0]?.totalRuns);
+  }
+
   async userCount() {
     await this.ensureConnected();
     return this.usersCollection().countDocuments();
