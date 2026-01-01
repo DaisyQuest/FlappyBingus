@@ -2,6 +2,7 @@
 import { describe, it, beforeAll, beforeEach, afterEach, expect, vi } from "vitest";
 import { Game, WORLD_HEIGHT, WORLD_WIDTH } from "../game.js";
 import { DEFAULT_CONFIG } from "../config.js";
+import { REFERENCE_VIEW_SCALE } from "../settings.js";
 import { setRandSource } from "../util.js";
 import * as pipeColors from "../pipeColors.js";
 import * as perfectGaps from "../perfectGaps.js";
@@ -198,6 +199,56 @@ describe("Game core utilities", () => {
       y: 10
     }));
     expect(canvas._view.scale).toBeCloseTo(0.25);
+  });
+
+  it("uses the viewport scale when view normalization is off", () => {
+    const { game, canvas } = buildGame();
+    game.setViewSettings({ viewNormalization: "off", viewScale: REFERENCE_VIEW_SCALE });
+
+    window.visualViewport.width = 2560;
+    window.visualViewport.height = 1440;
+    game.resizeToWindow();
+
+    expect(canvas._view.scale).toBeCloseTo(2);
+  });
+
+  it("caps large viewports to the reference view scale", () => {
+    const { game, canvas } = buildGame();
+    game.setViewSettings({ viewNormalization: "reference", viewScale: 1 });
+
+    window.visualViewport.width = 3840;
+    window.visualViewport.height = 2160;
+    game.resizeToWindow();
+
+    expect(canvas._view.scale).toBeCloseTo(REFERENCE_VIEW_SCALE);
+    expect(canvas._view.width).toBeCloseTo(WORLD_WIDTH * REFERENCE_VIEW_SCALE);
+    expect(canvas._view.height).toBeCloseTo(WORLD_HEIGHT * REFERENCE_VIEW_SCALE);
+  });
+
+  it("keeps the viewport scale on smaller screens with reference mode", () => {
+    const { game, canvas } = buildGame();
+    game.setViewSettings({ viewNormalization: "reference", viewScale: 2.5 });
+
+    window.visualViewport.width = 800;
+    window.visualViewport.height = 600;
+    game.resizeToWindow();
+
+    expect(canvas._view.scale).toBeCloseTo(0.625);
+    expect(canvas._view.width).toBeCloseTo(800);
+    expect(canvas._view.height).toBeCloseTo(450);
+  });
+
+  it("caps custom view scaling when a custom limit is supplied", () => {
+    const { game, canvas } = buildGame();
+    game.setViewSettings({ viewNormalization: "custom", viewScale: 1.25 });
+
+    window.visualViewport.width = 3000;
+    window.visualViewport.height = 2000;
+    game.resizeToWindow();
+
+    expect(canvas._view.scale).toBeCloseTo(1.25);
+    expect(canvas._view.width).toBeCloseTo(WORLD_WIDTH * 1.25);
+    expect(canvas._view.height).toBeCloseTo(WORLD_HEIGHT * 1.25);
   });
 
   it("falls back to world size when viewport dimensions are invalid", () => {

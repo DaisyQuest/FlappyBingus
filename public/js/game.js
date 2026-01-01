@@ -24,7 +24,13 @@ import {
   sfxExplosion,
   sfxGameOver
 } from "./audio.js";
-import { DEFAULT_SKILL_SETTINGS, normalizeSkillSettings } from "./settings.js";
+import {
+  DEFAULT_SKILL_SETTINGS,
+  DEFAULT_VIEW_SETTINGS,
+  normalizeSkillSettings,
+  normalizeViewSettings,
+  REFERENCE_VIEW_SCALE
+} from "./settings.js";
 
 const WORLD_WIDTH = 1280;
 const WORLD_HEIGHT = 720;
@@ -129,6 +135,7 @@ export class Game {
 
     this.cds = { dash: 0, phase: 0, teleport: 0, slowField: 0 };
     this.skillSettings = normalizeSkillSettings(DEFAULT_SKILL_SETTINGS);
+    this.viewSettings = normalizeViewSettings(DEFAULT_VIEW_SETTINGS);
 
     // trail emission
     this.trailAcc = 0;
@@ -157,6 +164,11 @@ export class Game {
 
   setSkillSettings(settings) {
     this.skillSettings = normalizeSkillSettings(settings || DEFAULT_SKILL_SETTINGS);
+  }
+
+  setViewSettings(settings) {
+    this.viewSettings = normalizeViewSettings(settings || DEFAULT_VIEW_SETTINGS);
+    if (this.canvas) this.resizeToWindow();
   }
 
   setPlayerImage(playerImg) {
@@ -328,7 +340,15 @@ export class Game {
     const viewportH = Number(window.visualViewport?.height ?? window.innerHeight);
     const cssW = Math.max(1, Math.round(Number.isFinite(viewportW) && viewportW > 0 ? viewportW : WORLD_WIDTH));
     const cssH = Math.max(1, Math.round(Number.isFinite(viewportH) && viewportH > 0 ? viewportH : WORLD_HEIGHT));
-    const scale = Math.max(0.01, Math.min(cssW / WORLD_WIDTH, cssH / WORLD_HEIGHT));
+    const viewportScale = Math.max(0.01, Math.min(cssW / WORLD_WIDTH, cssH / WORLD_HEIGHT));
+    const viewSettings = normalizeViewSettings(this.viewSettings || DEFAULT_VIEW_SETTINGS);
+    let scale = viewportScale;
+    if (viewSettings.viewNormalization === "reference") {
+      scale = Math.min(viewportScale, REFERENCE_VIEW_SCALE);
+    } else if (viewSettings.viewNormalization === "custom") {
+      scale = Math.min(viewportScale, viewSettings.viewScale);
+    }
+    scale = Math.max(0.01, scale);
     const drawW = WORLD_WIDTH * scale;
     const drawH = WORLD_HEIGHT * scale;
     const offsetX = (cssW - drawW) * 0.5;

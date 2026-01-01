@@ -2,6 +2,7 @@
 // FILE: public/js/uiLayout.js
 // =====================
 import { DEFAULT_CONFIG } from "./config.js";
+import { MAX_VIEW_SCALE, MIN_VIEW_SCALE, REFERENCE_VIEW_SCALE, VIEW_SCALE_STEP } from "./settings.js";
 import { OFFLINE_STATUS_TEXT, SIGNED_OUT_TEXT } from "./userStatusCopy.js";
 import { formatWorldwideRuns } from "./worldwideStats.js";
 
@@ -523,6 +524,70 @@ function createVolumeCard(doc, refs) {
   muteRow.append(muteCheckbox, muteLabel);
 
   card.append(title, grid, muteRow);
+  return card;
+}
+
+function createViewSettingsCard(doc, refs) {
+  const card = doc.createElement("div");
+  card.className = "info-card settings-secondary view-card";
+
+  const title = doc.createElement("div");
+  title.className = "section-title";
+  title.textContent = "View Scaling";
+
+  const field = doc.createElement("div");
+  field.className = "field";
+
+  const modeRow = doc.createElement("div");
+  modeRow.className = "minirow";
+  const modeLabel = doc.createElement("div");
+  modeLabel.className = "lbl";
+  modeLabel.textContent = "View normalization";
+  const modeSelect = createElement(doc, refs, "select", {
+    id: "viewNormalizationMode",
+    attrs: { "aria-label": "View normalization" }
+  });
+  [
+    { value: "off", label: "Off" },
+    { value: "reference", label: "Reference" },
+    { value: "custom", label: "Custom" }
+  ].forEach(({ value, label }) => {
+    const option = doc.createElement("option");
+    option.value = value;
+    option.textContent = label;
+    modeSelect.append(option);
+  });
+  modeRow.append(modeLabel, modeSelect);
+
+  const scaleRow = doc.createElement("div");
+  scaleRow.className = "slider-row view-scale-row";
+  const scaleLabel = doc.createElement("div");
+  scaleLabel.className = "lbl";
+  scaleLabel.textContent = "Custom scale";
+  const scaleInput = createElement(doc, refs, "input", {
+    id: "viewNormalizationScale",
+    attrs: {
+      type: "range",
+      min: String(MIN_VIEW_SCALE),
+      max: String(MAX_VIEW_SCALE),
+      step: String(VIEW_SCALE_STEP),
+      "aria-label": "Custom view scale"
+    },
+    props: { value: REFERENCE_VIEW_SCALE }
+  });
+  const scaleValue = createElement(doc, refs, "div", {
+    id: "viewNormalizationScaleValue",
+    className: "slider-value",
+    text: `${REFERENCE_VIEW_SCALE.toFixed(2)}x`
+  });
+  scaleRow.append(scaleLabel, scaleInput, scaleValue);
+
+  const hint = doc.createElement("div");
+  hint.className = "hint";
+  hint.textContent = "Reference matches the 27\" 1440p feel. Custom caps the world scale on large screens.";
+
+  field.append(modeRow, scaleRow, hint);
+  card.append(title, field);
   return card;
 }
 
@@ -1308,6 +1373,7 @@ function createMenuScreen(doc, refs) {
   settingsGrid.append(
     createSkillSettingsCard(doc, refs),
     createBindCard(doc, refs),
+    createViewSettingsCard(doc, refs),
     createVolumeCard(doc, refs),
     createSeedCard(doc, refs),
     createStatusCard(doc, refs)

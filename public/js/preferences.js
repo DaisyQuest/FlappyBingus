@@ -2,7 +2,7 @@
 // FILE: public/js/preferences.js
 // =====================
 import { getCookie, setCookie } from "./util.js";
-import { normalizeSkillSettings } from "./settings.js";
+import { normalizeGameSettings } from "./settings.js";
 import { normalizePipeTextureMode } from "./pipeTextures.js";
 
 const LOCAL_BEST_COOKIE = "chocolate_chip";
@@ -42,7 +42,7 @@ export function readSettingsCookie() {
   if (!raw) return null;
   try {
     const parsed = JSON.parse(decodeURIComponent(raw));
-    return normalizeSkillSettings(parsed);
+    return normalizeGameSettings(parsed);
   } catch {
     return null;
   }
@@ -50,7 +50,11 @@ export function readSettingsCookie() {
 
 export function writeSettingsCookie(settings) {
   try {
-    setCookie(SETTINGS_COOKIE, JSON.stringify(normalizeSkillSettings(settings || {})), 3650);
+    const merged = normalizeGameSettings({
+      ...(readSettingsCookie() || {}),
+      ...(settings && typeof settings === "object" ? settings : {})
+    });
+    setCookie(SETTINGS_COOKIE, JSON.stringify(merged), 3650);
   } catch {
     // ignore cookie errors
   }

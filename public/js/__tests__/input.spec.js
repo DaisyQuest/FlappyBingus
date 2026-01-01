@@ -45,6 +45,30 @@ describe("Input cursor mapping", () => {
     expect(input.cursor).toEqual({ x: 150, y: 100, has: true });
   });
 
+  it("maps pointer coordinates when the view fills the viewport", () => {
+    canvas._logicalW = 1280;
+    canvas._logicalH = 720;
+    canvas.getBoundingClientRect = vi.fn(() => ({ left: 0, top: 0, width: 640, height: 360 }));
+    canvas._view = { x: 0, y: 0, width: 640, height: 360, scale: 0.5 };
+
+    input.install();
+    listeners.pointermove({ clientX: 320, clientY: 180 });
+
+    expect(input.cursor).toEqual({ x: 640, y: 360, has: true });
+  });
+
+  it("maps pointer coordinates when the view is letterboxed for normalization", () => {
+    canvas._logicalW = 1280;
+    canvas._logicalH = 720;
+    canvas.getBoundingClientRect = vi.fn(() => ({ left: 0, top: 0, width: 1000, height: 800 }));
+    canvas._view = { x: 100, y: 175, width: 800, height: 450, scale: 0.625 };
+
+    input.install();
+    listeners.pointermove({ clientX: 500, clientY: 400 });
+
+    expect(input.cursor).toEqual({ x: 640, y: 360, has: true });
+  });
+
   it("falls back to the full canvas rect when view metadata is invalid", () => {
     canvas._logicalW = 400;
     canvas._logicalH = 200;

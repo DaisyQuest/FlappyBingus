@@ -2,7 +2,14 @@
 // FILE: public/js/main.js
 // =====================
 import { DEFAULT_CONFIG, loadConfig } from "./config.js";
-import { DEFAULT_SKILL_SETTINGS, normalizeSkillSettings, skillSettingsEqual } from "./settings.js";
+import {
+  DEFAULT_SKILL_SETTINGS,
+  DEFAULT_VIEW_SETTINGS,
+  normalizeSkillSettings,
+  normalizeViewSettings,
+  skillSettingsEqual,
+  viewSettingsEqual
+} from "./settings.js";
 import {
   apiGetMe,
   apiRegister,
@@ -243,6 +250,9 @@ const {
   musicVolume: musicSlider,
   sfxVolume: sfxSlider,
   muteToggle,
+  viewNormalizationMode,
+  viewNormalizationScale,
+  viewNormalizationScaleValue,
   watchReplay: watchReplayBtn,
   exportGif: exportGifBtn,
   exportMp4: exportMp4Btn,
@@ -371,7 +381,9 @@ const net = {
 
 // keybinds: start from guest cookie; override from server user when available
 let binds = loadGuestBinds();
-let skillSettings = readSettingsCookie() || normalizeSkillSettings(DEFAULT_SKILL_SETTINGS);
+const savedSettings = readSettingsCookie();
+let skillSettings = normalizeSkillSettings(savedSettings || DEFAULT_SKILL_SETTINGS);
+let viewSettings = normalizeViewSettings(savedSettings || DEFAULT_VIEW_SETTINGS);
 
 // config + assets
 let CFG = null;
@@ -491,6 +503,7 @@ musicSlider?.addEventListener("input", volumeChangeHandler);
 sfxSlider?.addEventListener("input", volumeChangeHandler);
 muteToggle?.addEventListener("change", volumeChangeHandler);
 applySkillSettingsToUI(skillSettings);
+applyViewSettingsToUI(viewSettings);
 initSocialDock({
   discordButton,
   donateButton,
@@ -541,6 +554,7 @@ let game = new Game({
   onGameOver: (score) => onGameOver(score)
 });
 game.setSkillSettings(skillSettings);
+game.setViewSettings(viewSettings);
 
 let driver = new GameDriver({
   game,
@@ -1406,13 +1420,31 @@ function applySkillSettingsToUI(settings = skillSettings) {
   markSkillOptionSelection(slowFieldBehaviorOptions, normalized.slowFieldBehavior);
 }
 
+function formatViewScale(value) {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return "—";
+  return `${n.toFixed(2)}x`;
+}
+
+function applyViewSettingsToUI(settings = viewSettings) {
+  const normalized = normalizeViewSettings(settings || DEFAULT_VIEW_SETTINGS);
+  if (viewNormalizationMode) viewNormalizationMode.value = normalized.viewNormalization;
+  if (viewNormalizationScale) {
+    viewNormalizationScale.value = String(normalized.viewScale);
+    viewNormalizationScale.disabled = normalized.viewNormalization !== "custom";
+  }
+  if (viewNormalizationScaleValue) {
+    viewNormalizationScaleValue.textContent = formatViewScale(normalized.viewScale);
+  }
+}
+
 async function updateSkillSettings(next, { persist = true } = {}) {
   const normalized = normalizeSkillSettings(next || DEFAULT_SKILL_SETTINGS);
   const changed = !skillSettingsEqual(skillSettings, normalized);
   skillSettings = normalized;
   game.setSkillSettings(skillSettings);
   applySkillSettingsToUI(skillSettings);
-  writeSettingsCookie(skillSettings);
+  writeSettingsCookie({ ...skillSettings, ...viewSettings });
 
   if (persist && net.user && changed) {
     const res = await apiSetSettings(skillSettings);
@@ -1420,6 +1452,17 @@ async function updateSkillSettings(next, { persist = true } = {}) {
       setNetUser(res.user);
       setUserHint();
     }
+  }
+}
+
+function updateViewSettings(next) {
+  const normalized = normalizeViewSettings({ ...viewSettings, ...(next || {}) });
+  const changed = !viewSettingsEqual(viewSettings, normalized);
+  viewSettings = normalized;
+  game.setViewSettings(viewSettings);
+  applyViewSettingsToUI(viewSettings);
+  if (changed) {
+    writeSettingsCookie({ ...skillSettings, ...viewSettings });
   }
 }
 
@@ -2093,6 +2136,18 @@ bindSkillOptionGroup(invulnBehaviorOptions, (value) => {
 });
 bindSkillOptionGroup(slowFieldBehaviorOptions, (value) => {
   updateSkillSettings({ ...skillSettings, slowFieldBehavior: value });
+});
+
+viewNormalizationMode?.addEventListener("change", (event) => {
+  const value = event.target?.value;
+  updateViewSettings({ viewNormalization: value });
+});
+
+viewNormalizationScale?.addEventListener("input", (event) => {
+  const value = Number(event.target?.value);
+  if (Number.isFinite(value)) {
+    updateViewSettings({ viewScale: value });
+  }
 });
 
 overStatsToggle?.addEventListener("click", () => {

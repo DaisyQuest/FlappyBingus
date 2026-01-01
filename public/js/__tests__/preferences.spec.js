@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { JSDOM } from "jsdom";
-import { DEFAULT_SKILL_SETTINGS } from "../settings.js";
+import { DEFAULT_SKILL_SETTINGS, MAX_VIEW_SCALE } from "../settings.js";
 import {
   genRandomSeed,
   readIconCookie,
@@ -65,12 +65,28 @@ describe("preferences", () => {
   });
 
   it("round-trips settings cookies through normalization", () => {
-    writeSettingsCookie({ dashBehavior: "destroy", slowFieldBehavior: "invalid" });
+    writeSettingsCookie({
+      dashBehavior: "destroy",
+      slowFieldBehavior: "invalid",
+      viewNormalization: "reference",
+      viewScale: MAX_VIEW_SCALE + 1
+    });
     const settings = readSettingsCookie();
     expect(settings).toEqual({
       ...DEFAULT_SKILL_SETTINGS,
-      dashBehavior: "destroy"
+      dashBehavior: "destroy",
+      viewNormalization: "reference",
+      viewScale: MAX_VIEW_SCALE
     });
+  });
+
+  it("preserves view settings when updating skill settings", () => {
+    writeSettingsCookie({ viewNormalization: "custom", viewScale: 1.25 });
+    writeSettingsCookie({ dashBehavior: "ricochet" });
+    const settings = readSettingsCookie();
+    expect(settings.viewNormalization).toBe("custom");
+    expect(settings.viewScale).toBe(1.25);
+    expect(settings.dashBehavior).toBe("ricochet");
   });
 
   it("returns null for malformed settings cookies", () => {
