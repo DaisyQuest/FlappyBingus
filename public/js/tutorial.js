@@ -209,6 +209,8 @@ export class Tutorial {
     this._moveTarget = null;
 
     this._gate = null;
+    this._perfectStage = 0;
+    this._perfectStage = 0;
 
     this._phaseWall = null;
     this._phaseUsed = false;
@@ -237,11 +239,16 @@ export class Tutorial {
 
     this._slowUsed = false;
     this._slowBurstSpawned = false;
+    this._navButtons = null;
     this._slowExplosionCleared = false;
     this._surviveT = 0;
+    this._navButtons = null;
 
     // Temporary tuning (restored on step change)
     this._movePlayerCfgBackup = null;
+
+    // Navigation buttons
+    this._navButtons = null;
 
     // Config overrides (restored on stop)
     this._cfgBackup = null;
@@ -263,6 +270,28 @@ export class Tutorial {
         this.onExit();
       }
     };
+
+    this._boundPointerDown = (e) => {
+      if (!this.active) return;
+      if (!this._navButtons) return;
+      const canvas = this.game?.canvas;
+      if (!canvas || e.target !== canvas) return;
+      const { left, top, width, height } = canvas.getBoundingClientRect();
+      const lw = Math.max(1, canvas._logicalW || canvas.width || 1);
+      const lh = Math.max(1, canvas._logicalH || canvas.height || 1);
+      const nx = (e.clientX - left) / Math.max(1, width);
+      const ny = (e.clientY - top) / Math.max(1, height);
+      const x = nx * lw;
+      const y = ny * lh;
+
+      const hit = (btn) => btn && x >= btn.x && x <= btn.x + btn.w && y >= btn.y && y <= btn.y + btn.h;
+      if (hit(this._navButtons.prev) || hit(this._navButtons.next)) {
+        e.preventDefault();
+        e.stopPropagation();
+        if (hit(this._navButtons.prev)) this._enterStep(this._stepIndex - 1);
+        if (hit(this._navButtons.next)) this._enterStep(this._stepIndex + 1);
+      }
+    };
   }
 
   // ----- lifecycle -----
@@ -272,6 +301,7 @@ export class Tutorial {
 
     this.active = true;
     window.addEventListener("keydown", this._boundKeyDown, { passive: false });
+    window.addEventListener("pointerdown", this._boundPointerDown, { capture: true, passive: false });
 
     this._settingsBackup = { ...(this.game?.skillSettings || {}) };
     this._backupAndOverrideConfig();
@@ -294,6 +324,7 @@ export class Tutorial {
     this.pauseSim = false;
 
     window.removeEventListener("keydown", this._boundKeyDown, { passive: false });
+    window.removeEventListener("pointerdown", this._boundPointerDown, { capture: true, passive: false });
 
     this._pendingActions.length = 0;
     this._allowed.clear();
@@ -303,6 +334,7 @@ export class Tutorial {
     this._moveTarget = null;
 
     this._gate = null;
+    this._perfectStage = 0;
 
     this._phaseWall = null;
     this._teleTarget = null;
@@ -486,9 +518,9 @@ export class Tutorial {
         ctx.font = "800 16px \"Baloo 2\",system-ui,-apple-system,Segoe UI,Roboto,sans-serif";
         ctx.fillStyle = "rgba(220,240,255,.90)";
         ctx.fillText(hotkey.hint, cx, bodyY + 20);
-        bodyY += 14;
+        bodyY += 18;
       }
-      bodyY += keyH * 0.8;
+      bodyY += keyH + 12;
     }
 
     // Body copy
@@ -513,6 +545,9 @@ export class Tutorial {
     ctx.lineWidth = 3.4;
     ctx.strokeText(objTxt, cx, bodyY);
     ctx.fillText(objTxt, cx, bodyY);
+
+    this._renderDashBehaviorNote(ctx);
+    this._renderNavButtons(ctx);
 
     ctx.restore();
 
@@ -540,6 +575,79 @@ export class Tutorial {
     }
   }
 
+  _renderDashBehaviorNote(ctx) {
+    if (this._stepId() !== "dash_destroy") return;
+    const text = "Change Dash behavior in the settings menu!";
+    const padX = 18;
+    const padY = 10;
+    ctx.save();
+    ctx.font = "900 18px \"Baloo 2\",system-ui,-apple-system,Segoe UI,Roboto,sans-serif";
+    const w = ctx.measureText(text).width + padX * 2;
+    const h = 36;
+    const margin = 18;
+    const x = this.game.W - w - margin;
+    const y = margin;
+    drawPill(ctx, {
+      x,
+      y,
+      w,
+      h,
+      r: 16,
+      fill: "rgba(40,60,90,.55)",
+      stroke: "rgba(255,255,255,.70)",
+      alpha: 0.98
+    });
+    ctx.fillStyle = "rgba(255,255,255,.94)";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText(text, x + w * 0.5, y + h * 0.5 + padY * 0.0);
+    ctx.restore();
+  }
+
+  _renderNavButtons(ctx) {
+    const pad = 16;
+    const gap = 10;
+    const h = 34;
+    const font = "900 18px \"Baloo 2\",system-ui,-apple-system,Segoe UI,Roboto,sans-serif";
+    const labels = { prev: "Back", next: "Next" };
+    ctx.save();
+    ctx.font = font;
+    const prevW = ctx.measureText(labels.prev).width + 30;
+    const nextW = ctx.measureText(labels.next).width + 30;
+    const totalW = prevW + nextW + gap;
+    const x0 = this.game.W - totalW - pad;
+    const y0 = this.game.H - h - pad;
+
+    const prevDisabled = this._stepIndex <= 0;
+    const nextDisabled = this._stepIndex >= this._steps().length - 1;
+
+    const drawButton = (x, w, label, disabled) => {
+      drawPill(ctx, {
+        x,
+        y: y0,
+        w,
+        h,
+        r: 14,
+        fill: disabled ? "rgba(120,120,120,.25)" : "rgba(255,255,255,.18)",
+        stroke: disabled ? "rgba(140,140,140,.35)" : "rgba(255,255,255,.70)",
+        alpha: 0.98
+      });
+      ctx.fillStyle = disabled ? "rgba(200,200,200,.5)" : "rgba(255,255,255,.96)";
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.fillText(label, x + w * 0.5, y0 + h * 0.5);
+    };
+
+    drawButton(x0, prevW, labels.prev, prevDisabled);
+    drawButton(x0 + prevW + gap, nextW, labels.next, nextDisabled);
+
+    this._navButtons = {
+      prev: prevDisabled ? null : { x: x0, y: y0, w: prevW, h },
+      next: nextDisabled ? null : { x: x0 + prevW + gap, y: y0, w: nextW, h }
+    };
+    ctx.restore();
+  }
+
   // =====================================================
   // Step definitions
   // =====================================================
@@ -550,8 +658,8 @@ export class Tutorial {
       { id: "perfect" },
       { id: "skill_phase" },
       { id: "skill_dash" },
-      { id: "dash_reflect" },
       { id: "dash_destroy" },
+      { id: "dash_reflect" },
       { id: "skill_teleport" },
       { id: "skill_slow" },
       { id: "slow_explosion" },
@@ -647,7 +755,8 @@ export class Tutorial {
 
     if (sid === "perfect") {
       this._setPerfectEnabled(true);
-      this._spawnPerfectWall();
+      this._perfectStage = 0;
+      this._spawnPerfectWall(0);
       this._perfectAwarded = false;
       this._perfectRespawnT = 0;
       this._delayToNext = 0;
@@ -897,40 +1006,68 @@ _stepOrbs(dt) {
   // =====================================================
   // Steps: perfect gap
   // =====================================================
-  _spawnPerfectWall() {
+  _spawnPerfectWall(stage = 0) {
     const W = this.game.W, H = this.game.H;
     const th = this.game._thickness ? this.game._thickness() : Math.max(48, Math.min(W, H) * 0.08);
-    const spd = Math.max(155, (this.game._pipeSpeed ? this.game._pipeSpeed() : 260) * 0.70);
+    const spd = Math.max(190, (this.game._pipeSpeed ? this.game._pipeSpeed() : 260) * 0.85);
 
-    // Smaller, more realistic gap; randomized center so movement is required.
-    const gap = clamp(H * 0.15, 86, 160);
-    const minC = gap * 0.5 + 48;
-    const maxC = H - gap * 0.5 - 48;
-    const gapCenter = (maxC <= minC) ? (H * 0.5) : (minC + Math.random() * (maxC - minC));
+    const gap = clamp(Math.min(W, H) * 0.18, 90, 170);
+    const gapHalf = gap * 0.5;
 
-    const x0 = -th - 16;
-    const vx = spd;
+    if (stage === 0) {
+      const minC = H * 0.58;
+      const maxC = H * 0.78;
+      const gapCenter = clamp(lerp(minC, maxC, 0.55), gapHalf + 48, H - gapHalf - 48);
+      const x0 = -th - 16;
+      const vx = spd;
 
-    const top = gapCenter - gap * 0.5;
-    const bot = gapCenter + gap * 0.5;
+      const top = gapCenter - gapHalf;
+      const bot = gapCenter + gapHalf;
 
-    if (top > 2) this.game.pipes.push(makePipeRect({ x: x0, y: 0, w: th, h: top, vx, vy: 0 }));
-    if (H - bot > 2) this.game.pipes.push(makePipeRect({ x: x0, y: bot, w: th, h: H - bot, vx, vy: 0 }));
+      if (top > 2) this.game.pipes.push(makePipeRect({ x: x0, y: 0, w: th, h: top, vx, vy: 0 }));
+      if (H - bot > 2) this.game.pipes.push(makePipeRect({ x: x0, y: bot, w: th, h: H - bot, vx, vy: 0 }));
 
-    this._gate = makeGate("x", x0 + th * 0.5, vx, gapCenter, gap * 0.5, th);
+      this._gate = makeGate("x", x0 + th * 0.5, vx, gapCenter, gapHalf, th);
+      this.game.gates.push(this._gate);
+      return;
+    }
+
+    const minC = W * 0.38;
+    const maxC = W * 0.68;
+    const gapCenter = clamp(lerp(minC, maxC, 0.45), gapHalf + 48, W - gapHalf - 48);
+    const y0 = -th - 16;
+    const vy = spd;
+
+    const left = gapCenter - gapHalf;
+    const right = gapCenter + gapHalf;
+
+    if (left > 2) this.game.pipes.push(makePipeRect({ x: 0, y: y0, w: left, h: th, vx: 0, vy }));
+    if (W - right > 2) this.game.pipes.push(makePipeRect({ x: right, y: y0, w: W - right, h: th, vx: 0, vy }));
+
+    this._gate = makeGate("y", y0 + th * 0.5, vy, gapCenter, gapHalf, th);
     this.game.gates.push(this._gate);
   }
 
   _stepPerfect(dt) {
     // Keep _gate.cleared reliable even if the main game doesn't mark it for tutorial gates.
-    if (this._gate && !this._gate.cleared && this._gate.crossed(this.game.player.x)) {
-      this._gate.cleared = true;
+    if (this._gate && !this._gate.cleared) {
+      const playerAxis = this._gate.axis === "y" ? this.game.player.y : this.game.player.x;
+      if (this._gate.crossed(playerAxis)) this._gate.cleared = true;
     }
 
     // Game sets perfectT when a perfect occurs.
     if (!this._perfectAwarded && this.game.perfectT > 0 && this._prevPerfectT <= 0) {
       this._perfectAwarded = true;
       this._flash("PERFECT! +10 points.");
+      if (this._perfectStage === 0) {
+        this._hardClearWorld();
+        this._perfectStage = 1;
+        this._perfectAwarded = false;
+        this._perfectRespawnT = 0;
+        this._delayToNext = 0;
+        this._spawnPerfectWall(1);
+        return;
+      }
       // Give the player a moment to enjoy the feedback.
       this._delayToNext = 0.85;
     }
@@ -952,7 +1089,7 @@ _stepOrbs(dt) {
       if (this._perfectRespawnT <= 0) {
         // Clear leftover wall pieces so the screen stays readable.
         this._hardClearWorld();
-        this._spawnPerfectWall();
+        this._spawnPerfectWall(this._perfectStage);
       }
     }
   }
@@ -1043,7 +1180,7 @@ _stepOrbs(dt) {
   _spawnPhaseScenario() {
     const W = this.game.W, H = this.game.H;
     const th = this.game._thickness ? this.game._thickness() : Math.max(48, Math.min(W, H) * 0.08);
-    const spd = Math.max(200, (this.game._pipeSpeed ? this.game._pipeSpeed() : 280) * 0.9);
+    const spd = Math.max(235, (this.game._pipeSpeed ? this.game._pipeSpeed() : 280) * 1.05);
 
     // Full-height wall from the left: cannot be dodged.
     const x0 = -th - 18;
@@ -1119,6 +1256,11 @@ _stepOrbs(dt) {
     if (Math.min(W, H) >= 520) {
       mk(W + 18 + th * 2.0, clamp(H * 0.32, 20, H - blockH - 20), blockW, blockH, -spd, 0);
     }
+
+    // Block 3 (top -> bottom)
+    const vertW = blockH;
+    const vertH = blockW;
+    mk(clamp(W * 0.62, 20, W - vertW - 20), -vertH - 18, vertW, vertH, 0, spd);
   }
 
   _stepSkillDash(dt) {
@@ -1452,11 +1594,10 @@ _stepOrbs(dt) {
       return {
         title: "Movement (WASD)",
         body:
-          "Use W/A/S/D to move — the tutorial bumps your speed so you can zip around.\n\n" +
-          "A moving wall blocks the straight path. Slip around it and dive into the glowing ring on the left.\n\n" +
-          "Skills are disabled for now so you can focus on movement.",
-        objective: "Slide into the highlighted zone on the left. (Auto-retries on failure.)",
-        hotkey: { label: "W • A • S • D", hint: "Hold a direction to steer" }
+          "A moving wall blocks the straight path.\n" +
+          "Slip around it and dive into the glowing ring on the left.",
+        objective: "Slide into the highlighted zone on the left.",
+        hotkey: { label: "W • A • S • D" }
       };
     }
 
@@ -1464,11 +1605,9 @@ _stepOrbs(dt) {
       return {
         title: "Orbs + Combo Points",
         body:
-          "Pick up orbs to score points.\n" +
-          "First orb = 5 points, then 6, then 7… (the combo arc shows your streak).\n" +
-          "Walls will also start coming — dodge them while you collect orbs.",
+          "Pick up orbs to score points and build your combo.",
         objective: `Collect 5 orbs in a row. (Current combo: ${this.game.combo}/5)`,
-        hotkey: { label: "W • A • S • D", hint: "Keep moving while you gather orbs" }
+        hotkey: { label: "W • A • S • D" }
       };
     }
 
@@ -1477,9 +1616,8 @@ _stepOrbs(dt) {
         title: "Perfect Thread (+10)",
         body:
           "When a wall crosses you, try to be exactly in the center of the opening.\n" +
-          "The dashed line shows the exact center of the current gap.\n" +
-          "Hit the center to earn a PERFECT banner (+10).",
-        objective: "Get 1 PERFECT by staying centered in the gap.",
+          "The dashed line shows the exact center of the current gap.",
+        objective: "Get 2 PERFECTs by staying centered in the gaps.",
         hotkey: { label: "W • A • S • D", hint: "Feather your movement to line up" }
       };
     }
@@ -1488,10 +1626,9 @@ _stepOrbs(dt) {
       return {
         title: "Skill: Phase (Invulnerability)",
         body:
-          `Press ${key("phase")} to become invulnerable briefly.\n` +
-          "A solid wall is coming — you cannot dodge it. Use Phase right before it hits you.",
+          `Press ${key("phase")} to become invulnerable briefly.`,
         objective: `Use Phase (${key("phase")}) to pass through the full wall.`,
-        hotkey: { label: key("phase") || "Phase", hint: "Tap right as the wall reaches you" }
+        hotkey: { label: key("phase") || "Phase" }
       };
     }
 
@@ -1500,12 +1637,10 @@ _stepOrbs(dt) {
       return {
         title: "Skill: Dash",
         body:
-          `Dash is a burst of speed in your movement direction.\n` +
-          `Hold a direction (W/A/S/D) and press ${key("dash")}.\n` +
-          "Reach the highlighted zone in the top-right before the countdown ends.\n" +
-          "You must use Dash at least once to advance.",
+          `Dash bursts forward in your movement direction.\n` +
+          `Hold a direction and press ${key("dash")} to reach the target before time runs out.`,
         objective: `Reach the highlighted zone in ${t}s using Dash (${key("dash")}).`,
-        hotkey: { label: key("dash") || "Dash", hint: "Hold a direction, then press to burst" }
+        hotkey: { label: key("dash") || "Dash" }
       };
     }
 
@@ -1513,11 +1648,9 @@ _stepOrbs(dt) {
       return {
         title: "Dash Reflect",
         body:
-          `While Dash is active, hitting a wall will bounce you — unless Phase is active.\n` +
-          "A stationary corner is in front of you: bounce off BOTH walls during a single dash.\n" +
-          `Phase + Dash still passes through cleanly; no bounce.`,
+          `While Dash is active, hitting a wall will bounce you.`,
         objective: `Double-ricochet in one dash: hit both walls before the dash ends.`,
-        hotkey: { label: key("dash") || "Dash", hint: "Aim a 45° dash into the corner" }
+        hotkey: { label: key("dash") || "Dash" }
       };
     }
 
@@ -1525,11 +1658,9 @@ _stepOrbs(dt) {
       return {
         title: "Dash Destroy",
         body:
-          `The Destroy variant trades ricochets for raw stopping power.\n` +
-          `Hold a direction and press ${key("dash")} into the pipe — it will shatter instead of bouncing you.\n` +
-          "Cooldown is longer, but it's perfect for removing a single blocker.",
+          `Destroy Dash smashes through a pipe instead of bouncing.`,
         objective: `Use Destroy Dash (${key("dash")}) to break the highlighted pipe.`,
-        hotkey: { label: key("dash") || "Dash", hint: "Destroy dash = smash through" }
+        hotkey: { label: key("dash") || "Dash" }
       };
     }
 
@@ -1537,11 +1668,9 @@ _stepOrbs(dt) {
       return {
         title: "Skill: Teleport",
         body:
-          `Teleport jumps you instantly to your cursor.\n` +
-          `Move your mouse to aim, then press ${key("teleport")}.\n` +
-          "Teleport to the highlighted zone to escape the cage.",
+          `Teleport jumps you instantly to your cursor.`,
         objective: `Teleport (${key("teleport")}) into the highlighted circle.`,
-        hotkey: { label: key("teleport") || "Teleport", hint: "Aim with your cursor, then tap" }
+        hotkey: { label: key("teleport") || "Teleport" }
       };
     }
 
@@ -1549,11 +1678,9 @@ _stepOrbs(dt) {
       return {
         title: "Skill: Slow Field",
         body:
-          `Slow Field creates a circle that slows walls inside it.\n` +
-          `Press ${key("slowField")} to place it on yourself.\n` +
-          "After you cast it, a burst of walls will come — dodge them while they’re slowed.",
+          `Slow Field creates a circle that slows walls inside it.`,
         objective: `Cast Slow Field (${key("slowField")}) and survive the burst.`,
-        hotkey: { label: key("slowField") || "Slow Field", hint: "We set it to Slow for this lesson" }
+        hotkey: { label: key("slowField") || "Slow Field" }
       };
     }
 
@@ -1561,11 +1688,9 @@ _stepOrbs(dt) {
       return {
         title: "Slow Field: Explosion",
         body:
-          "Swap Slow Field to Explosion in Settings for a smaller, instant detonation.\n" +
-          "Pipes in the blast radius are destroyed outright, but the cooldown is longer.\n" +
-          `Stand near the cluster and press ${key("slowField")} to vaporize them.`,
+          "Explosion is a smaller, instant detonation.",
         objective: "Cast the explosive Slow Field to clear the nearby pipe cluster.",
-        hotkey: { label: key("slowField") || "Slow Field", hint: "Explosion variant is auto-enabled here" }
+        hotkey: { label: key("slowField") || "Slow Field" }
       };
     }
 
@@ -1575,10 +1700,9 @@ _stepOrbs(dt) {
       body:
         "Tutorial complete.\n\n" +
         "All abilities are unlocked with NO cooldown:\n" +
-        "• Phase • Dash • Teleport • Slow Field\n\n" +
-        "Practice as long as you want, then press Enter (or Esc) to exit.",
+        "• Phase • Dash • Teleport • Slow Field",
       objective: "Use any skill freely. Press Enter (or Esc) to exit.",
-      hotkey: { label: "Enter / Esc", hint: "Leave when you’re ready" }
+      hotkey: { label: "Enter / Esc" }
     };
   }
 
