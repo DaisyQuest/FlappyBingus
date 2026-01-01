@@ -115,7 +115,7 @@ import {
   togglePipeTextureMenu
 } from "./pipeTextureMenu.js";
 
-import { buildGameUI } from "./uiLayout.js";
+import { buildGameUI, setTextCustomPanelVisibility } from "./uiLayout.js";
 import { createMenuParallaxController } from "./menuParallax.js";
 import { TrailPreview } from "./trailPreview.js";
 import { normalizeTrailSelection } from "./trailSelectUtils.js";
@@ -1523,7 +1523,7 @@ function applySkillSettingsToUI(settings = skillSettings) {
   markSkillOptionSelection(invulnBehaviorOptions, normalized.invulnBehavior);
   markSkillOptionSelection(slowFieldBehaviorOptions, normalized.slowFieldBehavior);
   if (textStylePresetSelect) textStylePresetSelect.value = normalized.textStylePreset;
-  if (textCustomPanel) textCustomPanel.hidden = normalized.textStylePreset !== "custom";
+  setTextCustomPanelVisibility(textCustomPanel, normalized.textStylePreset);
   applyTextStyleCustomToUI(normalized.textStyleCustom);
 }
 

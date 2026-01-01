@@ -527,6 +527,13 @@ function createVolumeCard(doc, refs) {
   return card;
 }
 
+export function setTextCustomPanelVisibility(panel, preset) {
+  if (!panel) return;
+  const isCustom = preset === "custom";
+  panel.hidden = !isCustom;
+  panel.setAttribute("aria-hidden", String(!isCustom));
+}
+
 function createTextPreferencesCard(doc, refs) {
   const card = doc.createElement("div");
   card.className = "info-card settings-secondary text-preferences-card";
@@ -562,7 +569,7 @@ function createTextPreferencesCard(doc, refs) {
     id: "textCustomPanel",
     className: "text-custom-panel"
   });
-  customPanel.hidden = true;
+  setTextCustomPanelVisibility(customPanel, select.value);
 
   const customTitle = doc.createElement("div");
   customTitle.className = "section-title";
