@@ -26,7 +26,8 @@ import {
 } from "./audio.js";
 import { DEFAULT_SKILL_SETTINGS, normalizeSkillSettings } from "./settings.js";
 
-const BASE_DPR = Math.max(0.25, window.devicePixelRatio || 1);
+const WORLD_WIDTH = 1280;
+const WORLD_HEIGHT = 720;
 
 const STATE = Object.freeze({ MENU: 0, PLAY: 1, OVER: 2 });
 
@@ -58,7 +59,7 @@ const COMBO_WINDOW_BASE = 10;
 const COMBO_WINDOW_MIN = 4;
 const COMBO_WINDOW_DECAY = 0.35;
 
-export { Pipe, Gate, Orb, Part, FloatText };
+export { Pipe, Gate, Orb, Part, FloatText, WORLD_WIDTH, WORLD_HEIGHT };
 
 export class Game {
   constructor({ canvas, ctx, config, playerImg, input, getTrailId, getBinds, getPipeTexture, onGameOver }) {
@@ -321,32 +322,40 @@ export class Game {
 
 
   resizeToWindow() {
-    const dpr = Math.min(window.devicePixelRatio || 1, 2);
-    const cssW = Math.max(1, Math.round(window.visualViewport?.width || window.innerWidth));
-    const cssH = Math.max(1, Math.round(window.visualViewport?.height || window.innerHeight));
-    const norm = Math.max(0.25, (window.devicePixelRatio || 1) / BASE_DPR);
-
-    // Logical game space is normalized to the DPR at page load so browser zoom
-    // does not change the effective playfield size.
-    const logicalW = cssW * norm;
-    const logicalH = cssH * norm;
+    const rawDpr = Number(window.devicePixelRatio || 1);
+    const dpr = Math.min(Number.isFinite(rawDpr) && rawDpr > 0 ? rawDpr : 1, 2);
+    const viewportW = Number(window.visualViewport?.width ?? window.innerWidth);
+    const viewportH = Number(window.visualViewport?.height ?? window.innerHeight);
+    const cssW = Math.max(1, Math.round(Number.isFinite(viewportW) && viewportW > 0 ? viewportW : WORLD_WIDTH));
+    const cssH = Math.max(1, Math.round(Number.isFinite(viewportH) && viewportH > 0 ? viewportH : WORLD_HEIGHT));
+    const scale = Math.max(0.01, Math.min(cssW / WORLD_WIDTH, cssH / WORLD_HEIGHT));
+    const drawW = WORLD_WIDTH * scale;
+    const drawH = WORLD_HEIGHT * scale;
+    const offsetX = (cssW - drawW) * 0.5;
+    const offsetY = (cssH - drawH) * 0.5;
 
     this.canvas.style.width = cssW + "px";
     this.canvas.style.height = cssH + "px";
     this.canvas.width = Math.floor(cssW * dpr);
     this.canvas.height = Math.floor(cssH * dpr);
 
-    this.ctx.setTransform(dpr / norm, 0, 0, dpr / norm, 0, 0);
+    this.ctx.setTransform(dpr * scale, 0, 0, dpr * scale, dpr * offsetX, dpr * offsetY);
     this.ctx.imageSmoothingEnabled = true;
 
-    this.DPR = dpr / norm;
-    this.W = logicalW;
-    this.H = logicalH;
+    this.DPR = dpr * scale;
+    this.W = WORLD_WIDTH;
+    this.H = WORLD_HEIGHT;
 
-    // Expose logical size + zoom to input mapping.
-    this.canvas._logicalW = logicalW;
-    this.canvas._logicalH = logicalH;
-    this.canvas._norm = norm;
+    // Expose logical size + view rect to input mapping.
+    this.canvas._logicalW = WORLD_WIDTH;
+    this.canvas._logicalH = WORLD_HEIGHT;
+    this.canvas._view = {
+      x: offsetX,
+      y: offsetY,
+      width: drawW,
+      height: drawH,
+      scale
+    };
 
     this._computePlayerSize();
     this._initBackground();

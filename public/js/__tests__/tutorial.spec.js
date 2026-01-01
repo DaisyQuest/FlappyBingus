@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { Tutorial } from "../tutorial.js";
-import { Game } from "../game.js";
+import { Game, WORLD_HEIGHT, WORLD_WIDTH } from "../game.js";
 import { DEFAULT_CONFIG } from "../config.js";
 
 beforeEach(() => {
@@ -46,8 +46,6 @@ const setupGame = () => {
     style: {},
     width: 800,
     height: 600,
-    _logicalW: 800,
-    _logicalH: 600,
     getContext: () => ctx,
     getBoundingClientRect: () => ({ left: 0, top: 0, width: 800, height: 600 })
   };
@@ -63,6 +61,17 @@ const setupGame = () => {
   });
   game.resizeToWindow();
   return game;
+};
+
+const logicalToClient = (canvas, x, y) => {
+  const rect = canvas.getBoundingClientRect();
+  const view = canvas._view || { x: 0, y: 0, width: rect.width, height: rect.height };
+  const nx = x / Math.max(1, canvas._logicalW || WORLD_WIDTH);
+  const ny = y / Math.max(1, canvas._logicalH || WORLD_HEIGHT);
+  return {
+    clientX: rect.left + view.x + nx * view.width,
+    clientY: rect.top + view.y + ny * view.height
+  };
 };
 
 const makeCtx = () => {
@@ -505,8 +514,7 @@ describe("Tutorial copy, guides, and slow-field flows", () => {
 
     const spy = vi.spyOn(tutorial, "_enterStep");
     const backEvent = {
-      clientX: 15,
-      clientY: 15,
+      ...logicalToClient(game.canvas, 15, 15),
       target: game.canvas,
       preventDefault: vi.fn(),
       stopPropagation: vi.fn()
@@ -523,8 +531,7 @@ describe("Tutorial copy, guides, and slow-field flows", () => {
       next: { x: 60, y: 10, w: 40, h: 30 }
     };
     const nextEvent = {
-      clientX: 70,
-      clientY: 15,
+      ...logicalToClient(game.canvas, 70, 15),
       target: game.canvas,
       preventDefault: vi.fn(),
       stopPropagation: vi.fn()

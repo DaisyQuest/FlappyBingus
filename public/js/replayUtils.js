@@ -2,6 +2,20 @@ const REPLAY_TARGET_FPS = 60;
 const REPLAY_TPS = 120;
 const MAX_FRAME_DT = 1 / 10; // cap catch-up to avoid runaway loops
 
+function normalizeAction(action) {
+  if (!action) return null;
+  if (typeof action === "string") return { id: action };
+  if (typeof action !== "object") return null;
+  const id = action.id || action.action || action.actionId || action.name;
+  if (!id) return null;
+  return { id, cursor: action.cursor };
+}
+
+function normalizeActions(actions) {
+  if (!Array.isArray(actions)) return [];
+  return actions.map(normalizeAction).filter(Boolean);
+}
+
 function applyReplayTick({ tick, game, replayInput, simDt, step }) {
   const tk = tick || {};
 
@@ -10,30 +24,19 @@ function applyReplayTick({ tick, game, replayInput, simDt, step }) {
   replayInput.cursor.y = tk.cursor?.y ?? 0;
   replayInput.cursor.has = !!tk.cursor?.has;
 
-  const actions = Array.isArray(tk.actions) ? tk.actions : [];
-  for (const a of actions) {
-    if (a && a.cursor) {
-      replayInput.cursor.x = a.cursor.x;
-      replayInput.cursor.y = a.cursor.y;
-      replayInput.cursor.has = !!a.cursor.has;
-    }
-  }
-
+  const actions = normalizeActions(tk.actions);
   if (typeof step === "function") {
-    const actionIds = actions
-      .map((a) => {
-        if (typeof a === "string") return a;
-        if (!a) return null;
-        return a.id || a.action || null;
-      })
-      .filter(Boolean);
-    step(simDt, actionIds);
+    step(simDt, actions);
     return;
   }
 
   for (const a of actions) {
-    const actionId = typeof a === "string" ? a : a?.id || a?.action;
-    if (actionId) game.handleAction(actionId);
+    if (a.cursor) {
+      replayInput.cursor.x = a.cursor.x ?? replayInput.cursor.x;
+      replayInput.cursor.y = a.cursor.y ?? replayInput.cursor.y;
+      replayInput.cursor.has = !!a.cursor.has;
+    }
+    game.handleAction(a.id);
   }
 
   game.update(simDt);

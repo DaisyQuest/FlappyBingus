@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { DEFAULT_CONFIG } from "../config.js";
 import { setRandSource } from "../util.js";
+import { WORLD_HEIGHT, WORLD_WIDTH } from "../game.js";
 
 const makeWindow = (w = 320, h = 240, dpr = 2) => {
   globalThis.window = {
@@ -50,11 +51,18 @@ describe("Game core loop hooks", () => {
     const bgSpy = vi.spyOn(game, "_initBackground").mockImplementation(() => {});
     game.resizeToWindow();
 
-    expect(ctx.setTransform).toHaveBeenCalledWith(2, 0, 0, 2, 0, 0);
-    expect(game.W).toBeCloseTo(300);
-    expect(game.H).toBeCloseTo(200);
-    expect(canvas._logicalW).toBeCloseTo(300);
-    expect(canvas._logicalH).toBeCloseTo(200);
+    expect(ctx.setTransform).toHaveBeenCalledWith(expect.any(Number), 0, 0, expect.any(Number), expect.any(Number), expect.any(Number));
+    expect(game.W).toBe(WORLD_WIDTH);
+    expect(game.H).toBe(WORLD_HEIGHT);
+    expect(canvas._logicalW).toBe(WORLD_WIDTH);
+    expect(canvas._logicalH).toBe(WORLD_HEIGHT);
+    expect(canvas._view).toEqual(expect.objectContaining({
+      width: expect.any(Number),
+      height: expect.any(Number),
+      x: expect.any(Number),
+      y: expect.any(Number),
+      scale: expect.any(Number)
+    }));
     expect(game.player.r).toBeGreaterThan(0);
     expect(bgSpy).toHaveBeenCalled();
   });

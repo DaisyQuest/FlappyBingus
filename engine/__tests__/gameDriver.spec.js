@@ -76,6 +76,28 @@ describe("GameDriver", () => {
     expect(driver.snapshots.at(-1).state.time).toBeCloseTo(0.03, 5);
   });
 
+  it("updates cursor state when actions include cursor payloads", () => {
+    const game = {
+      ...createStubGame(),
+      input: { cursor: { x: 0, y: 0, has: false } },
+      actions: [],
+      handleAction(id) {
+        this.actions.push({ id, cursor: { ...this.input.cursor } });
+      }
+    };
+    const driver = new GameDriver({ game, engine: new GameEngine({}) });
+
+    driver.step(0.01, [
+      { id: "teleport", cursor: { x: 5, y: 6, has: true } },
+      { action: "dash", cursor: { x: 9, y: 8, has: false } }
+    ]);
+
+    expect(game.actions).toEqual([
+      { id: "teleport", cursor: { x: 5, y: 6, has: true } },
+      { id: "dash", cursor: { x: 9, y: 8, has: false } }
+    ]);
+  });
+
   it("maps game state into engine snapshots", () => {
     const game = createStubGame();
     const driver = new GameDriver({ game, engine: new GameEngine({}) });

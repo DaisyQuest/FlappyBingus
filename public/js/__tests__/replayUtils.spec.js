@@ -114,10 +114,44 @@ describe("playbackTicks", () => {
     await playbackTicks({ ticks, game, replayInput, captureMode: "webm", simDt: SIM_DT, requestFrame: raf, step });
 
     expect(step).toHaveBeenCalledTimes(2);
-    expect(step).toHaveBeenNthCalledWith(1, SIM_DT, ["a1", "a2", "a3"]);
-    expect(step).toHaveBeenNthCalledWith(2, SIM_DT, ["a4"]);
+    expect(step).toHaveBeenNthCalledWith(1, SIM_DT, [
+      { id: "a1", cursor: undefined },
+      { id: "a2", cursor: undefined },
+      { id: "a3", cursor: undefined }
+    ]);
+    expect(step).toHaveBeenNthCalledWith(2, SIM_DT, [{ id: "a4", cursor: undefined }]);
     expect(game.update).not.toHaveBeenCalled();
     expect(game.handleAction).not.toHaveBeenCalled();
+  });
+
+  it("applies action cursor updates before handling each action", async () => {
+    const replayInput = makeReplayInput();
+    const game = {
+      state: 1,
+      update: vi.fn(),
+      render: vi.fn(),
+      cursorSnapshots: [],
+      handleAction: vi.fn(function () {
+        this.cursorSnapshots.push({ ...replayInput.cursor });
+      })
+    };
+    const ticks = [{
+      cursor: { x: 1, y: 2, has: true },
+      actions: [
+        { id: "teleport", cursor: { x: 10, y: 20, has: true } },
+        { id: "dash", cursor: { x: 30, y: 40, has: true } }
+      ]
+    }];
+    const ts = [0, 16, 32];
+    const raf = makeRaf(ts);
+
+    await playbackTicks({ ticks, game, replayInput, captureMode: "webm", simDt: SIM_DT, requestFrame: raf });
+
+    expect(game.handleAction).toHaveBeenCalledTimes(2);
+    expect(game.cursorSnapshots).toEqual([
+      { x: 10, y: 20, has: true },
+      { x: 30, y: 40, has: true }
+    ]);
   });
 
   it("normalizes action ids before calling game.handleAction", async () => {
@@ -276,7 +310,10 @@ describe("playbackTicksDeterministic", () => {
       yieldBetweenRenders: () => Promise.resolve()
     });
 
-    expect(step).toHaveBeenCalledWith(SIM_DT, ["a1", "a2"]);
+    expect(step).toHaveBeenCalledWith(SIM_DT, [
+      { id: "a1", cursor: undefined },
+      { id: "a2", cursor: undefined }
+    ]);
     expect(game.handleAction).not.toHaveBeenCalled();
     expect(game.update).not.toHaveBeenCalled();
   });

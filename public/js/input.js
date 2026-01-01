@@ -46,9 +46,14 @@ export class Input {
       const r = this.canvas.getBoundingClientRect();
       const lw = Math.max(1, this.canvas._logicalW || this.canvas.width || 1);
       const lh = Math.max(1, this.canvas._logicalH || this.canvas.height || 1);
+      const view = this.canvas._view;
+      const viewW = (view && Number.isFinite(view.width) && view.width > 0) ? view.width : r.width;
+      const viewH = (view && Number.isFinite(view.height) && view.height > 0) ? view.height : r.height;
+      const viewX = r.left + ((view && Number.isFinite(view.x)) ? view.x : 0);
+      const viewY = r.top + ((view && Number.isFinite(view.y)) ? view.y : 0);
 
-      const nx = (e.clientX - r.left) / Math.max(1, r.width);
-      const ny = (e.clientY - r.top) / Math.max(1, r.height);
+      const nx = (e.clientX - viewX) / Math.max(1, viewW);
+      const ny = (e.clientY - viewY) / Math.max(1, viewH);
 
       this.cursor.x = nx * lw;
       this.cursor.y = ny * lh;

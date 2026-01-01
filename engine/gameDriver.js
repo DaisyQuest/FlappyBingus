@@ -76,9 +76,20 @@ export class GameDriver {
   }
 
   _applyAction(action) {
-    if (typeof this.game.handleAction === "function") {
-      this.game.handleAction(action);
+    if (typeof this.game.handleAction !== "function") return;
+    if (!action) return;
+    const payload = (typeof action === "string") ? { id: action } : action;
+    if (!payload || typeof payload !== "object") return;
+    const actionId = payload.id || payload.action || payload.actionId || payload.name;
+    if (!actionId) return;
+    const cursor = payload.cursor;
+    if (cursor && this.game?.input?.cursor) {
+      const target = this.game.input.cursor;
+      target.x = Number.isFinite(cursor.x) ? cursor.x : target.x;
+      target.y = Number.isFinite(cursor.y) ? cursor.y : target.y;
+      if ("has" in cursor) target.has = !!cursor.has;
     }
+    this.game.handleAction(actionId);
   }
 
   _step(dt) {
