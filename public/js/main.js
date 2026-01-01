@@ -1398,7 +1398,7 @@ async function refreshReplayBrowser({ useFilters = true } = {}) {
   const filters = useFilters ? readReplayBrowserFilters() : normalizeReplayFilters({});
   const query = {
     search: filters.search,
-    limit: 100,
+    limit: 50,
     minScore: filters.minScore,
     maxScore: filters.maxScore,
     minDuration: filters.minDuration,

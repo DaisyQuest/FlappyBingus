@@ -2,7 +2,7 @@
 // FILE: public/js/replayBrowser.js
 // =====================
 
-const DEFAULT_REPLAY_BROWSER_LIMIT = 100;
+const DEFAULT_REPLAY_BROWSER_LIMIT = 50;
 
 function toOptionalNumber(value, { min = 0 } = {}) {
   const num = Number(value);

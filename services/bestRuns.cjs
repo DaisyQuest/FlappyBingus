@@ -6,7 +6,7 @@ const { clampScoreDefault } = require("./scoreService.cjs");
 const MAX_REPLAY_BYTES = 5 * 1024 * 1024;
 const MAX_MEDIA_BYTES = 6 * 1024 * 1024;
 const DEFAULT_TICK_MS = 1000 / 120;
-const DEFAULT_BEST_RUN_LIST_LIMIT = 100;
+const DEFAULT_BEST_RUN_LIST_LIMIT = 50;
 const BEST_RUN_SORTS = new Set(["score", "recent", "duration"]);
 
 function utf8Bytes(str = "") {
