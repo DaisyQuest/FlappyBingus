@@ -51,7 +51,10 @@ export async function playbackTicksDeterministic({
   renderEveryTicks = null,
   renderMode = "cadence",
   renderFinal = true,
-  yieldBetweenRenders = null
+  yieldBetweenRenders = null,
+  paceWithSim = false,
+  now = null,
+  wait = null
 } = {}) {
   if (!Array.isArray(ticks) || !game || !replayInput || typeof simDt !== "number") return;
 
@@ -62,11 +65,27 @@ export async function playbackTicksDeterministic({
   const renderAlways = renderMode === "always";
   let ticksProcessed = 0;
 
-  const yieldAfterRender = typeof yieldBetweenRenders === "function"
-    ? yieldBetweenRenders
-    : (typeof requestAnimationFrame === "function"
-      ? () => new Promise((resolve) => requestAnimationFrame(() => resolve()))
-      : (typeof setTimeout === "function" ? () => new Promise((resolve) => setTimeout(resolve, 0)) : null));
+  const resolveNow = typeof now === "function"
+    ? now
+    : (typeof performance !== "undefined" && typeof performance.now === "function"
+      ? () => performance.now()
+      : null);
+  const resolveWait = typeof wait === "function"
+    ? wait
+    : (typeof setTimeout === "function"
+      ? (ms) => new Promise((resolve) => setTimeout(resolve, ms))
+      : (typeof requestAnimationFrame === "function"
+        ? () => new Promise((resolve) => requestAnimationFrame(() => resolve()))
+        : null));
+  const shouldPace = paceWithSim && resolveNow && resolveWait;
+  const yieldAfterRender = shouldPace
+    ? null
+    : (typeof yieldBetweenRenders === "function"
+      ? yieldBetweenRenders
+      : (typeof requestAnimationFrame === "function"
+        ? () => new Promise((resolve) => requestAnimationFrame(() => resolve()))
+        : (typeof setTimeout === "function" ? () => new Promise((resolve) => setTimeout(resolve, 0)) : null)));
+  let startTimeMs = shouldPace ? resolveNow() : null;
 
   for (let i = 0; i < ticks.length; i += 1) {
     applyReplayTick({ tick: ticks[i], game, replayInput, simDt, step });
@@ -78,7 +97,14 @@ export async function playbackTicksDeterministic({
 
     if (shouldRender) {
       game.render();
-      if (yieldAfterRender) {
+      if (shouldPace) {
+        const targetElapsedMs = ticksProcessed * simDt * 1000;
+        const elapsedMs = resolveNow() - startTimeMs;
+        const remainingMs = targetElapsedMs - elapsedMs;
+        if (remainingMs > 0) {
+          await resolveWait(remainingMs);
+        }
+      } else if (yieldAfterRender) {
         await yieldAfterRender();
       }
     }
@@ -88,7 +114,14 @@ export async function playbackTicksDeterministic({
 
   if (!renderAlways && renderFinal && ticksProcessed > 0 && ticksProcessed % cadence !== 0 && game.state !== 2) {
     game.render();
-    if (yieldAfterRender) {
+    if (shouldPace) {
+      const targetElapsedMs = ticksProcessed * simDt * 1000;
+      const elapsedMs = resolveNow() - startTimeMs;
+      const remainingMs = targetElapsedMs - elapsedMs;
+      if (remainingMs > 0) {
+        await resolveWait(remainingMs);
+      }
+    } else if (yieldAfterRender) {
       await yieldAfterRender();
     }
   }

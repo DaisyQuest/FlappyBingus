@@ -210,6 +210,7 @@ export function createReplayManager({
           raf(resolve);
         })
         : null;
+      const paceWithSim = wantsDeterministic && canUseRealtime;
 
       if (typeof playbackFn === "function") {
         await playbackFn({
@@ -221,7 +222,8 @@ export function createReplayManager({
           simDt,
           requestFrame,
           step,
-          yieldBetweenRenders
+          yieldBetweenRenders,
+          paceWithSim
         });
       }
 

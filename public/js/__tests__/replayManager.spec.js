@@ -238,8 +238,9 @@ describe("replayManager", () => {
   it("falls back to deterministic playback when requestFrame is unavailable", async () => {
     const game = { input: { name: "real" }, startRun: vi.fn() };
     const playbackTicks = vi.fn();
-    const playbackTicksDeterministic = vi.fn(({ yieldBetweenRenders }) => {
+    const playbackTicksDeterministic = vi.fn(({ yieldBetweenRenders, paceWithSim }) => {
       expect(yieldBetweenRenders).toBeNull();
+      expect(paceWithSim).toBe(false);
     });
     const originalRaf = global.requestAnimationFrame;
     global.requestAnimationFrame = undefined;
@@ -266,9 +267,10 @@ describe("replayManager", () => {
   it("uses deterministic playback when requested and paces with requestFrame", async () => {
     const game = { input: { name: "real" }, startRun: vi.fn() };
     const playbackTicks = vi.fn();
-    const playbackTicksDeterministic = vi.fn(({ yieldBetweenRenders, playbackMode }) => {
+    const playbackTicksDeterministic = vi.fn(({ yieldBetweenRenders, playbackMode, paceWithSim }) => {
       expect(playbackMode).toBe("deterministic");
       expect(typeof yieldBetweenRenders).toBe("function");
+      expect(paceWithSim).toBe(true);
     });
     const requestFrame = vi.fn((cb) => cb(0));
 
