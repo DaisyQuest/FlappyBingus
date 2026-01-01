@@ -10,6 +10,8 @@ export class Input {
     this.onAction = onAction || (() => {});
     this.keys = Object.create(null);
     this.cursor = { x: 0, y: 0, has: false };
+    this.logicalSize = { width: null, height: null };
+    this.view = null;
   }
 
   setOnAction(fn) { this.onAction = fn || (() => {}); }
@@ -23,6 +25,47 @@ export class Input {
 
   reset() {
     this.keys = Object.create(null);
+  }
+
+  setLogicalSize(width, height) {
+    const w = Number(width);
+    const h = Number(height);
+    if (!Number.isFinite(w) || !Number.isFinite(h) || w <= 0 || h <= 0) {
+      this.logicalSize = { width: null, height: null };
+      return;
+    }
+    this.logicalSize = { width: w, height: h };
+  }
+
+  setView(view) {
+    if (!view || typeof view !== "object") {
+      this.view = null;
+      return;
+    }
+    this.view = { ...view };
+  }
+
+  _getLogicalSize() {
+    const width = this.logicalSize?.width;
+    const height = this.logicalSize?.height;
+    if (Number.isFinite(width) && Number.isFinite(height) && width > 0 && height > 0) {
+      return { width, height };
+    }
+    const fallbackW = this.canvas._logicalW || this.canvas.width || 1;
+    const fallbackH = this.canvas._logicalH || this.canvas.height || 1;
+    return {
+      width: Math.max(1, fallbackW),
+      height: Math.max(1, fallbackH)
+    };
+  }
+
+  _getViewRect(canvasRect) {
+    const candidate = this.view || this.canvas._view;
+    const viewW = (candidate && Number.isFinite(candidate.width) && candidate.width > 0) ? candidate.width : canvasRect.width;
+    const viewH = (candidate && Number.isFinite(candidate.height) && candidate.height > 0) ? candidate.height : canvasRect.height;
+    const viewX = canvasRect.left + ((candidate && Number.isFinite(candidate.x)) ? candidate.x : 0);
+    const viewY = canvasRect.top + ((candidate && Number.isFinite(candidate.y)) ? candidate.y : 0);
+    return { viewW, viewH, viewX, viewY };
   }
 
   // Treat any UI interaction as “hands off” for the game input layer.
@@ -43,20 +86,15 @@ export class Input {
   install() {
     // --- Cursor mapping: DOM client coords -> canvas internal pixel coords ---
     const updateCursor = (e) => {
-      const r = this.canvas.getBoundingClientRect();
-      const lw = Math.max(1, this.canvas._logicalW || this.canvas.width || 1);
-      const lh = Math.max(1, this.canvas._logicalH || this.canvas.height || 1);
-      const view = this.canvas._view;
-      const viewW = (view && Number.isFinite(view.width) && view.width > 0) ? view.width : r.width;
-      const viewH = (view && Number.isFinite(view.height) && view.height > 0) ? view.height : r.height;
-      const viewX = r.left + ((view && Number.isFinite(view.x)) ? view.x : 0);
-      const viewY = r.top + ((view && Number.isFinite(view.y)) ? view.y : 0);
+      const rect = this.canvas.getBoundingClientRect();
+      const { width, height } = this._getLogicalSize();
+      const { viewW, viewH, viewX, viewY } = this._getViewRect(rect);
 
       const nx = (e.clientX - viewX) / Math.max(1, viewW);
       const ny = (e.clientY - viewY) / Math.max(1, viewH);
 
-      this.cursor.x = nx * lw;
-      this.cursor.y = ny * lh;
+      this.cursor.x = nx * width;
+      this.cursor.y = ny * height;
       this.cursor.has = true;
     };
 

@@ -360,6 +360,12 @@ export class Game {
       height: drawH,
       scale
     };
+    if (this.input?.setLogicalSize) {
+      this.input.setLogicalSize(WORLD_WIDTH, WORLD_HEIGHT);
+    }
+    if (this.input?.setView) {
+      this.input.setView(this.canvas._view);
+    }
 
     this._computePlayerSize();
     this._initBackground();

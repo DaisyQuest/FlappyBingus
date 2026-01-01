@@ -200,6 +200,27 @@ describe("Game core utilities", () => {
     expect(canvas._view.scale).toBeCloseTo(0.25);
   });
 
+  it("pushes logical size and view metadata into input helpers", () => {
+    const ctx = mockCtx();
+    const canvas = makeCanvas(ctx);
+    const config = cloneConfig();
+    const input = {
+      cursor: { has: true, x: 10, y: 12 },
+      getMove: vi.fn(() => ({ dx: 0, dy: 0 })),
+      setLogicalSize: vi.fn(),
+      setView: vi.fn()
+    };
+
+    const game = new Game({ canvas, ctx, config, playerImg: {}, input });
+    game.resizeToWindow();
+
+    expect(input.setLogicalSize).toHaveBeenCalledWith(WORLD_WIDTH, WORLD_HEIGHT);
+    expect(input.setView).toHaveBeenCalledWith(expect.objectContaining({
+      width: 320,
+      height: 180
+    }));
+  });
+
   it("falls back to world size when viewport dimensions are invalid", () => {
     const ctx = mockCtx();
     const canvas = makeCanvas(ctx);
