@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { Pipe, Gate, Orb, FloatText } from "../entities.js";
+import { Pipe, Gate, Orb, FloatText, setEntityRandSource } from "../entities.js";
 import { DEFAULT_CONFIG } from "../config.js";
 
 const clone = (obj) => JSON.parse(JSON.stringify(obj));
@@ -129,6 +129,13 @@ describe("Orb", () => {
     orb.update(0.1, 100, 100);
     expect(orb.dead()).toBe(true);
   });
+
+  it("uses the entity rand source for its phase seed", () => {
+    setEntityRandSource((min, max) => (min + max) / 2);
+    const orb = new Orb(0, 0, 0, 0, 5, 1);
+    expect(orb.ph).toBeCloseTo(Math.PI, 5);
+    setEntityRandSource();
+  });
 });
 
 describe("FloatText", () => {
@@ -141,6 +148,14 @@ describe("FloatText", () => {
     expect(text.life).toBeCloseTo(0.8, 5);
     expect(text.vx).toBeLessThan(100);
     expect(text.vy).toBeGreaterThan(-50); // magnitude decreased by drag factor
+  });
+
+  it("sources its random velocities from the entity rand source", () => {
+    setEntityRandSource((min, max) => min);
+    const text = new FloatText("rng", 0, 0, "#fff");
+    expect(text.vx).toBe(-18);
+    expect(text.vy).toBe(-90);
+    setEntityRandSource();
   });
 });
 

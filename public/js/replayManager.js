@@ -56,7 +56,8 @@ export function createReplayRun(seed) {
     pendingActions: [],
     ended: false,
     rngTape: [],
-    backgroundSeed: `${seedString}:background`
+    backgroundSeed: `${seedString}:background`,
+    visualSeed: `${seedString}:visual`
   };
 }
 
@@ -67,7 +68,8 @@ export function cloneReplayRun(run) {
     ticks: Array.isArray(run.ticks) ? run.ticks.slice() : [],
     rngTape: Array.isArray(run.rngTape) ? run.rngTape.slice() : [],
     pendingActions: Array.isArray(run.pendingActions) ? run.pendingActions.slice() : [],
-    backgroundSeed: run.backgroundSeed
+    backgroundSeed: run.backgroundSeed,
+    visualSeed: run.visualSeed
   };
 }
 
@@ -106,6 +108,9 @@ export function createReplayManager({
     }
     if (typeof seededRand === "function" && typeof game?.setBackgroundRand === "function") {
       game.setBackgroundRand(seededRand(activeRun.backgroundSeed));
+    }
+    if (typeof seededRand === "function" && typeof game?.setVisualRand === "function") {
+      game.setVisualRand(seededRand(activeRun.visualSeed));
     }
     notifyStatus({ className: "hint", text: `Recording replay… Seed: ${activeRun.seed}` });
     return activeRun;
@@ -178,6 +183,10 @@ export function createReplayManager({
       if (typeof seededRand === "function" && typeof game?.setBackgroundRand === "function") {
         const bgSeed = run?.backgroundSeed || (run?.seed ? `${run.seed}:background` : "");
         if (bgSeed) game.setBackgroundRand(seededRand(bgSeed));
+      }
+      if (typeof seededRand === "function" && typeof game?.setVisualRand === "function") {
+        const visualSeed = run?.visualSeed || (run?.seed ? `${run.seed}:visual` : "");
+        if (visualSeed) game.setVisualRand(seededRand(visualSeed));
       }
 
       if (game) {

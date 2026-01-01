@@ -1,5 +1,5 @@
 import { describe, expect, it, vi, afterEach } from "vitest";
-import { FloatText, Gate, Part } from "../entities.js";
+import { FloatText, Gate, Part, setEntityRandSource } from "../entities.js";
 import { setRandSource } from "../util.js";
 
 const makeMockCtx = () => {
@@ -165,10 +165,11 @@ describe("Part drawing", () => {
 describe("FloatText visuals", () => {
   afterEach(() => {
     setRandSource();
+    setEntityRandSource();
   });
 
   it("builds gradients and sparkles when configured", () => {
-    setRandSource(() => 0.25);
+    setEntityRandSource((min, max) => min + (max - min) * 0.25);
     const ctx = makeMockCtx();
     const text = new FloatText("wow", 5, 5, "#fff", {
       palette: ["#111", "#222", "#333"],

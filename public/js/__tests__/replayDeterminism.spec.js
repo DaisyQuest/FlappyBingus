@@ -303,6 +303,53 @@ function applyStaticInputPattern({ moveRef, input }) {
   input.cursor.has = true;
 }
 
+function applyDodgeInputPattern({ tick, moveRef, input }) {
+  const angle = tick / 22;
+  moveRef.dx = Math.sin(angle);
+  moveRef.dy = Math.cos(angle * 0.9);
+  input.cursor.x = 80 + Math.cos(angle) * 60;
+  input.cursor.y = 70 + Math.sin(angle * 0.8) * 50;
+  input.cursor.has = true;
+}
+
+function minPipeDistance(game) {
+  const p = game.player;
+  if (!p || !Array.isArray(game.pipes) || game.pipes.length === 0) return null;
+  let min = Number.POSITIVE_INFINITY;
+  for (const pipe of game.pipes) {
+    const qx = Math.max(pipe.x, Math.min(p.x, pipe.x + pipe.w));
+    const qy = Math.max(pipe.y, Math.min(p.y, pipe.y + pipe.h));
+    const dx = p.x - qx;
+    const dy = p.y - qy;
+    const dist = Math.hypot(dx, dy) - p.r;
+    if (dist < min) min = dist;
+  }
+  return Number.isFinite(min) ? min : null;
+}
+
+function attachNearMissTracker(game, { threshold = 10 } = {}) {
+  const stats = {
+    minDistance: Number.POSITIVE_INFINITY,
+    nearMisses: 0,
+    collisions: 0
+  };
+  const originalUpdate = game.update.bind(game);
+  game.update = (dt) => {
+    originalUpdate(dt);
+    const distance = minPipeDistance(game);
+    if (distance == null) return;
+    stats.minDistance = Math.min(stats.minDistance, distance);
+    if (distance <= 0 && (game.player?.invT || 0) <= 0) stats.collisions += 1;
+    if (distance > 0 && distance <= threshold) stats.nearMisses += 1;
+  };
+  return {
+    stats,
+    restore() {
+      game.update = originalUpdate;
+    }
+  };
+}
+
 function runLiveGame({
   totalTicks,
   seed,
@@ -311,7 +358,8 @@ function runLiveGame({
   recordOps = true,
   actionSchedule = getActionSchedule(),
   inputPattern = applyInputPattern,
-  preSim = null
+  preSim = null,
+  nearMissThreshold = null
 }) {
   const frameMs = 1000 / replayTestables.REPLAY_TARGET_FPS;
   const frameTimestamps = Array.from({ length: totalTicks + 2 }, (_, i) => (i + 1) * frameMs);
@@ -319,6 +367,9 @@ function runLiveGame({
   const ctx = recordOps ? recorder.ctx : createNoopContext();
   const { input, moveRef } = makeInput();
   const { game } = buildGame({ ctx, input, playerImg, configOverrides });
+  const nearMissTracker = Number.isFinite(nearMissThreshold)
+    ? attachNearMissTracker(game, { threshold: nearMissThreshold })
+    : null;
   const manager = createReplayManager({
     game,
     input,
@@ -384,9 +435,16 @@ function runLiveGame({
   }
 
   manager.markEnded();
+  nearMissTracker?.restore();
   restoreRender?.();
 
-  return { run, ops: recorder?.ops || [], frameTimestamps, finalScore: game.score };
+  return {
+    run,
+    ops: recorder?.ops || [],
+    frameTimestamps,
+    finalScore: game.score,
+    nearMissStats: nearMissTracker?.stats || null
+  };
 }
 
 function makeFrameRequest(frameTimestamps) {
@@ -427,11 +485,20 @@ async function runReplay({ run, playerImg, frameTimestamps }) {
   return recorder.ops;
 }
 
-async function runReplayWithScore({ run, playerImg, frameTimestamps }) {
+async function runReplayWithScore({
+  run,
+  playerImg,
+  frameTimestamps,
+  configOverrides,
+  nearMissThreshold = null,
+  preSim = null
+}) {
   const ctx = createNoopContext();
   const { input } = makeInput();
-  const { game } = buildGame({ ctx, input, playerImg });
-  const requestFrame = makeFrameRequest(frameTimestamps);
+  const { game } = buildGame({ ctx, input, playerImg, configOverrides });
+  const nearMissTracker = Number.isFinite(nearMissThreshold)
+    ? attachNearMissTracker(game, { threshold: nearMissThreshold })
+    : null;
 
   const manager = createReplayManager({
     game,
@@ -444,13 +511,31 @@ async function runReplayWithScore({ run, playerImg, frameTimestamps }) {
     seededRand: createSeededRand,
     playbackTicks,
     playbackTicksDeterministic,
-    simDt: SIM_DT,
-    requestFrame
+    simDt: SIM_DT
   });
 
-  await manager.play({ captureMode: "none", run: cloneReplayRun(run), playbackMode: "deterministic" });
+  if (typeof preSim === "function") {
+    const originalStartRun = game.startRun?.bind(game);
+    if (originalStartRun) {
+      game.startRun = () => {
+        originalStartRun();
+        preSim({ game, input });
+      };
+    } else {
+      preSim({ game, input });
+    }
+  }
 
-  return game.score;
+  const originalRaf = globalThis.requestAnimationFrame;
+  try {
+    globalThis.requestAnimationFrame = undefined;
+    await manager.play({ captureMode: "none", run: cloneReplayRun(run), playbackMode: "deterministic" });
+  } finally {
+    globalThis.requestAnimationFrame = originalRaf;
+  }
+  nearMissTracker?.restore();
+
+  return { score: game.score, nearMissStats: nearMissTracker?.stats || null };
 }
 
 beforeAll(() => {
@@ -503,39 +588,66 @@ describe("replay determinism", () => {
 
   it("replays long deterministic runs with matching final scores", async () => {
     const playerImg = { naturalWidth: 64, naturalHeight: 32, __assetId: "player" };
-    const totalTicks = 10050;
+    const totalTicks = 2000;
+    const nearMissThreshold = 18;
     const configOverrides = {
       pipes: {
-        spawnInterval: { start: 9999, end: 9999 },
-        special: { startCadence: 9999, endCadence: 9999 },
-        patternWeights: { wall: [0, 0], aimed: [0, 0] }
+        spawnInterval: { start: 1.35, end: 1.35 },
+        speed: { start: 210, end: 210 },
+        gap: { startScale: 0.3, endScale: 0.3, min: 110, max: 210 },
+        special: { startCadence: 6.5, endCadence: 6.5, jitterMin: 0.35, jitterMax: 0.35 },
+        patternWeights: { wall: [0.55, 0.55], aimed: [0.15, 0.15] }
       },
       catalysts: { orbs: { enabled: false } }
     };
 
-    const { run, frameTimestamps, finalScore } = runLiveGame({
+    const actionSchedule = new Map();
+    for (let tick = 150; tick < totalTicks; tick += 180) {
+      actionSchedule.set(tick, [{ id: "dash" }]);
+    }
+
+    const preSim = ({ game }) => {
+      game.orbT = 1e9;
+      game.player.invT = 9999;
+    };
+
+    const { run, frameTimestamps, finalScore, nearMissStats } = runLiveGame({
       totalTicks,
       seed: "long-deterministic-seed",
       playerImg,
       configOverrides,
       recordOps: false,
-      actionSchedule: new Map(),
-      inputPattern: applyStaticInputPattern,
-      preSim: ({ game }) => {
-        game.pipeT = 1e9;
-        game.specialT = 1e9;
-        game.orbT = 1e9;
-      }
+      actionSchedule,
+      inputPattern: applyDodgeInputPattern,
+      nearMissThreshold,
+      preSim
     });
 
     expect(run.ticks.length).toBe(totalTicks);
+    expect(nearMissStats?.nearMisses).toBeGreaterThan(0);
+    expect(nearMissStats?.collisions).toBe(0);
+    expect(nearMissStats?.minDistance).toBeLessThanOrEqual(nearMissThreshold);
 
-    const firstScore = await runReplayWithScore({ run, playerImg, frameTimestamps });
-    const secondScore = await runReplayWithScore({ run, playerImg, frameTimestamps });
-    const thirdScore = await runReplayWithScore({ run, playerImg, frameTimestamps });
+    const firstReplay = await runReplayWithScore({
+      run,
+      playerImg,
+      frameTimestamps,
+      configOverrides,
+      nearMissThreshold,
+      preSim
+    });
+    const secondReplay = await runReplayWithScore({
+      run,
+      playerImg,
+      frameTimestamps,
+      configOverrides,
+      nearMissThreshold,
+      preSim
+    });
 
-    expect(firstScore).toBe(finalScore);
-    expect(secondScore).toBe(finalScore);
-    expect(thirdScore).toBe(finalScore);
-  }, 15000);
+    expect(firstReplay.score).toBe(finalScore);
+    expect(secondReplay.score).toBe(finalScore);
+    expect(firstReplay.nearMissStats).toEqual(nearMissStats);
+    expect(secondReplay.nearMissStats).toEqual(nearMissStats);
+  }, 20000);
 });

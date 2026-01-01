@@ -36,6 +36,7 @@ describe("replayManager", () => {
     expect(run.rngTape).toEqual([]);
     expect(run.ended).toBe(false);
     expect(run.backgroundSeed).toBe("seed:background");
+    expect(run.visualSeed).toBe("seed:visual");
   });
 
   it("clones replay runs without mutating the original", () => {
@@ -44,6 +45,7 @@ describe("replayManager", () => {
     run.pendingActions.push({ id: "dash" });
     run.rngTape.push(0.1);
     run.backgroundSeed = "custom-bg";
+    run.visualSeed = "custom-visual";
 
     const clone = cloneReplayRun(run);
     expect(clone).not.toBe(run);
@@ -51,16 +53,17 @@ describe("replayManager", () => {
     expect(clone.pendingActions).toEqual(run.pendingActions);
     expect(clone.rngTape).toEqual(run.rngTape);
     expect(clone.backgroundSeed).toBe("custom-bg");
+    expect(clone.visualSeed).toBe("custom-visual");
 
     clone.ticks.push({ move: { dx: 9, dy: 9 }, cursor: { x: 1, y: 2 }, actions: [] });
     expect(run.ticks.length).toBe(1);
   });
 
   it("starts recording, queues actions, drains them, and records ticks", () => {
-    const game = { setBackgroundRand: vi.fn() };
+    const game = { setBackgroundRand: vi.fn(), setVisualRand: vi.fn() };
     const setRandSource = vi.fn();
     const tapeRecorder = vi.fn(() => "tape");
-    const seededRand = vi.fn(() => "bg-rand");
+    const seededRand = vi.fn(() => "seeded");
     const onStatus = vi.fn();
 
     const manager = createReplayManager({ game, setRandSource, tapeRecorder, seededRand, onStatus });
@@ -68,10 +71,13 @@ describe("replayManager", () => {
 
     expect(run.seed).toBe("abc");
     expect(run.backgroundSeed).toBe("abc:background");
+    expect(run.visualSeed).toBe("abc:visual");
     expect(setRandSource).toHaveBeenCalledWith("tape");
     expect(tapeRecorder).toHaveBeenCalledWith("abc", run.rngTape);
     expect(seededRand).toHaveBeenCalledWith("abc:background");
-    expect(game.setBackgroundRand).toHaveBeenCalledWith("bg-rand");
+    expect(game.setBackgroundRand).toHaveBeenCalledWith("seeded");
+    expect(seededRand).toHaveBeenCalledWith("abc:visual");
+    expect(game.setVisualRand).toHaveBeenCalledWith("seeded");
     expect(onStatus).toHaveBeenCalledWith({
       className: "hint",
       text: "Recording replay… Seed: abc"
@@ -112,7 +118,7 @@ describe("replayManager", () => {
   });
 
   it("plays a replay in real time when requestAnimationFrame is available", async () => {
-    const game = { input: { name: "real" }, startRun: vi.fn(), setBackgroundRand: vi.fn() };
+    const game = { input: { name: "real" }, startRun: vi.fn(), setBackgroundRand: vi.fn(), setVisualRand: vi.fn() };
     const input = { reset: vi.fn() };
     const menu = { classList: makeClassList() };
     const over = { classList: makeClassList() };
@@ -154,6 +160,8 @@ describe("replayManager", () => {
     expect(tapePlayer).not.toHaveBeenCalled();
     expect(seededRand).toHaveBeenCalledWith("seed:background");
     expect(game.setBackgroundRand).toHaveBeenCalledWith("seeded");
+    expect(seededRand).toHaveBeenCalledWith("seed:visual");
+    expect(game.setVisualRand).toHaveBeenCalledWith("seeded");
     expect(game.input).toEqual({ name: "real" });
     expect(menu.classList.add).toHaveBeenCalledWith("hidden");
     expect(over.classList.add).toHaveBeenCalledWith("hidden");
