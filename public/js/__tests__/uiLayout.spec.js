@@ -72,6 +72,9 @@ describe("uiLayout", () => {
     expect(ui.shopTabs?.querySelectorAll("button[data-shop-type]")?.length).toBe(3);
     expect(ui.purchaseModal?.classList.contains("hidden")).toBe(true);
     expect(ui.purchaseModal?.classList.contains("modal-layer")).toBe(true);
+    expect(ui.replayModal?.classList.contains("hidden")).toBe(true);
+    expect(ui.replayModal?.classList.contains("modal-layer")).toBe(true);
+    expect(ui.replayModal?.getAttribute("aria-modal")).toBe("true");
     const mainTitles = Array.from(mount.querySelectorAll(".panel-main .section-title")).map(el => el.textContent);
     expect(mainTitles).not.toContain("Ready to fly");
     expect(mainTitles).not.toContain("Player Icon");
@@ -228,6 +231,10 @@ describe("uiLayout", () => {
       "purchaseModalStatus",
       "purchaseModalCancel",
       "purchaseModalConfirm",
+      "replayModal",
+      "replayModalTitle",
+      "replayModalClose",
+      "replayModalStatus",
       "updateSkillCooldowns"
     ];
 

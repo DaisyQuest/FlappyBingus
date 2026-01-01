@@ -149,7 +149,7 @@ export function createReplayManager({
 
   const isReplaying = () => replaying;
 
-  const play = async ({ captureMode = "none", run = activeRun } = {}) => {
+  const play = async ({ captureMode = "none", run = activeRun, playbackMode = "realtime" } = {}) => {
     stopMusic?.();
 
     if (!hasReplayData(run)) {
@@ -163,6 +163,10 @@ export function createReplayManager({
     let webmBlob = null;
     let recorder = null;
     let recordedChunks = null;
+    const menuClassList = ensureClassList(menu);
+    const overClassList = ensureClassList(over);
+    const menuWasHidden = menuClassList?.contains("hidden") ?? true;
+    const overWasHidden = overClassList?.contains("hidden") ?? true;
 
     try {
       const replayRandSource = chooseReplayRandSource(run, { tapePlayer, seededRand });
@@ -180,8 +184,8 @@ export function createReplayManager({
       }
 
       input?.reset?.();
-      ensureClassList(menu)?.add("hidden");
-      ensureClassList(over)?.add("hidden");
+      menuClassList?.add("hidden");
+      overClassList?.add("hidden");
       game?.startRun?.();
 
       if (captureMode !== "none") {
@@ -191,11 +195,21 @@ export function createReplayManager({
         }));
       }
 
-      const canUseRealtime = captureMode === "none"
+      const isCapture = captureMode !== "none";
+      const canUseRealtime = !isCapture
         && (typeof requestFrame === "function" || typeof requestAnimationFrame === "function");
-      const playbackFn = (captureMode === "none" && !canUseRealtime)
-        ? playbackTicksDeterministic
-        : playbackTicks;
+      const wantsDeterministic = !isCapture && playbackMode === "deterministic";
+      const playbackFn = isCapture
+        ? playbackTicks
+        : (wantsDeterministic
+          ? playbackTicksDeterministic
+          : (canUseRealtime ? playbackTicks : playbackTicksDeterministic));
+      const yieldBetweenRenders = wantsDeterministic && canUseRealtime
+        ? () => new Promise((resolve) => {
+          const raf = requestFrame || requestAnimationFrame;
+          raf(resolve);
+        })
+        : null;
 
       if (typeof playbackFn === "function") {
         await playbackFn({
@@ -203,10 +217,11 @@ export function createReplayManager({
           game,
           replayInput,
           captureMode,
-          playbackMode: canUseRealtime ? "realtime" : "deterministic",
+          playbackMode: wantsDeterministic ? "deterministic" : "realtime",
           simDt,
           requestFrame,
-          step
+          step,
+          yieldBetweenRenders
         });
       }
 
@@ -217,7 +232,14 @@ export function createReplayManager({
       if (game) {
         game.input = originalInput;
       }
-      ensureClassList(over)?.remove("hidden");
+      if (menuClassList) {
+        if (menuWasHidden) menuClassList.add("hidden");
+        else menuClassList.remove("hidden");
+      }
+      if (overClassList) {
+        if (overWasHidden) overClassList.add("hidden");
+        else overClassList.remove("hidden");
+      }
       replaying = false;
     }
 

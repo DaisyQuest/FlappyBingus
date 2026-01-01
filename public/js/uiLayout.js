@@ -988,6 +988,46 @@ function createPurchaseModal(doc, refs) {
   return overlay;
 }
 
+function createReplayModal(doc, refs) {
+  const overlay = createElement(doc, refs, "div", {
+    id: "replayModal",
+    className: "replay-modal modal-layer hidden",
+    attrs: { role: "dialog", "aria-modal": "true", "aria-labelledby": "replayModalTitle", "aria-hidden": "true" }
+  });
+
+  const panel = doc.createElement("div");
+  panel.className = "replay-modal-panel";
+
+  const header = doc.createElement("div");
+  header.className = "replay-modal-header";
+
+  const title = createElement(doc, refs, "div", {
+    id: "replayModalTitle",
+    className: "section-title",
+    text: "Replay"
+  });
+
+  const close = createElement(doc, refs, "button", {
+    id: "replayModalClose",
+    className: "replay-modal-close",
+    attrs: { type: "button" },
+    text: "Close",
+    props: { disabled: true }
+  });
+
+  header.append(title, close);
+
+  const status = createElement(doc, refs, "div", {
+    id: "replayModalStatus",
+    className: "hint replay-modal-line",
+    text: "Select a leaderboard entry to view a replay."
+  });
+
+  panel.append(header, status);
+  overlay.append(panel);
+  return overlay;
+}
+
 function createAchievementsCard(doc, refs) {
   const card = doc.createElement("div");
   card.className = "info-card achievements-card";
@@ -1349,7 +1389,13 @@ function createMenuScreen(doc, refs) {
   updateMenuView();
   content.append(header, menuBody);
   panel.append(parallax, aurora, offlineStatus, content);
-  screen.append(trailOverlay, panel, createShopOverlay(doc, refs), createPurchaseModal(doc, refs));
+  screen.append(
+    trailOverlay,
+    panel,
+    createShopOverlay(doc, refs),
+    createPurchaseModal(doc, refs),
+    createReplayModal(doc, refs)
+  );
   return screen;
 }
 

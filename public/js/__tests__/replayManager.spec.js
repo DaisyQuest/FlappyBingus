@@ -1,8 +1,8 @@
 import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
 import { createReplayManager, createReplayRun, cloneReplayRun, __testables } from "../replayManager.js";
 
-function makeClassList() {
-  const classes = new Set();
+function makeClassList(initial = []) {
+  const classes = new Set(initial);
   return {
     add: vi.fn((name) => classes.add(name)),
     remove: vi.fn((name) => classes.delete(name)),
@@ -111,10 +111,10 @@ describe("replayManager", () => {
     const tapePlayer = vi.fn(() => "tape");
     const seededRand = vi.fn(() => "seeded");
 
-    const playbackTicks = vi.fn();
-    const playbackTicksDeterministic = vi.fn(({ game: playbackGame, replayInput }) => {
+    const playbackTicks = vi.fn(({ game: playbackGame, replayInput }) => {
       expect(playbackGame.input).toBe(replayInput);
     });
+    const playbackTicksDeterministic = vi.fn();
     const requestFrame = vi.fn((cb) => cb(0));
 
     const manager = createReplayManager({
@@ -147,6 +147,7 @@ describe("replayManager", () => {
     expect(game.input).toEqual({ name: "real" });
     expect(menu.classList.add).toHaveBeenCalledWith("hidden");
     expect(over.classList.add).toHaveBeenCalledWith("hidden");
+    expect(menu.classList.remove).toHaveBeenCalledWith("hidden");
     expect(over.classList.remove).toHaveBeenCalledWith("hidden");
     expect(playbackTicks).toHaveBeenCalledWith(expect.objectContaining({
       captureMode: "none",
@@ -154,6 +155,35 @@ describe("replayManager", () => {
     }));
     expect(playbackTicksDeterministic).not.toHaveBeenCalled();
     expect(manager.isReplaying()).toBe(false);
+  });
+
+  it("restores hidden UI states after replay playback", async () => {
+    const game = { input: { name: "real" }, startRun: vi.fn() };
+    const menu = { classList: makeClassList(["hidden"]) };
+    const over = { classList: makeClassList(["hidden"]) };
+    const playbackTicks = vi.fn();
+    const playbackTicksDeterministic = vi.fn();
+
+    const manager = createReplayManager({
+      game,
+      menu,
+      over,
+      playbackTicks,
+      playbackTicksDeterministic,
+      simDt: 1 / 120,
+      requestFrame: null
+    });
+
+    manager.startRecording("seed");
+    manager.recordTick({ move: { dx: 1, dy: 1 }, cursor: { x: 0, y: 0 } }, []);
+    manager.markEnded();
+
+    await manager.play({ captureMode: "none" });
+
+    expect(menu.classList.add).toHaveBeenCalledWith("hidden");
+    expect(over.classList.add).toHaveBeenCalledWith("hidden");
+    expect(menu.classList.remove).not.toHaveBeenCalledWith("hidden");
+    expect(over.classList.remove).not.toHaveBeenCalledWith("hidden");
   });
 
   it("captures a replay when capture mode is enabled", async () => {
@@ -208,7 +238,9 @@ describe("replayManager", () => {
   it("falls back to deterministic playback when requestFrame is unavailable", async () => {
     const game = { input: { name: "real" }, startRun: vi.fn() };
     const playbackTicks = vi.fn();
-    const playbackTicksDeterministic = vi.fn();
+    const playbackTicksDeterministic = vi.fn(({ yieldBetweenRenders }) => {
+      expect(yieldBetweenRenders).toBeNull();
+    });
     const originalRaf = global.requestAnimationFrame;
     global.requestAnimationFrame = undefined;
 
@@ -229,5 +261,32 @@ describe("replayManager", () => {
     expect(playbackTicksDeterministic).toHaveBeenCalled();
     expect(playbackTicks).not.toHaveBeenCalled();
     global.requestAnimationFrame = originalRaf;
+  });
+
+  it("uses deterministic playback when requested and paces with requestFrame", async () => {
+    const game = { input: { name: "real" }, startRun: vi.fn() };
+    const playbackTicks = vi.fn();
+    const playbackTicksDeterministic = vi.fn(({ yieldBetweenRenders, playbackMode }) => {
+      expect(playbackMode).toBe("deterministic");
+      expect(typeof yieldBetweenRenders).toBe("function");
+    });
+    const requestFrame = vi.fn((cb) => cb(0));
+
+    const manager = createReplayManager({
+      game,
+      playbackTicks,
+      playbackTicksDeterministic,
+      simDt: 1 / 120,
+      requestFrame
+    });
+
+    manager.startRecording("seed");
+    manager.recordTick({ move: { dx: 1, dy: 1 }, cursor: { x: 0, y: 0 } }, []);
+    manager.markEnded();
+
+    await manager.play({ captureMode: "none", playbackMode: "deterministic" });
+
+    expect(playbackTicksDeterministic).toHaveBeenCalled();
+    expect(playbackTicks).not.toHaveBeenCalled();
   });
 });
