@@ -5,9 +5,10 @@ const previewInstances = [];
 
 vi.mock("../trailPreview.js", () => ({
   TrailPreview: class {
-    constructor({ canvas, anchor }) {
+    constructor({ canvas, anchor, playerImg }) {
       this.canvas = canvas;
       this.anchor = anchor;
+      this.playerImg = playerImg;
       this.setPlayerImage = vi.fn();
       this.setTrail = vi.fn();
       this.step = vi.fn();
@@ -37,6 +38,7 @@ describe("IconTrailPreviewer", () => {
   beforeEach(() => {
     const dom = new JSDOM("<!doctype html><body></body>");
     document = dom.window.document;
+    previewInstances.length = 0;
   });
 
   it("shares a single RAF loop across multiple swatches", () => {
@@ -118,5 +120,61 @@ describe("IconTrailPreviewer", () => {
     previewer.attach(makeSwatch(document), { icon: { id: "delta" } });
     previewer.start();
     expect(previewer.running).toBe(false);
+  });
+
+  it("returns null when attach is missing required elements", () => {
+    const previewer = new IconTrailPreviewer({ requestFrame: null, cancelFrame: null, now: () => 0 });
+    const empty = document.createElement("div");
+
+    expect(previewer.attach(null)).toBeNull();
+    expect(previewer.attach(empty)).toBeNull();
+  });
+
+  it("caches sprites across swatches sharing an icon id", () => {
+    const previewer = new IconTrailPreviewer({ requestFrame: null, cancelFrame: null, now: () => 0 });
+    const first = makeSwatch(document);
+    const second = makeSwatch(document);
+
+    previewer.attach(first, { icon: { id: "same" } });
+    previewer.attach(second, { icon: { id: "same" } });
+
+    expect(previewInstances).toHaveLength(2);
+    expect(previewInstances[0].playerImg).toEqual({ id: "same", mocked: true });
+    expect(previewInstances[1].playerImg).toEqual({ id: "same", mocked: true });
+  });
+
+  it("stores provided sprites and reuses them on later attaches", () => {
+    const previewer = new IconTrailPreviewer({ requestFrame: null, cancelFrame: null, now: () => 0 });
+    const sprite = { id: "provided" };
+    const first = makeSwatch(document);
+    const second = makeSwatch(document);
+
+    previewer.attach(first, { icon: { id: "provided" }, playerImg: sprite });
+    previewer.attach(second, { icon: { id: "provided" } });
+
+    expect(previewInstances[0].playerImg).toBe(sprite);
+    expect(previewInstances[1].playerImg).toBe(sprite);
+  });
+
+  it("stops immediately when RAF scheduling fails", () => {
+    const raf = vi.fn(() => null);
+    const previewer = new IconTrailPreviewer({ requestFrame: raf, cancelFrame: null, now: () => 0 });
+
+    previewer.attach(makeSwatch(document), { icon: { id: "halt" } });
+    previewer.start();
+
+    expect(raf).toHaveBeenCalled();
+    expect(previewer.running).toBe(false);
+    expect(previewer._frame).toBeNull();
+  });
+
+  it("keeps preview entries when synced by swatch property", () => {
+    const previewer = new IconTrailPreviewer({ requestFrame: null, cancelFrame: null, now: () => 0 });
+    const swatch = makeSwatch(document);
+
+    previewer.sync([{ swatch, icon: { id: "swatch" } }], { group: "options" });
+
+    expect(previewer.previews.size).toBe(1);
+    expect(previewer.previews.has(swatch)).toBe(true);
   });
 });

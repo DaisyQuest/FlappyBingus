@@ -16,7 +16,7 @@ const buildDom = () => {
       <button data-pipe-texture-id="locked"></button>
     </div>
     <div id="hint"></div>
-  </body>`);
+  </body>`, { url: "http://localhost" });
   return dom.window.document;
 };
 
@@ -402,5 +402,225 @@ describe("pipe texture menu handlers", () => {
 
     handlers.handleOptionsMouseOut({ relatedTarget: null });
     expect(document.getElementById("hint").textContent).toBe("Pick a texture");
+  });
+
+  it("closes the overlay when the close predicate matches", () => {
+    const document = buildDom();
+    const togglePipeTextureMenu = vi.fn();
+
+    const { handlers } = createPipeTextureMenuHandlers({
+      elements: {
+        pipeTextureLauncher: document.getElementById("launcher"),
+        pipeTextureOverlay: document.getElementById("overlay"),
+        pipeTextureOptions: document.getElementById("options"),
+        pipeTextureModeOptions: document.getElementById("mode-options"),
+        pipeTextureHint: document.getElementById("hint")
+      },
+      getNet: () => ({ pipeTextures: [], user: null }),
+      getCurrentPipeTextureId: () => "spark",
+      setCurrentPipeTextureId: vi.fn(),
+      getCurrentPipeTextureMode: () => "classic",
+      setCurrentPipeTextureMode: vi.fn(),
+      refreshPipeTextureMenu: vi.fn(),
+      togglePipeTextureMenu,
+      shouldClosePipeTextureMenu: vi.fn().mockReturnValue(true),
+      normalizePipeTextureMode: vi.fn(),
+      writePipeTextureModeCookie: vi.fn(),
+      renderPipeTextureModeButtons: vi.fn(),
+      syncPipeTextureSwatch: vi.fn(),
+      renderPipeTextureMenuOptions: vi.fn(),
+      computeUnlockedPipeTextureSet: vi.fn(),
+      openPurchaseModal: vi.fn(),
+      applyPipeTextureSelection: vi.fn(),
+      shouldTriggerSelectionSave: vi.fn(),
+      triggerUserSave: vi.fn(),
+      ensureLoggedInForSave: vi.fn(),
+      apiSetPipeTexture: vi.fn(),
+      getAuthStatusFromResponse: vi.fn(),
+      recoverSession: vi.fn(),
+      setUserHint: vi.fn(),
+      setNetUser: vi.fn(),
+      syncPipeTextureCatalog: vi.fn(),
+      describePipeTextureLock: vi.fn(),
+      pipeTextureHoverText: vi.fn(),
+      DEFAULT_PIPE_TEXTURE_HINT: "Pick a texture",
+      DEFAULT_CURRENCY_ID: "coin",
+      UNLOCKABLE_TYPES: { pipeTexture: "pipeTexture" }
+    });
+
+    handlers.handleOverlayClick({ target: document.getElementById("overlay") });
+
+    expect(togglePipeTextureMenu).toHaveBeenCalledWith(document.getElementById("overlay"), false);
+    expect(document.getElementById("hint").textContent).toBe("Pick a texture");
+  });
+
+  it("does not attempt to save mode changes when guest auth fails", async () => {
+    const document = buildDom();
+    const button = document.querySelector("button[data-pipe-texture-mode='alt']");
+    const ensureLoggedInForSave = vi.fn().mockResolvedValue(false);
+    const apiSetPipeTexture = vi.fn();
+
+    const { handlers } = createPipeTextureMenuHandlers({
+      elements: {
+        pipeTextureLauncher: document.getElementById("launcher"),
+        pipeTextureOverlay: document.getElementById("overlay"),
+        pipeTextureOptions: document.getElementById("options"),
+        pipeTextureModeOptions: document.getElementById("mode-options"),
+        pipeTextureHint: document.getElementById("hint")
+      },
+      getNet: () => ({ pipeTextures: [{ id: "spark" }], user: null }),
+      getCurrentPipeTextureId: () => "spark",
+      setCurrentPipeTextureId: vi.fn(),
+      getCurrentPipeTextureMode: () => "classic",
+      setCurrentPipeTextureMode: vi.fn(),
+      refreshPipeTextureMenu: vi.fn(),
+      togglePipeTextureMenu: vi.fn(),
+      shouldClosePipeTextureMenu: vi.fn(),
+      normalizePipeTextureMode: vi.fn().mockReturnValue("alt"),
+      writePipeTextureModeCookie: vi.fn(),
+      renderPipeTextureModeButtons: vi.fn(),
+      syncPipeTextureSwatch: vi.fn(),
+      renderPipeTextureMenuOptions: vi.fn(),
+      computeUnlockedPipeTextureSet: vi.fn().mockReturnValue(new Set(["spark"])),
+      openPurchaseModal: vi.fn(),
+      applyPipeTextureSelection: vi.fn(),
+      shouldTriggerSelectionSave: vi.fn(),
+      triggerUserSave: vi.fn(),
+      ensureLoggedInForSave,
+      apiSetPipeTexture,
+      getAuthStatusFromResponse: vi.fn(),
+      recoverSession: vi.fn(),
+      setUserHint: vi.fn(),
+      setNetUser: vi.fn(),
+      syncPipeTextureCatalog: vi.fn(),
+      describePipeTextureLock: vi.fn(),
+      pipeTextureHoverText: vi.fn(),
+      DEFAULT_PIPE_TEXTURE_HINT: "Pick a texture",
+      DEFAULT_CURRENCY_ID: "coin",
+      UNLOCKABLE_TYPES: { pipeTexture: "pipeTexture" }
+    });
+
+    await handlers.handleModeClick({ target: button });
+
+    expect(ensureLoggedInForSave).toHaveBeenCalled();
+    expect(apiSetPipeTexture).not.toHaveBeenCalled();
+  });
+
+  it("saves pipe texture selection on successful responses", async () => {
+    const document = buildDom();
+    const button = document.querySelector("button[data-pipe-texture-id='spark']");
+    const net = { pipeTextures: [{ id: "spark" }, { id: "ember" }], user: { id: "u1" } };
+    const applyPipeTextureSelection = vi.fn();
+    const setNetUser = vi.fn((user) => { net.user = user; });
+
+    const { handlers } = createPipeTextureMenuHandlers({
+      elements: {
+        pipeTextureLauncher: document.getElementById("launcher"),
+        pipeTextureOverlay: document.getElementById("overlay"),
+        pipeTextureOptions: document.getElementById("options"),
+        pipeTextureModeOptions: document.getElementById("mode-options"),
+        pipeTextureHint: document.getElementById("hint")
+      },
+      getNet: () => net,
+      getCurrentPipeTextureId: () => "spark",
+      setCurrentPipeTextureId: vi.fn(),
+      getCurrentPipeTextureMode: () => "classic",
+      setCurrentPipeTextureMode: vi.fn(),
+      refreshPipeTextureMenu: vi.fn(),
+      togglePipeTextureMenu: vi.fn(),
+      shouldClosePipeTextureMenu: vi.fn(),
+      normalizePipeTextureMode: vi.fn().mockReturnValue("alt"),
+      writePipeTextureModeCookie: vi.fn(),
+      renderPipeTextureModeButtons: vi.fn(),
+      syncPipeTextureSwatch: vi.fn(),
+      renderPipeTextureMenuOptions: vi.fn(),
+      computeUnlockedPipeTextureSet: vi.fn().mockReturnValue(new Set(["spark"])),
+      openPurchaseModal: vi.fn(),
+      applyPipeTextureSelection,
+      shouldTriggerSelectionSave: vi.fn().mockReturnValue(false),
+      triggerUserSave: vi.fn(),
+      ensureLoggedInForSave: vi.fn(),
+      apiSetPipeTexture: vi.fn().mockResolvedValue({
+        ok: true,
+        user: { pipeTextureMode: "alt", selectedPipeTexture: "spark" },
+        pipeTextures: net.pipeTextures
+      }),
+      getAuthStatusFromResponse: vi.fn(),
+      recoverSession: vi.fn(),
+      setUserHint: vi.fn(),
+      setNetUser,
+      syncPipeTextureCatalog: vi.fn(),
+      describePipeTextureLock: vi.fn(),
+      pipeTextureHoverText: vi.fn(),
+      DEFAULT_PIPE_TEXTURE_HINT: "Pick a texture",
+      DEFAULT_CURRENCY_ID: "coin",
+      UNLOCKABLE_TYPES: { pipeTexture: "pipeTexture" }
+    });
+
+    await handlers.handleOptionsClick({ target: button });
+
+    expect(setNetUser).toHaveBeenCalled();
+    expect(applyPipeTextureSelection).toHaveBeenCalled();
+    expect(document.getElementById("hint").className).toBe("hint good");
+    expect(document.getElementById("hint").textContent).toBe("Pipe texture saved.");
+  });
+
+  it("reverts selection and recovers sessions when save fails", async () => {
+    const document = buildDom();
+    const button = document.querySelector("button[data-pipe-texture-id='spark']");
+    const net = { pipeTextures: [{ id: "spark" }, { id: "ember" }], user: { id: "u1" }, online: true };
+    const applyPipeTextureSelection = vi.fn();
+    const setCurrentPipeTextureId = vi.fn();
+    const recoverSession = vi.fn();
+    const setUserHint = vi.fn();
+
+    const { handlers } = createPipeTextureMenuHandlers({
+      elements: {
+        pipeTextureLauncher: document.getElementById("launcher"),
+        pipeTextureOverlay: document.getElementById("overlay"),
+        pipeTextureOptions: document.getElementById("options"),
+        pipeTextureModeOptions: document.getElementById("mode-options"),
+        pipeTextureHint: document.getElementById("hint")
+      },
+      getNet: () => net,
+      getCurrentPipeTextureId: () => "spark",
+      setCurrentPipeTextureId,
+      getCurrentPipeTextureMode: () => "classic",
+      setCurrentPipeTextureMode: vi.fn(),
+      refreshPipeTextureMenu: vi.fn(),
+      togglePipeTextureMenu: vi.fn(),
+      shouldClosePipeTextureMenu: vi.fn(),
+      normalizePipeTextureMode: vi.fn(),
+      writePipeTextureModeCookie: vi.fn(),
+      renderPipeTextureModeButtons: vi.fn(),
+      syncPipeTextureSwatch: vi.fn(),
+      renderPipeTextureMenuOptions: vi.fn(),
+      computeUnlockedPipeTextureSet: vi.fn().mockReturnValue(new Set(["spark", "ember"])),
+      openPurchaseModal: vi.fn(),
+      applyPipeTextureSelection,
+      shouldTriggerSelectionSave: vi.fn().mockReturnValue(false),
+      triggerUserSave: vi.fn(),
+      ensureLoggedInForSave: vi.fn(),
+      apiSetPipeTexture: vi.fn().mockResolvedValue({ ok: false }),
+      getAuthStatusFromResponse: vi.fn().mockReturnValue({ online: false, unauthorized: true }),
+      recoverSession,
+      setUserHint,
+      setNetUser: vi.fn(),
+      syncPipeTextureCatalog: vi.fn(),
+      describePipeTextureLock: vi.fn(),
+      pipeTextureHoverText: vi.fn(),
+      DEFAULT_PIPE_TEXTURE_HINT: "Pick a texture",
+      DEFAULT_CURRENCY_ID: "coin",
+      UNLOCKABLE_TYPES: { pipeTexture: "pipeTexture" }
+    });
+
+    await handlers.handleOptionsClick({ target: button });
+
+    expect(recoverSession).toHaveBeenCalled();
+    expect(setUserHint).toHaveBeenCalled();
+    expect(applyPipeTextureSelection).toHaveBeenCalledWith("spark", net.pipeTextures, expect.any(Set));
+    expect(setCurrentPipeTextureId).toHaveBeenCalledWith("spark");
+    expect(document.getElementById("hint").className).toBe("hint bad");
+    expect(document.getElementById("hint").textContent).toBe("Could not save pipe texture.");
   });
 });
