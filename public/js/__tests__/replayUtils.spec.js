@@ -103,7 +103,9 @@ describe("playbackTicks", () => {
   it("uses a custom step handler when provided", async () => {
     const game = makeGame();
     const replayInput = makeReplayInput();
-    const ticks = [{ actions: [{ id: "a1" }] }, { actions: [{ id: "a2" }] }];
+    const ticks = [{
+      actions: [{ id: "a1" }, { action: "a2" }, "a3", { id: null }, null]
+    }, { actions: [{ id: "a4" }] }];
     const step = vi.fn();
 
     const ts = [0, 16, 32, 48];
@@ -112,8 +114,25 @@ describe("playbackTicks", () => {
     await playbackTicks({ ticks, game, replayInput, captureMode: "webm", simDt: SIM_DT, requestFrame: raf, step });
 
     expect(step).toHaveBeenCalledTimes(2);
+    expect(step).toHaveBeenNthCalledWith(1, SIM_DT, ["a1", "a2", "a3"]);
+    expect(step).toHaveBeenNthCalledWith(2, SIM_DT, ["a4"]);
     expect(game.update).not.toHaveBeenCalled();
     expect(game.handleAction).not.toHaveBeenCalled();
+  });
+
+  it("normalizes action ids before calling game.handleAction", async () => {
+    const game = makeGame();
+    const replayInput = makeReplayInput();
+    const ticks = [{ actions: [{ id: "dash" }, { action: "phase" }, "teleport", { id: null }] }];
+    const ts = [0, 16, 32];
+    const raf = makeRaf(ts);
+
+    await playbackTicks({ ticks, game, replayInput, captureMode: "webm", simDt: SIM_DT, requestFrame: raf });
+
+    expect(game.handleAction).toHaveBeenCalledTimes(3);
+    expect(game.handleAction).toHaveBeenNthCalledWith(1, "dash");
+    expect(game.handleAction).toHaveBeenNthCalledWith(2, "phase");
+    expect(game.handleAction).toHaveBeenNthCalledWith(3, "teleport");
   });
 
   it("guards against invalid inputs", async () => {
@@ -245,7 +264,7 @@ describe("playbackTicksDeterministic", () => {
   it("does not double-apply actions when a step handler is provided", async () => {
     const game = makeGame();
     const replayInput = makeReplayInput();
-    const ticks = [{ actions: [{ id: "a1" }] }];
+    const ticks = [{ actions: [{ id: "a1" }, { action: "a2" }] }];
     const step = vi.fn();
 
     await playbackTicksDeterministic({
@@ -257,7 +276,7 @@ describe("playbackTicksDeterministic", () => {
       yieldBetweenRenders: () => Promise.resolve()
     });
 
-    expect(step).toHaveBeenCalledWith(SIM_DT, ticks[0].actions);
+    expect(step).toHaveBeenCalledWith(SIM_DT, ["a1", "a2"]);
     expect(game.handleAction).not.toHaveBeenCalled();
     expect(game.update).not.toHaveBeenCalled();
   });
