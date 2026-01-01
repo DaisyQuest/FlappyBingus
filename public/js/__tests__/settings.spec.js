@@ -7,7 +7,8 @@ describe("skill settings helpers", () => {
       dashBehavior: "wild",
       slowFieldBehavior: null,
       teleportBehavior: "boom",
-      invulnBehavior: "forever"
+      invulnBehavior: "forever",
+      comicBookMode: "nope"
     });
     expect(norm).toEqual(DEFAULT_SKILL_SETTINGS);
   });
@@ -17,13 +18,15 @@ describe("skill settings helpers", () => {
       dashBehavior: "destroy",
       slowFieldBehavior: "explosion",
       teleportBehavior: "explode",
-      invulnBehavior: "long"
+      invulnBehavior: "long",
+      comicBookMode: "extreme"
     });
     const b = normalizeSkillSettings({
       dashBehavior: "destroy",
       slowFieldBehavior: "explosion",
       teleportBehavior: "explode",
-      invulnBehavior: "long"
+      invulnBehavior: "long",
+      comicBookMode: "extreme"
     });
     expect(a.dashBehavior).toBe("destroy");
     expect(skillSettingsEqual(a, b)).toBe(true);
@@ -31,8 +34,14 @@ describe("skill settings helpers", () => {
   });
 
   it("merges incoming settings while preserving base defaults", () => {
-    const base = { dashBehavior: "destroy", slowFieldBehavior: "explosion", teleportBehavior: "explode", invulnBehavior: "short" };
-    const incoming = { teleportBehavior: "normal", invulnBehavior: "long" };
+    const base = {
+      dashBehavior: "destroy",
+      slowFieldBehavior: "explosion",
+      teleportBehavior: "explode",
+      invulnBehavior: "short",
+      comicBookMode: "mild"
+    };
+    const incoming = { teleportBehavior: "normal", invulnBehavior: "long", comicBookMode: "extreme" };
 
     const merged = mergeSkillSettings(base, incoming);
 
@@ -40,7 +49,8 @@ describe("skill settings helpers", () => {
       dashBehavior: "destroy",
       slowFieldBehavior: "explosion",
       teleportBehavior: "normal",
-      invulnBehavior: "long"
+      invulnBehavior: "long",
+      comicBookMode: "extreme"
     });
   });
 });

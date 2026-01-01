@@ -59,7 +59,8 @@ describe("server helpers (trails)", () => {
       dashBehavior: "destroy",
       slowFieldBehavior: "explosion",
       teleportBehavior: "normal",
-      invulnBehavior: "long"
+      invulnBehavior: "long",
+      comicBookMode: "none"
     });
   });
 
@@ -149,7 +150,13 @@ describe("server helpers (trails)", () => {
         teleport: { type: "mouse", button: 9 }, // invalid button -> default
         slowField: { type: "key", code: "Slow Field" } // invalid code -> default
       },
-      settings: { dashBehavior: "laser", slowFieldBehavior: "plasma", teleportBehavior: "storm", invulnBehavior: "forever" },
+      settings: {
+        dashBehavior: "laser",
+        slowFieldBehavior: "plasma",
+        teleportBehavior: "storm",
+        invulnBehavior: "forever",
+        comicBookMode: "maximal"
+      },
       runs: -10,
       totalScore: -99,
       longestRun: -5,
@@ -165,7 +172,8 @@ describe("server helpers (trails)", () => {
       dashBehavior: "destroy",
       slowFieldBehavior: "explosion",
       teleportBehavior: "normal",
-      invulnBehavior: "long"
+      invulnBehavior: "long",
+      comicBookMode: "none"
     });
     expect(u.runs).toBe(0);
     expect(u.totalScore).toBe(0);

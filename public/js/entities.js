@@ -245,15 +245,27 @@ export class Part {
   }
 }
 
+const FLOAT_TEXT_FONT_STACK = "system-ui,-apple-system,Segoe UI,Roboto,sans-serif";
+const COMIC_TEXT_FONT_STACK = "'Bangers','Comic Sans MS','Impact','Arial Black',system-ui,-apple-system,Segoe UI,Roboto,sans-serif";
+const COMIC_TEXT_MODES = new Set(["none", "mild", "extreme"]);
+
+function normalizeComicBookMode(mode) {
+  return COMIC_TEXT_MODES.has(mode) ? mode : "none";
+}
+
 export class FloatText {
   constructor(txt, x, y, color, style = {}) {
+    const hasFontFamily = Object.prototype.hasOwnProperty.call(style, "fontFamily");
+    const hasFontWeight = Object.prototype.hasOwnProperty.call(style, "fontWeight");
+    const hasStrokeColor = Object.prototype.hasOwnProperty.call(style, "strokeColor");
+    const hasGlowColor = Object.prototype.hasOwnProperty.call(style, "glowColor");
     this.txt = txt; this.x = x; this.y = y;
     this.vx = rand(-18, 18); this.vy = rand(-90, -55);
     this.life = 0.9; this.max = 0.9;
     this.color = color || "rgba(255,255,255,.95)";
     this.palette = Array.isArray(style.palette) ? style.palette.slice(0, 4) : null;
-    this.glowColor = style.glowColor || "rgba(255,255,255,.95)";
-    this.strokeColor = style.strokeColor || "rgba(0,0,0,.55)";
+    this.glowColor = hasGlowColor ? style.glowColor : "rgba(255,255,255,.95)";
+    this.strokeColor = hasStrokeColor ? style.strokeColor : "rgba(0,0,0,.55)";
     this.strokeWidth = style.strokeWidth ?? 1.8;
     this.size = style.size || 18;
     this.wobble = style.wobble || 0;
@@ -262,10 +274,47 @@ export class FloatText {
     this.sparkle = !!style.sparkle;
     this.combo = style.combo || 0;
     this.comboMax = style.comboMax || 1;
+    this.fontFamily = hasFontFamily ? style.fontFamily : FLOAT_TEXT_FONT_STACK;
+    this.fontWeight = hasFontWeight ? style.fontWeight : 900;
+    this.shadowBoost = style.shadowBoost ?? 0;
+    this.shadowOffsetY = style.shadowOffsetY ?? 3;
+    this._fontFamilyCustom = hasFontFamily;
+    this._fontWeightCustom = hasFontWeight;
+    this._strokeColorCustom = hasStrokeColor;
 
     this.rotation = 0;
     this.phase = 0;
     this.sparkleSeed = rand(0, Math.PI * 2);
+
+    this._applyComicBookMode(style.comicBookMode ?? FloatText.comicBookMode);
+  }
+  static setComicBookMode(mode) {
+    FloatText.comicBookMode = normalizeComicBookMode(mode);
+  }
+  _applyComicBookMode(mode) {
+    const normalized = normalizeComicBookMode(mode);
+    if (normalized === "none") return;
+    const extreme = normalized === "extreme";
+    const intensity = extreme ? 1 : 0.45;
+
+    if (!this._fontFamilyCustom) this.fontFamily = COMIC_TEXT_FONT_STACK;
+    if (!this._fontWeightCustom) this.fontWeight = extreme ? 950 : 800;
+    if (!this._strokeColorCustom) this.strokeColor = extreme ? "rgba(0,0,0,.95)" : "rgba(0,0,0,.7)";
+
+    this.strokeWidth = Math.max(this.strokeWidth, 1.8 + intensity * 2.4);
+    this.shadowBoost += 10 * intensity;
+    this.shadowOffsetY += 1.5 * intensity;
+    this.size *= extreme ? 1.18 : 1.06;
+    this.wobble = Math.max(this.wobble, 0.5 * intensity);
+    if (!this.spin) this.spin = rand(-0.18, 0.18) * (extreme ? 2 : 1);
+    this.shimmer = Math.max(this.shimmer, 0.3 * intensity);
+
+    if (!this.palette) {
+      this.palette = extreme
+        ? ["#fff3a6", "#ff8fd1", "#7ce9ff", "#ffcf7a"]
+        : ["#fff3c4", "#ffd5f0"];
+    }
+    if (extreme) this.sparkle = true;
   }
   update(dt) {
     this.life -= dt;
@@ -314,11 +363,11 @@ export class FloatText {
     if (this.rotation) ctx.rotate(this.rotation);
 
     ctx.globalAlpha = a;
-    ctx.font = `900 ${this.size}px system-ui,-apple-system,Segoe UI,Roboto,sans-serif`;
+    ctx.font = `${this.fontWeight} ${this.size}px ${this.fontFamily}`;
     ctx.textAlign = "center"; ctx.textBaseline = "middle";
     ctx.shadowColor = this.glowColor;
-    ctx.shadowBlur = 20 + (8 * (this.combo / Math.max(1, this.comboMax)));
-    ctx.shadowOffsetY = 3;
+    ctx.shadowBlur = 20 + (8 * (this.combo / Math.max(1, this.comboMax))) + this.shadowBoost;
+    ctx.shadowOffsetY = this.shadowOffsetY;
 
     const w = this.size * this.txt.length * 0.65;
     const h = this.size;
@@ -335,3 +384,5 @@ export class FloatText {
     ctx.restore();
   }
 }
+
+FloatText.comicBookMode = "none";

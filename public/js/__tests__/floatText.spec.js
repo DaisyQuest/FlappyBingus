@@ -68,4 +68,29 @@ describe("FloatText", () => {
     const sparkleArcs = ctx.calls.filter((c) => c.op === "arc");
     expect(sparkleArcs.length).toBeGreaterThan(0);
   });
+
+  it("applies gentle comic styling in mild mode", () => {
+    FloatText.setComicBookMode("mild");
+    const ft = new FloatText("Pow", 0, 0, "#fff");
+    const ctx = createCtx();
+    ft.draw(ctx);
+
+    const fontCall = ctx.calls.find((c) => c.op === "font");
+    expect(fontCall?.v).toMatch(/Comic Sans|Impact/i);
+    expect(ft.strokeWidth).toBeGreaterThan(1.8);
+    expect(ft.shadowBoost).toBeGreaterThan(0);
+    FloatText.setComicBookMode("none");
+  });
+
+  it("ramps up styling for extreme comic mode while honoring custom fonts", () => {
+    FloatText.setComicBookMode("extreme");
+    const ft = new FloatText("Zap", 0, 0, "#fff", { fontFamily: "serif" });
+
+    expect(ft.fontFamily).toBe("serif");
+    expect(ft.sparkle).toBe(true);
+    expect(ft.size).toBeGreaterThan(18);
+
+    FloatText.setComicBookMode("bogus");
+    expect(FloatText.comicBookMode).toBe("none");
+  });
 });

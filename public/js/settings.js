@@ -1,20 +1,22 @@
 // =====================
 // FILE: public/js/settings.js
 // =====================
-// Shared helpers for player-configurable skill behaviors.
+// Shared helpers for player-configurable settings.
 
 export const DEFAULT_SKILL_SETTINGS = Object.freeze({
   dashBehavior: "destroy",
   slowFieldBehavior: "explosion",
   teleportBehavior: "normal",
-  invulnBehavior: "long"
+  invulnBehavior: "long",
+  comicBookMode: "none"
 });
 
 export const SKILL_BEHAVIOR_OPTIONS = Object.freeze({
   dashBehavior: ["ricochet", "destroy"],
   slowFieldBehavior: ["slow", "explosion"],
   teleportBehavior: ["normal", "explode"],
-  invulnBehavior: ["short", "long"]
+  invulnBehavior: ["short", "long"],
+  comicBookMode: ["none", "mild", "extreme"]
 });
 
 function normalizeValue(name, value) {
