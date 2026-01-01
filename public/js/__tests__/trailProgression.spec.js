@@ -45,6 +45,11 @@ describe("trailProgression helpers", () => {
     expect(unlocked).toContain("classic");
   });
 
+  it("labels the starlight trail as Hearts in the defaults", () => {
+    const hearts = DEFAULT_TRAILS.find((trail) => trail.id === "starlight_pop");
+    expect(hearts?.name).toBe("Hearts");
+  });
+
   it("unlocks the full trail lineup when achievements are completed and record-holder status is true", () => {
     const achievements = {
       unlocked: DEFAULT_TRAILS.reduce((acc, trail) => {
