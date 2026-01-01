@@ -208,6 +208,11 @@ describe("uiLayout", () => {
       "achievementsList",
       "achievementsFilterPipes",
       "achievementToasts",
+      "socialDock",
+      "discordButton",
+      "donateButton",
+      "discordPopover",
+      "donatePopover",
       "viewAchievements",
       "settingsHeaderBack",
       "dashCooldownValue",
@@ -250,6 +255,26 @@ describe("uiLayout", () => {
     expect(ui.teleportBehaviorOptions?.querySelectorAll(".skill-option")?.length).toBe(2);
     expect(ui.invulnBehaviorOptions?.querySelectorAll(".skill-option")?.length).toBe(2);
     expect(ui.slowFieldBehaviorOptions?.querySelectorAll(".skill-option")?.length).toBe(2);
+  });
+
+  it("renders the bottom-left social dock with popovers", () => {
+    const ui = buildGameUI({ document, mount });
+    const dock = mount.querySelector("#socialDock");
+    const discordButton = dock?.querySelector("#discordButton");
+    const donateButton = dock?.querySelector("#donateButton");
+    const discordPopover = dock?.querySelector("#discordPopover");
+    const donatePopover = dock?.querySelector("#donatePopover");
+    const iframe = discordPopover?.querySelector("iframe.discord-widget");
+
+    expect(dock).toBeInstanceOf(window.HTMLDivElement);
+    expect(discordButton).toBeInstanceOf(window.HTMLButtonElement);
+    expect(donateButton).toBeInstanceOf(window.HTMLButtonElement);
+    expect(discordPopover?.hidden).toBe(true);
+    expect(donatePopover?.hidden).toBe(true);
+    expect(iframe?.getAttribute("src")).toContain("discord.com/widget");
+    expect(donatePopover?.textContent).toContain("Thank you so much");
+    expect(donatePopover?.textContent).toContain("Venmo: @Bingus69");
+    expect(ui.socialDock).toBe(dock);
   });
 
   it("positions the trail swatch to the left of the launcher text and exposes the overlay grid", () => {

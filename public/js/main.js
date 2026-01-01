@@ -170,6 +170,7 @@ import {
 } from "./preferences.js";
 
 import { handleMenuEscape } from "./menuEscapeHandler.js";
+import { initSocialDock } from "./socialDock.js";
 
 
 // ---- DOM ----
@@ -257,6 +258,11 @@ const {
   achievementsFilterOrbs,
   achievementsFilterPipes,
   achievementToasts,
+  socialDock,
+  discordButton,
+  donateButton,
+  discordPopover,
+  donatePopover,
   themeLauncher,
   themeOverlay,
   themeOverlayClose,
@@ -485,6 +491,14 @@ musicSlider?.addEventListener("input", volumeChangeHandler);
 sfxSlider?.addEventListener("input", volumeChangeHandler);
 muteToggle?.addEventListener("change", volumeChangeHandler);
 applySkillSettingsToUI(skillSettings);
+initSocialDock({
+  discordButton,
+  donateButton,
+  discordPopover,
+  donatePopover,
+  dock: socialDock,
+  document
+});
 
 // IMPORTANT: actions are NOT applied immediately.
 // They are enqueued and applied at the next simulation tick boundary.
