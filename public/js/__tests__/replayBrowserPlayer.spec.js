@@ -39,10 +39,29 @@ describe("replayBrowserPlayer", () => {
     controller.loadRun(baseRun());
 
     const state = controller.getState();
-    expect(game.setStateMenu).toHaveBeenCalled();
     expect(game.startRun).toHaveBeenCalled();
+    expect(game.setStateMenu).not.toHaveBeenCalled();
     expect(state.total).toBe(2);
     expect(state.index).toBe(0);
+  });
+
+  it("falls back to menu state resets when startRun is unavailable", () => {
+    const game = {
+      state: 0,
+      input: null,
+      setStateMenu: vi.fn(() => {
+        game.state = 0;
+      }),
+      update: vi.fn(),
+      render: vi.fn(),
+      handleAction: vi.fn()
+    };
+    const controller = createReplayPlaybackController({ game, simDt: 1 });
+
+    controller.loadRun(baseRun());
+
+    expect(game.setStateMenu).toHaveBeenCalled();
+    expect(controller.getState().total).toBe(2);
   });
 
   it("refuses to play when no run is loaded", () => {

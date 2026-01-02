@@ -55,8 +55,11 @@ export function createReplayPlaybackController({
   };
 
   const resetGameForRun = () => {
-    if (game?.setStateMenu) game.setStateMenu();
-    if (game?.startRun) game.startRun();
+    if (game?.startRun) {
+      game.startRun();
+    } else if (game?.setStateMenu) {
+      game.setStateMenu();
+    }
     if (game) game.input = replayInput;
     if (game?.render) game.render();
   };
