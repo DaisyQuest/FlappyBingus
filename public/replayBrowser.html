@@ -1,0 +1,92 @@
+<!-- ===========================
+     FILE: public/replayBrowser.html
+     =========================== -->
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/styles/flappybingus.css">
+  <title>Replay Browser</title>
+</head>
+<body>
+  <div id="wrap">
+    <canvas id="replayCanvas"></canvas>
+    <div class="screen replay-browser-screen" data-replay-browser>
+      <section class="panel replay-browser-panel">
+        <header class="replay-browser-header">
+          <div>
+            <p class="replay-browser-kicker">Best Runs</p>
+            <h1 class="replay-browser-title">Replay Browser</h1>
+            <p class="replay-browser-subtitle">Browse saved personal-best runs and replay them instantly.</p>
+          </div>
+          <div class="replay-browser-actions">
+            <button class="btn ghost" id="replayRefresh" type="button">Refresh</button>
+            <a class="btn ghost" href="/">Back to Game</a>
+          </div>
+        </header>
+        <div class="replay-browser-content">
+          <aside class="replay-browser-sidebar">
+            <div class="replay-browser-filters">
+              <label class="replay-filter">
+                <span>Search player</span>
+                <input id="replayFilterInput" type="text" placeholder="Type a username" autocomplete="off"/>
+              </label>
+              <div class="replay-filter-row">
+                <label class="replay-filter">
+                  <span>Minimum score</span>
+                  <input id="replayMinScore" type="number" min="0" step="10" placeholder="0"/>
+                </label>
+                <label class="replay-filter">
+                  <span>Minimum duration (s)</span>
+                  <input id="replayMinDuration" type="number" min="0" step="5" placeholder="0"/>
+                </label>
+              </div>
+              <label class="replay-filter">
+                <span>Sort by</span>
+                <select id="replaySort">
+                  <option value="score">Best score</option>
+                  <option value="recent">Most recent</option>
+                  <option value="duration">Longest run</option>
+                </select>
+              </label>
+              <button class="btn soft" id="replayClearFilters" type="button">Clear filters</button>
+            </div>
+            <div class="replay-browser-count" id="replayCount">Loading replays…</div>
+            <div class="replay-browser-list" id="replayList"></div>
+          </aside>
+          <section class="replay-browser-player">
+            <div class="replay-browser-status" id="replayStatus">Select a replay to begin.</div>
+            <div class="replay-browser-details" id="replayDetails"></div>
+            <div class="replay-browser-controls">
+              <button class="btn" id="replayPlay" type="button" disabled>Play</button>
+              <button class="btn ghost" id="replayPause" type="button" disabled>Pause</button>
+              <button class="btn ghost" id="replayRestart" type="button" disabled>Restart</button>
+              <button class="btn ghost" id="replayStep" type="button" disabled>Step</button>
+              <label class="replay-speed">
+                <span>Speed</span>
+                <select id="replaySpeed" disabled>
+                  <option value="0.5">0.5x</option>
+                  <option value="1" selected>1x</option>
+                  <option value="1.5">1.5x</option>
+                  <option value="2">2x</option>
+                </select>
+              </label>
+            </div>
+            <div class="replay-browser-progress">
+              <div class="replay-progress-bar">
+                <div class="replay-progress-fill" id="replayProgressFill"></div>
+              </div>
+              <div class="replay-progress-meta" id="replayProgressMeta">0 / 0 ticks</div>
+            </div>
+          </section>
+        </div>
+      </section>
+    </div>
+  </div>
+  <script type="module" src="/js/replayBrowser.js"></script>
+</body>
+</html>
