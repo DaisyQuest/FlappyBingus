@@ -575,6 +575,11 @@ function createPerformanceCard(doc, refs) {
       id: "simpleParticlesToggle",
       label: "Simple particles",
       hint: "Cuts back on trail and burst particles."
+    }),
+    makeToggleRow({
+      id: "reducedEffectsToggle",
+      label: "Reduced effects",
+      hint: "Slims down particle styles and disables trail glints for weaker hardware."
     })
   );
 

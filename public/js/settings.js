@@ -55,7 +55,8 @@ export const DEFAULT_SKILL_SETTINGS = Object.freeze({
   textStyleCustom: DEFAULT_TEXT_STYLE_CUSTOM,
   simpleBackground: false,
   simpleTextures: false,
-  simpleParticles: false
+  simpleParticles: false,
+  reducedEffects: false
 });
 
 export const SKILL_BEHAVIOR_OPTIONS = Object.freeze({
@@ -71,7 +72,7 @@ function normalizeValue(name, value) {
   return choices.includes(value) ? value : DEFAULT_SKILL_SETTINGS[name];
 }
 
-const SIMPLE_SETTING_KEYS = new Set(["simpleBackground", "simpleTextures", "simpleParticles"]);
+const SIMPLE_SETTING_KEYS = new Set(["simpleBackground", "simpleTextures", "simpleParticles", "reducedEffects"]);
 
 const LEGACY_TEXT_STYLE_MAP = Object.freeze({
   none: "basic",

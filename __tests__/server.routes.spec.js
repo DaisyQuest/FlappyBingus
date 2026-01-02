@@ -38,7 +38,11 @@ const baseUser = () => ({
       useGradient: false,
       gradientStart: "#fff3a6",
       gradientEnd: "#7ce9ff"
-    }
+    },
+    simpleBackground: false,
+    simpleTextures: false,
+    simpleParticles: false,
+    reducedEffects: false
   },
   runs: 3,
   totalScore: 5000,
@@ -578,7 +582,11 @@ describe("server routes and helpers", () => {
             useGradient: false,
             gradientStart: "#fff3a6",
             gradientEnd: "#7ce9ff"
-          }
+          },
+          simpleBackground: true,
+          simpleTextures: false,
+          simpleParticles: true,
+          reducedEffects: false
         }
       }))
     });
@@ -615,7 +623,11 @@ describe("server routes and helpers", () => {
         useGradient: false,
         gradientStart: "#fff3a6",
         gradientEnd: "#7ce9ff"
-      }
+      },
+      simpleBackground: true,
+      simpleTextures: false,
+      simpleParticles: true,
+      reducedEffects: false
     });
     expect(readJson(res).icons?.length).toBeGreaterThan(0);
     expect(readJson(res).pipeTextures?.length).toBeGreaterThan(0);
@@ -988,7 +1000,11 @@ describe("server routes and helpers", () => {
               useGradient: false,
               gradientStart: "#fff3a6",
               gradientEnd: "#7ce9ff"
-            }
+            },
+            simpleBackground: true,
+            simpleTextures: false,
+            simpleParticles: true,
+            reducedEffects: false
           }
         }),
         headers: { cookie: buildSessionCookie(server, "PlayerOne") }
@@ -1022,7 +1038,11 @@ describe("server routes and helpers", () => {
         useGradient: false,
         gradientStart: "#fff3a6",
         gradientEnd: "#7ce9ff"
-      }
+      },
+      simpleBackground: true,
+      simpleTextures: false,
+      simpleParticles: true,
+      reducedEffects: false
     });
     expect(readJson(valid).user.settings).toEqual({
       dashBehavior: "destroy",
@@ -1049,7 +1069,11 @@ describe("server routes and helpers", () => {
         useGradient: false,
         gradientStart: "#fff3a6",
         gradientEnd: "#7ce9ff"
-      }
+      },
+      simpleBackground: true,
+      simpleTextures: false,
+      simpleParticles: true,
+      reducedEffects: false
     });
   });
 

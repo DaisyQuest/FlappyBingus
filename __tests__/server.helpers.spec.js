@@ -80,7 +80,11 @@ describe("server helpers (trails)", () => {
         useGradient: false,
         gradientStart: "#fff3a6",
         gradientEnd: "#7ce9ff"
-      }
+      },
+      simpleBackground: false,
+      simpleTextures: false,
+      simpleParticles: false,
+      reducedEffects: false
     });
   });
 
@@ -214,7 +218,11 @@ describe("server helpers (trails)", () => {
         useGradient: false,
         gradientStart: "#fff3a6",
         gradientEnd: "#7ce9ff"
-      }
+      },
+      simpleBackground: false,
+      simpleTextures: false,
+      simpleParticles: false,
+      reducedEffects: false
     });
     expect(u.runs).toBe(0);
     expect(u.totalScore).toBe(0);

@@ -260,6 +260,7 @@ const {
   simpleBackgroundToggle,
   simpleTexturesToggle,
   simpleParticlesToggle,
+  reducedEffectsToggle,
   hsWrap,
   pbText,
   trailText,
@@ -1599,6 +1600,7 @@ function applySkillSettingsToUI(settings = skillSettings) {
   if (simpleBackgroundToggle) simpleBackgroundToggle.checked = normalized.simpleBackground;
   if (simpleTexturesToggle) simpleTexturesToggle.checked = normalized.simpleTextures;
   if (simpleParticlesToggle) simpleParticlesToggle.checked = normalized.simpleParticles;
+  if (reducedEffectsToggle) reducedEffectsToggle.checked = normalized.reducedEffects;
 }
 
 async function updateSkillSettings(next, { persist = true } = {}) {
@@ -1919,6 +1921,9 @@ simpleTexturesToggle?.addEventListener("change", () => {
 });
 simpleParticlesToggle?.addEventListener("change", () => {
   updateSkillSettings({ ...skillSettings, simpleParticles: simpleParticlesToggle.checked });
+});
+reducedEffectsToggle?.addEventListener("change", () => {
+  updateSkillSettings({ ...skillSettings, reducedEffects: reducedEffectsToggle.checked });
 });
 
 overStatsToggle?.addEventListener("click", () => {
