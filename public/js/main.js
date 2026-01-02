@@ -499,6 +499,47 @@ menuParallaxControl = createMenuParallaxController({
   layers: ui.menuParallaxLayers || []
 });
 
+function resolveActiveCosmetics() {
+  return {
+    trailId: net.user?.selectedTrail || currentTrailId || "classic",
+    iconId: net.user?.selectedIcon || currentIconId || DEFAULT_PLAYER_ICON_ID,
+    pipeTextureId: net.user?.selectedPipeTexture || currentPipeTextureId || DEFAULT_PIPE_TEXTURE_ID,
+    pipeTextureMode: net.user?.pipeTextureMode || currentPipeTextureMode || DEFAULT_PIPE_TEXTURE_MODE
+  };
+}
+
+function applyReplayCosmetics(cosmetics) {
+  const fallback = resolveActiveCosmetics();
+  const resolved = {
+    trailId: typeof cosmetics?.trailId === "string" && cosmetics.trailId.trim()
+      ? cosmetics.trailId.trim()
+      : fallback.trailId,
+    iconId: typeof cosmetics?.iconId === "string" && cosmetics.iconId.trim()
+      ? cosmetics.iconId.trim()
+      : fallback.iconId,
+    pipeTextureId: typeof cosmetics?.pipeTextureId === "string" && cosmetics.pipeTextureId.trim()
+      ? cosmetics.pipeTextureId.trim()
+      : fallback.pipeTextureId,
+    pipeTextureMode: normalizePipeTextureMode(cosmetics?.pipeTextureMode || fallback.pipeTextureMode)
+  };
+
+  const prevGetTrailId = game.getTrailId;
+  const prevGetPipeTexture = game.getPipeTexture;
+  const prevPlayerImg = game.playerImg;
+
+  game.getTrailId = () => resolved.trailId;
+  game.getPipeTexture = () => ({ id: resolved.pipeTextureId, mode: resolved.pipeTextureMode });
+
+  const icon = playerIcons.find((entry) => entry.id === resolved.iconId) || playerIcons[0];
+  if (icon) game.setPlayerImage(getCachedIconSprite(icon));
+
+  return () => {
+    game.getTrailId = prevGetTrailId;
+    game.getPipeTexture = prevGetPipeTexture;
+    game.setPlayerImage(prevPlayerImg);
+  };
+}
+
 // ---- Input + Game ----
 const ctx = canvas.getContext("2d", { alpha: false });
 
@@ -681,7 +722,8 @@ replayManager = createReplayManager({
     replayStatus.className = payload.className || "hint";
     replayStatus.textContent = payload.text || "";
   },
-  step: driver ? (dt, actions) => driver.step(dt, actions) : null
+  step: driver ? (dt, actions) => driver.step(dt, actions) : null,
+  applyCosmetics: applyReplayCosmetics
 });
 
 window.addEventListener("resize", () => {
@@ -2034,7 +2076,10 @@ async function startGame({ mode = "new" } = {}) {
   writeSeed(seed);
 
   // reset replay recording (tick-based) + RNG tape
-  replayManager?.startRecording(seed);
+  const activeRun = replayManager?.startRecording(seed);
+  if (activeRun) {
+    activeRun.cosmetics = resolveActiveCosmetics();
+  }
   if (exportGifBtn) exportGifBtn.disabled = true;
   if (exportMp4Btn) exportMp4Btn.disabled = true;
 

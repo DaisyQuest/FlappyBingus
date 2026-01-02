@@ -45,6 +45,23 @@ describe("replayBrowserPlayer", () => {
     expect(state.index).toBe(0);
   });
 
+  it("applies cosmetics when loading replay runs", () => {
+    const game = makeGame();
+    const restore = vi.fn();
+    const applyCosmetics = vi.fn(() => restore);
+    const controller = createReplayPlaybackController({ game, simDt: 1, applyCosmetics });
+    const run = { ...baseRun(), cosmetics: { trailId: "ember" } };
+
+    controller.loadRun(run);
+
+    expect(applyCosmetics).toHaveBeenCalledWith(run.cosmetics);
+
+    controller.loadRun(baseRun());
+
+    expect(restore).toHaveBeenCalled();
+    expect(applyCosmetics).toHaveBeenCalledWith(undefined);
+  });
+
   it("falls back to menu state resets when startRun is unavailable", () => {
     const game = {
       state: 0,

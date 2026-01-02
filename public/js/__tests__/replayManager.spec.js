@@ -228,6 +228,31 @@ describe("replayManager", () => {
     expect(over.classList.remove).not.toHaveBeenCalledWith("hidden");
   });
 
+  it("applies and restores cosmetics during replay playback", async () => {
+    const game = { input: { name: "real" }, startRun: vi.fn() };
+    const playbackTicksDeterministic = vi.fn(async () => {});
+    const restore = vi.fn();
+    const applyCosmetics = vi.fn(() => restore);
+    const run = {
+      seed: "seed",
+      ended: true,
+      ticks: [{ move: { dx: 1, dy: 1 }, cursor: { x: 0, y: 0 } }],
+      rngTape: [],
+      cosmetics: { trailId: "ember" }
+    };
+
+    const manager = createReplayManager({
+      game,
+      applyCosmetics,
+      playbackTicksDeterministic
+    });
+
+    await manager.play({ captureMode: "none", run, playbackMode: "deterministic" });
+
+    expect(applyCosmetics).toHaveBeenCalledWith(run.cosmetics);
+    expect(restore).toHaveBeenCalled();
+  });
+
   it("captures a replay when capture mode is enabled", async () => {
     const game = { input: { name: "real" }, startRun: vi.fn() };
     const canvas = { captureStream: vi.fn(() => ({ stream: true })) };

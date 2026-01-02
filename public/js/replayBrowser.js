@@ -1,6 +1,7 @@
 import { loadConfig } from "./config.js";
 import { Game } from "./game.js";
 import { DEFAULT_PLAYER_ICON_ID, DEFAULT_PLAYER_ICONS } from "./playerIcons.js";
+import { DEFAULT_PIPE_TEXTURE_ID, DEFAULT_PIPE_TEXTURE_MODE, normalizePipeTextureMode } from "./pipeTextures.js";
 import { getCachedIconSprite } from "./swatchPainter.js";
 import { createReplayPlaybackController } from "./replayBrowserPlayer.js";
 import { createSeededRand, createTapeRandPlayer, setRandSource } from "./util.js";
@@ -143,6 +144,12 @@ export async function initReplayBrowser(root = document.querySelector("[data-rep
   const ctx = canvas?.getContext("2d");
   const icon = DEFAULT_PLAYER_ICONS.find((entry) => entry.id === DEFAULT_PLAYER_ICON_ID) || DEFAULT_PLAYER_ICONS[0];
   const playerImg = getCachedIconSprite(icon);
+  const defaultCosmetics = {
+    trailId: "classic",
+    iconId: icon.id,
+    pipeTextureId: DEFAULT_PIPE_TEXTURE_ID,
+    pipeTextureMode: DEFAULT_PIPE_TEXTURE_MODE
+  };
 
   const game = new Game({
     canvas,
@@ -158,8 +165,39 @@ export async function initReplayBrowser(root = document.querySelector("[data-rep
   game.resizeToWindow();
   game.setStateMenu();
 
+  const applyReplayCosmetics = (cosmetics) => {
+    const resolved = {
+      trailId: typeof cosmetics?.trailId === "string" && cosmetics.trailId.trim()
+        ? cosmetics.trailId.trim()
+        : defaultCosmetics.trailId,
+      iconId: typeof cosmetics?.iconId === "string" && cosmetics.iconId.trim()
+        ? cosmetics.iconId.trim()
+        : defaultCosmetics.iconId,
+      pipeTextureId: typeof cosmetics?.pipeTextureId === "string" && cosmetics.pipeTextureId.trim()
+        ? cosmetics.pipeTextureId.trim()
+        : defaultCosmetics.pipeTextureId,
+      pipeTextureMode: normalizePipeTextureMode(cosmetics?.pipeTextureMode || defaultCosmetics.pipeTextureMode)
+    };
+
+    const prevGetTrailId = game.getTrailId;
+    const prevGetPipeTexture = game.getPipeTexture;
+    const prevPlayerImg = game.playerImg;
+    game.getTrailId = () => resolved.trailId;
+    game.getPipeTexture = () => ({ id: resolved.pipeTextureId, mode: resolved.pipeTextureMode });
+
+    const nextIcon = DEFAULT_PLAYER_ICONS.find((entry) => entry.id === resolved.iconId) || icon;
+    game.setPlayerImage(getCachedIconSprite(nextIcon));
+
+    return () => {
+      game.getTrailId = prevGetTrailId;
+      game.getPipeTexture = prevGetPipeTexture;
+      game.setPlayerImage(prevPlayerImg);
+    };
+  };
+
   const controller = createReplayPlaybackController({
     game,
+    applyCosmetics: applyReplayCosmetics,
     onProgress: ({ index, total, playing, speed }) => {
       if (progressFill) {
         const pct = total > 0 ? Math.round((index / total) * 100) : 0;

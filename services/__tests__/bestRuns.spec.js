@@ -232,6 +232,24 @@ describe("normalizeBestRunRequest", () => {
     expect(hydrated.durationMs).toBeGreaterThan(0);
   });
 
+  it("hydrates cosmetics embedded in replay JSON", () => {
+    const body = {
+      ...baseBody,
+      replay: {
+        ...baseBody.replay,
+        cosmetics: { trailId: "ember", iconId: "lemon", pipeTextureId: "basic", pipeTextureMode: "NORMAL" }
+      }
+    };
+    const payload = normalizeBestRunRequest(body, { bestScore: 0, validateRunStats: okRunStats }).payload;
+    const hydrated = hydrateReplayFromJson(payload);
+    expect(hydrated.cosmetics).toEqual({
+      trailId: "ember",
+      iconId: "lemon",
+      pipeTextureId: "basic",
+      pipeTextureMode: "NORMAL"
+    });
+  });
+
   it("returns null for malformed replay blobs", () => {
     expect(hydrateReplayFromJson(null)).toBeNull();
     expect(hydrateReplayFromJson({ replayJson: "{" })).toBeNull();

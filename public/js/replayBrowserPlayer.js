@@ -31,7 +31,8 @@ export function createReplayPlaybackController({
   simDt = SIM_DT,
   step = null,
   requestFrame,
-  onProgress
+  onProgress,
+  applyCosmetics
 } = {}) {
   let run = null;
   let replayInput = createReplayInput();
@@ -40,6 +41,7 @@ export function createReplayPlaybackController({
   let tickIndex = 0;
   let acc = 0;
   let lastTs = null;
+  let restoreCosmetics = null;
   const raf = resolveRequestFrame(requestFrame);
 
   const totalTicks = () => (Array.isArray(run?.ticks) ? run.ticks.length : 0);
@@ -70,11 +72,22 @@ export function createReplayPlaybackController({
     lastTs = null;
   };
 
+  const applyRunCosmetics = (nextRun) => {
+    if (typeof restoreCosmetics === "function") {
+      restoreCosmetics();
+      restoreCosmetics = null;
+    }
+    if (typeof applyCosmetics === "function") {
+      restoreCosmetics = applyCosmetics(nextRun?.cosmetics) || null;
+    }
+  };
+
   const loadRun = (nextRun) => {
     run = nextRun;
     replayInput = createReplayInput();
     playing = false;
     resetCounters();
+    applyRunCosmetics(run);
     if (run) resetGameForRun();
     notifyProgress();
   };
