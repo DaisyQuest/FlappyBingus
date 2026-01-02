@@ -66,6 +66,26 @@ function createRes() {
   };
 }
 
+function createBinaryRes() {
+  return {
+    status: null,
+    headers: {},
+    body: Buffer.alloc(0),
+    writeHead(status, headers) {
+      this.status = status;
+      this.headers = { ...this.headers, ...headers };
+    },
+    setHeader(name, value) {
+      this.headers[name] = value;
+    },
+    end(chunk) {
+      if (chunk === undefined || chunk === null) return;
+      const buffer = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
+      this.body = Buffer.concat([this.body, buffer]);
+    }
+  };
+}
+
 function createReq({ method = "GET", url = "/", body, headers = {}, socket } = {}) {
   const data = body === undefined ? null : Buffer.from(body);
   return {
@@ -262,6 +282,45 @@ describe("server routes and helpers", () => {
     expect(res.status).toBe(200);
     expect(res.headers["Content-Type"]).toContain("text/html");
     expect(res.body).toContain("<title>Replay Browser</title>");
+  });
+
+  it("serves a player card JPEG for a valid username", async () => {
+    const { server } = await importServer({
+      getBestRunByUsername: vi.fn(async () => ({
+        username: "PlayerOne",
+        bestScore: 1234,
+        recordedAt: Date.UTC(2024, 0, 2, 3, 4),
+        durationMs: 60_000,
+        ticksLength: 120,
+        replayBytes: 2048,
+        runStats: { orbsCollected: 2, perfects: 1, pipesDodged: 10, abilitiesUsed: 3 }
+      }))
+    });
+    const res = createBinaryRes();
+
+    await server.route(createReq({ method: "GET", url: "/playerCard?user=PlayerOne" }), res);
+
+    expect(res.status).toBe(200);
+    expect(res.headers["Content-Type"]).toBe("image/jpeg");
+    expect(res.body.length).toBeGreaterThan(1000);
+    expect(res.body[0]).toBe(0xff);
+    expect(res.body[1]).toBe(0xd8);
+  });
+
+  it("returns errors for invalid or missing player cards", async () => {
+    const { server } = await importServer({
+      getBestRunByUsername: vi.fn(async () => null)
+    });
+
+    const invalid = createRes();
+    await server.route(createReq({ method: "GET", url: "/playerCard?user=x" }), invalid);
+    expect(invalid.status).toBe(400);
+    expect(readJson(invalid).error).toBe("invalid_username");
+
+    const missing = createRes();
+    await server.route(createReq({ method: "GET", url: "/playerCard?user=PlayerOne" }), missing);
+    expect(missing.status).toBe(404);
+    expect(readJson(missing).error).toBe("best_run_not_found");
   });
 
   it("accepts bearer session tokens when cookies are unavailable", async () => {

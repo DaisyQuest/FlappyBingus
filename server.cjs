@@ -58,6 +58,7 @@ const {
   getCurrencyBalance,
   debitCurrency
 } = require("./services/currency.cjs");
+const { renderPlayerCardJpeg } = require("./services/playerCard.cjs");
 
 // --------- Config (env overrides) ----------
 const PORT = Number(process.env.PORT || 3000);
@@ -1441,6 +1442,43 @@ async function route(req, res) {
       generatedAt: new Date().toISOString(),
       replays
     });
+    return;
+  }
+
+  // Render a player card JPEG from replay details
+  if (pathname === "/playerCard" && req.method === "GET") {
+    if (rateLimit(req, res, "/playerCard")) return;
+    if (!(await ensureDatabase(res))) return;
+    const username = normalizeUsername(url.searchParams.get("user"));
+    if (!username) return badRequest(res, "invalid_username");
+    const stored = await dataStore.getBestRunByUsername(username);
+    if (!stored) {
+      sendJson(res, 404, { ok: false, error: "best_run_not_found" });
+      return;
+    }
+    try {
+      const entry = {
+        username: stored.username || username,
+        bestScore: Number(stored.bestScore) || 0,
+        recordedAt: Number(stored.recordedAt) || 0,
+        durationMs: Number(stored.durationMs) || 0,
+        ticksLength: Number(stored.ticksLength) || 0,
+        replayBytes: Number(stored.replayBytes) || 0
+      };
+      const jpegBuffer = renderPlayerCardJpeg({ entry, run: { runStats: stored.runStats || null } });
+      send(
+        res,
+        200,
+        {
+          "Content-Type": "image/jpeg",
+          "Cache-Control": "no-store"
+        },
+        jpegBuffer
+      );
+    } catch (err) {
+      console.error("[bingus] playerCard render failed:", err);
+      sendJson(res, 500, { ok: false, error: "player_card_failed" });
+    }
     return;
   }
 
