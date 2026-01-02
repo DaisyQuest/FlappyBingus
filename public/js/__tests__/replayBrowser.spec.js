@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
-import { filterReplays, sortReplays, formatReplayMeta, __testables } from "../replayBrowser.js";
+import { filterReplays, sortReplays } from "../replayBrowser.js";
+import { formatReplayMeta, __testables as replayDetailsTestables } from "../replayDetails.js";
 
 const sample = [
   { username: "alpha", bestScore: 100, recordedAt: 10, durationMs: 9000, ticksLength: 9, replayBytes: 1200 },
@@ -29,9 +30,9 @@ describe("replayBrowser helpers", () => {
   });
 
   it("formats bytes and dates gracefully", () => {
-    expect(__testables.formatBytes(0)).toBe("0 B");
-    expect(__testables.formatBytes(512)).toBe("512 B");
-    expect(__testables.formatBytes(2048)).toBe("2.0 KB");
-    expect(__testables.formatDate(Number.NaN)).toBe("—");
+    expect(replayDetailsTestables.formatBytes(0)).toBe("0 B");
+    expect(replayDetailsTestables.formatBytes(512)).toBe("512 B");
+    expect(replayDetailsTestables.formatBytes(2048)).toBe("2.0 KB");
+    expect(replayDetailsTestables.formatDate(Number.NaN)).toBe("—");
   });
 });

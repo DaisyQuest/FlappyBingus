@@ -1296,6 +1296,45 @@ function createReplayModal(doc, refs) {
   return overlay;
 }
 
+function createHighscoreDetailsModal(doc, refs) {
+  const overlay = createElement(doc, refs, "div", {
+    id: "highscoreDetailsModal",
+    className: "replay-modal modal-layer hidden details-modal",
+    attrs: { role: "dialog", "aria-modal": "true", "aria-labelledby": "highscoreDetailsTitle", "aria-hidden": "true" }
+  });
+
+  const panel = doc.createElement("div");
+  panel.className = "replay-modal-panel details-modal-panel";
+
+  const header = doc.createElement("div");
+  header.className = "replay-modal-header";
+
+  const title = createElement(doc, refs, "div", {
+    id: "highscoreDetailsTitle",
+    className: "section-title",
+    text: "Best Run Details"
+  });
+
+  const close = createElement(doc, refs, "button", {
+    id: "highscoreDetailsClose",
+    className: "replay-modal-close",
+    attrs: { type: "button" },
+    text: "Close"
+  });
+
+  header.append(title, close);
+
+  const body = createElement(doc, refs, "div", {
+    id: "highscoreDetailsBody",
+    className: "replay-detail-body",
+    text: "Select a leaderboard entry to view details."
+  });
+
+  panel.append(header, body);
+  overlay.append(panel);
+  return overlay;
+}
+
 function createAchievementsCard(doc, refs) {
   const card = doc.createElement("div");
   card.className = "info-card achievements-card";
@@ -1663,6 +1702,7 @@ function createMenuScreen(doc, refs) {
     panel,
     createShopOverlay(doc, refs),
     createPurchaseModal(doc, refs),
+    createHighscoreDetailsModal(doc, refs),
     createReplayModal(doc, refs)
   );
   return screen;
