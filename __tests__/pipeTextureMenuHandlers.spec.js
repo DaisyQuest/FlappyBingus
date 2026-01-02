@@ -24,6 +24,7 @@ describe("pipe texture menu handlers", () => {
   it("skips mode changes when the mode is unchanged", async () => {
     const document = buildDom();
     const button = document.querySelector("button[data-pipe-texture-mode='classic']");
+    const triggerUserSave = vi.fn();
 
     const { handlers } = createPipeTextureMenuHandlers({
       elements: {
@@ -50,7 +51,7 @@ describe("pipe texture menu handlers", () => {
       openPurchaseModal: vi.fn(),
       applyPipeTextureSelection: vi.fn(),
       shouldTriggerSelectionSave: vi.fn(),
-      triggerUserSave: vi.fn(),
+      triggerUserSave,
       ensureLoggedInForSave: vi.fn(),
       apiSetPipeTexture: vi.fn(),
       getAuthStatusFromResponse: vi.fn(),
@@ -67,6 +68,7 @@ describe("pipe texture menu handlers", () => {
 
     await handlers.handleModeClick({ target: button });
 
+    expect(triggerUserSave).not.toHaveBeenCalled();
     expect(handlers.handleModeClick).toBeDefined();
   });
 
@@ -76,6 +78,8 @@ describe("pipe texture menu handlers", () => {
     const net = { pipeTextures: [{ id: "spark" }], user: { bestScore: 0 }, online: true };
     const setCurrentPipeTextureMode = vi.fn();
     const setUserHint = vi.fn();
+    const shouldTriggerSelectionSave = vi.fn().mockReturnValue(true);
+    const triggerUserSave = vi.fn();
 
     const { handlers } = createPipeTextureMenuHandlers({
       elements: {
@@ -101,8 +105,8 @@ describe("pipe texture menu handlers", () => {
       computeUnlockedPipeTextureSet: vi.fn().mockReturnValue(new Set(["spark"])),
       openPurchaseModal: vi.fn(),
       applyPipeTextureSelection: vi.fn(),
-      shouldTriggerSelectionSave: vi.fn(),
-      triggerUserSave: vi.fn(),
+      shouldTriggerSelectionSave,
+      triggerUserSave,
       ensureLoggedInForSave: vi.fn(),
       apiSetPipeTexture: vi.fn().mockResolvedValue({ ok: false, error: "pipe_texture_locked" }),
       getAuthStatusFromResponse: vi.fn().mockReturnValue({ online: false, unauthorized: false }),
@@ -119,10 +123,67 @@ describe("pipe texture menu handlers", () => {
 
     await handlers.handleModeClick({ target: button });
 
+    expect(shouldTriggerSelectionSave).toHaveBeenCalledWith({ previousId: "classic", nextId: "alt" });
+    expect(triggerUserSave).toHaveBeenCalled();
     expect(setCurrentPipeTextureMode).toHaveBeenCalledWith("alt");
     expect(setUserHint).toHaveBeenCalled();
     expect(document.getElementById("hint").className).toBe("hint bad");
     expect(document.getElementById("hint").textContent).toBe("That mode is locked with this texture.");
+  });
+
+  it("does not trigger save button when mode changes are not eligible", async () => {
+    const document = buildDom();
+    const button = document.querySelector("button[data-pipe-texture-mode='alt']");
+    const net = { pipeTextures: [{ id: "spark" }], user: { bestScore: 0 }, online: true };
+    const triggerUserSave = vi.fn();
+
+    const { handlers } = createPipeTextureMenuHandlers({
+      elements: {
+        pipeTextureLauncher: document.getElementById("launcher"),
+        pipeTextureOverlay: document.getElementById("overlay"),
+        pipeTextureOptions: document.getElementById("options"),
+        pipeTextureModeOptions: document.getElementById("mode-options"),
+        pipeTextureHint: document.getElementById("hint")
+      },
+      getNet: () => net,
+      getCurrentPipeTextureId: () => "spark",
+      setCurrentPipeTextureId: vi.fn(),
+      getCurrentPipeTextureMode: () => "classic",
+      setCurrentPipeTextureMode: vi.fn(),
+      refreshPipeTextureMenu: vi.fn(),
+      togglePipeTextureMenu: vi.fn(),
+      shouldClosePipeTextureMenu: vi.fn(),
+      normalizePipeTextureMode: vi.fn().mockReturnValue("alt"),
+      writePipeTextureModeCookie: vi.fn(),
+      renderPipeTextureModeButtons: vi.fn(),
+      syncPipeTextureSwatch: vi.fn(),
+      renderPipeTextureMenuOptions: vi.fn(),
+      computeUnlockedPipeTextureSet: vi.fn().mockReturnValue(new Set(["spark"])),
+      openPurchaseModal: vi.fn(),
+      applyPipeTextureSelection: vi.fn(),
+      shouldTriggerSelectionSave: vi.fn().mockReturnValue(false),
+      triggerUserSave,
+      ensureLoggedInForSave: vi.fn(),
+      apiSetPipeTexture: vi.fn().mockResolvedValue({
+        ok: true,
+        user: { pipeTextureMode: "alt" },
+        pipeTextures: []
+      }),
+      getAuthStatusFromResponse: vi.fn(),
+      recoverSession: vi.fn(),
+      setUserHint: vi.fn(),
+      setNetUser: vi.fn(),
+      syncPipeTextureCatalog: vi.fn(),
+      describePipeTextureLock: vi.fn(),
+      pipeTextureHoverText: vi.fn(),
+      DEFAULT_PIPE_TEXTURE_HINT: "Pick a texture",
+      DEFAULT_CURRENCY_ID: "coin",
+      UNLOCKABLE_TYPES: { pipeTexture: "pipeTexture" }
+    });
+
+    await handlers.handleModeClick({ target: button });
+
+    expect(triggerUserSave).not.toHaveBeenCalled();
   });
 
   it("confirms mode changes after successful save", async () => {

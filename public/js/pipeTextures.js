@@ -13,7 +13,7 @@ export const PIPE_TEXTURE_MODES = Object.freeze([
 ]);
 
 export const DEFAULT_PIPE_TEXTURE_ID = "basic";
-export const DEFAULT_PIPE_TEXTURE_MODE = "NORMAL";
+export const DEFAULT_PIPE_TEXTURE_MODE = "MINIMAL";
 
 const PIPE_TEXTURE_MODE_SETTINGS = Object.freeze({
   MONOCHROME: { detail: 0, stripeAlpha: 0.06, noiseAlpha: 0.0, glow: 0.08, activity: 0.35, shadowBlur: 6 },
