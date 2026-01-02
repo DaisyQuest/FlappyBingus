@@ -74,6 +74,20 @@ describe("playerCard renderer", () => {
     expect(__testables.getGlyph("$")).toEqual(__testables.getGlyph("?"));
   });
 
+  it("positions the footer url within the panel bounds", () => {
+    const layout = __testables.getFooterLayout(24, 24, 800 - 48, 450 - 48);
+    expect(layout.text).toBe(__testables.FOOTER_TEXT);
+    expect(layout.scale).toBe(__testables.FOOTER_SCALE);
+    expect(layout.x).toBeGreaterThanOrEqual(24 + 32);
+    expect(layout.y).toBeGreaterThanOrEqual(24 + 32);
+  });
+
+  it("clamps the footer url when the text is too wide", () => {
+    const layout = __testables.getFooterLayout(24, 24, 120, 200, "https://flappybing.us/overflows", 2);
+    expect(layout.x).toBe(24 + 32);
+    expect(layout.textWidth).toBeGreaterThan(120 - 64);
+  });
+
   it("renders a JPEG buffer for player cards", () => {
     const buffer = renderPlayerCardJpeg({
       entry: {
