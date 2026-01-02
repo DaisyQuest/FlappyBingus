@@ -512,35 +512,38 @@ function resolveActiveCosmetics() {
   };
 }
 
-function applyReplayCosmetics(cosmetics) {
-  const fallback = resolveActiveCosmetics();
-  const resolved = {
-    trailId: typeof cosmetics?.trailId === "string" && cosmetics.trailId.trim()
-      ? cosmetics.trailId.trim()
-      : fallback.trailId,
-    iconId: typeof cosmetics?.iconId === "string" && cosmetics.iconId.trim()
-      ? cosmetics.iconId.trim()
-      : fallback.iconId,
-    pipeTextureId: typeof cosmetics?.pipeTextureId === "string" && cosmetics.pipeTextureId.trim()
-      ? cosmetics.pipeTextureId.trim()
-      : fallback.pipeTextureId,
-    pipeTextureMode: normalizePipeTextureMode(cosmetics?.pipeTextureMode || fallback.pipeTextureMode)
-  };
+function makeReplayCosmeticsApplier(targetGame) {
+  return function applyReplayCosmetics(cosmetics) {
+    if (!targetGame) return () => {};
+    const fallback = resolveActiveCosmetics();
+    const resolved = {
+      trailId: typeof cosmetics?.trailId === "string" && cosmetics.trailId.trim()
+        ? cosmetics.trailId.trim()
+        : fallback.trailId,
+      iconId: typeof cosmetics?.iconId === "string" && cosmetics.iconId.trim()
+        ? cosmetics.iconId.trim()
+        : fallback.iconId,
+      pipeTextureId: typeof cosmetics?.pipeTextureId === "string" && cosmetics.pipeTextureId.trim()
+        ? cosmetics.pipeTextureId.trim()
+        : fallback.pipeTextureId,
+      pipeTextureMode: normalizePipeTextureMode(cosmetics?.pipeTextureMode || fallback.pipeTextureMode)
+    };
 
-  const prevGetTrailId = game.getTrailId;
-  const prevGetPipeTexture = game.getPipeTexture;
-  const prevPlayerImg = game.playerImg;
+    const prevGetTrailId = targetGame.getTrailId;
+    const prevGetPipeTexture = targetGame.getPipeTexture;
+    const prevPlayerImg = targetGame.playerImg;
 
-  game.getTrailId = () => resolved.trailId;
-  game.getPipeTexture = () => ({ id: resolved.pipeTextureId, mode: resolved.pipeTextureMode });
+    targetGame.getTrailId = () => resolved.trailId;
+    targetGame.getPipeTexture = () => ({ id: resolved.pipeTextureId, mode: resolved.pipeTextureMode });
 
-  const icon = playerIcons.find((entry) => entry.id === resolved.iconId) || playerIcons[0];
-  if (icon) game.setPlayerImage(getCachedIconSprite(icon));
+    const icon = playerIcons.find((entry) => entry.id === resolved.iconId) || playerIcons[0];
+    if (icon) targetGame.setPlayerImage(getCachedIconSprite(icon));
 
-  return () => {
-    game.getTrailId = prevGetTrailId;
-    game.getPipeTexture = prevGetPipeTexture;
-    game.setPlayerImage(prevPlayerImg);
+    return () => {
+      targetGame.getTrailId = prevGetTrailId;
+      targetGame.getPipeTexture = prevGetPipeTexture;
+      targetGame.setPlayerImage(prevPlayerImg);
+    };
   };
 }
 
@@ -667,12 +670,18 @@ const input = new Input(canvas, () => binds, (actionId) => {
 });
 input.install();
 
-let game = new Game({
+const replayIdleInput = {
+  cursor: { x: 0, y: 0, has: false },
+  _move: { dx: 0, dy: 0 },
+  getMove() { return this._move; }
+};
+
+const buildGameInstance = ({ onGameOver, input: gameInput }) => new Game({
   canvas,
   ctx,
   config: null,
   playerImg,
-  input,
+  input: gameInput,
   getTrailId: () => {
     if (net.user?.selectedTrail) return net.user.selectedTrail;
     return currentTrailId || "classic";
@@ -682,9 +691,13 @@ let game = new Game({
     mode: net.user?.pipeTextureMode || currentPipeTextureMode || DEFAULT_PIPE_TEXTURE_MODE
   }),
   getBinds: () => binds,
-  onGameOver: (score) => onGameOver(score)
+  onGameOver
 });
+
+let game = buildGameInstance({ onGameOver: (score) => onGameOver(score), input });
+let replayGame = buildGameInstance({ onGameOver: () => {}, input: replayIdleInput });
 game.setSkillSettings(skillSettings);
+replayGame.setSkillSettings(skillSettings);
 
 let driver = new GameDriver({
   game,
@@ -709,6 +722,7 @@ tutorial = new Tutorial({
 replayManager = createReplayManager({
   canvas,
   game,
+  playbackGame: replayGame,
   input,
   menu,
   over,
@@ -727,16 +741,18 @@ replayManager = createReplayManager({
     replayStatus.textContent = payload.text || "";
   },
   step: driver ? (dt, actions) => driver.step(dt, actions) : null,
-  applyCosmetics: applyReplayCosmetics
+  applyCosmetics: makeReplayCosmeticsApplier(replayGame)
 });
 
 window.addEventListener("resize", () => {
   game.resizeToWindow();
+  replayGame.resizeToWindow();
   trailPreview?.resize();
 });
 // On some browsers, zoom changes fire visualViewport resize without window resize.
 window.visualViewport?.addEventListener("resize", () => {
   game.resizeToWindow();
+  replayGame.resizeToWindow();
   trailPreview?.resize();
 });
 
@@ -1608,6 +1624,7 @@ async function updateSkillSettings(next, { persist = true } = {}) {
   const changed = !skillSettingsEqual(skillSettings, normalized);
   skillSettings = normalized;
   game.setSkillSettings(skillSettings);
+  replayGame.setSkillSettings(skillSettings);
   applySkillSettingsToUI(skillSettings);
   writeSettingsCookie(skillSettings);
 
@@ -2451,6 +2468,7 @@ function frame(ts) {
   boot.cfgSrc = cfgRes.source;
 
   game.cfg = CFG;
+  replayGame.cfg = CFG;
   updateSkillCooldownUI(CFG);
   initThemeEditor({
     refs: {
@@ -2479,11 +2497,21 @@ function frame(ts) {
         wisteria: values.pipeWisteria,
         red: values.pipeRed
       };
+      if (replayGame.cfg?.pipes?.colors) {
+        replayGame.cfg.pipes.colors = {
+          green: values.pipeGreen,
+          blue: values.pipeBlue,
+          wisteria: values.pipeWisteria,
+          red: values.pipeRed
+        };
+      }
     }
   });
 
   game.resizeToWindow();
+  replayGame.resizeToWindow();
   game.setStateMenu();
+  replayGame.setStateMenu();
   renderBindUIWrapper();
 
   await refreshProfileAndHighscores();
