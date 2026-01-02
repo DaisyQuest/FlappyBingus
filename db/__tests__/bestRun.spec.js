@@ -9,6 +9,7 @@ class FakeBestRunsCollection {
     this.lastFind = null;
     this.lastSort = null;
     this.lastLimit = null;
+    this.lastAllowDiskUse = null;
     this.lastFindMany = null;
     this.finds = [];
     this.updateOne = vi.fn(async (query, update) => {
@@ -65,7 +66,11 @@ class FakeBestRunsCollection {
           }
           return 0;
         });
-        return {
+        const cursor = {
+          allowDiskUse: (value) => {
+            this.lastAllowDiskUse = value;
+            return cursor;
+          },
           limit: (lim) => {
             this.lastLimit = lim;
             return {
@@ -73,6 +78,7 @@ class FakeBestRunsCollection {
             };
           }
         };
+        return cursor;
       }
     };
   }
@@ -238,13 +244,13 @@ describe("MongoDataStore.recordBestRun", () => {
 });
 
 describe("MongoDataStore.listBestRuns", () => {
-  it("lists replay metadata sorted by score then recency", async () => {
+  it("lists replay metadata sorted by score", async () => {
     const store = new MongoDataStore({ uri: "mongodb://test", dbName: "db" });
     store.ensureConnected = vi.fn();
     const docs = [
       { username: "alpha", bestScore: 200, recordedAt: 10, durationMs: 1200, ticksLength: 10, rngTapeLength: 2, replayBytes: 500, replayJson: "{}" },
       { username: "bravo", bestScore: 250, recordedAt: 5, durationMs: 900, ticksLength: 9, rngTapeLength: 1, replayBytes: 400, replayJson: "{}" },
-      { username: "charlie", bestScore: 250, recordedAt: 20, durationMs: 1300, ticksLength: 12, rngTapeLength: 3, replayBytes: 600, replayJson: "{}" },
+      { username: "charlie", bestScore: 275, recordedAt: 20, durationMs: 1300, ticksLength: 12, rngTapeLength: 3, replayBytes: 600, replayJson: "{}" },
       { username: "delta", bestScore: 50, recordedAt: 1, durationMs: 300, ticksLength: 3, rngTapeLength: 0, replayBytes: 200, replayJson: "" }
     ];
     const collection = new FakeBestRunsCollection(null, docs);
@@ -255,7 +261,7 @@ describe("MongoDataStore.listBestRuns", () => {
     expect(results).toEqual([
       {
         username: "charlie",
-        bestScore: 250,
+        bestScore: 275,
         recordedAt: 20,
         ticksLength: 12,
         rngTapeLength: 3,
@@ -273,6 +279,7 @@ describe("MongoDataStore.listBestRuns", () => {
       }
     ]);
     expect(collection.lastFindMany?.query).toMatchObject({ replayJson: { $type: "string", $ne: "" } });
+    expect(collection.lastAllowDiskUse).toBe(true);
     expect(collection.lastLimit).toBe(2);
   });
 
@@ -298,6 +305,7 @@ describe("MongoDataStore.listBestRuns", () => {
         replayBytes: 20
       }
     ]);
+    expect(collection.lastAllowDiskUse).toBe(true);
     expect(collection.lastLimit).toBe(1);
   });
 });

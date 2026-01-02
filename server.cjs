@@ -1280,6 +1280,7 @@ async function route(req, res) {
     if (rateLimit(req, res, "/api/me")) return;
     if (!(await ensureDatabase(res))) return;
     const u = await getUserFromReq(req, { withRecordHolder: true, res });
+    if (!u) return unauthorized(res);
     const recordHolder = Boolean(u?.isRecordHolder);
     const catalog = getVisibleCatalog();
     sendJson(res, 200, {

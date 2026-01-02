@@ -474,7 +474,7 @@ class MongoDataStore {
   async listBestRuns(limit = 200) {
     await this.ensureConnected();
     const lim = Math.max(1, Math.min(500, limit | 0 || 200));
-    const docs = await this.bestRunsCollection()
+    const cursor = this.bestRunsCollection()
       .find(
         { replayJson: { $type: "string", $ne: "" } },
         {
@@ -489,9 +489,11 @@ class MongoDataStore {
           }
         }
       )
-      .sort({ bestScore: -1, recordedAt: -1, username: 1 })
-      .limit(lim)
-      .toArray();
+      .sort({ bestScore: -1 });
+    if (typeof cursor.allowDiskUse === "function") {
+      cursor.allowDiskUse(true);
+    }
+    const docs = await cursor.limit(lim).toArray();
     return docs.map((d) => ({
       username: d.username,
       bestScore: Number(d.bestScore) || 0,

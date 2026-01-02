@@ -301,6 +301,16 @@ describe("server routes and helpers", () => {
     expect(cleared).toMatch(/Max-Age=0/);
   });
 
+  it("rejects /api/me when no session is provided", async () => {
+    const { server } = await importServer();
+    const res = createRes();
+
+    await server.route(createReq({ method: "GET", url: "/api/me" }), res);
+
+    expect(res.status).toBe(401);
+    expect(readJson(res).error).toBe("unauthorized");
+  });
+
   it("upgrades legacy username cookies to session cookies", async () => {
     const { server } = await importServer();
     const res = createRes();
