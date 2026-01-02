@@ -9,7 +9,25 @@ function clampInt(n) {
   return Math.floor(num);
 }
 
-export function buildReplayEnvelope(run, { finalScore = 0, runStats = null, recordedAt = Date.now(), tickMs = DEFAULT_TICK_MS } = {}) {
+function normalizeCosmetics(raw) {
+  if (!raw || typeof raw !== "object") return null;
+  const trailId = typeof raw.trailId === "string" ? raw.trailId.trim() : "";
+  const iconId = typeof raw.iconId === "string" ? raw.iconId.trim() : "";
+  const pipeTextureId = typeof raw.pipeTextureId === "string" ? raw.pipeTextureId.trim() : "";
+  const pipeTextureMode = typeof raw.pipeTextureMode === "string" ? raw.pipeTextureMode.trim() : "";
+  const cosmetics = {
+    ...(trailId ? { trailId } : {}),
+    ...(iconId ? { iconId } : {}),
+    ...(pipeTextureId ? { pipeTextureId } : {}),
+    ...(pipeTextureMode ? { pipeTextureMode } : {})
+  };
+  return Object.keys(cosmetics).length ? cosmetics : null;
+}
+
+export function buildReplayEnvelope(
+  run,
+  { finalScore = 0, runStats = null, recordedAt = Date.now(), tickMs = DEFAULT_TICK_MS, cosmetics = null } = {}
+) {
   if (!run || !run.ended || !Array.isArray(run.ticks) || run.ticks.length === 0) return null;
 
   const ticks = run.ticks.map((tk) => ({
@@ -36,8 +54,9 @@ export function buildReplayEnvelope(run, { finalScore = 0, runStats = null, reco
 
   const rngTape = Array.isArray(run.rngTape) ? [...run.rngTape] : [];
   const durationMs = Math.max(0, Math.round(ticks.length * tickMs));
+  const normalizedCosmetics = normalizeCosmetics(run.cosmetics || cosmetics);
 
-  return {
+  const envelope = {
     version: 1,
     score: clampInt(finalScore),
     seed: String(run.seed || ""),
@@ -47,6 +66,8 @@ export function buildReplayEnvelope(run, { finalScore = 0, runStats = null, reco
     rngTape,
     runStats: runStats ? JSON.parse(JSON.stringify(runStats)) : null
   };
+  if (normalizedCosmetics) envelope.cosmetics = normalizedCosmetics;
+  return envelope;
 }
 
 export function serializeReplayEnvelope(envelope) {
@@ -65,8 +86,9 @@ export function hydrateBestRunPayload(run) {
   }
   const ticks = Array.isArray(parsed.ticks) ? parsed.ticks : [];
   if (!ticks.length) return null;
+  const normalizedCosmetics = normalizeCosmetics(parsed.cosmetics || run.cosmetics);
 
-  return {
+  const hydrated = {
     seed: parsed.seed || run.seed || "",
     ticks,
     rngTape: Array.isArray(parsed.rngTape) ? parsed.rngTape : [],
@@ -78,6 +100,8 @@ export function hydrateBestRunPayload(run) {
     recordedAt: run.recordedAt || parsed.recordedAt || Date.now(),
     runStats: run.runStats || parsed.runStats || null
   };
+  if (normalizedCosmetics) hydrated.cosmetics = normalizedCosmetics;
+  return hydrated;
 }
 
 export async function maybeUploadBestRun({
@@ -144,5 +168,6 @@ export async function maybeUploadBestRun({
 }
 
 export const __testables = {
-  MAX_REPLAY_UPLOAD_BYTES
+  MAX_REPLAY_UPLOAD_BYTES,
+  normalizeCosmetics
 };

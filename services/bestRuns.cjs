@@ -11,6 +11,21 @@ function utf8Bytes(str = "") {
   return Buffer.byteLength(String(str), "utf8");
 }
 
+function normalizeCosmetics(raw) {
+  if (!raw || typeof raw !== "object") return null;
+  const trailId = typeof raw.trailId === "string" ? raw.trailId.trim() : "";
+  const iconId = typeof raw.iconId === "string" ? raw.iconId.trim() : "";
+  const pipeTextureId = typeof raw.pipeTextureId === "string" ? raw.pipeTextureId.trim() : "";
+  const pipeTextureMode = typeof raw.pipeTextureMode === "string" ? raw.pipeTextureMode.trim() : "";
+  const cosmetics = {
+    ...(trailId ? { trailId } : {}),
+    ...(iconId ? { iconId } : {}),
+    ...(pipeTextureId ? { pipeTextureId } : {}),
+    ...(pipeTextureMode ? { pipeTextureMode } : {})
+  };
+  return Object.keys(cosmetics).length ? cosmetics : null;
+}
+
 function sanitizeMime(mime) {
   if (typeof mime !== "string" || !mime.trim()) return "application/octet-stream";
   return mime.slice(0, 128);
@@ -127,8 +142,9 @@ function hydrateReplayFromJson(run) {
   const ticks = Array.isArray(parsed?.ticks) ? parsed.ticks : [];
   if (!ticks.length) return null;
   const rngTape = Array.isArray(parsed?.rngTape) ? parsed.rngTape : [];
+  const cosmetics = normalizeCosmetics(parsed?.cosmetics || run.cosmetics);
 
-  return {
+  const hydrated = {
     seed: String(parsed.seed || run.seed || ""),
     ticks,
     rngTape,
@@ -137,6 +153,8 @@ function hydrateReplayFromJson(run) {
     rngTapeLength: rngTape.length,
     ticksLength: ticks.length
   };
+  if (cosmetics) hydrated.cosmetics = cosmetics;
+  return hydrated;
 }
 
 module.exports = {

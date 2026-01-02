@@ -89,7 +89,8 @@ export function createReplayManager({
   requestFrame,
   stopMusic,
   onStatus,
-  step
+  step,
+  applyCosmetics
 } = {}) {
   let activeRun = null;
   let replaying = false;
@@ -166,6 +167,9 @@ export function createReplayManager({
     replaying = true;
     const replayInput = createReplayInput();
     const originalInput = game?.input;
+    const restoreCosmetics = (run?.cosmetics && typeof applyCosmetics === "function")
+      ? applyCosmetics(run.cosmetics)
+      : null;
     let webmBlob = null;
     let recorder = null;
     let recordedChunks = null;
@@ -253,6 +257,9 @@ export function createReplayManager({
         else overClassList.remove("hidden");
       }
       replaying = false;
+      if (typeof restoreCosmetics === "function") {
+        restoreCosmetics();
+      }
     }
 
     if (captureMode === "none") return true;

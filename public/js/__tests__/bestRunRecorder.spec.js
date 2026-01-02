@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { buildReplayEnvelope, hydrateBestRunPayload, maybeUploadBestRun, serializeReplayEnvelope } from "../bestRunRecorder.js";
+import { buildReplayEnvelope, hydrateBestRunPayload, maybeUploadBestRun, serializeReplayEnvelope, __testables } from "../bestRunRecorder.js";
 import { SIM_TICK_MS } from "../simPrecision.js";
 
 const baseRun = () => ({
@@ -26,6 +26,25 @@ describe("buildReplayEnvelope", () => {
     expect(envelope.rngTape).toEqual([0.1, 0.2]);
     expect(envelope.durationMs).toBeGreaterThan(0);
     expect(envelope.runStats).toEqual({ orbsCollected: 2 });
+  });
+
+  it("includes cosmetics data when present on the run", () => {
+    const run = baseRun();
+    run.cosmetics = {
+      trailId: "ember",
+      iconId: "lemon",
+      pipeTextureId: "metal",
+      pipeTextureMode: "HIGH"
+    };
+
+    const envelope = buildReplayEnvelope(run, { finalScore: 12 });
+
+    expect(envelope.cosmetics).toEqual({
+      trailId: "ember",
+      iconId: "lemon",
+      pipeTextureId: "metal",
+      pipeTextureMode: "HIGH"
+    });
   });
 
   it("derives duration from the shared simulation tick precision by default", () => {
@@ -61,8 +80,10 @@ describe("maybeUploadBestRun", () => {
   it("uploads replay JSON and optional media when eligible", async () => {
     const upload = vi.fn(async () => ({ ok: true }));
     const media = { dataUrl: "data:video/webm;base64,AAA", mimeType: "video/webm" };
+    const run = baseRun();
+    run.cosmetics = { trailId: "classic", iconId: "default", pipeTextureId: "basic", pipeTextureMode: "NORMAL" };
     const result = await maybeUploadBestRun({
-      activeRun: baseRun(),
+      activeRun: run,
       finalScore: 150,
       bestScore: 100,
       runStats: { orbsCollected: 1 },
@@ -76,7 +97,7 @@ describe("maybeUploadBestRun", () => {
         score: 150,
         ticksLength: 2,
         rngTapeLength: 2,
-        replayJson: expect.stringContaining('"ticks"'),
+        replayJson: expect.stringContaining('"cosmetics"'),
         media
       })
     );
@@ -134,9 +155,25 @@ describe("hydrateBestRunPayload", () => {
     expect(hydrated?.ended).toBe(true);
   });
 
+  it("hydrates cosmetics data when available", () => {
+    const envelope = buildReplayEnvelope(
+      baseRun(),
+      { finalScore: 10, cosmetics: { trailId: "aurora", pipeTextureMode: "ultra" } }
+    );
+    const hydrated = hydrateBestRunPayload({ ...envelope, replayJson: JSON.stringify(envelope) });
+    expect(hydrated?.cosmetics).toEqual({ trailId: "aurora", pipeTextureMode: "ultra" });
+  });
+
   it("returns null when the payload is invalid", () => {
     expect(hydrateBestRunPayload(null)).toBeNull();
     expect(hydrateBestRunPayload({ replayJson: "{}" })).toBeNull();
     expect(hydrateBestRunPayload({ replayJson: "{" })).toBeNull();
+  });
+});
+
+describe("normalizeCosmetics", () => {
+  it("drops empty cosmetics payloads", () => {
+    expect(__testables.normalizeCosmetics(null)).toBeNull();
+    expect(__testables.normalizeCosmetics({ trailId: " " })).toBeNull();
   });
 });
