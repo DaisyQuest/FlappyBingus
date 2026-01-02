@@ -76,6 +76,7 @@ export function cloneReplayRun(run) {
 export function createReplayManager({
   canvas,
   game,
+  playbackGame = null,
   input,
   menu,
   over,
@@ -95,6 +96,8 @@ export function createReplayManager({
   let activeRun = null;
   let replaying = false;
   let actionQueue = null;
+  const replayGame = playbackGame || game;
+  const playbackStep = playbackGame ? null : step;
 
   const notifyStatus = (payload) => {
     if (typeof onStatus !== "function") return;
@@ -166,9 +169,9 @@ export function createReplayManager({
 
     replaying = true;
     const replayInput = createReplayInput();
-    const originalInput = game?.input;
-    const restoreCosmetics = (run?.cosmetics && typeof applyCosmetics === "function")
-      ? applyCosmetics(run.cosmetics)
+    const originalInput = replayGame?.input;
+    const restoreCosmetics = (typeof applyCosmetics === "function")
+      ? applyCosmetics(run?.cosmetics, { game: replayGame })
       : null;
     let webmBlob = null;
     let recorder = null;
@@ -184,23 +187,23 @@ export function createReplayManager({
         setRandSource(replayRandSource);
       }
 
-      if (typeof seededRand === "function" && typeof game?.setBackgroundRand === "function") {
+      if (typeof seededRand === "function" && typeof replayGame?.setBackgroundRand === "function") {
         const bgSeed = run?.backgroundSeed || (run?.seed ? `${run.seed}:background` : "");
-        if (bgSeed) game.setBackgroundRand(seededRand(bgSeed));
+        if (bgSeed) replayGame.setBackgroundRand(seededRand(bgSeed));
       }
-      if (typeof seededRand === "function" && typeof game?.setVisualRand === "function") {
+      if (typeof seededRand === "function" && typeof replayGame?.setVisualRand === "function") {
         const visualSeed = run?.visualSeed || (run?.seed ? `${run.seed}:visual` : "");
-        if (visualSeed) game.setVisualRand(seededRand(visualSeed));
+        if (visualSeed) replayGame.setVisualRand(seededRand(visualSeed));
       }
 
-      if (game) {
-        game.input = replayInput;
+      if (replayGame) {
+        replayGame.input = replayInput;
       }
 
       input?.reset?.();
       menuClassList?.add("hidden");
       overClassList?.add("hidden");
-      game?.startRun?.();
+      replayGame?.startRun?.();
 
       if (captureMode !== "none") {
         ({ recorder, recordedChunks } = startCapture({
@@ -229,13 +232,13 @@ export function createReplayManager({
       if (typeof playbackFn === "function") {
         await playbackFn({
           ticks: run.ticks,
-          game,
+          game: replayGame,
           replayInput,
           captureMode,
           playbackMode: wantsDeterministic ? "deterministic" : "realtime",
           simDt,
           requestFrame,
-          step,
+          step: playbackStep,
           yieldBetweenRenders,
           paceWithSim
         });
@@ -245,8 +248,8 @@ export function createReplayManager({
         webmBlob = await stopCapture({ recorder, recordedChunks });
       }
     } finally {
-      if (game) {
-        game.input = originalInput;
+      if (replayGame) {
+        replayGame.input = originalInput;
       }
       if (menuClassList) {
         if (menuWasHidden) menuClassList.add("hidden");

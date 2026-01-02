@@ -249,8 +249,78 @@ describe("replayManager", () => {
 
     await manager.play({ captureMode: "none", run, playbackMode: "deterministic" });
 
-    expect(applyCosmetics).toHaveBeenCalledWith(run.cosmetics);
+    expect(applyCosmetics).toHaveBeenCalledWith(run.cosmetics, { game });
     expect(restore).toHaveBeenCalled();
+  });
+
+  it("applies fallback cosmetics when a replay has none", async () => {
+    const game = { input: { name: "real" }, startRun: vi.fn() };
+    const playbackTicksDeterministic = vi.fn(async () => {});
+    const restore = vi.fn();
+    const applyCosmetics = vi.fn(() => restore);
+    const run = {
+      seed: "seed",
+      ended: true,
+      ticks: [{ move: { dx: 1, dy: 1 }, cursor: { x: 0, y: 0 } }],
+      rngTape: []
+    };
+
+    const manager = createReplayManager({
+      game,
+      applyCosmetics,
+      playbackTicksDeterministic
+    });
+
+    await manager.play({ captureMode: "none", run, playbackMode: "deterministic" });
+
+    expect(applyCosmetics).toHaveBeenCalledWith(undefined, { game });
+    expect(restore).toHaveBeenCalled();
+  });
+
+  it("uses a dedicated playback game without mutating the live game", async () => {
+    const liveGame = {
+      input: { name: "live" },
+      startRun: vi.fn(),
+      setBackgroundRand: vi.fn(),
+      setVisualRand: vi.fn()
+    };
+    const playbackGame = {
+      input: { name: "replay" },
+      startRun: vi.fn(),
+      setBackgroundRand: vi.fn(),
+      setVisualRand: vi.fn()
+    };
+    const seededRand = vi.fn(() => "seeded");
+    const playbackTicksDeterministic = vi.fn(async ({ game: usedGame, step }) => {
+      expect(usedGame).toBe(playbackGame);
+      expect(step).toBeNull();
+    });
+    const run = {
+      seed: "seed",
+      ended: true,
+      ticks: [{ move: { dx: 1, dy: 1 }, cursor: { x: 0, y: 0 } }],
+      rngTape: []
+    };
+
+    const manager = createReplayManager({
+      game: liveGame,
+      playbackGame,
+      seededRand,
+      playbackTicksDeterministic,
+      step: vi.fn()
+    });
+
+    await manager.play({ captureMode: "none", run, playbackMode: "deterministic" });
+
+    expect(liveGame.startRun).not.toHaveBeenCalled();
+    expect(playbackGame.startRun).toHaveBeenCalled();
+    expect(seededRand).toHaveBeenCalledWith("seed:background");
+    expect(seededRand).toHaveBeenCalledWith("seed:visual");
+    expect(liveGame.setBackgroundRand).not.toHaveBeenCalled();
+    expect(liveGame.setVisualRand).not.toHaveBeenCalled();
+    expect(playbackGame.setBackgroundRand).toHaveBeenCalledWith("seeded");
+    expect(playbackGame.setVisualRand).toHaveBeenCalledWith("seeded");
+    expect(liveGame.input).toEqual({ name: "live" });
   });
 
   it("captures a replay when capture mode is enabled", async () => {
