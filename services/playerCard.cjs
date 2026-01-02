@@ -7,6 +7,9 @@ const CARD_HEIGHT = 450;
 const PADDING = 32;
 const PANEL_MARGIN = 24;
 const PANEL_RADIUS = 0;
+const FOOTER_TEXT = "https://flappybing.us";
+const FOOTER_SCALE = 2;
+const FOOTER_SPACING = 1;
 
 const COLORS = Object.freeze({
   backgroundTop: [12, 20, 38],
@@ -196,6 +199,16 @@ function measureTextWidth(text, scale, spacing = 1) {
   return safeText.length * (glyphWidth + spacing) * scale - spacing * scale;
 }
 
+function getFooterLayout(panelX, panelY, panelW, panelH, text = FOOTER_TEXT, scale = FOOTER_SCALE) {
+  const textWidth = measureTextWidth(text, scale, FOOTER_SPACING);
+  const textHeight = FONT_5X7["A"].length * scale;
+  const minX = panelX + PADDING;
+  const maxX = panelX + panelW - PADDING - textWidth;
+  const x = Math.max(minX, maxX);
+  const y = panelY + panelH - PADDING - textHeight;
+  return { text, scale, x, y, textWidth, textHeight };
+}
+
 function buildReplayDetailsRows(entry, run) {
   const meta = formatReplayMeta(entry);
   const rows = [
@@ -272,6 +285,9 @@ function renderPlayerCardJpeg({ entry, run } = {}) {
     });
   }
 
+  const footer = getFooterLayout(panelX, panelY, panelW, panelH);
+  drawText(data, width, height, footer.text, footer.x, footer.y, footer.scale, COLORS.label, FOOTER_SPACING);
+
   const jpegBuffer = jpeg.encode({ data, width, height }, 90).data;
   return Buffer.from(jpegBuffer);
 }
@@ -287,12 +303,16 @@ module.exports = {
     buildReplayDetailsRows,
     measureTextWidth,
     getGlyph,
+    getFooterLayout,
     lerpColor,
     fillVerticalGradient,
     drawText,
     COLORS,
     CARD_WIDTH,
     CARD_HEIGHT,
-    PANEL_RADIUS
+    PANEL_RADIUS,
+    FOOTER_TEXT,
+    FOOTER_SCALE,
+    FOOTER_SPACING
   }
 };
