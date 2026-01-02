@@ -359,9 +359,15 @@ describe("uiLayout", () => {
     expect(featureTitles).toContain("Skill Keybinds");
     expect(settingsGrid?.firstElementChild?.querySelector(".section-title")?.textContent).toBe("Skill Behaviors");
 
-    const secondary = settingsGrid?.querySelector(".settings-secondary");
-    expect(secondary?.querySelector("#musicVolume")).toBeInstanceOf(window.HTMLInputElement);
-    expect(secondary?.querySelector("#sfxVolume")).toBeInstanceOf(window.HTMLInputElement);
+    const secondaryCards = Array.from(settingsGrid?.querySelectorAll(".settings-secondary") || []);
+    expect(secondaryCards.length).toBe(3);
+    const volumeCard = secondaryCards.find(card => card.querySelector("#musicVolume"));
+    const performanceCard = secondaryCards.find(card => card.querySelector("#simpleBackgroundToggle"));
+    expect(volumeCard?.querySelector("#musicVolume")).toBeInstanceOf(window.HTMLInputElement);
+    expect(volumeCard?.querySelector("#sfxVolume")).toBeInstanceOf(window.HTMLInputElement);
+    expect(performanceCard?.querySelector("#simpleBackgroundToggle")).toBeInstanceOf(window.HTMLInputElement);
+    expect(performanceCard?.querySelector("#simpleTexturesToggle")).toBeInstanceOf(window.HTMLInputElement);
+    expect(performanceCard?.querySelector("#simpleParticlesToggle")).toBeInstanceOf(window.HTMLInputElement);
     expect(settingsGrid?.querySelector(".muted-note")).toBeNull();
 
     const textPreset = settingsGrid?.querySelector("#textStylePresetSelect");

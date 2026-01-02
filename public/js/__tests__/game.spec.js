@@ -4,9 +4,11 @@ import { Game, WORLD_HEIGHT, WORLD_WIDTH } from "../game.js";
 import { DEFAULT_CONFIG } from "../config.js";
 import { setRandSource } from "../util.js";
 import * as pipeColors from "../pipeColors.js";
+import * as pipeTextures from "../pipeTextures.js";
 import * as perfectGaps from "../perfectGaps.js";
 import * as mechanics from "../mechanics.js";
 import * as spawn from "../spawn.js";
+import * as backgroundLayer from "../backgroundLayer.js";
 import { ACTIONS } from "../keybinds.js";
 
 vi.mock("../audio.js", () => ({
@@ -33,6 +35,8 @@ const mockCtx = () => {
     createRadialGradient: vi.fn(() => gradient),
     createLinearGradient: vi.fn(() => gradient),
     beginPath: vi.fn(),
+    rect: vi.fn(),
+    clip: vi.fn(),
     arc: vi.fn(),
     quadraticCurveTo: vi.fn(),
     fill: vi.fn(),
@@ -219,6 +223,24 @@ describe("Game core utilities", () => {
       width: 320,
       height: 180
     }));
+  });
+
+  it("forces monochrome basic pipes when simple textures are enabled", () => {
+    const { game } = buildGame();
+    const drawSpy = vi.spyOn(pipeTextures, "drawPipeTexture");
+    game.setSkillSettings({ simpleTextures: true });
+
+    game._drawPipe({ x: 0, y: 0, w: 10, h: 10 }, "#fff");
+
+    expect(drawSpy).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ x: 0, y: 0 }),
+      "#fff",
+      expect.objectContaining({
+        textureId: pipeTextures.DEFAULT_PIPE_TEXTURE_ID,
+        mode: "MONOCHROME"
+      })
+    );
   });
 
   it("falls back to world size when viewport dimensions are invalid", () => {
@@ -1262,6 +1284,23 @@ describe("Player movement and trail emission", () => {
     expect(game.trailSparkAcc).toBeLessThan(1);
   });
 
+  it("reduces emitted trail particles when simple particles are enabled", () => {
+    const { game: defaultGame } = buildGame();
+    const { game: simpleGame } = buildGame();
+    simpleGame.setSkillSettings({ simpleParticles: true });
+
+    const defaultBefore = defaultGame.parts.length;
+    defaultGame._emitTrail(1);
+    const defaultCount = defaultGame.parts.length - defaultBefore;
+
+    const simpleBefore = simpleGame.parts.length;
+    simpleGame._emitTrail(1);
+    const simpleCount = simpleGame.parts.length - simpleBefore;
+
+    expect(simpleCount).toBeGreaterThan(0);
+    expect(simpleCount).toBeLessThan(defaultCount);
+  });
+
   it("applies per-effect particle shapes when configured", () => {
     const { game } = buildGame();
     game.setVisualRand(() => 0.5);
@@ -1424,6 +1463,20 @@ describe("Game loop", () => {
     game.state = 0;
     game.update(1);
     expect(game.background.mode.dots[0].y).toBeGreaterThan(0);
+  });
+
+  it("skips background animation when simple background is enabled", () => {
+    const { game } = buildGame();
+    const updateSpy = vi.spyOn(backgroundLayer, "updateBackgroundDots");
+    game._initBackground();
+    game.setSkillSettings({ simpleBackground: true });
+    game.background.mode.dots = [{ x: 0, y: 0, s: 1, r: 1 }];
+
+    game.state = 0;
+    game.update(1);
+
+    expect(updateSpy).not.toHaveBeenCalled();
+    expect(game.background.mode.dots[0].y).toBe(0);
   });
 
   it("wraps drifting background dots when they exit the playfield", () => {

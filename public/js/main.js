@@ -257,6 +257,9 @@ const {
   textUseGradient,
   textGradientStart,
   textGradientEnd,
+  simpleBackgroundToggle,
+  simpleTexturesToggle,
+  simpleParticlesToggle,
   hsWrap,
   pbText,
   trailText,
@@ -1593,6 +1596,9 @@ function applySkillSettingsToUI(settings = skillSettings) {
   if (textStylePresetSelect) textStylePresetSelect.value = normalized.textStylePreset;
   setTextCustomPanelVisibility(textCustomPanel, normalized.textStylePreset);
   applyTextStyleCustomToUI(textStyleElements, normalized.textStyleCustom);
+  if (simpleBackgroundToggle) simpleBackgroundToggle.checked = normalized.simpleBackground;
+  if (simpleTexturesToggle) simpleTexturesToggle.checked = normalized.simpleTextures;
+  if (simpleParticlesToggle) simpleParticlesToggle.checked = normalized.simpleParticles;
 }
 
 async function updateSkillSettings(next, { persist = true } = {}) {
@@ -1903,6 +1909,16 @@ textStylePresetSelect?.addEventListener("change", (e) => {
   if (input instanceof HTMLInputElement && input.type === "range") {
     input.addEventListener("input", handler);
   }
+});
+
+simpleBackgroundToggle?.addEventListener("change", () => {
+  updateSkillSettings({ ...skillSettings, simpleBackground: simpleBackgroundToggle.checked });
+});
+simpleTexturesToggle?.addEventListener("change", () => {
+  updateSkillSettings({ ...skillSettings, simpleTextures: simpleTexturesToggle.checked });
+});
+simpleParticlesToggle?.addEventListener("change", () => {
+  updateSkillSettings({ ...skillSettings, simpleParticles: simpleParticlesToggle.checked });
 });
 
 overStatsToggle?.addEventListener("click", () => {

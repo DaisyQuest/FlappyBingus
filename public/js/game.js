@@ -58,6 +58,7 @@ const TRAIL_AURA_RATE = 0.42;
 const COMBO_WINDOW_BASE = 10;
 const COMBO_WINDOW_MIN = 4;
 const COMBO_WINDOW_DECAY = 0.35;
+const SIMPLE_PARTICLE_SCALE = 0.5;
 
 export { Pipe, Gate, Orb, Part, FloatText, WORLD_WIDTH, WORLD_HEIGHT };
 
@@ -168,6 +169,15 @@ export class Game {
       preset: this.skillSettings.textStylePreset,
       custom: this.skillSettings.textStyleCustom
     });
+  }
+
+  _particleScale() {
+    return this.skillSettings?.simpleParticles ? SIMPLE_PARTICLE_SCALE : 1;
+  }
+
+  _scaleParticles(count, { min = 0 } = {}) {
+    const scaled = Math.round(count * this._particleScale());
+    return Math.max(min, scaled);
   }
 
   setPlayerImage(playerImg) {
@@ -710,7 +720,7 @@ export class Game {
   _spawnDashReflectFx(x, y, nx, ny, power = 1) {
     const vrand = (a, b) => this._visualRand(a, b);
     const dir = Math.atan2(ny || 0, nx || 0);
-    const sparkCount = 16;
+    const sparkCount = this._scaleParticles(16);
     const strength = clamp(power, 0.4, 1.6);
 
     for (let i = 0; i < sparkCount; i++) {
@@ -792,7 +802,8 @@ export class Game {
     const nx = hit?.nx || 0, ny = hit?.ny || 0;
 
     const vrand = (a, b) => this._visualRand(a, b);
-    for (let i = 0; i < particles; i++) {
+    const burst = this._scaleParticles(particles);
+    for (let i = 0; i < burst; i++) {
       const spread = vrand(-0.7, 0.7);
       const baseDir = Math.atan2(ny || 0, nx || 0);
       const dir = (nx || ny) ? baseDir + spread : vrand(0, Math.PI * 2);
@@ -992,7 +1003,7 @@ export class Game {
       if (!t) return;
 
       const ed = clamp(Number(t.effectDuration) || 0.35, 0.1, 1.2);
-      const burst = Math.floor(clamp(Number(t.burstParticles) || 0, 0, 240));
+      const burst = this._scaleParticles(Math.floor(clamp(Number(t.burstParticles) || 0, 0, 240)));
 
       const cur = (this.input && this.input.cursor) ? this.input.cursor : this.cursor;
       if (!cur || !cur.has) return;
@@ -1036,7 +1047,8 @@ export class Game {
       this._teleportSfx();
       this.floats.push(new FloatText("TELEPORT", p.x, p.y - p.r * 1.7, "rgba(230,200,255,.95)"));
 
-      for (let i = 0; i < 26; i++) {
+      const pulseCount = this._scaleParticles(26);
+      for (let i = 0; i < pulseCount; i++) {
         const a = vrand(0, Math.PI * 2), sp = vrand(40, 160);
         const prt = new Part(
           nx, ny,
@@ -1097,7 +1109,8 @@ export class Game {
     this._dashStartSfx();
 
     const vrand = (a, b) => this._visualRand(a, b);
-    for (let i = 0; i < 18; i++) {
+    const burst = this._scaleParticles(18);
+    for (let i = 0; i < burst; i++) {
       const a = vrand(0, Math.PI * 2), sp = vrand(40, 260);
       const vx = Math.cos(a) * sp - p.dashVX * 220;
       const vy = Math.sin(a) * sp - p.dashVY * 220;
@@ -1115,7 +1128,8 @@ export class Game {
     this._dashStartSfx();
 
     const vrand = (a, b) => this._visualRand(a, b);
-    for (let i = 0; i < 26; i++) {
+    const burst = this._scaleParticles(26);
+    for (let i = 0; i < burst; i++) {
       const a = vrand(0, Math.PI * 2), sp = vrand(60, 320);
       const vx = Math.cos(a) * sp - p.dashVX * 180;
       const vy = Math.sin(a) * sp - p.dashVY * 180;
@@ -1142,7 +1156,7 @@ export class Game {
     const p = this.player;
     const dur = clamp(Number(s.duration) || 0.12, 0, 1.2);
     const rad = clamp(Number(s.radius) || 0, 20, 900);
-    const blastParticles = Math.max(0, Number(s.blastParticles) || 0);
+    const blastParticles = this._scaleParticles(Math.max(0, Number(s.blastParticles) || 0));
 
     this.slowField = null;
     this.slowExplosion = { x: p.x, y: p.y, r: rad, t: dur, tm: dur };
@@ -1252,6 +1266,7 @@ export class Game {
     const glint = st.glint || {};
     const sparkle = st.sparkle || {};
     const aura = st.aura || {};
+    const particleScale = this._particleScale();
 
     const baseLifeScale = st.lifeScale ?? TRAIL_LIFE_SCALE;
     const distanceScale = st.distanceScale ?? TRAIL_DISTANCE_SCALE;
@@ -1273,10 +1288,10 @@ export class Game {
     };
 
     this.trailHue = (this.trailHue + dt * (st.hueRate || 220)) % 360;
-    this.trailAcc += dt * st.rate;
-    this.trailGlintAcc += dt * (glint.rate ?? st.rate * 0.55);
-    this.trailSparkAcc += dt * (sparkle.rate ?? 34);
-    this.trailAuraAcc += dt * auraRate;
+    this.trailAcc += dt * st.rate * particleScale;
+    this.trailGlintAcc += dt * (glint.rate ?? st.rate * 0.55) * particleScale;
+    this.trailSparkAcc += dt * (sparkle.rate ?? 34) * particleScale;
+    this.trailAuraAcc += dt * auraRate * particleScale;
 
     const n = this.trailAcc | 0;
     this.trailAcc -= n;
@@ -1410,7 +1425,9 @@ export class Game {
     if (this.state === STATE.OVER) return;
 
     // background drift
-    updateBackgroundDots(this.background, { width: this.W, height: this.H, dt, rand: this.backgroundRand });
+    if (!this.skillSettings?.simpleBackground) {
+      updateBackgroundDots(this.background, { width: this.W, height: this.H, dt, rand: this.backgroundRand });
+    }
 
     if (this.state !== STATE.PLAY) return;
 
@@ -1439,7 +1456,7 @@ export class Game {
     const sparkleAt = Number(this.cfg.ui.comboBar.sparkleAt) || 9999;
     if (this.combo >= sparkleAt) {
       const vrand = (a, b) => this._visualRand(a, b);
-      const rate = Math.max(0, Number(this.cfg.ui.comboBar.sparkleRate) || 0);
+      const rate = Math.max(0, Number(this.cfg.ui.comboBar.sparkleRate) || 0) * this._particleScale();
       this.comboSparkAcc += dt * rate;
       const n = this.comboSparkAcc | 0;
       this.comboSparkAcc -= n;
@@ -1556,7 +1573,8 @@ export class Game {
           this.floats.push(new FloatText(`+${pts}`, anchor.x, anchor.y, perfectStyle.color, perfectStyle));
 
           const vrand = (a, b) => this._visualRand(a, b);
-          for (let k = 0; k < 28; k++) {
+          const burst = this._scaleParticles(28);
+          for (let k = 0; k < burst; k++) {
             const a = vrand(0, Math.PI * 2), sp = vrand(60, 320);
             const prt = new Part(this.player.x, this.player.y, Math.cos(a) * sp, Math.sin(a) * sp, vrand(0.20, 0.45), vrand(1.0, 2.2), "rgba(255,255,255,.85)", true);
             prt.drag = 8.5;
@@ -1610,7 +1628,8 @@ export class Game {
         this.floats.push(new FloatText(`+${pts}`, anchor.x, anchor.y, popupStyle.color, popupStyle));
 
         const vrand = (a, b) => this._visualRand(a, b);
-        for (let k = 0; k < 18; k++) {
+        const burst = this._scaleParticles(18);
+        for (let k = 0; k < burst; k++) {
           const a = vrand(0, Math.PI * 2), sp = vrand(40, 240);
           const prt = new Part(ob.x, ob.y, Math.cos(a) * sp, Math.sin(a) * sp, vrand(0.18, 0.38), vrand(1.0, 2.0), "rgba(255,255,255,.7)", true);
           prt.drag = 10;
@@ -1742,10 +1761,14 @@ export class Game {
 
   _drawPipe(p, base) {
     const selection = this.getPipeTexture ? this.getPipeTexture() : null;
-    const textureId = typeof selection === "string"
-      ? selection
-      : (selection?.id || DEFAULT_PIPE_TEXTURE_ID);
-    const mode = normalizePipeTextureMode(selection?.mode || DEFAULT_PIPE_TEXTURE_MODE);
+    const textureId = this.skillSettings?.simpleTextures
+      ? DEFAULT_PIPE_TEXTURE_ID
+      : (typeof selection === "string"
+        ? selection
+        : (selection?.id || DEFAULT_PIPE_TEXTURE_ID));
+    const mode = this.skillSettings?.simpleTextures
+      ? "MONOCHROME"
+      : normalizePipeTextureMode(selection?.mode || DEFAULT_PIPE_TEXTURE_MODE);
     drawPipeTexture(this.ctx, p, base, { textureId, mode, time: this.timeAlive });
   }
 
