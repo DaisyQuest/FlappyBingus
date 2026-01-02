@@ -16,7 +16,10 @@ describe("skill settings helpers", () => {
       invulnBehavior: "forever",
       textStylePreset: "nope",
       textStyleCustom: { fontWeight: "heavy" },
-      comicBookMode: "nope"
+      comicBookMode: "nope",
+      simpleBackground: "maybe",
+      simpleTextures: "false",
+      simpleParticles: 1
     });
     expect(norm).toEqual(DEFAULT_SKILL_SETTINGS);
   });
@@ -28,7 +31,10 @@ describe("skill settings helpers", () => {
       teleportBehavior: "explode",
       invulnBehavior: "long",
       textStylePreset: "digital",
-      textStyleCustom: { ...DEFAULT_TEXT_STYLE_CUSTOM, fontWeight: 800 }
+      textStyleCustom: { ...DEFAULT_TEXT_STYLE_CUSTOM, fontWeight: 800 },
+      simpleBackground: true,
+      simpleTextures: true,
+      simpleParticles: false
     });
     const b = normalizeSkillSettings({
       dashBehavior: "destroy",
@@ -36,9 +42,13 @@ describe("skill settings helpers", () => {
       teleportBehavior: "explode",
       invulnBehavior: "long",
       textStylePreset: "digital",
-      textStyleCustom: { ...DEFAULT_TEXT_STYLE_CUSTOM, fontWeight: 800 }
+      textStyleCustom: { ...DEFAULT_TEXT_STYLE_CUSTOM, fontWeight: 800 },
+      simpleBackground: true,
+      simpleTextures: true,
+      simpleParticles: false
     });
     expect(a.dashBehavior).toBe("destroy");
+    expect(a.simpleBackground).toBe(true);
     expect(skillSettingsEqual(a, b)).toBe(true);
     expect(skillSettingsEqual(a, DEFAULT_SKILL_SETTINGS)).toBe(false);
   });
@@ -50,13 +60,17 @@ describe("skill settings helpers", () => {
       teleportBehavior: "explode",
       invulnBehavior: "short",
       textStylePreset: "comic_book_mild",
-      textStyleCustom: { ...DEFAULT_TEXT_STYLE_CUSTOM, shimmer: 0.2 }
+      textStyleCustom: { ...DEFAULT_TEXT_STYLE_CUSTOM, shimmer: 0.2 },
+      simpleBackground: false,
+      simpleTextures: false,
+      simpleParticles: false
     };
     const incoming = {
       teleportBehavior: "normal",
       invulnBehavior: "long",
       textStylePreset: "holographic",
-      textStyleCustom: { ...DEFAULT_TEXT_STYLE_CUSTOM, sparkle: true }
+      textStyleCustom: { ...DEFAULT_TEXT_STYLE_CUSTOM, sparkle: true },
+      simpleBackground: true
     };
 
     const merged = mergeSkillSettings(base, incoming);
@@ -67,7 +81,10 @@ describe("skill settings helpers", () => {
       teleportBehavior: "normal",
       invulnBehavior: "long",
       textStylePreset: "holographic",
-      textStyleCustom: { ...DEFAULT_TEXT_STYLE_CUSTOM, sparkle: true }
+      textStyleCustom: { ...DEFAULT_TEXT_STYLE_CUSTOM, sparkle: true },
+      simpleBackground: true,
+      simpleTextures: false,
+      simpleParticles: false
     });
   });
 

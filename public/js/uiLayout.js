@@ -527,6 +527,61 @@ function createVolumeCard(doc, refs) {
   return card;
 }
 
+function createPerformanceCard(doc, refs) {
+  const card = doc.createElement("div");
+  card.className = "info-card settings-secondary performance-card";
+
+  const title = doc.createElement("div");
+  title.className = "section-title";
+  title.textContent = "Performance";
+
+  const field = doc.createElement("div");
+  field.className = "field";
+
+  const makeToggleRow = ({ id, label, hint }) => {
+    const wrapper = doc.createElement("div");
+    wrapper.className = "field";
+
+    const row = doc.createElement("div");
+    row.className = "text-custom-toggle";
+    const toggle = createElement(doc, refs, "input", { id, attrs: { type: "checkbox" } });
+    const toggleLabel = doc.createElement("label");
+    toggleLabel.setAttribute("for", id);
+    toggleLabel.textContent = label;
+    row.append(toggle, toggleLabel);
+
+    wrapper.append(row);
+    if (hint) {
+      const hintEl = doc.createElement("div");
+      hintEl.className = "hint";
+      hintEl.textContent = hint;
+      wrapper.append(hintEl);
+    }
+    return wrapper;
+  };
+
+  field.append(
+    makeToggleRow({
+      id: "simpleBackgroundToggle",
+      label: "Simple background",
+      hint: "Disables animated background dots for smoother playback."
+    }),
+    makeToggleRow({
+      id: "simpleTexturesToggle",
+      label: "Simple textures",
+      hint: "Forces low-detail pipe textures to reduce GPU load."
+    }),
+    makeToggleRow({
+      id: "simpleParticlesToggle",
+      label: "Simple particles",
+      hint: "Cuts back on trail and burst particles."
+    })
+  );
+
+  card.append(title, field);
+  return card;
+}
+
 export function setTextCustomPanelVisibility(panel, preset) {
   if (!panel) return;
   const isCustom = preset === "custom";
@@ -1614,6 +1669,7 @@ function createMenuScreen(doc, refs) {
     createBindCard(doc, refs),
     createVolumeCard(doc, refs),
     createTextPreferencesCard(doc, refs),
+    createPerformanceCard(doc, refs),
     createSeedCard(doc, refs),
     createStatusCard(doc, refs)
   );

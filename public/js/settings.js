@@ -52,7 +52,10 @@ export const DEFAULT_SKILL_SETTINGS = Object.freeze({
   teleportBehavior: "normal",
   invulnBehavior: "long",
   textStylePreset: "basic",
-  textStyleCustom: DEFAULT_TEXT_STYLE_CUSTOM
+  textStyleCustom: DEFAULT_TEXT_STYLE_CUSTOM,
+  simpleBackground: false,
+  simpleTextures: false,
+  simpleParticles: false
 });
 
 export const SKILL_BEHAVIOR_OPTIONS = Object.freeze({
@@ -67,6 +70,8 @@ function normalizeValue(name, value) {
   const choices = SKILL_BEHAVIOR_OPTIONS[name] || [];
   return choices.includes(value) ? value : DEFAULT_SKILL_SETTINGS[name];
 }
+
+const SIMPLE_SETTING_KEYS = new Set(["simpleBackground", "simpleTextures", "simpleParticles"]);
 
 const LEGACY_TEXT_STYLE_MAP = Object.freeze({
   none: "basic",
@@ -130,6 +135,10 @@ export function normalizeSkillSettings(settings = {}) {
       out.textStyleCustom = normalizeTextStyleCustom(src.textStyleCustom);
       continue;
     }
+    if (SIMPLE_SETTING_KEYS.has(key)) {
+      out[key] = normalizeBoolean(src[key], DEFAULT_SKILL_SETTINGS[key]);
+      continue;
+    }
     out[key] = normalizeValue(key, src[key]);
   }
   return out;
@@ -145,6 +154,8 @@ export function mergeSkillSettings(base, incoming) {
         merged.textStylePreset = normalizeTextStylePreset(src.textStylePreset);
       } else if (key === "textStyleCustom") {
         merged.textStyleCustom = normalizeTextStyleCustom(src.textStyleCustom);
+      } else if (SIMPLE_SETTING_KEYS.has(key)) {
+        merged[key] = normalizeBoolean(src[key], DEFAULT_SKILL_SETTINGS[key]);
       } else {
         merged[key] = normalizeValue(key, src[key]);
       }
