@@ -59,6 +59,7 @@ const COMBO_WINDOW_BASE = 10;
 const COMBO_WINDOW_MIN = 4;
 const COMBO_WINDOW_DECAY = 0.35;
 const SIMPLE_PARTICLE_SCALE = 0.5;
+const REDUCED_PARTICLE_SCALE = 0.35;
 
 export { Pipe, Gate, Orb, Part, FloatText, WORLD_WIDTH, WORLD_HEIGHT };
 
@@ -172,7 +173,8 @@ export class Game {
   }
 
   _particleScale() {
-    return this.skillSettings?.simpleParticles ? SIMPLE_PARTICLE_SCALE : 1;
+    const base = this.skillSettings?.simpleParticles ? SIMPLE_PARTICLE_SCALE : 1;
+    return this.skillSettings?.reducedEffects ? base * REDUCED_PARTICLE_SCALE : base;
   }
 
   _scaleParticles(count, { min = 0 } = {}) {
@@ -1267,10 +1269,11 @@ export class Game {
     const sparkle = st.sparkle || {};
     const aura = st.aura || {};
     const particleScale = this._particleScale();
+    const reducedEffects = Boolean(this.skillSettings?.reducedEffects);
 
     const baseLifeScale = st.lifeScale ?? TRAIL_LIFE_SCALE;
     const distanceScale = st.distanceScale ?? TRAIL_DISTANCE_SCALE;
-    const auraRate = aura.rate ?? st.rate * TRAIL_AURA_RATE;
+    const auraRate = reducedEffects ? 0 : (aura.rate ?? st.rate * TRAIL_AURA_RATE);
     const auraLifeScale = aura.lifeScale ?? baseLifeScale;
     const auraDistanceScale = aura.distanceScale ?? distanceScale;
     const auraSizeScale = aura.sizeScale ?? 1.08;
@@ -1289,8 +1292,10 @@ export class Game {
 
     this.trailHue = (this.trailHue + dt * (st.hueRate || 220)) % 360;
     this.trailAcc += dt * st.rate * particleScale;
-    this.trailGlintAcc += dt * (glint.rate ?? st.rate * 0.55) * particleScale;
-    this.trailSparkAcc += dt * (sparkle.rate ?? 34) * particleScale;
+    const glintRate = reducedEffects ? 0 : (glint.rate ?? st.rate * 0.55);
+    const sparkleRate = reducedEffects ? 0 : (sparkle.rate ?? 34);
+    this.trailGlintAcc += dt * glintRate * particleScale;
+    this.trailSparkAcc += dt * sparkleRate * particleScale;
     this.trailAuraAcc += dt * auraRate * particleScale;
 
     const n = this.trailAcc | 0;

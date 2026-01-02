@@ -19,7 +19,8 @@ describe("skill settings helpers", () => {
       comicBookMode: "nope",
       simpleBackground: "maybe",
       simpleTextures: "false",
-      simpleParticles: 1
+      simpleParticles: 1,
+      reducedEffects: "nope"
     });
     expect(norm).toEqual(DEFAULT_SKILL_SETTINGS);
   });
@@ -34,7 +35,8 @@ describe("skill settings helpers", () => {
       textStyleCustom: { ...DEFAULT_TEXT_STYLE_CUSTOM, fontWeight: 800 },
       simpleBackground: true,
       simpleTextures: true,
-      simpleParticles: false
+      simpleParticles: false,
+      reducedEffects: true
     });
     const b = normalizeSkillSettings({
       dashBehavior: "destroy",
@@ -45,7 +47,8 @@ describe("skill settings helpers", () => {
       textStyleCustom: { ...DEFAULT_TEXT_STYLE_CUSTOM, fontWeight: 800 },
       simpleBackground: true,
       simpleTextures: true,
-      simpleParticles: false
+      simpleParticles: false,
+      reducedEffects: true
     });
     expect(a.dashBehavior).toBe("destroy");
     expect(a.simpleBackground).toBe(true);
@@ -63,14 +66,16 @@ describe("skill settings helpers", () => {
       textStyleCustom: { ...DEFAULT_TEXT_STYLE_CUSTOM, shimmer: 0.2 },
       simpleBackground: false,
       simpleTextures: false,
-      simpleParticles: false
+      simpleParticles: false,
+      reducedEffects: false
     };
     const incoming = {
       teleportBehavior: "normal",
       invulnBehavior: "long",
       textStylePreset: "holographic",
       textStyleCustom: { ...DEFAULT_TEXT_STYLE_CUSTOM, sparkle: true },
-      simpleBackground: true
+      simpleBackground: true,
+      reducedEffects: true
     };
 
     const merged = mergeSkillSettings(base, incoming);
@@ -84,7 +89,8 @@ describe("skill settings helpers", () => {
       textStyleCustom: { ...DEFAULT_TEXT_STYLE_CUSTOM, sparkle: true },
       simpleBackground: true,
       simpleTextures: false,
-      simpleParticles: false
+      simpleParticles: false,
+      reducedEffects: true
     });
   });
 

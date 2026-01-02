@@ -175,7 +175,11 @@ const DEFAULT_SETTINGS = Object.freeze({
   teleportBehavior: "normal",
   invulnBehavior: "long",
   textStylePreset: "basic",
-  textStyleCustom: DEFAULT_TEXT_STYLE_CUSTOM
+  textStyleCustom: DEFAULT_TEXT_STYLE_CUSTOM,
+  simpleBackground: false,
+  simpleTextures: false,
+  simpleParticles: false,
+  reducedEffects: false
 });
 
 const TRAILS = Object.freeze([
@@ -653,7 +657,18 @@ function normalizeSettings(settings) {
   const inv = validInv ? src.invulnBehavior : DEFAULT_SETTINGS.invulnBehavior;
   const textStylePreset = validPreset ? presetCandidate : DEFAULT_SETTINGS.textStylePreset;
   const textStyleCustom = normalizeTextStyleCustom(src.textStyleCustom);
-  return { dashBehavior: dash, slowFieldBehavior: slow, teleportBehavior: tp, invulnBehavior: inv, textStylePreset, textStyleCustom };
+  return {
+    dashBehavior: dash,
+    slowFieldBehavior: slow,
+    teleportBehavior: tp,
+    invulnBehavior: inv,
+    textStylePreset,
+    textStyleCustom,
+    simpleBackground: typeof src.simpleBackground === "boolean" ? src.simpleBackground : DEFAULT_SETTINGS.simpleBackground,
+    simpleTextures: typeof src.simpleTextures === "boolean" ? src.simpleTextures : DEFAULT_SETTINGS.simpleTextures,
+    simpleParticles: typeof src.simpleParticles === "boolean" ? src.simpleParticles : DEFAULT_SETTINGS.simpleParticles,
+    reducedEffects: typeof src.reducedEffects === "boolean" ? src.reducedEffects : DEFAULT_SETTINGS.reducedEffects
+  };
 }
 
 function validateSettingsPayload(settings) {
@@ -675,7 +690,19 @@ function validateSettingsPayload(settings) {
     teleportBehavior: tp,
     invulnBehavior: inv,
     textStylePreset: presetCandidate,
-    textStyleCustom: normalizeTextStyleCustom(settings.textStyleCustom)
+    textStyleCustom: normalizeTextStyleCustom(settings.textStyleCustom),
+    simpleBackground: typeof settings.simpleBackground === "boolean"
+      ? settings.simpleBackground
+      : DEFAULT_SETTINGS.simpleBackground,
+    simpleTextures: typeof settings.simpleTextures === "boolean"
+      ? settings.simpleTextures
+      : DEFAULT_SETTINGS.simpleTextures,
+    simpleParticles: typeof settings.simpleParticles === "boolean"
+      ? settings.simpleParticles
+      : DEFAULT_SETTINGS.simpleParticles,
+    reducedEffects: typeof settings.reducedEffects === "boolean"
+      ? settings.reducedEffects
+      : DEFAULT_SETTINGS.reducedEffects
   };
 }
 

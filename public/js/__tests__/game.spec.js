@@ -1301,6 +1301,46 @@ describe("Player movement and trail emission", () => {
     expect(simpleCount).toBeLessThan(defaultCount);
   });
 
+  it("disables glint, sparkle, and aura effects when reduced effects are enabled", () => {
+    const { game: defaultGame } = buildGame();
+    const { game: reducedGame } = buildGame();
+    defaultGame.setVisualRand(() => 0.5);
+    reducedGame.setVisualRand(() => 0.5);
+    defaultGame.player.x = 80; defaultGame.player.y = 80;
+    reducedGame.player.x = 80; reducedGame.player.y = 80;
+    defaultGame.player.vx = 150; defaultGame.player.vy = 0;
+    reducedGame.player.vx = 150; reducedGame.player.vy = 0;
+
+    const style = {
+      rate: 6,
+      life: [1, 1],
+      size: [2, 2],
+      speed: [10, 10],
+      drag: 0,
+      add: false,
+      glint: { rate: 6, life: [1, 1], size: [1, 1], speed: [1, 1] },
+      sparkle: { rate: 6, life: [1, 1], size: [1, 1], speed: [1, 1] },
+      aura: { rate: 6, life: [1, 1], size: [1, 1], speed: [1, 1], orbit: [1, 1] }
+    };
+    vi.spyOn(defaultGame, "_trailStyle").mockReturnValue(style);
+    vi.spyOn(reducedGame, "_trailStyle").mockReturnValue(style);
+
+    const defaultBefore = defaultGame.parts.length;
+    defaultGame._emitTrail(1);
+    const defaultCount = defaultGame.parts.length - defaultBefore;
+
+    reducedGame.setSkillSettings({ reducedEffects: true });
+    const reducedBefore = reducedGame.parts.length;
+    reducedGame._emitTrail(1);
+    const reducedCount = reducedGame.parts.length - reducedBefore;
+
+    expect(defaultCount).toBeGreaterThan(reducedCount);
+    expect(reducedCount).toBeGreaterThan(0);
+    expect(reducedGame.trailGlintAcc).toBe(0);
+    expect(reducedGame.trailSparkAcc).toBe(0);
+    expect(reducedGame.trailAuraAcc).toBe(0);
+  });
+
   it("applies per-effect particle shapes when configured", () => {
     const { game } = buildGame();
     game.setVisualRand(() => 0.5);
