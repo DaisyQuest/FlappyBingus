@@ -113,4 +113,30 @@ describe("renderHighscores", () => {
     button?.click();
     expect(onPlayRun).toHaveBeenCalledWith("alice");
   });
+
+  it("adds details controls when a details handler is provided", () => {
+    const highscores = [{ username: "alice", bestScore: 42 }];
+    const onPlayRun = vi.fn();
+    const onShowDetails = vi.fn();
+
+    renderHighscores({ container, online: true, highscores, onPlayRun, onShowDetails });
+
+    const buttons = container.querySelectorAll("button");
+    expect(Array.from(buttons).map((btn) => btn.textContent)).toEqual(["Play", "Details"]);
+    buttons[1].click();
+    expect(onShowDetails).toHaveBeenCalledWith(highscores[0]);
+  });
+
+  it("renders details-only actions when no replay handler is provided", () => {
+    const highscores = [{ username: "solo", bestScore: 12 }];
+    const onShowDetails = vi.fn();
+
+    renderHighscores({ container, online: true, highscores, onShowDetails });
+
+    const buttons = container.querySelectorAll("button");
+    expect(buttons.length).toBe(1);
+    expect(buttons[0].textContent).toBe("Details");
+    buttons[0].click();
+    expect(onShowDetails).toHaveBeenCalledWith(highscores[0]);
+  });
 });

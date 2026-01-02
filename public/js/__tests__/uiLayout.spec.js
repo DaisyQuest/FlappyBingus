@@ -276,6 +276,10 @@ describe("uiLayout", () => {
       "replayModalTitle",
       "replayModalClose",
       "replayModalStatus",
+      "highscoreDetailsModal",
+      "highscoreDetailsTitle",
+      "highscoreDetailsBody",
+      "highscoreDetailsClose",
       "updateSkillCooldowns"
     ];
 

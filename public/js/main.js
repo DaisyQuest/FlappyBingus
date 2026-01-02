@@ -123,6 +123,7 @@ import { DEFAULT_TRAILS, getUnlockedTrails, normalizeTrails, sortTrailsForDispla
 import { computePipeColor } from "./pipeColors.js";
 import { hydrateBestRunPayload, maybeUploadBestRun } from "./bestRunRecorder.js";
 import { renderHighscores } from "./highscores.js";
+import { renderReplayDetails } from "./replayDetails.js";
 import { getAuthStatusFromResponse } from "./authResponse.js";
 import {
   DEFAULT_TRAIL_HINT,
@@ -295,6 +296,10 @@ const {
   replayModalTitle,
   replayModalStatus,
   replayModalClose,
+  highscoreDetailsModal,
+  highscoreDetailsTitle,
+  highscoreDetailsBody,
+  highscoreDetailsClose,
   achievementsList,
   achievementsHideCompleted,
   achievementsFilterScore,
@@ -463,6 +468,7 @@ let currentPipeTextureId = readPipeTextureCookie() || DEFAULT_PIPE_TEXTURE_ID;
 let currentPipeTextureMode = normalizePipeTextureMode(readPipeTextureModeCookie() || DEFAULT_PIPE_TEXTURE_MODE);
 let activeShopTab = SHOP_TABS[0]?.type || UNLOCKABLE_TYPES.playerTexture;
 let pendingPurchase = null;
+const highscoreDetailsCache = new Map();
 
 const menuProfileModel = createMenuProfileModel({
   refs: { usernameInput, pbText, trailText, iconText, pipeTextureText, bustercoinText },
@@ -874,13 +880,64 @@ async function handlePlayHighscore(username) {
   }
 }
 
+function measureReplayBytes(replayJson) {
+  if (typeof replayJson !== "string") return 0;
+  if (typeof TextEncoder === "undefined") return replayJson.length;
+  return new TextEncoder().encode(replayJson).byteLength;
+}
+
+async function handleHighscoreDetails(entry) {
+  const username = entry?.username;
+  if (!username) return;
+  if (highscoreDetailsTitle) {
+    highscoreDetailsTitle.textContent = "Best Run Details";
+  }
+  toggleHighscoreDetailsModal(true);
+  setHighscoreDetailsMessage(`Loading ${username}'s best run…`, "hint");
+
+  try {
+    let cached = highscoreDetailsCache.get(username);
+    if (!cached) {
+      const res = await apiGetBestRun(username);
+      if (!res?.ok || !res.run) {
+        setHighscoreDetailsMessage("Best run details are unavailable.", "hint bad");
+        return;
+      }
+
+      const hydrated = hydrateBestRunPayload(res.run);
+      const replayBytes = Number(res.run.replayBytes) || measureReplayBytes(res.run.replayJson);
+      const detailEntry = {
+        username,
+        bestScore: Number(entry?.bestScore) || 0,
+        durationMs: Number(hydrated?.durationMs ?? res.run.durationMs ?? 0),
+        recordedAt: Number(hydrated?.recordedAt ?? res.run.recordedAt ?? 0),
+        ticksLength: Number(hydrated?.ticksLength ?? res.run.ticksLength ?? 0),
+        replayBytes
+      };
+
+      const detailRun = hydrated
+        ? { ...hydrated, runStats: res.run.runStats ?? hydrated.runStats ?? null }
+        : { runStats: res.run.runStats ?? null };
+
+      cached = { entry: detailEntry, run: detailRun };
+      highscoreDetailsCache.set(username, cached);
+    }
+
+    renderHighscoreDetails(cached.entry, cached.run);
+  } catch (err) {
+    console.error(err);
+    setHighscoreDetailsMessage("Unable to load best run details.", "hint bad");
+  }
+}
+
 function renderHighscoresUI() {
   renderHighscores({
     container: hsWrap,
     online: net.online,
     highscores: net.highscores,
     currentUser: net.user,
-    onPlayRun: handlePlayHighscore
+    onPlayRun: handlePlayHighscore,
+    onShowDetails: handleHighscoreDetails
   });
 }
 
@@ -1236,6 +1293,24 @@ function toggleReplayModal(open) {
   replayModal.setAttribute("aria-hidden", open ? "false" : "true");
 }
 
+function toggleHighscoreDetailsModal(open) {
+  if (!highscoreDetailsModal) return;
+  highscoreDetailsModal.classList.toggle("hidden", !open);
+  highscoreDetailsModal.setAttribute("aria-hidden", open ? "false" : "true");
+}
+
+function setHighscoreDetailsMessage(text = "", className = "hint") {
+  if (!highscoreDetailsBody) return;
+  highscoreDetailsBody.className = className;
+  highscoreDetailsBody.textContent = text;
+}
+
+function renderHighscoreDetails(entry, run) {
+  if (!highscoreDetailsBody) return;
+  highscoreDetailsBody.className = "replay-detail-body";
+  renderReplayDetails({ container: highscoreDetailsBody, entry, run });
+}
+
 function updateReplayModal({ title, text, className = "hint", canClose = true } = {}) {
   if (replayModalTitle && title) {
     replayModalTitle.textContent = title;
@@ -1252,6 +1327,10 @@ function updateReplayModal({ title, text, className = "hint", canClose = true } 
 function closeReplayModal() {
   if (replayManager?.isReplaying()) return;
   toggleReplayModal(false);
+}
+
+function closeHighscoreDetailsModal() {
+  toggleHighscoreDetailsModal(false);
 }
 
 function openPurchaseModal(def, { source = "menu" } = {}) {
@@ -1708,6 +1787,10 @@ purchaseModal?.addEventListener("click", (e) => {
 replayModalClose?.addEventListener("click", closeReplayModal);
 replayModal?.addEventListener("click", (e) => {
   if (e.target === replayModal) closeReplayModal();
+});
+highscoreDetailsClose?.addEventListener("click", closeHighscoreDetailsModal);
+highscoreDetailsModal?.addEventListener("click", (e) => {
+  if (e.target === highscoreDetailsModal) closeHighscoreDetailsModal();
 });
 
 // ---- Keybind rebinding flow ----

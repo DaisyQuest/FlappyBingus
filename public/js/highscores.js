@@ -24,7 +24,14 @@ function setWrapState(container, classNames = [], text = "") {
   container.textContent = text;
 }
 
-export function renderHighscores({ container, online = true, highscores = [], currentUser = null, onPlayRun = null } = {}) {
+export function renderHighscores({
+  container,
+  online = true,
+  highscores = [],
+  currentUser = null,
+  onPlayRun = null,
+  onShowDetails = null
+} = {}) {
   if (!container) return null;
   const doc = container.ownerDocument || document;
 
@@ -46,7 +53,8 @@ export function renderHighscores({ container, online = true, highscores = [], cu
   table.className = "hsTable";
 
   const thead = doc.createElement("thead");
-  const actionHeader = onPlayRun ? "<th>Replay</th>" : "";
+  const hasActions = typeof onPlayRun === "function" || typeof onShowDetails === "function";
+  const actionHeader = hasActions ? "<th>Replay</th>" : "";
   thead.innerHTML = `<tr><th>#</th><th>User</th><th class="mono">Best</th>${actionHeader}</tr>`;
   table.appendChild(thead);
 
@@ -59,15 +67,32 @@ export function renderHighscores({ container, online = true, highscores = [], cu
       `<td>${escapeHtml(entry.username)}${isMe ? " (you)" : ""}</td>` +
       `<td class="mono">${entry.bestScore | 0}</td>`;
 
-    if (typeof onPlayRun === "function") {
+    if (hasActions) {
       const td = doc.createElement("td");
-      const btn = doc.createElement("button");
-      btn.type = "button";
-      btn.className = "btn ghost";
-      btn.textContent = "Play";
-      btn.dataset.username = entry.username;
-      btn.addEventListener("click", () => onPlayRun(entry.username));
-      td.appendChild(btn);
+      const actions = doc.createElement("div");
+      actions.className = "hs-actions";
+
+      if (typeof onPlayRun === "function") {
+        const btn = doc.createElement("button");
+        btn.type = "button";
+        btn.className = "btn ghost";
+        btn.textContent = "Play";
+        btn.dataset.username = entry.username;
+        btn.addEventListener("click", () => onPlayRun(entry.username));
+        actions.appendChild(btn);
+      }
+
+      if (typeof onShowDetails === "function") {
+        const btn = doc.createElement("button");
+        btn.type = "button";
+        btn.className = "btn ghost";
+        btn.textContent = "Details";
+        btn.dataset.username = entry.username;
+        btn.addEventListener("click", () => onShowDetails(entry));
+        actions.appendChild(btn);
+      }
+
+      td.appendChild(actions);
       tr.appendChild(td);
     }
 
