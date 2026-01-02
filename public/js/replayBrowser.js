@@ -36,6 +36,63 @@ export function sortReplays(replays, sortMode = "score") {
   return list.sort((a, b) => (Number(b.bestScore) || 0) - (Number(a.bestScore) || 0) || (Number(b.recordedAt) || 0) - (Number(a.recordedAt) || 0));
 }
 
+function setReplayView(root, view, { listBtn, playerBtn } = {}) {
+  if (!root) return;
+  const nextView = view === "player" ? "player" : "list";
+  root.dataset.replayView = nextView;
+  const setButtonState = (button, active) => {
+    if (!button) return;
+    button.classList.toggle("selected", active);
+    button.setAttribute("aria-pressed", active ? "true" : "false");
+  };
+  setButtonState(listBtn, nextView === "list");
+  setButtonState(playerBtn, nextView === "player");
+}
+
+function applyMobileLayoutState({ root, listBtn, playerBtn } = {}, isMobile = false) {
+  if (!root) return;
+  root.dataset.mobileLayout = isMobile ? "true" : "false";
+  if (!isMobile) {
+    delete root.dataset.replayView;
+    [listBtn, playerBtn].forEach((button) => {
+      if (!button) return;
+      button.classList.remove("selected");
+      button.setAttribute("aria-pressed", "false");
+    });
+    return;
+  }
+  if (!root.dataset.replayView) {
+    setReplayView(root, "list", { listBtn, playerBtn });
+  } else {
+    setReplayView(root, root.dataset.replayView, { listBtn, playerBtn });
+  }
+}
+
+function setupMobileLayout({ root, listBtn, playerBtn, query = "(max-width: 960px)", view } = {}) {
+  if (!root) return null;
+  const env = view || root.ownerDocument?.defaultView;
+  if (!env?.matchMedia) {
+    applyMobileLayoutState({ root, listBtn, playerBtn }, false);
+    return null;
+  }
+  const media = env.matchMedia(query);
+  const update = (matches) => applyMobileLayoutState({ root, listBtn, playerBtn }, matches);
+  const handleChange = (event) => update(event.matches);
+  update(media.matches);
+  if (typeof media.addEventListener === "function") {
+    media.addEventListener("change", handleChange);
+  } else if (typeof media.addListener === "function") {
+    media.addListener(handleChange);
+  }
+  return () => {
+    if (typeof media.removeEventListener === "function") {
+      media.removeEventListener("change", handleChange);
+    } else if (typeof media.removeListener === "function") {
+      media.removeListener(handleChange);
+    }
+  };
+}
+
 function createCard(doc, entry, { onSelect, isActive } = {}) {
   const meta = formatReplayMeta(entry);
   const card = doc.createElement("button");
@@ -139,6 +196,8 @@ export async function initReplayBrowser(root = document.querySelector("[data-rep
   const speedSelect = doc.getElementById("replaySpeed");
   const progressFill = doc.getElementById("replayProgressFill");
   const progressMeta = doc.getElementById("replayProgressMeta");
+  const mobileListBtn = doc.getElementById("replayMobileList");
+  const mobilePlayerBtn = doc.getElementById("replayMobilePlayer");
 
   const { config } = await loadConfig();
   const ctx = canvas?.getContext("2d");
@@ -254,6 +313,9 @@ export async function initReplayBrowser(root = document.querySelector("[data-rep
     setStatus(`Loading replay for ${entry.username}…`);
     renderReplayDetails({ container: detailPanel, entry, run: runCache.get(entry.username) || null });
     applyFilters();
+    if (root.dataset.mobileLayout === "true") {
+      setReplayView(root, "player", { listBtn: mobileListBtn, playerBtn: mobilePlayerBtn });
+    }
 
     let run = runCache.get(entry.username);
     if (!run) {
@@ -305,6 +367,8 @@ export async function initReplayBrowser(root = document.querySelector("[data-rep
     applyFilters();
   });
   refreshBtn?.addEventListener("click", reloadList);
+  mobileListBtn?.addEventListener("click", () => setReplayView(root, "list", { listBtn: mobileListBtn, playerBtn: mobilePlayerBtn }));
+  mobilePlayerBtn?.addEventListener("click", () => setReplayView(root, "player", { listBtn: mobileListBtn, playerBtn: mobilePlayerBtn }));
 
   playBtn?.addEventListener("click", () => {
     if (!controller.play()) setStatus("Select a replay first.", "bad");
@@ -316,6 +380,7 @@ export async function initReplayBrowser(root = document.querySelector("[data-rep
 
   window.addEventListener("resize", () => game.resizeToWindow());
   window.visualViewport?.addEventListener("resize", () => game.resizeToWindow());
+  setupMobileLayout({ root, listBtn: mobileListBtn, playerBtn: mobilePlayerBtn });
 
   await reloadList();
   return { game, controller };
@@ -329,5 +394,8 @@ if (typeof window !== "undefined") {
 
 export const __testables = {
   renderReplayList,
-  renderReplayDetails
+  renderReplayDetails,
+  setReplayView,
+  applyMobileLayoutState,
+  setupMobileLayout
 };
