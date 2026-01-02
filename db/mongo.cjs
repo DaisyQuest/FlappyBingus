@@ -471,6 +471,38 @@ class MongoDataStore {
     return null;
   }
 
+  async listBestRuns(limit = 200) {
+    await this.ensureConnected();
+    const lim = Math.max(1, Math.min(500, limit | 0 || 200));
+    const docs = await this.bestRunsCollection()
+      .find(
+        { replayJson: { $type: "string", $ne: "" } },
+        {
+          projection: {
+            username: 1,
+            bestScore: 1,
+            recordedAt: 1,
+            ticksLength: 1,
+            rngTapeLength: 1,
+            durationMs: 1,
+            replayBytes: 1
+          }
+        }
+      )
+      .sort({ bestScore: -1, recordedAt: -1, username: 1 })
+      .limit(lim)
+      .toArray();
+    return docs.map((d) => ({
+      username: d.username,
+      bestScore: Number(d.bestScore) || 0,
+      recordedAt: Number(d.recordedAt) || 0,
+      ticksLength: Number(d.ticksLength) || 0,
+      rngTapeLength: Number(d.rngTapeLength) || 0,
+      durationMs: Number(d.durationMs) || 0,
+      replayBytes: Number(d.replayBytes) || 0
+    }));
+  }
+
   async setTrail(key, trailId) {
     await this.ensureConnected();
     const now = Date.now();

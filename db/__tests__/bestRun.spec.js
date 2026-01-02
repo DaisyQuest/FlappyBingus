@@ -2,14 +2,19 @@ import { describe, expect, it, vi } from "vitest";
 import { MongoDataStore } from "../mongo.cjs";
 
 class FakeBestRunsCollection {
-  constructor(doc = null) {
+  constructor(doc = null, docs = null) {
     this.doc = doc;
+    this.docs = Array.isArray(docs) ? docs : doc ? [doc] : [];
     this.lastUpdate = null;
     this.lastFind = null;
+    this.lastSort = null;
+    this.lastLimit = null;
+    this.lastFindMany = null;
     this.finds = [];
     this.updateOne = vi.fn(async (query, update) => {
       this.lastUpdate = { query, update };
       this.doc = { ...(this.doc || {}), ...(update.$set || {}) };
+      this.docs = this.docs.length ? this.docs : [this.doc];
       return { acknowledged: true };
     });
   }
@@ -21,6 +26,55 @@ class FakeBestRunsCollection {
     const entries = Object.entries(query || {});
     const matches = entries.every(([key, value]) => this.doc?.[key] === value);
     return matches ? { ...this.doc } : null;
+  }
+
+  find(query = {}, options = {}) {
+    this.lastFindMany = { query, options };
+    const matchesQuery = (doc) =>
+      Object.entries(query || {}).every(([key, value]) => {
+        if (value && typeof value === "object" && !Array.isArray(value)) {
+          if ("$type" in value) {
+            if (value.$type === "string" && typeof doc[key] !== "string") return false;
+          }
+          if ("$ne" in value && doc[key] === value.$ne) return false;
+          return true;
+        }
+        return doc[key] === value;
+      });
+    const applyProjection = (doc) => {
+      const projection = options?.projection;
+      if (!projection) return { ...doc };
+      return Object.keys(projection).reduce((acc, key) => {
+        if (projection[key]) acc[key] = doc[key];
+        return acc;
+      }, {});
+    };
+
+    let results = this.docs.filter(matchesQuery);
+    return {
+      sort: (sortObj) => {
+        this.lastSort = sortObj;
+        const order = Object.entries(sortObj || {});
+        results = results.slice().sort((a, b) => {
+          for (const [key, dir] of order) {
+            const av = a?.[key];
+            const bv = b?.[key];
+            if (av === bv) continue;
+            const cmp = av > bv ? 1 : -1;
+            return dir < 0 ? -cmp : cmp;
+          }
+          return 0;
+        });
+        return {
+          limit: (lim) => {
+            this.lastLimit = lim;
+            return {
+              toArray: async () => results.slice(0, lim).map(applyProjection)
+            };
+          }
+        };
+      }
+    };
   }
 }
 
@@ -180,5 +234,70 @@ describe("MongoDataStore.recordBestRun", () => {
     await expect(
       store.recordBestRun(baseUser, { score: 0, replayJson: "{}", ticksLength: 0 })
     ).rejects.toThrow("invalid_best_score");
+  });
+});
+
+describe("MongoDataStore.listBestRuns", () => {
+  it("lists replay metadata sorted by score then recency", async () => {
+    const store = new MongoDataStore({ uri: "mongodb://test", dbName: "db" });
+    store.ensureConnected = vi.fn();
+    const docs = [
+      { username: "alpha", bestScore: 200, recordedAt: 10, durationMs: 1200, ticksLength: 10, rngTapeLength: 2, replayBytes: 500, replayJson: "{}" },
+      { username: "bravo", bestScore: 250, recordedAt: 5, durationMs: 900, ticksLength: 9, rngTapeLength: 1, replayBytes: 400, replayJson: "{}" },
+      { username: "charlie", bestScore: 250, recordedAt: 20, durationMs: 1300, ticksLength: 12, rngTapeLength: 3, replayBytes: 600, replayJson: "{}" },
+      { username: "delta", bestScore: 50, recordedAt: 1, durationMs: 300, ticksLength: 3, rngTapeLength: 0, replayBytes: 200, replayJson: "" }
+    ];
+    const collection = new FakeBestRunsCollection(null, docs);
+    store.bestRunsCollection = () => collection;
+
+    const results = await store.listBestRuns(2);
+
+    expect(results).toEqual([
+      {
+        username: "charlie",
+        bestScore: 250,
+        recordedAt: 20,
+        ticksLength: 12,
+        rngTapeLength: 3,
+        durationMs: 1300,
+        replayBytes: 600
+      },
+      {
+        username: "bravo",
+        bestScore: 250,
+        recordedAt: 5,
+        ticksLength: 9,
+        rngTapeLength: 1,
+        durationMs: 900,
+        replayBytes: 400
+      }
+    ]);
+    expect(collection.lastFindMany?.query).toMatchObject({ replayJson: { $type: "string", $ne: "" } });
+    expect(collection.lastLimit).toBe(2);
+  });
+
+  it("clamps list limits and normalizes numeric fields", async () => {
+    const store = new MongoDataStore({ uri: "mongodb://test", dbName: "db" });
+    store.ensureConnected = vi.fn();
+    const docs = [
+      { username: "echo", bestScore: "99", recordedAt: "7", durationMs: null, ticksLength: "3", rngTapeLength: undefined, replayBytes: "20", replayJson: "{}" }
+    ];
+    const collection = new FakeBestRunsCollection(null, docs);
+    store.bestRunsCollection = () => collection;
+
+    const results = await store.listBestRuns(-5);
+
+    expect(results).toEqual([
+      {
+        username: "echo",
+        bestScore: 99,
+        recordedAt: 7,
+        ticksLength: 3,
+        rngTapeLength: 0,
+        durationMs: 0,
+        replayBytes: 20
+      }
+    ]);
+    expect(collection.lastLimit).toBe(1);
   });
 });

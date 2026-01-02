@@ -18,7 +18,7 @@ function normalizeActions(actions) {
   return actions.map(normalizeAction).filter(Boolean);
 }
 
-function applyReplayTick({ tick, game, replayInput, simDt, step }) {
+export function applyReplayTick({ tick, game, replayInput, simDt, step }) {
   const tk = tick || {};
 
   replayInput._move = tk.move || { dx: 0, dy: 0 };

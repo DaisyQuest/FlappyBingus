@@ -86,6 +86,7 @@ function _setDataStoreForTests(mock) {
       throw new Error("recordBestRun_not_mocked");
     },
     getBestRunByUsername: async () => null,
+    listBestRuns: async () => [],
     ...mock
   };
   dataStore = safeStore;
@@ -1427,6 +1428,21 @@ async function route(req, res) {
     return;
   }
 
+  // List saved best-run replays
+  if (pathname === "/api/replays" && req.method === "GET") {
+    if (rateLimit(req, res, "/api/replays")) return;
+    if (!(await ensureDatabase(res))) return;
+    const limit = Number(url.searchParams.get("limit") || 200);
+    const replays = await dataStore.listBestRuns(limit);
+    sendJson(res, 200, {
+      ok: true,
+      count: replays.length,
+      generatedAt: new Date().toISOString(),
+      replays
+    });
+    return;
+  }
+
   // Set selected trail cosmetic
   if (pathname === "/api/cosmetics/trail" && req.method === "POST") {
     if (rateLimit(req, res, "/api/cosmetics/trail")) return;
@@ -1780,6 +1796,16 @@ async function route(req, res) {
       sendHtml(res, 200, html);
     } catch (err) {
       sendJson(res, 404, { ok: false, error: "admin_not_found", detail: err?.message || String(err) });
+    }
+    return;
+  }
+
+  if (pathname === "/replayBrowser" && req.method === "GET") {
+    try {
+      const html = await fs.readFile(path.join(PUBLIC_DIR, "replayBrowser.html"), "utf8");
+      sendHtml(res, 200, html);
+    } catch (err) {
+      sendJson(res, 404, { ok: false, error: "replay_browser_not_found", detail: err?.message || String(err) });
     }
     return;
   }

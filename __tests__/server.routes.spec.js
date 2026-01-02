@@ -99,6 +99,7 @@ async function importServer(overrides = {}) {
     })),
     recordBestRun: vi.fn(async (_user, payload) => ({ ...payload, bestScore: payload.score })),
     getBestRunByUsername: vi.fn(async () => null),
+    listBestRuns: vi.fn(async () => []),
     setTrail: vi.fn(async (_key, trailId) => ({ ...baseUser(), selectedTrail: trailId })),
     setIcon: vi.fn(async (_key, iconId) => ({ ...baseUser(), selectedIcon: iconId })),
     setPipeTexture: vi.fn(async (_key, textureId, mode) => ({ ...baseUser(), selectedPipeTexture: textureId, pipeTextureMode: mode })),
@@ -225,6 +226,42 @@ describe("server routes and helpers", () => {
 
     expect(res.status).toBe(401);
     expect(readJson(res).error).toBe("unauthorized");
+  });
+
+  it("lists saved replay metadata for the replay browser", async () => {
+    const replayList = [
+      { username: "alpha", bestScore: 100, recordedAt: 10, ticksLength: 10, rngTapeLength: 1, durationMs: 1200, replayBytes: 400 }
+    ];
+    const { server, mockDataStore } = await importServer({
+      listBestRuns: vi.fn(async (limit) => {
+        expect(limit).toBe(5);
+        return replayList;
+      })
+    });
+    const res = createRes();
+
+    await server.route(createReq({ method: "GET", url: "/api/replays?limit=5" }), res);
+
+    expect(res.status).toBe(200);
+    expect(readJson(res)).toEqual(
+      expect.objectContaining({
+        ok: true,
+        count: 1,
+        replays: replayList
+      })
+    );
+    expect(mockDataStore.listBestRuns).toHaveBeenCalledWith(5);
+  });
+
+  it("serves the replay browser page", async () => {
+    const { server } = await importServer();
+    const res = createRes();
+
+    await server.route(createReq({ method: "GET", url: "/replayBrowser" }), res);
+
+    expect(res.status).toBe(200);
+    expect(res.headers["Content-Type"]).toContain("text/html");
+    expect(res.body).toContain("<title>Replay Browser</title>");
   });
 
   it("accepts bearer session tokens when cookies are unavailable", async () => {
