@@ -73,6 +73,9 @@ export function createPipeTextureMenuHandlers({
     renderPipeTextureModeButtons(getCurrentPipeTextureMode());
     syncPipeTextureSwatch(getCurrentPipeTextureId(), net.pipeTextures);
     renderPipeTextureMenuOptions(getCurrentPipeTextureId(), computeUnlockedPipeTextureSet(net.pipeTextures), net.pipeTextures);
+    if (typeof shouldTriggerSelectionSave === "function" && shouldTriggerSelectionSave({ previousId: previous, nextId: nextMode })) {
+      triggerUserSave?.();
+    }
 
     if (!net.user && !(await ensureLoggedInForSave())) return;
 
