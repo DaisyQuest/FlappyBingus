@@ -47,74 +47,109 @@ describe("achievement editor helpers", () => {
     expect(defs[0].requirement.minSkillUses.dash).toBe(2);
   });
 
-  it("collects unlockable overrides from selection fields", () => {
+  it("collects achievement unlock overrides from cards", () => {
     const root = document.createElement("div");
     const card = document.createElement("div");
     card.className = "unlockable-card";
     card.dataset.unlockableId = "classic";
     card.dataset.unlockableType = "trail";
-    const select = document.createElement("select");
-    select.dataset.unlockableSelect = "true";
-    const defaultOpt = document.createElement("option");
-    defaultOpt.value = "";
-    const achievementOpt = document.createElement("option");
-    achievementOpt.value = "ach_1";
-    select.append(defaultOpt, achievementOpt);
-    select.value = "ach_1";
-    card.appendChild(select);
+    const typeSelect = document.createElement("select");
+    ["free", "achievement", "score", "purchase", "record"].forEach((value) => {
+      const option = document.createElement("option");
+      option.value = value;
+      typeSelect.appendChild(option);
+    });
+    typeSelect.dataset.unlockType = "true";
+    typeSelect.value = "achievement";
+    const achievementInput = document.createElement("input");
+    achievementInput.dataset.unlockAchievement = "true";
+    achievementInput.value = "ach_1";
+    card.append(typeSelect, achievementInput);
     root.appendChild(card);
 
     const overrides = collectUnlockableOverrides({
       unlockableOverrides: { trail: { classic: { type: "achievement", id: "old" } } },
       root
     });
-    expect(overrides.trail.classic.id).toBe("ach_1");
+    expect(overrides.trail.classic).toEqual({ type: "achievement", id: "ach_1" });
   });
 
-  it("removes unlockable overrides when the selection is cleared", () => {
+  it("collects score unlock overrides with defaults", () => {
     const root = document.createElement("div");
     const card = document.createElement("div");
     card.className = "unlockable-card";
     card.dataset.unlockableId = "classic";
     card.dataset.unlockableType = "trail";
-    const select = document.createElement("select");
-    select.dataset.unlockableSelect = "true";
-    const defaultOpt = document.createElement("option");
-    defaultOpt.value = "";
-    select.append(defaultOpt);
-    select.value = "";
-    card.appendChild(select);
+    const typeSelect = document.createElement("select");
+    ["free", "achievement", "score", "purchase", "record"].forEach((value) => {
+      const option = document.createElement("option");
+      option.value = value;
+      typeSelect.appendChild(option);
+    });
+    typeSelect.dataset.unlockType = "true";
+    typeSelect.value = "score";
+    const scoreInput = document.createElement("input");
+    scoreInput.dataset.unlockScore = "true";
+    scoreInput.value = "";
+    card.append(typeSelect, scoreInput);
     root.appendChild(card);
 
     const overrides = collectUnlockableOverrides({
       unlockableOverrides: { trail: { classic: { type: "achievement", id: "old" } } },
       root
     });
-    expect(overrides.trail?.classic).toBeUndefined();
+    expect(overrides.trail.classic).toEqual({ type: "score", minScore: 0 });
   });
 
-  it("does not overwrite non-achievement overrides", () => {
+  it("collects purchase unlock overrides with currency", () => {
     const root = document.createElement("div");
     const card = document.createElement("div");
     card.className = "unlockable-card";
-    card.dataset.unlockableId = "classic";
-    card.dataset.unlockableType = "trail";
-    const select = document.createElement("select");
-    select.dataset.unlockableSelect = "true";
-    const defaultOpt = document.createElement("option");
-    defaultOpt.value = "";
-    const achievementOpt = document.createElement("option");
-    achievementOpt.value = "ach_2";
-    select.append(defaultOpt, achievementOpt);
-    select.value = "ach_2";
-    card.appendChild(select);
+    card.dataset.unlockableId = "spark";
+    card.dataset.unlockableType = "player_texture";
+    const typeSelect = document.createElement("select");
+    ["free", "achievement", "score", "purchase", "record"].forEach((value) => {
+      const option = document.createElement("option");
+      option.value = value;
+      typeSelect.appendChild(option);
+    });
+    typeSelect.dataset.unlockType = "true";
+    typeSelect.value = "purchase";
+    const costInput = document.createElement("input");
+    costInput.dataset.unlockCost = "true";
+    costInput.value = "25";
+    const currencyInput = document.createElement("input");
+    currencyInput.dataset.unlockCurrency = "true";
+    currencyInput.value = "orbs";
+    card.append(typeSelect, costInput, currencyInput);
     root.appendChild(card);
 
-    const overrides = collectUnlockableOverrides({
-      unlockableOverrides: { trail: { classic: { type: "purchase", cost: 10 } } },
-      root
+    const overrides = collectUnlockableOverrides({ root });
+    expect(overrides.player_texture.spark).toEqual({ type: "purchase", cost: 25, currencyId: "orbs" });
+  });
+
+  it("captures free unlock overrides with custom labels", () => {
+    const root = document.createElement("div");
+    const card = document.createElement("div");
+    card.className = "unlockable-card";
+    card.dataset.unlockableId = "basic";
+    card.dataset.unlockableType = "pipe_texture";
+    const typeSelect = document.createElement("select");
+    ["free", "achievement", "score", "purchase", "record"].forEach((value) => {
+      const option = document.createElement("option");
+      option.value = value;
+      typeSelect.appendChild(option);
     });
-    expect(overrides.trail.classic).toEqual({ type: "purchase", cost: 10 });
+    typeSelect.dataset.unlockType = "true";
+    typeSelect.value = "free";
+    const labelInput = document.createElement("input");
+    labelInput.dataset.unlockLabel = "true";
+    labelInput.value = "Freebie";
+    card.append(typeSelect, labelInput);
+    root.appendChild(card);
+
+    const overrides = collectUnlockableOverrides({ root });
+    expect(overrides.pipe_texture.basic).toEqual({ type: "free", label: "Freebie" });
   });
 
   it("hydrates skill requirement inputs when present", () => {

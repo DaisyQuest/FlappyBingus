@@ -15,8 +15,17 @@ const state = {
   schema: null,
   definitions: [],
   unlockables: [],
-  unlockableOverrides: {}
+  unlockableOverrides: {},
+  loaded: false
 };
+
+const UNLOCK_OPTIONS = [
+  { value: "free", label: "Free" },
+  { value: "achievement", label: "Achievement" },
+  { value: "score", label: "Score" },
+  { value: "purchase", label: "Purchase" },
+  { value: "record", label: "Record holder" }
+];
 
 function setStatus(text, tone = "info") {
   statusText.textContent = text;
@@ -55,8 +64,31 @@ function createPanel(title, subtitle) {
   return { panel, actions };
 }
 
+function createFieldRow(labelText, input) {
+  const row = document.createElement("div");
+  row.className = "field-row";
+  const label = document.createElement("label");
+  label.textContent = labelText;
+  row.append(label, input);
+  return row;
+}
 
-function renderAchievementEditor() {
+function buildUnlockSummary(unlock, fallback) {
+  const type = unlock?.type || fallback?.type || "free";
+  const label = unlock?.label || fallback?.label;
+  return label ? `${type} · ${label}` : type;
+}
+
+function updateUnlockFieldVisibility(card) {
+  const current = card.querySelector("[data-unlock-type]")?.value || "free";
+  card.querySelectorAll("[data-unlock-field]").forEach((field) => {
+    field.hidden = field.dataset.unlockField !== current;
+  });
+}
+
+
+async function renderAchievementEditor() {
+  if (!state.loaded) await loadConfig();
   clearMain();
   const { panel, actions } = createPanel(
     "Achievements",
@@ -83,7 +115,10 @@ function renderAchievementEditor() {
     });
   }
 
-  reloadBtn.addEventListener("click", () => loadConfig());
+  reloadBtn.addEventListener("click", async () => {
+    await loadConfig();
+    refreshList();
+  });
   addBtn.addEventListener("click", () => {
     const blank = {
       id: "",
@@ -100,8 +135,14 @@ function renderAchievementEditor() {
     try {
       setStatus("Saving achievements…");
       const definitions = collectDefinitions(grid);
-      const overrides = collectUnlockableOverrides({ unlockableOverrides: state.unlockableOverrides, root: document });
-      await saveAchievementConfig({ definitions, unlockableOverrides: overrides });
+      const response = await saveAchievementConfig({
+        definitions,
+        unlockableOverrides: state.unlockableOverrides
+      });
+      state.definitions = Array.isArray(response?.achievements?.definitions)
+        ? response.achievements.definitions
+        : definitions;
+      state.unlockableOverrides = response?.unlockableOverrides || state.unlockableOverrides;
       setStatus("Achievements saved", "ok");
     } catch (err) {
       setStatus("Failed to save achievements", "error");
@@ -113,11 +154,12 @@ function renderAchievementEditor() {
 }
 
 
-function renderUnlockableEditor() {
+async function renderUnlockableEditor() {
+  if (!state.loaded) await loadConfig();
   clearMain();
   const { panel, actions } = createPanel(
-    "Unlockable Mappings",
-    "Map trails, icons, and pipe textures to achievement unlocks."
+    "Unlockables",
+    "Choose how each trail, icon, or pipe texture is unlocked."
   );
   const reloadBtn = document.createElement("button");
   reloadBtn.textContent = "Reload";
@@ -131,15 +173,19 @@ function renderUnlockableEditor() {
   panel.appendChild(grid);
   main.appendChild(panel);
 
-  reloadBtn.addEventListener("click", () => loadConfig());
+  reloadBtn.addEventListener("click", async () => {
+    await loadConfig();
+    renderUnlockableEditor();
+  });
   saveBtn.addEventListener("click", async () => {
     try {
-      setStatus("Saving unlockable mappings…");
-      const overrides = collectUnlockableOverrides({ unlockableOverrides: state.unlockableOverrides, root: document });
-      await saveAchievementConfig({ definitions: state.definitions, unlockableOverrides: overrides });
-      setStatus("Unlockable mappings saved", "ok");
+      setStatus("Saving unlockables…");
+      const overrides = collectUnlockableOverrides({ unlockableOverrides: state.unlockableOverrides, root: grid });
+      const response = await saveAchievementConfig({ definitions: state.definitions, unlockableOverrides: overrides });
+      state.unlockableOverrides = response?.unlockableOverrides || overrides;
+      setStatus("Unlockables saved", "ok");
     } catch (err) {
-      setStatus("Failed to save mappings", "error");
+      setStatus("Failed to save unlockables", "error");
       console.error(err);
     }
   });
@@ -175,36 +221,93 @@ function renderUnlockableEditor() {
       meta.className = "muted";
       meta.textContent = item.id;
 
-      const selectWrap = document.createElement("div");
-      selectWrap.className = "unlockable-select";
-      const label = document.createElement("label");
-      label.textContent = "Achievement unlock";
-      const select = document.createElement("select");
-      select.dataset.unlockableSelect = "true";
-      select.innerHTML = `<option value="">Use default (${item.unlock?.label || "Free"})</option>`;
+      const currentOverride = state.unlockableOverrides?.[type]?.[item.id];
+      const baseUnlock = item.unlock || { type: "free" };
+      const resolvedUnlock = currentOverride || baseUnlock;
 
-      achievementOptions.forEach((opt) => {
+      const summary = document.createElement("div");
+      summary.className = "muted";
+      summary.textContent = `Current: ${buildUnlockSummary(resolvedUnlock, baseUnlock)}`;
+
+      const fields = document.createElement("div");
+      fields.className = "unlockable-fields";
+
+      const typeSelect = document.createElement("select");
+      typeSelect.dataset.unlockType = "true";
+      UNLOCK_OPTIONS.forEach((opt) => {
         const option = document.createElement("option");
-        option.value = opt.id;
+        option.value = opt.value;
         option.textContent = opt.label;
-        select.appendChild(option);
+        typeSelect.appendChild(option);
       });
+      typeSelect.value = resolvedUnlock?.type || "free";
 
-      const override = state.unlockableOverrides?.[type]?.[item.id];
-      if (override?.type === "achievement") {
-        select.value = override.id;
-      }
-      if (override && override.type !== "achievement") {
-        select.disabled = true;
-        const note = document.createElement("div");
-        note.className = "muted";
-        note.textContent = `Override locked: ${override.type}`;
-        selectWrap.appendChild(note);
-      }
+      const labelInput = document.createElement("input");
+      labelInput.type = "text";
+      labelInput.dataset.unlockLabel = "true";
+      labelInput.placeholder = baseUnlock?.label || "Optional label";
+      labelInput.value = currentOverride?.label || "";
 
-      selectWrap.append(label, select);
-      card.append(name, meta, selectWrap);
+      fields.append(
+        createFieldRow("Unlock type", typeSelect),
+        createFieldRow("Label (optional)", labelInput)
+      );
+
+      const achievementWrap = document.createElement("div");
+      achievementWrap.dataset.unlockField = "achievement";
+      const achievementInput = document.createElement("input");
+      achievementInput.type = "text";
+      achievementInput.dataset.unlockAchievement = "true";
+      achievementInput.placeholder = "Achievement ID";
+      achievementInput.value = resolvedUnlock?.id || baseUnlock?.id || "";
+      if (achievementOptions.length) {
+        const listId = `unlockable-achievement-${type}-${item.id}`;
+        achievementInput.setAttribute("list", listId);
+        const dataList = document.createElement("datalist");
+        dataList.id = listId;
+        achievementOptions.forEach((opt) => {
+          const option = document.createElement("option");
+          option.value = opt.id;
+          option.label = opt.label;
+          dataList.appendChild(option);
+        });
+        achievementWrap.appendChild(dataList);
+      }
+      achievementWrap.appendChild(createFieldRow("Achievement ID", achievementInput));
+
+      const scoreWrap = document.createElement("div");
+      scoreWrap.dataset.unlockField = "score";
+      const scoreInput = document.createElement("input");
+      scoreInput.type = "number";
+      scoreInput.min = "0";
+      scoreInput.step = "1";
+      scoreInput.dataset.unlockScore = "true";
+      scoreInput.value = resolvedUnlock?.minScore ?? baseUnlock?.minScore ?? "";
+      scoreWrap.appendChild(createFieldRow("Minimum score", scoreInput));
+
+      const purchaseWrap = document.createElement("div");
+      purchaseWrap.dataset.unlockField = "purchase";
+      const costInput = document.createElement("input");
+      costInput.type = "number";
+      costInput.min = "0";
+      costInput.step = "1";
+      costInput.dataset.unlockCost = "true";
+      costInput.value = resolvedUnlock?.cost ?? baseUnlock?.cost ?? "";
+      const currencyInput = document.createElement("input");
+      currencyInput.type = "text";
+      currencyInput.dataset.unlockCurrency = "true";
+      currencyInput.value = resolvedUnlock?.currencyId ?? baseUnlock?.currencyId ?? "";
+      purchaseWrap.append(
+        createFieldRow("Cost", costInput),
+        createFieldRow("Currency ID", currencyInput)
+      );
+
+      fields.append(achievementWrap, scoreWrap, purchaseWrap);
+      card.append(name, meta, summary, fields);
       section.appendChild(card);
+
+      typeSelect.addEventListener("change", () => updateUnlockFieldVisibility(card));
+      updateUnlockFieldVisibility(card);
     });
 
     grid.appendChild(section);
@@ -219,15 +322,15 @@ async function loadConfig() {
   state.definitions = Array.isArray(data.achievements?.definitions) ? data.achievements.definitions : [];
   state.unlockables = Array.isArray(data.unlockables) ? data.unlockables : [];
   state.unlockableOverrides = data.unlockableOverrides || {};
+  state.loaded = true;
   setStatus("Achievement editor ready", "ok");
   setMeta(`Config updated ${new Date(data.meta?.lastLoadedAt || Date.now()).toLocaleString()}`);
-  renderAchievementEditor();
 }
 
 function renderNav() {
   const items = [
     { id: "achievements", label: "Achievements", render: renderAchievementEditor },
-    { id: "unlockables", label: "Unlockable Mappings", render: renderUnlockableEditor }
+    { id: "unlockables", label: "Unlockables", render: renderUnlockableEditor }
   ];
   nav.innerHTML = "";
   items.forEach((item) => {
@@ -237,7 +340,10 @@ function renderNav() {
     btn.addEventListener("click", () => {
       document.querySelectorAll(".nav-item").forEach((el) => el.classList.remove("active"));
       btn.classList.add("active");
-      item.render();
+      Promise.resolve(item.render()).catch((err) => {
+        console.error(err);
+        setStatus("Failed to load view", "error");
+      });
     });
     nav.appendChild(btn);
   });
@@ -246,7 +352,7 @@ function renderNav() {
 }
 
 renderNav();
-loadConfig().catch((err) => {
+renderAchievementEditor().catch((err) => {
   console.error(err);
   setStatus("Failed to load achievements", "error");
 });
