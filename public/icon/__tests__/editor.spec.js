@@ -16,7 +16,7 @@ describe("icon editor helpers", () => {
         animation: { type: "lava", speed: 0.2, palette: { base: "#000" } }
       }
     };
-    const card = createIconCard({ icon, defaults: icon, overrideEnabled: true, allowRemove: true });
+    const card = createIconCard({ icon, defaults: icon, allowRemove: true });
     const root = document.createElement("div");
     root.appendChild(card);
 
@@ -28,16 +28,6 @@ describe("icon editor helpers", () => {
     expect(overrides.spark.style.animation.type).toBe("lava");
   });
 
-  it("omits overrides when disabled", () => {
-    const icon = { id: "base", name: "Base", unlock: { type: "free" }, style: { fill: "#000" } };
-    const card = createIconCard({ icon, defaults: icon, overrideEnabled: false, allowRemove: true });
-    const root = document.createElement("div");
-    root.appendChild(card);
-
-    const overrides = collectIconOverrides(root);
-    expect(overrides).toEqual({});
-  });
-
   it("reads color lists into arrays", () => {
     const icon = {
       id: "stripe",
@@ -45,7 +35,7 @@ describe("icon editor helpers", () => {
       unlock: { type: "free" },
       style: { pattern: { type: "stripes", colors: ["#111", "#222"] } }
     };
-    const card = createIconCard({ icon, defaults: icon, overrideEnabled: true, allowRemove: false });
+    const card = createIconCard({ icon, defaults: icon, allowRemove: false });
     card.querySelector("[data-field='pattern.colors']").value = "#111, #222, #333";
     const read = readIconDefinition(card);
     expect(read.style.pattern.colors).toEqual(["#111", "#222", "#333"]);

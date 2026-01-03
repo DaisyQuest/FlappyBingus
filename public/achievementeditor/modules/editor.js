@@ -107,28 +107,6 @@ export function collectDefinitions(grid) {
   });
 }
 
-export function collectUnlockableOverrides({ unlockableOverrides = {}, root = document } = {}) {
-  const base = structuredClone(unlockableOverrides || {});
-  const cards = Array.from(root.querySelectorAll(".unlockable-card"));
-  cards.forEach((card) => {
-    const type = card.dataset.unlockableType;
-    const id = card.dataset.unlockableId;
-    if (!type || !id) return;
-    const existing = base?.[type]?.[id];
-    if (existing && existing.type !== "achievement") return;
-    const select = card.querySelector("select[data-unlockable-select]");
-    if (!select) return;
-    const value = select.value;
-    if (!base[type]) base[type] = {};
-    if (!value) {
-      if (base[type]) delete base[type][id];
-      return;
-    }
-    base[type][id] = { type: "achievement", id: value };
-  });
-  return base;
-}
-
 function createInputRow(labelText, input) {
   const row = document.createElement("div");
   row.className = "field-row";

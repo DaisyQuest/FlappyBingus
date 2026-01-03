@@ -42,15 +42,19 @@ describe("unlockables", () => {
       label: "Cost: 2 BC"
     });
     expect(normalizeUnlock({ type: "record" }).label).toBe("Record holder");
+    expect(normalizeUnlock({ type: "record", minScore: 150 }).minScore).toBe(150);
     expect(normalizeUnlock(null)).toEqual({ type: "free", label: "Free" });
   });
 
   it("evaluates unlock satisfaction across contexts", () => {
     const recordDef = { id: "record", type: "trail", unlock: { type: "record" } };
+    const recordScoreDef = { id: "record_score", type: "trail", unlock: { type: "record", minScore: 50 } };
     const scoreDef = { id: "score", type: "pipe_texture", unlock: { type: "score", minScore: 10 } };
     const achievementDef = { id: "ach", type: "player_texture", unlock: { type: "achievement", id: "a1", minScore: 5 } };
     expect(isUnlockSatisfied(recordDef, { recordHolder: false })).toBe(false);
     expect(isUnlockSatisfied(recordDef, { recordHolder: true })).toBe(true);
+    expect(isUnlockSatisfied(recordScoreDef, { recordHolder: true, bestScore: 20 })).toBe(false);
+    expect(isUnlockSatisfied(recordScoreDef, { recordHolder: true, bestScore: 50 })).toBe(true);
     expect(isUnlockSatisfied(scoreDef, { bestScore: 9 })).toBe(false);
     expect(isUnlockSatisfied(scoreDef, { bestScore: 10 })).toBe(true);
     expect(isUnlockSatisfied(achievementDef, { achievements: { unlocked: { a1: 123 } }, bestScore: 0 })).toBe(true);

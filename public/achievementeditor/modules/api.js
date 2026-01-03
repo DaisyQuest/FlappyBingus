@@ -23,9 +23,9 @@ export async function getAchievementConfig() {
   return requestJson("/api/admin/achievements", { method: "GET" });
 }
 
-export async function saveAchievementConfig({ definitions, unlockableOverrides }) {
+export async function saveAchievementConfig({ definitions }) {
   return requestJson("/api/admin/achievements", {
     method: "PUT",
-    body: JSON.stringify({ definitions, unlockableOverrides })
+    body: JSON.stringify({ definitions })
   });
 }

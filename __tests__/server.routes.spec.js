@@ -150,8 +150,7 @@ async function importServer(overrides = {}) {
         session: { ttlSeconds: 10, refreshWindowSeconds: 5 },
         rateLimits: {},
         unlockableMenus: {},
-        achievements: { definitions: null },
-        unlockableOverrides: {}
+        achievements: { definitions: null }
       })),
       getMeta: vi.fn(() => ({ lastLoadedAt: 123 })),
       save: vi.fn(async (config) => config),
@@ -774,6 +773,58 @@ describe("server routes and helpers", () => {
 
     expect(success.status).toBe(200);
     expect(readJson(success).user.selectedTrail).toBe("solar");
+  });
+
+  it("equips custom trails and icons defined in admin editors", async () => {
+    const customTrailId = "custom_trail";
+    const customIconId = "custom_icon";
+    const { server, mockDataStore } = await importServer({
+      gameConfigStoreOverrides: {
+        getConfig: vi.fn(() => ({
+          trailStyles: { overrides: { [customTrailId]: { unlock: { type: "free" } } } },
+          iconStyles: {
+            overrides: {
+              [customIconId]: {
+                name: "Custom Icon",
+                unlock: { type: "free" },
+                style: { fill: "#fff" }
+              }
+            }
+          }
+        }))
+      },
+      dataStoreOverrides: {
+        getUserByKey: vi.fn(async () => ({ ...baseUser(), bestScore: 0 })),
+        setTrail: vi.fn(async (_key, trailId) => ({ ...baseUser(), selectedTrail: trailId })),
+        setIcon: vi.fn(async (_key, iconId) => ({ ...baseUser(), selectedIcon: iconId }))
+      }
+    });
+
+    const trailRes = createRes();
+    await server.route(
+      createReq({
+        method: "POST",
+        url: "/api/cosmetics/trail",
+        body: JSON.stringify({ trailId: customTrailId }),
+        headers: { cookie: buildSessionCookie(server, "PlayerOne") }
+      }),
+      trailRes
+    );
+    expect(trailRes.status).toBe(200);
+    expect(readJson(trailRes).user.selectedTrail).toBe(customTrailId);
+
+    const iconRes = createRes();
+    await server.route(
+      createReq({
+        method: "POST",
+        url: "/api/cosmetics/icon",
+        body: JSON.stringify({ iconId: customIconId }),
+        headers: { cookie: buildSessionCookie(server, "PlayerOne") }
+      }),
+      iconRes
+    );
+    expect(iconRes.status).toBe(200);
+    expect(readJson(iconRes).user.selectedIcon).toBe(customIconId);
   });
 
   it("requires authentication for trail selection requests", async () => {

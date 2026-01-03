@@ -27,7 +27,10 @@ function normalizeUnlock(unlock) {
     return { type, cost, currencyId, label };
   }
   if (type === "record") {
-    return { type: "record", label: unlock.label || "Record holder" };
+    const minScore = Number.isFinite(unlock.minScore) ? Math.max(0, Math.floor(unlock.minScore)) : null;
+    return minScore === null
+      ? { type: "record", label: unlock.label || "Record holder" }
+      : { type: "record", minScore, label: unlock.label || "Record holder" };
   }
   return { type: "free", label: unlock.label || "Free" };
 }
@@ -72,7 +75,9 @@ function isUnlockSatisfied(def, context = {}) {
     case "purchase":
       return ownedIds.has(def.id) || ownedIds.has(unlock.id || def.id);
     case "record":
-      return recordHolder;
+      if (!recordHolder) return false;
+      if (Number.isFinite(unlock.minScore)) return bestScore >= unlock.minScore;
+      return true;
     default:
       return true;
   }

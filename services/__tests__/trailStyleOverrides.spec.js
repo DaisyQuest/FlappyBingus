@@ -31,6 +31,39 @@ describe("trail style overrides", () => {
     expect(result.overrides.classic.extras[0].color).toEqual(["#fff", "#000"]);
   });
 
+  it("normalizes unlock metadata for trails", () => {
+    const result = normalizeTrailStyleOverrides({
+      overrides: {
+        rainbow: {
+          name: "Rainbow",
+          unlock: { type: "achievement", id: "ach_rainbow", minScore: 250 }
+        }
+      }
+    });
+
+    expect(result.ok).toBe(true);
+    expect(result.overrides.rainbow.name).toBe("Rainbow");
+    expect(result.overrides.rainbow.unlock).toEqual(expect.objectContaining({
+      type: "achievement",
+      id: "ach_rainbow",
+      minScore: 250
+    }));
+  });
+
+  it("rejects invalid unlock payloads", () => {
+    const result = normalizeTrailStyleOverrides({
+      overrides: {
+        bad: {
+          name: "",
+          unlock: "free"
+        }
+      }
+    });
+
+    expect(result.ok).toBe(false);
+    expect(result.errors.length).toBeGreaterThan(0);
+  });
+
   it("rejects invalid shapes and extra modes", () => {
     const result = normalizeTrailStyleOverrides({
       overrides: {

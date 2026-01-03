@@ -68,11 +68,10 @@ function stopPreview(canvas) {
 function updatePreview(card, defaultsMap) {
   const previewWrap = card.querySelector("[data-icon-preview]");
   if (!previewWrap) return;
-  const enabled = card.querySelector("[data-field='overrideEnabled']")?.checked;
-  const icon = enabled ? readIconDefinition(card) : null;
+  const icon = readIconDefinition(card);
   const fallbackId = card.querySelector("[data-field='id']")?.value?.trim();
   const fallback = defaultsMap.get(fallbackId);
-  const resolved = icon || fallback || readIconDefinition(card);
+  const resolved = icon || fallback;
   if (!resolved) return;
 
   const previous = previewWrap.querySelector("canvas");
@@ -120,38 +119,19 @@ function renderIconEditor() {
       updateHeading(card);
       updatePreview(card, defaultsMap);
     });
-    card.querySelector("[data-field='overrideEnabled']")?.addEventListener("change", () => {
-      updatePreview(card, defaultsMap);
-    });
   }
 
   function refreshList() {
     grid.innerHTML = "";
     state.previews.forEach((preview) => stopPreview(preview));
     state.previews.clear();
-
-    const mergedIds = new Set();
     state.icons.forEach((icon) => {
       if (!icon?.id) return;
-      mergedIds.add(icon.id);
       const defaults = defaultsMap.get(icon.id);
-      const overrideEnabled = Boolean(state.overrides?.[icon.id]) || !defaults;
       const card = createIconCard({
         icon,
         defaults,
-        overrideEnabled,
         allowRemove: Boolean(defaults)
-      });
-      attachCard(card);
-    });
-
-    state.defaults.forEach((icon) => {
-      if (!icon?.id || mergedIds.has(icon.id)) return;
-      const card = createIconCard({
-        icon,
-        defaults: icon,
-        overrideEnabled: Boolean(state.overrides?.[icon.id]),
-        allowRemove: true
       });
       attachCard(card);
     });
@@ -162,7 +142,6 @@ function renderIconEditor() {
     const card = createIconCard({
       icon: { id: "", name: "", unlock: { type: "free" }, style: {} },
       defaults: {},
-      overrideEnabled: true,
       allowRemove: false
     });
     grid.prepend(card);
