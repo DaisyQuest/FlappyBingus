@@ -48,7 +48,11 @@ export function getUnlockedTrails(trails, achievements, { isRecordHolder = false
     .filter((t) => {
       if (t.unlock?.type === "purchase") return owned.has(t.unlock.id || t.id);
       if (t.unlock?.type === "free") return true;
-      if (t.unlock?.type === "record") return isRecordHolder;
+      if (t.unlock?.type === "record") {
+        if (!isRecordHolder) return false;
+        if (Number.isFinite(t.unlock.minScore)) return bestScore >= t.unlock.minScore;
+        return true;
+      }
       if (t.alwaysUnlocked) return true;
       if (t.requiresRecordHolder && !isRecordHolder) return false;
       if (t.unlock?.type === "achievement") return Boolean(unlockedAchievements[t.unlock.id]);

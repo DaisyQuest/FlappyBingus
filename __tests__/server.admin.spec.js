@@ -56,8 +56,7 @@ async function importServer({ dataStoreOverrides = {}, configStoreOverrides = {}
       session: { ttlSeconds: 10, refreshWindowSeconds: 5 },
       rateLimits: {},
       unlockableMenus: {},
-      achievements: { definitions: null },
-      unlockableOverrides: {}
+      achievements: { definitions: null }
     })),
     getMeta: vi.fn(() => ({ lastLoadedAt: 123 })),
     save: vi.fn(async (config) => config),
@@ -132,6 +131,7 @@ describe("admin routes", () => {
     await server.route(createReq({ method: "GET", url: "/api/admin/trail-styles" }), getRes);
     expect(getRes.status).toBe(200);
     expect(readJson(getRes).overrides.classic.rate).toBe(10);
+    expect(readJson(getRes).trails.some((trail) => trail.id === "classic")).toBe(true);
 
     const putRes = createRes();
     await server.route(
@@ -298,25 +298,9 @@ describe("admin routes", () => {
     const json = readJson(res);
     expect(json.achievements.definitions.length).toBeGreaterThan(0);
     expect(json.achievements.schema).toBeTruthy();
-    expect(json.unlockables.length).toBeGreaterThan(0);
   });
 
-  it("includes custom trail styles in achievement editor unlockables", async () => {
-    const { server } = await importServer({
-      gameConfigStoreOverrides: {
-        getConfig: vi.fn(() => ({
-          trailStyles: { overrides: { meteor_shower: { rate: 14 } } }
-        }))
-      }
-    });
-    const res = createRes();
-    await server.route(createReq({ method: "GET", url: "/api/admin/achievements" }), res);
-    expect(res.status).toBe(200);
-    const json = readJson(res);
-    expect(json.unlockables.some((item) => item.id === "meteor_shower" && item.type === "trail")).toBe(true);
-  });
-
-  it("persists achievement and unlockable overrides updates", async () => {
+  it("persists achievement definition updates", async () => {
     const { server, configStore } = await importServer();
     const payload = {
       definitions: [
@@ -328,10 +312,7 @@ describe("admin routes", () => {
           progressKey: null,
           requirement: { minScore: 5 }
         }
-      ],
-      unlockableOverrides: {
-        trail: { classic: { type: "achievement", id: "custom_1" } }
-      }
+      ]
     };
     const res = createRes();
     await server.route(
@@ -341,10 +322,7 @@ describe("admin routes", () => {
     expect(res.status).toBe(200);
     expect(configStore.save).toHaveBeenCalledWith(
       expect.objectContaining({
-        achievements: expect.objectContaining({ definitions: payload.definitions }),
-        unlockableOverrides: expect.objectContaining({
-          trail: expect.objectContaining({ classic: expect.objectContaining({ id: "custom_1" }) })
-        })
+        achievements: expect.objectContaining({ definitions: payload.definitions })
       })
     );
   });

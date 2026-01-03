@@ -56,15 +56,12 @@ const {
 } = require("./services/pipeTextures.cjs");
 const {
   UNLOCKABLE_TYPES,
+  normalizeUnlock,
   buildUnlockablesCatalog,
   getUnlockedIdsByType,
   syncUnlockablesState,
   isUnlockSatisfied
 } = require("./services/unlockables.cjs");
-const {
-  normalizeUnlockableOverrides,
-  applyUnlockableOverrides
-} = require("./services/unlockableOverrides.cjs");
 const { normalizeTrailStyleOverrides } = require("./services/trailStyleOverrides.cjs");
 const {
   DEFAULT_CURRENCY_ID,
@@ -234,14 +231,14 @@ const ENDPOINT_GROUPS = Object.freeze([
       {
         path: "/achievementeditor",
         methods: ["GET"],
-        summary: "Admin tool for editing achievement requirements and unlock mappings.",
+        summary: "Admin tool for editing achievement requirements.",
         page: true,
         link: "/achievementeditor"
       },
       {
         path: "/traileditor",
         methods: ["GET"],
-        summary: "Admin tool for editing trail particles and trail style definitions.",
+        summary: "Admin tool for editing trail styles and unlock rules.",
         page: true,
         link: "/traileditor"
       },
@@ -399,12 +396,12 @@ const ENDPOINT_GROUPS = Object.freeze([
       {
         path: "/api/admin/achievements",
         methods: ["GET", "PUT"],
-        summary: "Read or update achievement definitions and unlockable mappings."
+        summary: "Read or update achievement definitions."
       },
       {
         path: "/api/admin/trail-styles",
         methods: ["GET", "PUT"],
-        summary: "Read or update trail style overrides."
+        summary: "Read or update trail styles and unlock rules."
       },
       {
         path: "/api/admin/icon-styles",
@@ -503,16 +500,11 @@ function getAchievementDefinitions() {
   return resolveAchievementDefinitions(cfg?.achievements?.definitions, ACHIEVEMENTS);
 }
 
-function getUnlockableOverrides() {
-  const cfg = getServerConfig();
-  const normalized = normalizeUnlockableOverrides(cfg?.unlockableOverrides, { allowedIdsByType: getUnlockableIds() });
-  return normalized.overrides;
-}
-
 function getTrailStyleOverrides() {
   const cfg = gameConfigStore?.getConfig?.() || {};
   const overrides = cfg?.trailStyles?.overrides;
-  return overrides && typeof overrides === "object" ? overrides : {};
+  const result = normalizeTrailStyleOverrides({ overrides });
+  return result.ok ? result.overrides : {};
 }
 
 function getIconStyleOverrides() {
@@ -529,19 +521,44 @@ function formatTrailName(id) {
     .replace(/\b\w/g, (char) => char.toUpperCase());
 }
 
-function getTrailDefinitions() {
-  const overrides = getTrailStyleOverrides();
+function getTrailDefinitions(overrides = getTrailStyleOverrides()) {
   const overrideIds = Object.keys(overrides || {}).map((id) => String(id || "").trim()).filter(Boolean);
   const known = new Set(TRAILS.map((trail) => trail.id));
+
+  const baseTrails = TRAILS.map((trail) => {
+    const override = overrides?.[trail.id] || {};
+    const baseUnlock = trail.unlock
+      ? normalizeUnlock(trail.unlock)
+      : trail.requiresRecordHolder
+        ? normalizeUnlock({ type: "record", label: "Record holder", minScore: trail.minScore })
+        : trail.alwaysUnlocked
+          ? normalizeUnlock({ type: "free", label: "Free" })
+          : normalizeUnlock({
+            type: "achievement",
+            id: trail.achievementId || `trail_${trail.id}`,
+            minScore: Number.isFinite(trail.minScore) ? trail.minScore : null,
+            label: Number.isFinite(trail.minScore) ? `Score ${trail.minScore}+` : "Achievement"
+          });
+    return {
+      ...trail,
+      name: override.name || trail.name,
+      unlock: override.unlock || baseUnlock
+    };
+  });
+
   const customTrails = overrideIds
     .filter((id) => !known.has(id))
-    .map((id) => ({
-      id,
-      name: formatTrailName(id) || id,
-      minScore: 0,
-      alwaysUnlocked: true
-    }));
-  return [...TRAILS, ...customTrails];
+    .map((id) => {
+      const override = overrides?.[id] || {};
+      return {
+        id,
+        name: override.name || formatTrailName(id) || id,
+        minScore: 0,
+        alwaysUnlocked: !override.unlock,
+        unlock: override.unlock || normalizeUnlock({ type: "free", label: "Free" })
+      };
+    });
+  return [...baseTrails, ...customTrails];
 }
 
 function getIconDefinitions() {
@@ -551,21 +568,8 @@ function getIconDefinitions() {
   return applyIconStyleOverrides({ icons: ICONS_BASE, overrides: safeOverrides });
 }
 
-function getUnlockableIds() {
-  const trails = getTrailDefinitions();
-  return {
-    trail: new Set(trails.map((trail) => trail.id)),
-    player_texture: new Set(getIconDefinitions().map((icon) => icon.id)),
-    pipe_texture: new Set(PIPE_TEXTURES.map((texture) => texture.id))
-  };
-}
-
 function getResolvedUnlockables() {
-  const overrides = getUnlockableOverrides();
-  const resolved = applyUnlockableOverrides(
-    { trails: getTrailDefinitions(), icons: getIconDefinitions(), pipeTextures: PIPE_TEXTURES },
-    overrides
-  );
+  const resolved = { trails: getTrailDefinitions(), icons: getIconDefinitions(), pipeTextures: PIPE_TEXTURES };
   const { unlockables } = buildUnlockablesCatalog(resolved);
   return { ...resolved, unlockables };
 }
@@ -2343,7 +2347,12 @@ async function route(req, res) {
 
   if (pathname === "/api/admin/trail-styles") {
     if (req.method === "GET") {
-      sendJson(res, 200, { ok: true, overrides: getTrailStyleOverrides(), meta: gameConfigStore.getMeta() });
+      sendJson(res, 200, {
+        ok: true,
+        overrides: getTrailStyleOverrides(),
+        trails: getTrailDefinitions(),
+        meta: gameConfigStore.getMeta()
+      });
       return;
     }
     if (req.method === "PUT") {
@@ -2368,9 +2377,11 @@ async function route(req, res) {
       };
       try {
         const saved = await gameConfigStore.save(nextConfig);
+        const savedOverrides = saved?.trailStyles?.overrides || {};
         sendJson(res, 200, {
           ok: true,
-          overrides: saved?.trailStyles?.overrides || {},
+          overrides: savedOverrides,
+          trails: getTrailDefinitions(savedOverrides),
           meta: gameConfigStore.getMeta()
         });
       } catch (err) {
@@ -2443,19 +2454,12 @@ async function route(req, res) {
   if (pathname === "/api/admin/achievements") {
     if (req.method === "GET") {
       const definitions = getAchievementDefinitions();
-      const baseCatalog = buildUnlockablesCatalog({
-        trails: getTrailDefinitions(),
-        icons: getIconDefinitions(),
-        pipeTextures: PIPE_TEXTURES
-      });
       sendJson(res, 200, {
         ok: true,
         achievements: {
           definitions,
           schema: ACHIEVEMENT_SCHEMA
         },
-        unlockables: baseCatalog.unlockables,
-        unlockableOverrides: getUnlockableOverrides(),
         meta: serverConfigStore.getMeta()
       });
       return;
@@ -2468,28 +2472,21 @@ async function route(req, res) {
         return badRequest(res, "invalid_json");
       }
       const definitionsPayload = body?.definitions ?? body?.achievements?.definitions ?? null;
-      const overridesPayload = body?.unlockableOverrides ?? body?.overrides ?? null;
 
       const definitionResult = normalizeAchievementDefinitions(definitionsPayload, { fallback: null });
       if (!definitionResult.ok) {
         return sendJson(res, 400, { ok: false, error: "invalid_achievement_definitions", details: definitionResult.errors });
       }
-      const overridesResult = normalizeUnlockableOverrides(overridesPayload, { allowedIdsByType: getUnlockableIds() });
-      if (!overridesResult.ok) {
-        return sendJson(res, 400, { ok: false, error: "invalid_unlockable_overrides", details: overridesResult.errors });
-      }
 
       const current = getServerConfig();
       const nextConfig = {
         ...current,
-        achievements: { definitions: definitionResult.definitions },
-        unlockableOverrides: overridesResult.overrides
+        achievements: { definitions: definitionResult.definitions }
       };
       const saved = await serverConfigStore.save(nextConfig);
       sendJson(res, 200, {
         ok: true,
         achievements: { definitions: resolveAchievementDefinitions(saved.achievements?.definitions, ACHIEVEMENTS) },
-        unlockableOverrides: saved.unlockableOverrides,
         meta: serverConfigStore.getMeta()
       });
       return;

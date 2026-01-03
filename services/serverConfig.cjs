@@ -4,7 +4,6 @@ const path = require("node:path");
 const fs = require("node:fs/promises");
 
 const { normalizeAchievementDefinitions } = require("./achievementDefinitions.cjs");
-const { DEFAULT_UNLOCKABLE_OVERRIDES } = require("./unlockableOverrides.cjs");
 
 const DEFAULT_RATE_LIMIT_CONFIG = Object.freeze({
   default: { limit: 120, windowMs: 60_000 },
@@ -36,8 +35,7 @@ const DEFAULT_SERVER_CONFIG = Object.freeze({
   }),
   achievements: Object.freeze({
     definitions: null
-  }),
-  unlockableOverrides: DEFAULT_UNLOCKABLE_OVERRIDES
+  })
 });
 
 function isPlainObject(value) {
@@ -60,16 +58,6 @@ function normalizeMenuConfig(entry, fallback) {
   const mode = entry.mode === "allowlist" ? "allowlist" : "all";
   const ids = Array.isArray(entry.ids) ? entry.ids.map((id) => String(id || "").trim()).filter(Boolean) : [];
   return { mode, ids };
-}
-
-function normalizeUnlockableOverrides(entry, fallback) {
-  if (!isPlainObject(entry)) return fallback;
-  const normalized = {};
-  for (const [id, value] of Object.entries(entry)) {
-    if (!isPlainObject(value)) continue;
-    normalized[String(id || "").trim()] = value;
-  }
-  return normalized;
 }
 
 function normalizeServerConfig(raw) {
@@ -107,13 +95,6 @@ function normalizeServerConfig(raw) {
   const normalizedDefinitions = normalizeAchievementDefinitions(achievementConfig.definitions, { fallback: null });
   base.achievements = {
     definitions: normalizedDefinitions.ok ? normalizedDefinitions.definitions : null
-  };
-
-  const overrides = isPlainObject(raw.unlockableOverrides) ? raw.unlockableOverrides : {};
-  base.unlockableOverrides = {
-    trail: normalizeUnlockableOverrides(overrides.trail, base.unlockableOverrides.trail),
-    player_texture: normalizeUnlockableOverrides(overrides.player_texture, base.unlockableOverrides.player_texture),
-    pipe_texture: normalizeUnlockableOverrides(overrides.pipe_texture, base.unlockableOverrides.pipe_texture)
   };
 
   return base;

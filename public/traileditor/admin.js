@@ -11,6 +11,7 @@ const metaText = document.getElementById("adminMeta");
 const loadingPanel = document.getElementById("trailLoading");
 
 const state = {
+  trails: [],
   overrides: {},
   previews: new Map()
 };
@@ -52,10 +53,13 @@ function createPanel(title, subtitle) {
   return { panel, actions };
 }
 
-function buildTrailIds(overrides = {}) {
+function buildTrailList(trails = [], overrides = {}) {
   const ids = new Set(TRAIL_STYLE_IDS);
   Object.keys(overrides || {}).forEach((id) => ids.add(id));
-  return Array.from(ids).sort();
+  (trails || []).forEach((trail) => {
+    if (trail?.id) ids.add(trail.id);
+  });
+  return Array.from(ids).sort().map((id) => trails.find((trail) => trail.id === id) || { id });
 }
 
 function attachPreview(card, id) {
@@ -101,9 +105,10 @@ function renderTrailEditor() {
     grid.innerHTML = "";
     state.previews.forEach((preview) => preview.stop());
     state.previews.clear();
-    const ids = buildTrailIds(state.overrides);
+    const trails = buildTrailList(state.trails, state.overrides);
 
-    ids.forEach((id) => {
+    trails.forEach((trail) => {
+      const id = trail.id;
       const override = state.overrides[id] || {};
       const isDefault = TRAIL_STYLE_IDS.includes(id);
       const defaults = getTrailStyleDefaults(isDefault ? id : "classic");
@@ -111,6 +116,7 @@ function renderTrailEditor() {
         id,
         defaults,
         override,
+        trail,
         allowRemove: !isDefault
       });
       grid.appendChild(card);
@@ -126,7 +132,13 @@ function renderTrailEditor() {
   reloadBtn.addEventListener("click", () => loadConfig());
   addBtn.addEventListener("click", () => {
     const defaults = getTrailStyleDefaults("classic");
-    const card = createTrailCard({ id: "", defaults, override: { ...defaults }, allowRemove: true });
+    const card = createTrailCard({
+      id: "",
+      defaults,
+      override: { ...defaults },
+      trail: { name: "", unlock: { type: "free" } },
+      allowRemove: true
+    });
     grid.prepend(card);
     attachPreview(card, "classic");
     card.addEventListener("input", () => {
@@ -157,6 +169,7 @@ async function loadConfig() {
   try {
     const data = await getTrailStyleOverrides();
     state.overrides = data?.overrides && typeof data.overrides === "object" ? data.overrides : {};
+    state.trails = Array.isArray(data?.trails) ? data.trails : [];
     setTrailStyleOverrides(state.overrides);
     renderTrailEditor();
     setMeta(`Last updated: ${new Date().toLocaleString()}`);

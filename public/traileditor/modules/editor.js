@@ -29,6 +29,14 @@ const COLOR_MODE_OPTIONS = [
   { value: "palette", label: "Palette" }
 ];
 
+const UNLOCK_OPTIONS = [
+  { value: "free", label: "Free" },
+  { value: "score", label: "Score" },
+  { value: "achievement", label: "Achievement" },
+  { value: "purchase", label: "Purchase" },
+  { value: "record", label: "Record holder" }
+];
+
 function formatDefault(value) {
   if (value === undefined || value === null) return "—";
   if (Array.isArray(value)) return value.map((v) => formatDefault(v)).join(" → ");
@@ -301,7 +309,7 @@ export function createExtraGroup({ group = {}, defaults = {} } = {}) {
   return wrapper;
 }
 
-export function createTrailCard({ id, defaults = {}, override = {}, allowRemove = true } = {}) {
+export function createTrailCard({ id, defaults = {}, override = {}, trail = {}, allowRemove = true } = {}) {
   const card = document.createElement("div");
   card.className = "trail-card";
   card.dataset.trailId = id || "";
@@ -327,6 +335,39 @@ export function createTrailCard({ id, defaults = {}, override = {}, allowRemove 
   idInput.dataset.field = "id";
   idInput.disabled = !allowRemove && Boolean(id);
   card.appendChild(createFieldRow("Trail ID", idInput, id || "required for new trails"));
+
+  const nameInput = createTextInput(trail?.name || "");
+  nameInput.dataset.field = "name";
+  card.appendChild(createFieldRow("Trail name", nameInput, trail?.name || formatDefault(id)));
+
+  const unlockSection = document.createElement("section");
+  unlockSection.className = "trail-unlock";
+  unlockSection.innerHTML = "<strong>Unlock</strong>";
+  const unlockGrid = document.createElement("div");
+  unlockGrid.className = "field-grid";
+  const unlock = trail?.unlock || { type: "free" };
+  const unlockType = createSelect(UNLOCK_OPTIONS, unlock.type || "free");
+  unlockType.dataset.field = "unlockType";
+  const unlockLabel = createTextInput(unlock.label || "");
+  unlockLabel.dataset.field = "unlockLabel";
+  const unlockId = createTextInput(unlock.id || "");
+  unlockId.dataset.field = "unlockId";
+  const unlockScore = createNumberInput(unlock.minScore ?? "");
+  unlockScore.dataset.field = "unlockScore";
+  const unlockCost = createNumberInput(unlock.cost ?? "");
+  unlockCost.dataset.field = "unlockCost";
+  const unlockCurrency = createTextInput(unlock.currencyId || "");
+  unlockCurrency.dataset.field = "unlockCurrency";
+  unlockGrid.append(
+    createFieldRow("Type", unlockType),
+    createFieldRow("Label", unlockLabel),
+    createFieldRow("Achievement ID", unlockId),
+    createFieldRow("Score min", unlockScore),
+    createFieldRow("Cost", unlockCost),
+    createFieldRow("Currency ID", unlockCurrency)
+  );
+  unlockSection.appendChild(unlockGrid);
+  card.appendChild(unlockSection);
 
   const body = document.createElement("div");
   body.className = "trail-card-body";
@@ -407,6 +448,12 @@ function parseNumber(input) {
   if (!val) return null;
   const num = Number(val);
   return Number.isFinite(num) ? num : null;
+}
+
+function parseText(input) {
+  if (!input) return null;
+  const value = input.value.trim();
+  return value.length ? value : null;
 }
 
 function parseRange(root, key) {
@@ -545,6 +592,27 @@ export function collectTrailOverrides(root) {
     const extrasGroups = Array.from(card.querySelectorAll(".extra-group"));
 
     const override = collectGroupOverrides(baseGroup, { includeBanding: true }) || {};
+    const name = parseText(card.querySelector("[data-field='name']"));
+    if (name) override.name = name;
+    const unlockType = card.querySelector("[data-field='unlockType']")?.value || "free";
+    const unlock = { type: unlockType };
+    const unlockLabel = parseText(card.querySelector("[data-field='unlockLabel']"));
+    if (unlockLabel) unlock.label = unlockLabel;
+    if (unlockType === "achievement") {
+      const unlockId = parseText(card.querySelector("[data-field='unlockId']"));
+      if (unlockId) unlock.id = unlockId;
+      const minScore = parseNumber(card.querySelector("[data-field='unlockScore']"));
+      if (minScore !== null) unlock.minScore = minScore;
+    } else if (unlockType === "score") {
+      const minScore = parseNumber(card.querySelector("[data-field='unlockScore']"));
+      if (minScore !== null) unlock.minScore = minScore;
+    } else if (unlockType === "purchase") {
+      const cost = parseNumber(card.querySelector("[data-field='unlockCost']"));
+      if (cost !== null) unlock.cost = cost;
+      const currencyId = parseText(card.querySelector("[data-field='unlockCurrency']"));
+      if (currencyId) unlock.currencyId = currencyId;
+    }
+    override.unlock = unlock;
     const sparkle = collectGroupOverrides(sparkleGroup);
     if (sparkle) override.sparkle = sparkle;
     const glint = collectGroupOverrides(glintGroup);

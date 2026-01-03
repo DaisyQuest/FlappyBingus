@@ -133,7 +133,7 @@ function updateAnimationVisibility(card) {
   });
 }
 
-function createIconCard({ icon, defaults = {}, overrideEnabled = true, allowRemove = false } = {}) {
+function createIconCard({ icon, defaults = {}, allowRemove = false } = {}) {
   const card = document.createElement("section");
   card.className = "icon-card";
   card.dataset.iconCard = "true";
@@ -148,15 +148,7 @@ function createIconCard({ icon, defaults = {}, overrideEnabled = true, allowRemo
   pill.textContent = allowRemove ? "Default" : "Custom";
   titleWrap.append(heading, pill);
 
-  const toggleWrap = document.createElement("label");
-  toggleWrap.className = "icon-toggle";
-  const toggle = document.createElement("input");
-  toggle.type = "checkbox";
-  toggle.checked = overrideEnabled;
-  toggle.dataset.field = "overrideEnabled";
-  toggleWrap.append(toggle, document.createTextNode("Override enabled"));
-
-  header.append(titleWrap, toggleWrap);
+  header.append(titleWrap);
   card.appendChild(header);
 
   const body = document.createElement("div");
@@ -412,9 +404,14 @@ function createIconCard({ icon, defaults = {}, overrideEnabled = true, allowRemo
     });
     const disableBtn = document.createElement("button");
     disableBtn.type = "button";
-    disableBtn.textContent = "Disable override";
+    disableBtn.textContent = "Clear unlock to free";
     disableBtn.addEventListener("click", () => {
-      toggle.checked = false;
+      unlockType.value = "free";
+      unlockLabel.value = "";
+      unlockId.value = "";
+      unlockScore.value = "";
+      unlockCost.value = "";
+      unlockCurrency.value = "";
     });
     actions.append(resetBtn, disableBtn);
     card.appendChild(actions);
@@ -536,8 +533,6 @@ function collectIconOverrides(root) {
   const overrides = {};
   const cards = root.querySelectorAll("[data-icon-card]");
   cards.forEach((card) => {
-    const enabled = card.querySelector("[data-field='overrideEnabled']")?.checked;
-    if (!enabled) return;
     const icon = readIconDefinition(card);
     if (!icon?.id) return;
     const override = { ...icon };

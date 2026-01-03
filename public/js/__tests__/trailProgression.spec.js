@@ -26,6 +26,18 @@ describe("trailProgression helpers", () => {
     expect(unlocked).toContain("world_record");
   });
 
+  it("respects score thresholds on record-holder unlocks", () => {
+    const trails = [
+      { id: "classic", alwaysUnlocked: true },
+      { id: "recorded", unlock: { type: "record", minScore: 100 } }
+    ];
+    const locked = getUnlockedTrails(trails, null, { isRecordHolder: true, bestScore: 50 });
+    expect(locked).not.toContain("recorded");
+
+    const unlocked = getUnlockedTrails(trails, null, { isRecordHolder: true, bestScore: 120 });
+    expect(unlocked).toContain("recorded");
+  });
+
   it("unlocks purchasable trails only after they are owned", () => {
     const trails = [
       { id: "classic", achievementId: "a", alwaysUnlocked: true },

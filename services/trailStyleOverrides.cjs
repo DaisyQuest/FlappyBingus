@@ -1,5 +1,7 @@
 "use strict";
 
+const { normalizeUnlock } = require("./unlockables.cjs");
+
 const ALLOWED_SHAPES = new Set([
   "circle",
   "star",
@@ -209,6 +211,28 @@ function normalizeTrailStyleOverride(value, errors, path) {
         .map((entry, idx) => normalizeParticleGroup(entry, errors, `${path}.extras[${idx}]`, { allowMode: true }))
         .filter(Boolean);
       if (extras.length) out.extras = extras;
+    }
+  }
+  if ("name" in value) {
+    const name = normalizeString(value.name);
+    if (!name) {
+      errors.push({ path: `${path}.name`, message: "name_invalid" });
+    } else {
+      out.name = name;
+    }
+  }
+
+  if ("unlock" in value) {
+    if (!isPlainObject(value.unlock)) {
+      errors.push({ path: `${path}.unlock`, message: "unlock_invalid" });
+    } else {
+      const rawUnlock = value.unlock || {};
+      const prepared = {
+        ...rawUnlock,
+        minScore: rawUnlock.minScore !== undefined ? Number(rawUnlock.minScore) : rawUnlock.minScore,
+        cost: rawUnlock.cost !== undefined ? Number(rawUnlock.cost) : rawUnlock.cost
+      };
+      out.unlock = normalizeUnlock(prepared);
     }
   }
 
