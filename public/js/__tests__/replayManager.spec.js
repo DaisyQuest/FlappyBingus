@@ -2,6 +2,7 @@ import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
 import { createReplayManager, createReplayRun, cloneReplayRun, __testables } from "../replayManager.js";
 import { playbackTicks } from "../replayUtils.js";
 import { SIM_DT } from "../simPrecision.js";
+import { getRandSource, setRandSource } from "../util.js";
 
 function makeClassList(initial = []) {
   const classes = new Set(initial);
@@ -25,6 +26,7 @@ describe("replayManager", () => {
 
   afterEach(() => {
     global.MediaRecorder = originalMediaRecorder;
+    setRandSource();
   });
 
   it("creates replay runs with default fields", () => {
@@ -173,6 +175,64 @@ describe("replayManager", () => {
     }));
     expect(playbackTicksDeterministic).not.toHaveBeenCalled();
     expect(manager.isReplaying()).toBe(false);
+  });
+
+  it("restores the previous random source after replay playback", async () => {
+    const game = { input: { name: "real" }, startRun: vi.fn(), setBackgroundRand: vi.fn(), setVisualRand: vi.fn() };
+    const initialRand = () => 0.42;
+    setRandSource(initialRand);
+
+    const seededRand = vi.fn(() => () => 0.77);
+    const setRandSourceSpy = vi.fn((next) => setRandSource(next));
+    const playbackTicksDeterministic = vi.fn(async () => {});
+    const run = {
+      seed: "seed",
+      ended: true,
+      ticks: [{ move: { dx: 0, dy: 0 }, cursor: { x: 0, y: 0, has: false } }],
+      rngTape: []
+    };
+
+    const manager = createReplayManager({
+      game,
+      setRandSource: setRandSourceSpy,
+      seededRand,
+      playbackTicksDeterministic
+    });
+
+    await manager.play({ captureMode: "none", run, playbackMode: "deterministic" });
+
+    expect(setRandSourceSpy).toHaveBeenCalled();
+    expect(getRandSource()).toBe(initialRand);
+  });
+
+  it("restores the random source when playback fails", async () => {
+    const game = { input: { name: "real" }, startRun: vi.fn(), setBackgroundRand: vi.fn(), setVisualRand: vi.fn() };
+    const initialRand = () => 0.11;
+    setRandSource(initialRand);
+
+    const seededRand = vi.fn(() => () => 0.33);
+    const setRandSourceSpy = vi.fn((next) => setRandSource(next));
+    const playbackTicksDeterministic = vi.fn(async () => {
+      throw new Error("boom");
+    });
+    const run = {
+      seed: "seed",
+      ended: true,
+      ticks: [{ move: { dx: 0, dy: 0 }, cursor: { x: 0, y: 0, has: false } }],
+      rngTape: []
+    };
+
+    const manager = createReplayManager({
+      game,
+      setRandSource: setRandSourceSpy,
+      seededRand,
+      playbackTicksDeterministic
+    });
+
+    await expect(manager.play({ captureMode: "none", run, playbackMode: "deterministic" })).rejects.toThrow("boom");
+
+    expect(setRandSourceSpy).toHaveBeenCalled();
+    expect(getRandSource()).toBe(initialRand);
   });
 
   it("defaults to the shared simulation dt when none is provided", async () => {
