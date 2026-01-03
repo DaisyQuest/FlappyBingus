@@ -39,10 +39,11 @@ const baseUser = () => ({
       gradientStart: "#fff3a6",
       gradientEnd: "#7ce9ff"
     },
-    simpleBackground: false,
+    simpleBackground: true,
     simpleTextures: false,
-    simpleParticles: false,
-    reducedEffects: false
+    simpleParticles: true,
+    reducedEffects: true,
+    extremeLowDetail: false
   },
   runs: 3,
   totalScore: 5000,
@@ -601,7 +602,8 @@ describe("server routes and helpers", () => {
           simpleBackground: true,
           simpleTextures: false,
           simpleParticles: true,
-          reducedEffects: false
+          reducedEffects: false,
+          extremeLowDetail: false
         }
       }))
     });
@@ -642,7 +644,8 @@ describe("server routes and helpers", () => {
       simpleBackground: true,
       simpleTextures: false,
       simpleParticles: true,
-      reducedEffects: false
+      reducedEffects: false,
+      extremeLowDetail: false
     });
     expect(readJson(res).icons?.length).toBeGreaterThan(0);
     expect(readJson(res).pipeTextures?.length).toBeGreaterThan(0);
@@ -1019,7 +1022,8 @@ describe("server routes and helpers", () => {
             simpleBackground: true,
             simpleTextures: false,
             simpleParticles: true,
-            reducedEffects: false
+            reducedEffects: false,
+            extremeLowDetail: false
           }
         }),
         headers: { cookie: buildSessionCookie(server, "PlayerOne") }
@@ -1057,7 +1061,8 @@ describe("server routes and helpers", () => {
       simpleBackground: true,
       simpleTextures: false,
       simpleParticles: true,
-      reducedEffects: false
+      reducedEffects: false,
+      extremeLowDetail: false
     });
     expect(readJson(valid).user.settings).toEqual({
       dashBehavior: "destroy",
@@ -1088,7 +1093,8 @@ describe("server routes and helpers", () => {
       simpleBackground: true,
       simpleTextures: false,
       simpleParticles: true,
-      reducedEffects: false
+      reducedEffects: false,
+      extremeLowDetail: false
     });
   });
 

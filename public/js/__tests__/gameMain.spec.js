@@ -156,7 +156,14 @@ describe("Game core loop hooks", () => {
 
     game.W = 200; game.H = 200;
     game.player.x = 50; game.player.y = 50; game.player.r = 10;
-    game.setSkillSettings({ dashBehavior: "ricochet", invulnBehavior: "short" });
+    game.setSkillSettings({
+      dashBehavior: "ricochet",
+      invulnBehavior: "short",
+      simpleBackground: false,
+      simpleParticles: false,
+      reducedEffects: false,
+      extremeLowDetail: false
+    });
 
     game._useSkill("dash");
     expect(game.cds.dash).toBeCloseTo(cfg.skills.dash.cooldown);

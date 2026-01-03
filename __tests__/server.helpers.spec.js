@@ -81,10 +81,11 @@ describe("server helpers (trails)", () => {
         gradientStart: "#fff3a6",
         gradientEnd: "#7ce9ff"
       },
-      simpleBackground: false,
+      simpleBackground: true,
       simpleTextures: false,
-      simpleParticles: false,
-      reducedEffects: false
+      simpleParticles: true,
+      reducedEffects: true,
+      extremeLowDetail: false
     });
   });
 
@@ -219,10 +220,11 @@ describe("server helpers (trails)", () => {
         gradientStart: "#fff3a6",
         gradientEnd: "#7ce9ff"
       },
-      simpleBackground: false,
+      simpleBackground: true,
       simpleTextures: false,
-      simpleParticles: false,
-      reducedEffects: false
+      simpleParticles: true,
+      reducedEffects: true,
+      extremeLowDetail: false
     });
     expect(u.runs).toBe(0);
     expect(u.totalScore).toBe(0);
