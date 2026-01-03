@@ -30,6 +30,19 @@ describe("server player icon catalog", () => {
     expect(unlocked).toEqual(expect.arrayContaining(["free", "score", "ach", "paid", "record"]));
   });
 
+  it("accepts owned unlockables as a fallback for purchased icons", () => {
+    const icons = [
+      { id: "paid", unlock: { type: "purchase" } },
+      { id: "locked", unlock: { type: "purchase" } }
+    ];
+    const unlocked = unlockedIcons(
+      { ownedUnlockables: ["paid"], ownedIcons: [] },
+      { icons, recordHolder: false }
+    );
+    expect(unlocked).toContain("paid");
+    expect(unlocked).not.toContain("locked");
+  });
+
   it("unlocks the Perfect Ten reward icon when the achievement is earned", () => {
     const unlocked = unlockedIcons(
       { achievements: { unlocked: { perfects_run_10: Date.now() } } },

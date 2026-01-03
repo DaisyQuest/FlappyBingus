@@ -215,11 +215,12 @@ function normalizeUnlock(unlock) {
 function unlockedIcons(user, { icons = PLAYER_ICONS, recordHolder = false } = {}) {
   const defs = normalizePlayerIcons(icons);
   const bestScore = Number(user?.bestScore) || 0;
-  const owned = new Set(
-    Array.isArray(user?.ownedIcons)
-      ? user.ownedIcons.map((id) => (typeof id === "string" ? id : null)).filter(Boolean)
-      : []
-  );
+  const owned = new Set();
+  const ownedIcons = Array.isArray(user?.ownedIcons) ? user.ownedIcons : [];
+  const ownedUnlockables = Array.isArray(user?.ownedUnlockables) ? user.ownedUnlockables : [];
+  [...ownedIcons, ...ownedUnlockables].forEach((id) => {
+    if (typeof id === "string" && id.trim()) owned.add(id);
+  });
   const unlockedAchievements =
     user?.achievements && typeof user.achievements === "object" && user.achievements.unlocked
       ? user.achievements.unlocked

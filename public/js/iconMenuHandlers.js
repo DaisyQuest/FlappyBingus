@@ -70,6 +70,9 @@ export function createIconMenuHandlers({
     }
 
     const previous = getCurrentIconId();
+    if (net.user) {
+      setNetUser({ ...net.user, selectedIcon: id });
+    }
     applyIconSelection(id, playerIcons, unlocked);
     if (iconHint) {
       iconHint.className = net.user ? "hint" : "hint good";
