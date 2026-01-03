@@ -151,7 +151,8 @@ describe("api helpers", () => {
       apiPurchaseUnlockable,
       apiSetKeybinds,
       apiGetHighscores,
-      apiGetStats
+      apiGetStats,
+      apiGetTrailStyles
     } = await import("../api.js");
 
     const requests = [
@@ -166,7 +167,8 @@ describe("api helpers", () => {
       [apiPurchaseUnlockable, ["/api/shop/purchase", { method: "POST", body: JSON.stringify({ id: "spark", type: "player_texture" }) }]],
       [apiSetKeybinds, ["/api/binds", { method: "POST", body: JSON.stringify({ keybinds: { jump: "Space" } }) }]],
       [apiGetHighscores, ["/api/highscores?limit=25", { method: "GET" }]],
-      [apiGetStats, ["/api/stats", { method: "GET" }]]
+      [apiGetStats, ["/api/stats", { method: "GET" }]],
+      [apiGetTrailStyles, ["/api/trail-styles", { method: "GET" }]]
     ];
 
     await apiGetMe();
@@ -181,6 +183,7 @@ describe("api helpers", () => {
     await apiSetKeybinds({ jump: "Space" });
     await apiGetHighscores(25);
     await apiGetStats();
+    await apiGetTrailStyles();
 
     expect(fetchMock).toHaveBeenCalledTimes(requests.length);
     requests.forEach(([_, [expectedUrl, expectedInit]], idx) => {

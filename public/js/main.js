@@ -12,6 +12,7 @@ import {
   apiRegister,
   apiGetHighscores,
   apiGetStats,
+  apiGetTrailStyles,
   apiSetTrail,
   apiSetIcon,
   apiSetPipeTexture,
@@ -118,6 +119,7 @@ import { buildGameUI, setTextCustomPanelVisibility } from "./uiLayout.js";
 import { createMenuParallaxController } from "./menuParallax.js";
 import { TrailPreview } from "./trailPreview.js";
 import { normalizeTrailSelection } from "./trailSelectUtils.js";
+import { setTrailStyleOverrides } from "./trailStyles.js";
 import { buildTrailHint, GUEST_TRAIL_HINT_TEXT } from "./trailHint.js";
 import { DEFAULT_TRAILS, getUnlockedTrails, normalizeTrails, sortTrailsForDisplay } from "./trailProgression.js";
 import { computePipeColor } from "./pipeColors.js";
@@ -447,6 +449,7 @@ const net = {
   pipeTextures: normalizePipeTextures(null),
   highscores: [],
   achievements: { definitions: ACHIEVEMENTS, state: normalizeAchievementState() },
+  trailStyleOverrides: {},
   unlockables: buildUnlockablesCatalog({
     trails: DEFAULT_TRAILS,
     icons: DEFAULT_PLAYER_ICONS,
@@ -2473,6 +2476,12 @@ function frame(ts) {
   boot.cfgReady = true;
   boot.cfgOk = cfgRes.ok;
   boot.cfgSrc = cfgRes.source;
+
+  const trailStyleRes = await apiGetTrailStyles();
+  if (trailStyleRes?.overrides && typeof trailStyleRes.overrides === "object") {
+    net.trailStyleOverrides = trailStyleRes.overrides;
+    setTrailStyleOverrides(trailStyleRes.overrides);
+  }
 
   game.cfg = CFG;
   replayGame.cfg = CFG;

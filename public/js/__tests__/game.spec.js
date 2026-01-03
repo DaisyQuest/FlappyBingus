@@ -1416,6 +1416,69 @@ describe("Player movement and trail emission", () => {
     expect(produced.every((p) => p.rotation !== 0)).toBe(true);
   });
 
+  it("emits extra particle groups with their own modes", () => {
+    const { game } = buildGame();
+    game.setVisualRand(() => 0.5);
+    game.player.x = 80; game.player.y = 80;
+    game.player.vx = 120; game.player.vy = 0;
+    game.getTrailId = () => "custom";
+    const style = {
+      rate: 0,
+      life: [1, 1],
+      size: [2, 2],
+      speed: [10, 10],
+      drag: 0,
+      add: false,
+      glint: { rate: 0 },
+      sparkle: { rate: 0 },
+      aura: { rate: 0 },
+      extras: [
+        { mode: "sparkle", rate: 2, life: [1, 1], size: [1, 1], speed: [1, 1], particleShape: "star" },
+        { mode: "trail", rate: 1, life: [1, 1], size: [1, 1], speed: [1, 1], particleShape: "hexagon" }
+      ]
+    };
+    vi.spyOn(game, "_trailStyle").mockReturnValue(style);
+
+    const prev = game.parts.length;
+    game._emitTrail(1);
+    const produced = game.parts.slice(prev);
+
+    expect(produced).toHaveLength(3);
+    expect(produced.some((p) => p.shape === "star")).toBe(true);
+    expect(produced.some((p) => p.shape === "hexagon")).toBe(true);
+  });
+
+  it("skips non-trail extra groups when reduced effects are enabled", () => {
+    const { game } = buildGame();
+    game.setSkillSettings({ reducedEffects: true, simpleParticles: false });
+    game.setVisualRand(() => 0.5);
+    game.player.x = 80; game.player.y = 80;
+    game.player.vx = 120; game.player.vy = 0;
+    game.getTrailId = () => "custom";
+    const style = {
+      rate: 0,
+      life: [1, 1],
+      size: [2, 2],
+      speed: [10, 10],
+      drag: 0,
+      add: false,
+      glint: { rate: 0 },
+      sparkle: { rate: 0 },
+      aura: { rate: 0 },
+      extras: [
+        { mode: "sparkle", rate: 3, life: [1, 1], size: [1, 1], speed: [1, 1] },
+        { mode: "trail", rate: 3, life: [1, 1], size: [1, 1], speed: [1, 1] }
+      ]
+    };
+    vi.spyOn(game, "_trailStyle").mockReturnValue(style);
+
+    const prev = game.parts.length;
+    game._emitTrail(1);
+    const produced = game.parts.slice(prev);
+
+    expect(produced).toHaveLength(1);
+  });
+
   it("assigns hexagon styling when the trail requests honeycomb shapes", () => {
     const { game } = buildGame();
     game.setVisualRand(() => 0.5);

@@ -2,6 +2,7 @@
 // FILE: public/js/trailStyles.js
 // =====================
 import { hsla } from "./util.js";
+import { normalizeTrailStyleOverrides } from "./trailStyleOverrides.js";
 
 const pick = (arr, rnd) => arr[Math.min(arr.length - 1, Math.floor(rnd(0, arr.length)))];
 const paletteColor = (palette) => ({ rand: r }) => pick(palette, r);
@@ -394,13 +395,92 @@ const TRAIL_STYLES = Object.freeze({
 
 export const TRAIL_STYLE_IDS = Object.freeze(Object.keys(TRAIL_STYLES));
 
-export function trailStyleFor(id) {
-  const st = TRAIL_STYLES[id] || TRAIL_STYLES.classic;
-  const sparkle = st.sparkle || sparkleDefaults;
-  const glint = st.glint || glintDefaults;
+let trailStyleOverrides = {};
+
+function resolveColor(color, fallback) {
+  if (typeof color === "function") return color;
+  if (Array.isArray(color) && color.length) return paletteColor(color);
+  if (typeof color === "string" && color.trim()) return () => color;
+  return fallback;
+}
+
+function cloneGroup(group) {
+  return group ? { ...group } : null;
+}
+
+function cloneStyle(style) {
   return {
-    ...st,
+    ...style,
+    sparkle: cloneGroup(style.sparkle),
+    glint: cloneGroup(style.glint),
+    aura: cloneGroup(style.aura),
+    banding: cloneGroup(style.banding),
+    hexStyle: cloneGroup(style.hexStyle),
+    sliceStyle: cloneGroup(style.sliceStyle),
+    extras: Array.isArray(style.extras) ? style.extras.map((extra) => ({ ...extra })) : undefined
+  };
+}
+
+function mergeStyle(base, override) {
+  const next = {
+    ...base,
+    ...override,
+    sparkle: override.sparkle ? { ...(base.sparkle || {}), ...override.sparkle } : base.sparkle,
+    glint: override.glint ? { ...(base.glint || {}), ...override.glint } : base.glint,
+    aura: override.aura ? { ...(base.aura || {}), ...override.aura } : base.aura,
+    banding: override.banding ? { ...(base.banding || {}), ...override.banding } : base.banding,
+    hexStyle: override.hexStyle ? { ...(base.hexStyle || {}), ...override.hexStyle } : base.hexStyle,
+    sliceStyle: override.sliceStyle ? { ...(base.sliceStyle || {}), ...override.sliceStyle } : base.sliceStyle,
+    extras: Array.isArray(override.extras) ? override.extras.map((extra) => ({ ...extra })) : base.extras
+  };
+  return next;
+}
+
+function finalizeStyle(style) {
+  const sparkle = style.sparkle || sparkleDefaults;
+  const glint = style.glint || glintDefaults;
+  const baseColor = resolveColor(style.color, style.color);
+  const resolved = {
+    ...style,
     sparkle: { ...sparkle },
     glint: { ...glint }
   };
+  resolved.color = baseColor || (({ rand: r }) => `rgba(${r(120, 160)},${r(200, 230)},255,.6)`);
+  resolved.sparkle.color = resolveColor(resolved.sparkle.color, resolved.color);
+  resolved.glint.color = resolveColor(resolved.glint.color, resolved.color);
+  if (resolved.aura) {
+    resolved.aura = { ...resolved.aura };
+    resolved.aura.color = resolveColor(resolved.aura.color, resolved.color);
+  }
+  if (Array.isArray(resolved.extras)) {
+    resolved.extras = resolved.extras.map((extra) => ({
+      ...extra,
+      color: resolveColor(extra.color, resolved.color)
+    }));
+  }
+  if (resolved.hexStyle) resolved.hexStyle = { ...resolved.hexStyle };
+  if (resolved.sliceStyle) resolved.sliceStyle = { ...resolved.sliceStyle };
+  if (resolved.banding) resolved.banding = { ...resolved.banding };
+  return resolved;
+}
+
+export function setTrailStyleOverrides(overrides = {}) {
+  const result = normalizeTrailStyleOverrides(overrides);
+  trailStyleOverrides = result.ok ? result.overrides : {};
+  return result;
+}
+
+export function getTrailStyleOverrides() {
+  return { ...trailStyleOverrides };
+}
+
+export function getTrailStyleDefaults(id) {
+  return TRAIL_STYLES[id] || TRAIL_STYLES.classic;
+}
+
+export function trailStyleFor(id) {
+  const base = TRAIL_STYLES[id] || TRAIL_STYLES.classic;
+  const override = trailStyleOverrides[id];
+  const merged = override ? mergeStyle(base, override) : cloneStyle(base);
+  return finalizeStyle(merged);
 }

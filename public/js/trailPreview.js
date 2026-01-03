@@ -62,6 +62,7 @@ export class TrailPreview {
     this.trailGlintAcc = 0;
     this.trailSparkAcc = 0;
     this.trailAuraAcc = 0;
+    this.trailExtraAcc = [];
     this.player = { x: 0, y: 0, vx: 0, vy: 0, prevX: 0, prevY: 0, r: 18, w: 0, h: 0, phase: 0 };
 
     this.W = 320;
@@ -106,6 +107,7 @@ export class TrailPreview {
     this.trailGlintAcc = 1;
     this.trailSparkAcc = 1;
     this.trailAuraAcc = 1;
+    this.trailExtraAcc = [];
     this.player.phase = 0;
     this.parts.length = 0;
     this._rand = createSeededRand(`trail-preview-${nextId}`);
@@ -445,6 +447,7 @@ export class TrailPreview {
     const glint = st.glint || {};
     const sparkle = st.sparkle || {};
     const aura = st.aura || {};
+    const extras = Array.isArray(st.extras) ? st.extras : [];
 
     const baseLifeScale = st.lifeScale ?? TRAIL_LIFE_SCALE;
     const distanceScale = st.distanceScale ?? TRAIL_DISTANCE_SCALE;
@@ -463,6 +466,185 @@ export class TrailPreview {
         prt.lineWidth = hexStyle?.lineWidth ?? prt.lineWidth;
       }
       prt.rotation = shape === "pixel" ? 0 : this._randRange(0, Math.PI * 2);
+    };
+    const ensureExtraAcc = () => {
+      if (this.trailExtraAcc.length !== extras.length) {
+        this.trailExtraAcc = extras.map(() => 0);
+      }
+    };
+    const resolveRange = (group, key, fallback) => {
+      const range = group?.[key];
+      return Array.isArray(range) && range.length === 2 ? range : fallback;
+    };
+    const emitTrailGroup = (count, group = {}) => {
+      const groupBanding = group.banding ?? banding;
+      const groupBandCount = groupBanding?.count ?? 0;
+      const groupBandSpread = groupBanding ? p.r * (groupBanding.spreadScale ?? 0.9) : 0;
+      const groupBandJitter = groupBanding ? p.r * (groupBanding.jitterScale ?? 0.08) : 0;
+      const groupJitterScale = group.jitterScale ?? jitterScale;
+      const groupSpeed = resolveRange(group, "speed", st.speed);
+      const groupLife = resolveRange(group, "life", st.life);
+      const groupSize = resolveRange(group, "size", st.size);
+      const groupLifeScale = group.lifeScale ?? baseLifeScale;
+      const groupDistanceScale = group.distanceScale ?? distanceScale;
+      const groupSizeScale = group.sizeScale ?? 1.08;
+      const groupColor = group.color || st.color;
+      const groupAdd = group.add ?? st.add;
+      const groupDrag = group.drag ?? st.drag;
+      const groupShape = group.particleShape ?? st.particleShape;
+      const groupSlice = group.sliceStyle ?? st.sliceStyle;
+      const groupHex = group.hexStyle ?? st.hexStyle;
+      const groupPerpX = -backY;
+      const groupPerpY = backX;
+
+      for (let i = 0; i < count; i++) {
+        let jx = 0;
+        let jy = 0;
+        let bandIndex = i;
+        if (groupBanding && groupBandCount > 0) {
+          bandIndex = i % groupBandCount;
+          const t = groupBandCount > 1 ? bandIndex / (groupBandCount - 1) : 0.5;
+          const offset = (t - 0.5) * 2 * groupBandSpread;
+          const wobble = this._randRange(-groupBandJitter, groupBandJitter);
+          jx = groupPerpX * (offset + wobble);
+          jy = groupPerpY * (offset + wobble);
+        } else {
+          const jitter = this._randRange(0, Math.PI * 2);
+          jx = Math.cos(jitter) * this._randRange(0, p.r * groupJitterScale);
+          jy = Math.sin(jitter) * this._randRange(0, p.r * groupJitterScale);
+        }
+
+        const sp = this._randRange(groupSpeed[0], groupSpeed[1]) * groupDistanceScale;
+        const ang = this._randRange(0, Math.PI * 2);
+        const vx = backX * sp + Math.cos(ang) * sp * 0.55;
+        const vy = backY * sp + Math.sin(ang) * sp * 0.55;
+
+        const life = this._randRange(groupLife[0], groupLife[1]) * groupLifeScale;
+        const size = this._randRange(groupSize[0], groupSize[1]) * groupSizeScale;
+
+        const colorIndex = groupBanding ? bandIndex : i;
+        const color = groupColor
+          ? groupColor({ i: colorIndex, hue: this.trailHue, rand: this._randRange.bind(this) })
+          : "rgba(140,220,255,.62)";
+
+        const prt = new Part(bx + jx, by + jy, vx, vy, life, size, color, groupAdd);
+        applyShape(prt, groupShape, groupSlice, groupHex);
+        prt.drag = groupDrag;
+        this.parts.push(prt);
+      }
+    };
+    const emitAuraGroup = (count, group = {}) => {
+      const groupOrbit = resolveRange(group, "orbit", aura.orbit ?? [p.r * 0.65, p.r * 1.65]);
+      const groupSpeed = resolveRange(group, "speed", aura.speed ?? [st.speed[0] * 0.65, st.speed[1] * 1.1]);
+      const groupLife = resolveRange(group, "life", aura.life ?? [st.life[0] * 0.9, st.life[1] * 1.15]);
+      const groupSize = resolveRange(group, "size", aura.size ?? [st.size[0] * 0.9, st.size[1] * 1.25]);
+      const groupLifeScale = group.lifeScale ?? auraLifeScale;
+      const groupDistanceScale = group.distanceScale ?? auraDistanceScale;
+      const groupSizeScale = group.sizeScale ?? auraSizeScale;
+      const groupColor = group.color || aura.color || st.color;
+      const groupAdd = group.add ?? aura.add ?? st.add;
+      const groupDrag = group.drag ?? aura.drag ?? st.drag ?? 10.5;
+      const groupShape = group.particleShape ?? aura.particleShape;
+      const groupHex = group.hexStyle ?? aura.hexStyle;
+      const groupTwinkle = group.twinkle ?? aura.twinkle ?? true;
+
+      for (let i = 0; i < count; i++) {
+        const ang = this._randRange(0, Math.PI * 2);
+        const wobble = this._randRange(-0.35, 0.35);
+        const orbit = this._randRange(groupOrbit[0], groupOrbit[1]);
+        const px = p.x + Math.cos(ang) * orbit;
+        const py = p.y + Math.sin(ang) * orbit;
+
+        const sp = this._randRange(groupSpeed[0], groupSpeed[1]) * groupDistanceScale;
+        const vx = Math.cos(ang + wobble) * sp;
+        const vy = Math.sin(ang + wobble) * sp;
+
+        const life = this._randRange(groupLife[0], groupLife[1]) * groupLifeScale;
+        const size = this._randRange(groupSize[0], groupSize[1]) * groupSizeScale;
+        const color = groupColor
+          ? groupColor({ i, hue: this.trailHue, rand: this._randRange.bind(this) })
+          : "rgba(140,220,255,.62)";
+
+        const prt = new Part(px, py, vx, vy, life, size, color, groupAdd);
+        prt.drag = groupDrag;
+        prt.twinkle = groupTwinkle;
+        applyShape(prt, groupShape, null, groupHex);
+        this.parts.push(prt);
+      }
+    };
+    const emitGlintGroup = (count, group = {}) => {
+      const groupSpeed = resolveRange(group, "speed", glint.speed ?? [55, 155]);
+      const groupLife = resolveRange(group, "life", glint.life ?? [0.18, 0.32]);
+      const groupSize = resolveRange(group, "size", glint.size ?? [1.2, 3.0]);
+      const groupLifeScale = group.lifeScale ?? baseLifeScale;
+      const groupDistanceScale = group.distanceScale ?? distanceScale;
+      const groupColor = group.color || glint.color || st.color;
+      const groupAdd = group.add ?? (glint.add !== false);
+      const groupDrag = group.drag ?? glint.drag ?? st.drag ?? 11.2;
+      const groupShape = group.particleShape ?? glint.particleShape;
+      const groupHex = group.hexStyle ?? glint.hexStyle;
+
+      for (let i = 0; i < count; i++) {
+        const spin = this._randRange(-0.9, 0.9);
+        const off = this._randRange(p.r * 0.12, p.r * 0.58);
+        const px = bx + Math.cos(backA + Math.PI + spin) * off;
+        const py = by + Math.sin(backA + Math.PI + spin) * off;
+
+        const sp = this._randRange(groupSpeed[0], groupSpeed[1]) * groupDistanceScale;
+        const vx = backX * sp * 0.42 + Math.cos(backA + Math.PI + spin) * sp * 0.58;
+        const vy = backY * sp * 0.42 + Math.sin(backA + Math.PI + spin) * sp * 0.58;
+
+        const life = this._randRange(groupLife[0], groupLife[1]) * groupLifeScale;
+        const size = this._randRange(groupSize[0], groupSize[1]);
+        const color = groupColor
+          ? groupColor({ i, hue: this.trailHue, rand: this._randRange.bind(this) })
+          : "rgba(255,255,255,.9)";
+
+        const prt = new Part(px, py, vx, vy, life, size, color, groupAdd);
+        prt.drag = groupDrag;
+        prt.twinkle = true;
+        applyShape(prt, groupShape, null, groupHex);
+        this.parts.push(prt);
+      }
+    };
+    const emitSparkleGroup = (count, group = {}) => {
+      const groupOrbit = resolveRange(group, "orbit", [p.r * 0.45, p.r * 1.05]);
+      const groupSpeed = resolveRange(group, "speed", sparkle.speed ?? [20, 55]);
+      const groupLife = resolveRange(group, "life", sparkle.life ?? [0.28, 0.46]);
+      const groupSize = resolveRange(group, "size", sparkle.size ?? [1.0, 2.4]);
+      const groupLifeScale = group.lifeScale ?? baseLifeScale;
+      const groupDistanceScale = group.distanceScale ?? distanceScale;
+      const groupSizeScale = group.sizeScale ?? 1.1;
+      const groupColor = group.color || sparkle.color || st.color;
+      const groupAdd = group.add ?? (sparkle.add !== false);
+      const groupDrag = group.drag ?? sparkle.drag ?? 12.5;
+      const groupShape = group.particleShape ?? sparkle.particleShape;
+      const groupHex = group.hexStyle ?? sparkle.hexStyle;
+      const groupTwinkle = group.twinkle ?? true;
+
+      for (let i = 0; i < count; i++) {
+        const ang = this._randRange(0, Math.PI * 2);
+        const orbit = this._randRange(groupOrbit[0], groupOrbit[1]);
+        const px = p.x + Math.cos(ang) * orbit;
+        const py = p.y + Math.sin(ang) * orbit;
+
+        const sp = this._randRange(groupSpeed[0], groupSpeed[1]) * groupDistanceScale;
+        const wobble = this._randRange(-0.55, 0.55);
+        const vx = Math.cos(ang + wobble) * sp * 0.65;
+        const vy = Math.sin(ang + wobble) * sp * 0.65;
+
+        const life = this._randRange(groupLife[0], groupLife[1]) * groupLifeScale;
+        const size = this._randRange(groupSize[0], groupSize[1]) * groupSizeScale;
+        const color = groupColor
+          ? groupColor({ i, hue: this.trailHue, rand: this._randRange.bind(this) })
+          : "rgba(255,255,255,.88)";
+
+        const prt = new Part(px, py, vx, vy, life, size, color, groupAdd);
+        prt.drag = groupDrag;
+        prt.twinkle = groupTwinkle;
+        applyShape(prt, groupShape, null, groupHex);
+        this.parts.push(prt);
+      }
     };
 
     const flow = 0.8 + 0.4 * Math.sin(this.player.phase * 1.6);
@@ -498,110 +680,31 @@ export class TrailPreview {
     const perpX = -backY;
     const perpY = backX;
 
-    for (let i = 0; i < n; i++) {
-      let jx = 0;
-      let jy = 0;
-      let bandIndex = i;
-      if (banding && bandCount > 0) {
-        bandIndex = i % bandCount;
-        const t = bandCount > 1 ? bandIndex / (bandCount - 1) : 0.5;
-        const offset = (t - 0.5) * 2 * bandSpread;
-        const wobble = this._randRange(-bandJitter, bandJitter);
-        jx = perpX * (offset + wobble);
-        jy = perpY * (offset + wobble);
-      } else {
-        const jitter = this._randRange(0, Math.PI * 2);
-        jx = Math.cos(jitter) * this._randRange(0, p.r * jitterScale);
-        jy = Math.sin(jitter) * this._randRange(0, p.r * jitterScale);
-      }
+    emitTrailGroup(n, st);
 
-      const sp = this._randRange(st.speed[0], st.speed[1]) * distanceScale;
-      const a = this._randRange(0, Math.PI * 2);
-      const vx = backX * sp + Math.cos(a) * sp * 0.55;
-      const vy = backY * sp + Math.sin(a) * sp * 0.55;
+    emitAuraGroup(a, aura);
 
-      const life = this._randRange(st.life[0], st.life[1]) * baseLifeScale;
-      const size = this._randRange(st.size[0], st.size[1]) * 1.08;
+    emitGlintGroup(g, glint);
 
-      const colorIndex = banding ? bandIndex : i;
-      const color = st.color ? st.color({ i: colorIndex, hue: this.trailHue, rand: this._randRange.bind(this) }) : "rgba(140,220,255,.62)";
+    emitSparkleGroup(s, sparkle);
 
-      const prt = new Part(bx + jx, by + jy, vx, vy, life, size, color, st.add);
-      applyShape(prt, st.particleShape, st.sliceStyle, st.hexStyle);
-      prt.drag = st.drag;
-      this.parts.push(prt);
-    }
-
-    for (let i = 0; i < a; i++) {
-      const ang = this._randRange(0, Math.PI * 2);
-      const wobble = this._randRange(-0.35, 0.35);
-      const orbit = this._randRange(aura.orbit?.[0] ?? p.r * 0.65, aura.orbit?.[1] ?? p.r * 1.65);
-      const px = p.x + Math.cos(ang) * orbit;
-      const py = p.y + Math.sin(ang) * orbit;
-
-      const sp = this._randRange(aura.speed?.[0] ?? st.speed[0] * 0.65, aura.speed?.[1] ?? st.speed[1] * 1.1) * auraDistanceScale;
-      const vx = Math.cos(ang + wobble) * sp;
-      const vy = Math.sin(ang + wobble) * sp;
-
-      const life = this._randRange(aura.life?.[0] ?? st.life[0] * 0.9, aura.life?.[1] ?? st.life[1] * 1.15) * auraLifeScale;
-      const size = this._randRange(aura.size?.[0] ?? st.size[0] * 0.9, aura.size?.[1] ?? st.size[1] * 1.25) * auraSizeScale;
-      const color = aura.color
-        ? aura.color({ i, hue: this.trailHue, rand: this._randRange.bind(this) })
-        : (st.color ? st.color({ i, hue: this.trailHue, rand: this._randRange.bind(this) }) : "rgba(140,220,255,.62)");
-
-      const prt = new Part(px, py, vx, vy, life, size, color, aura.add ?? st.add);
-      prt.drag = aura.drag ?? st.drag ?? 10.5;
-      prt.twinkle = aura.twinkle ?? true;
-      applyShape(prt, aura.particleShape, null, aura.hexStyle);
-      this.parts.push(prt);
-    }
-
-    for (let i = 0; i < g; i++) {
-      const spin = this._randRange(-0.9, 0.9);
-      const off = this._randRange(p.r * 0.12, p.r * 0.58);
-      const px = bx + Math.cos(backA + Math.PI + spin) * off;
-      const py = by + Math.sin(backA + Math.PI + spin) * off;
-
-      const sp = this._randRange(glint.speed?.[0] || 55, glint.speed?.[1] || 155) * distanceScale;
-      const vx = backX * sp * 0.42 + Math.cos(backA + Math.PI + spin) * sp * 0.58;
-      const vy = backY * sp * 0.42 + Math.sin(backA + Math.PI + spin) * sp * 0.58;
-
-      const life = this._randRange(glint.life?.[0] || 0.18, glint.life?.[1] || 0.32) * baseLifeScale;
-      const size = this._randRange(glint.size?.[0] || 1.2, glint.size?.[1] || 3.0);
-
-      const color = glint.color
-        ? glint.color({ i, hue: this.trailHue, rand: this._randRange.bind(this) })
-        : "rgba(255,255,255,.9)";
-
-      const prt = new Part(px, py, vx, vy, life, size, color, glint.add !== false);
-      prt.drag = glint.drag ?? st.drag ?? 11.2;
-      prt.twinkle = true;
-      applyShape(prt, glint.particleShape, null, glint.hexStyle);
-      this.parts.push(prt);
-    }
-
-    for (let i = 0; i < s; i++) {
-      const ang = this._randRange(0, Math.PI * 2);
-      const orbit = this._randRange(p.r * 0.45, p.r * 1.05);
-      const px = p.x + Math.cos(ang) * orbit;
-      const py = p.y + Math.sin(ang) * orbit;
-
-      const sp = this._randRange(sparkle.speed?.[0] || 20, sparkle.speed?.[1] || 55) * distanceScale;
-      const wobble = this._randRange(-0.55, 0.55);
-      const vx = Math.cos(ang + wobble) * sp * 0.65;
-      const vy = Math.sin(ang + wobble) * sp * 0.65;
-
-      const life = this._randRange(sparkle.life?.[0] || 0.28, sparkle.life?.[1] || 0.46) * baseLifeScale;
-      const size = this._randRange(sparkle.size?.[0] || 1.0, sparkle.size?.[1] || 2.4) * 1.1;
-      const color = sparkle.color
-        ? sparkle.color({ i, hue: this.trailHue, rand: this._randRange.bind(this) })
-        : "rgba(255,255,255,.88)";
-
-      const prt = new Part(px, py, vx, vy, life, size, color, sparkle.add !== false);
-      prt.drag = sparkle.drag ?? 12.5;
-      prt.twinkle = true;
-      applyShape(prt, sparkle.particleShape, null, sparkle.hexStyle);
-      this.parts.push(prt);
+    if (extras.length) {
+      ensureExtraAcc();
+      extras.forEach((group, idx) => {
+        if (!group || typeof group !== "object") return;
+        const mode = group.mode || "sparkle";
+        const rate = group.rate ?? 0;
+        if (rate <= 0) return;
+        const flowScale = group.flowScale ?? flow;
+        this.trailExtraAcc[idx] += dt * rate * flowScale;
+        const count = this.trailExtraAcc[idx] | 0;
+        this.trailExtraAcc[idx] -= count;
+        if (!count) return;
+        if (mode === "trail") emitTrailGroup(count, group);
+        else if (mode === "aura") emitAuraGroup(count, group);
+        else if (mode === "glint") emitGlintGroup(count, group);
+        else emitSparkleGroup(count, group);
+      });
     }
   }
 
