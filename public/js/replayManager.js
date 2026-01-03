@@ -1,6 +1,7 @@
 import { chooseReplayRandSource } from "./replayUtils.js";
 import { SIM_DT } from "./simPrecision.js";
 import { createActionQueue } from "/engine/actionQueue.js";
+import { getRandSource } from "./util.js";
 
 const DEFAULT_CAPTURE_FPS = 60;
 
@@ -168,6 +169,7 @@ export function createReplayManager({
     }
 
     replaying = true;
+    const previousRandSource = (typeof getRandSource === "function") ? getRandSource() : null;
     const replayInput = createReplayInput();
     const originalInput = replayGame?.input;
     const restoreCosmetics = (typeof applyCosmetics === "function")
@@ -250,6 +252,9 @@ export function createReplayManager({
     } finally {
       if (replayGame) {
         replayGame.input = originalInput;
+      }
+      if (typeof setRandSource === "function" && typeof previousRandSource === "function") {
+        setRandSource(previousRandSource);
       }
       if (menuClassList) {
         if (menuWasHidden) menuClassList.add("hidden");
