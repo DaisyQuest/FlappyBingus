@@ -105,6 +105,11 @@ function createReq({ method = "GET", url = "/", body, headers = {}, socket } = {
 }
 
 async function importServer(overrides = {}) {
+  const {
+    dataStoreOverrides = ("configStoreOverrides" in overrides || "gameConfigStoreOverrides" in overrides) ? {} : overrides,
+    configStoreOverrides = {},
+    gameConfigStoreOverrides = {}
+  } = overrides;
   vi.resetModules();
   const server = await import("../server.cjs");
   const mockDataStore = {
@@ -136,9 +141,32 @@ async function importServer(overrides = {}) {
     userCount: vi.fn(async () => 3),
     recentUsers: vi.fn(async () => [{ username: "recent", bestScore: 10, updatedAt: Date.now() }]),
     getStatus: vi.fn(() => ({ connected: true, dbName: "db", uri: "mongodb://***", lastAttemptAt: Date.now() })),
-    ...overrides
+    ...dataStoreOverrides
   };
   server._setDataStoreForTests(mockDataStore);
+  if (Object.keys(configStoreOverrides).length) {
+    server._setConfigStoreForTests({
+      getConfig: vi.fn(() => ({
+        session: { ttlSeconds: 10, refreshWindowSeconds: 5 },
+        rateLimits: {},
+        unlockableMenus: {},
+        achievements: { definitions: null },
+        unlockableOverrides: {}
+      })),
+      getMeta: vi.fn(() => ({ lastLoadedAt: 123 })),
+      save: vi.fn(async (config) => config),
+      maybeReload: vi.fn(async () => ({})),
+      ...configStoreOverrides
+    });
+  }
+  if (Object.keys(gameConfigStoreOverrides).length) {
+    server._setGameConfigStoreForTests({
+      getConfig: vi.fn(() => ({})),
+      getMeta: vi.fn(() => ({ lastLoadedAt: 456 })),
+      save: vi.fn(async (config) => config),
+      ...gameConfigStoreOverrides
+    });
+  }
   return { server, mockDataStore };
 }
 
@@ -1124,6 +1152,23 @@ describe("server routes and helpers", () => {
     expect(htmlRes.body).toContain("<!doctype html>");
   });
 
+  it("includes trail style overrides in the preview catalog", async () => {
+    const { server } = await importServer({
+      gameConfigStoreOverrides: {
+        getConfig: vi.fn(() => ({
+          trailStyles: { overrides: { cosmic_dust: { rate: 12 } } }
+        }))
+      }
+    });
+
+    const jsonRes = createRes();
+    await server.route(createReq({ url: "/trail_previews", headers: { accept: "application/json" } }), jsonRes);
+
+    const payload = readJson(jsonRes);
+    const cosmic = payload.previews.find((preview) => preview.id === "cosmic_dust");
+    expect(cosmic).toEqual(expect.objectContaining({ name: "Cosmic Dust", minScore: 0 }));
+  });
+
   it("serves unlockables as JSON by default and HTML when requested", async () => {
     const { server } = await importServer();
 
@@ -1139,6 +1184,22 @@ describe("server routes and helpers", () => {
     expect(htmlRes.status).toBe(200);
     expect(htmlRes.headers["Content-Type"]).toContain("text/html");
     expect(htmlRes.body).toContain("<!doctype html>");
+  });
+
+  it("includes custom trails in unlockables output", async () => {
+    const { server } = await importServer({
+      gameConfigStoreOverrides: {
+        getConfig: vi.fn(() => ({
+          trailStyles: { overrides: { comet: { rate: 8 } } }
+        }))
+      }
+    });
+
+    const jsonRes = createRes();
+    await server.route(createReq({ url: "/unlockables", headers: { accept: "application/json" } }), jsonRes);
+    const payload = readJson(jsonRes);
+    const comet = payload.unlockables.find((item) => item.id === "comet" && item.type === "trail");
+    expect(comet).toEqual(expect.objectContaining({ name: "Comet", unlock: expect.objectContaining({ type: "free" }) }));
   });
 
   it("renders the status page with uptime and database error details", async () => {

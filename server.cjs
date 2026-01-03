@@ -442,11 +442,6 @@ const TRAILS = Object.freeze([
 const ICONS = normalizePlayerIcons(PLAYER_ICONS);
 const PIPE_TEXTURES = normalizePipeTextures(PIPE_TEXTURE_DEFS);
 const UNLOCKABLES = buildUnlockablesCatalog({ trails: TRAILS, icons: ICONS, pipeTextures: PIPE_TEXTURES });
-const UNLOCKABLE_IDS = Object.freeze({
-  trail: new Set(TRAILS.map((trail) => trail.id)),
-  player_texture: new Set(ICONS.map((icon) => icon.id)),
-  pipe_texture: new Set(PIPE_TEXTURES.map((texture) => texture.id))
-});
 
 const SERVER_CONFIG_PATH = process.env.SERVER_CONFIG_PATH;
 const SERVER_CONFIG_RELOAD_MS = Number(process.env.SERVER_CONFIG_RELOAD_MS || 15_000);
@@ -496,7 +491,7 @@ function getAchievementDefinitions() {
 
 function getUnlockableOverrides() {
   const cfg = getServerConfig();
-  const normalized = normalizeUnlockableOverrides(cfg?.unlockableOverrides, { allowedIdsByType: UNLOCKABLE_IDS });
+  const normalized = normalizeUnlockableOverrides(cfg?.unlockableOverrides, { allowedIdsByType: getUnlockableIds() });
   return normalized.overrides;
 }
 
@@ -506,9 +501,41 @@ function getTrailStyleOverrides() {
   return overrides && typeof overrides === "object" ? overrides : {};
 }
 
+function formatTrailName(id) {
+  return String(id || "")
+    .trim()
+    .replace(/[_-]+/g, " ")
+    .replace(/\s+/g, " ")
+    .replace(/\b\w/g, (char) => char.toUpperCase());
+}
+
+function getTrailDefinitions() {
+  const overrides = getTrailStyleOverrides();
+  const overrideIds = Object.keys(overrides || {}).map((id) => String(id || "").trim()).filter(Boolean);
+  const known = new Set(TRAILS.map((trail) => trail.id));
+  const customTrails = overrideIds
+    .filter((id) => !known.has(id))
+    .map((id) => ({
+      id,
+      name: formatTrailName(id) || id,
+      minScore: 0,
+      alwaysUnlocked: true
+    }));
+  return [...TRAILS, ...customTrails];
+}
+
+function getUnlockableIds() {
+  const trails = getTrailDefinitions();
+  return {
+    trail: new Set(trails.map((trail) => trail.id)),
+    player_texture: new Set(ICONS.map((icon) => icon.id)),
+    pipe_texture: new Set(PIPE_TEXTURES.map((texture) => texture.id))
+  };
+}
+
 function getResolvedUnlockables() {
   const overrides = getUnlockableOverrides();
-  const resolved = applyUnlockableOverrides({ trails: TRAILS, icons: ICONS, pipeTextures: PIPE_TEXTURES }, overrides);
+  const resolved = applyUnlockableOverrides({ trails: getTrailDefinitions(), icons: ICONS, pipeTextures: PIPE_TEXTURES }, overrides);
   const { unlockables } = buildUnlockablesCatalog(resolved);
   return { ...resolved, unlockables };
 }
@@ -2333,7 +2360,11 @@ async function route(req, res) {
   if (pathname === "/api/admin/achievements") {
     if (req.method === "GET") {
       const definitions = getAchievementDefinitions();
-      const baseCatalog = buildUnlockablesCatalog({ trails: TRAILS, icons: ICONS, pipeTextures: PIPE_TEXTURES });
+      const baseCatalog = buildUnlockablesCatalog({
+        trails: getTrailDefinitions(),
+        icons: ICONS,
+        pipeTextures: PIPE_TEXTURES
+      });
       sendJson(res, 200, {
         ok: true,
         achievements: {
@@ -2360,7 +2391,7 @@ async function route(req, res) {
       if (!definitionResult.ok) {
         return sendJson(res, 400, { ok: false, error: "invalid_achievement_definitions", details: definitionResult.errors });
       }
-      const overridesResult = normalizeUnlockableOverrides(overridesPayload, { allowedIdsByType: UNLOCKABLE_IDS });
+      const overridesResult = normalizeUnlockableOverrides(overridesPayload, { allowedIdsByType: getUnlockableIds() });
       if (!overridesResult.ok) {
         return sendJson(res, 400, { ok: false, error: "invalid_unlockable_overrides", details: overridesResult.errors });
       }
@@ -2501,7 +2532,7 @@ async function route(req, res) {
   }
 
   if (pathname === "/trail_previews" && req.method === "GET") {
-    const catalog = buildTrailPreviewCatalog(TRAILS);
+    const catalog = buildTrailPreviewCatalog(getResolvedUnlockables().trails);
     const wantsHtml = wantsPreviewHtml({
       formatParam: url.searchParams.get("format"),
       acceptHeader: req.headers.accept
