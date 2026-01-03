@@ -143,11 +143,14 @@ export function createReplayManager({
 
   const recordTick = (snapshot, actions) => {
     if (!activeRun || activeRun.ended) return;
-    activeRun.ticks.push({
+    const tick = {
       move: snapshot.move,
-      cursor: snapshot.cursor,
-      actions
-    });
+      cursor: snapshot.cursor
+    };
+    if (Array.isArray(actions) && actions.length) {
+      tick.actions = actions;
+    }
+    activeRun.ticks.push(tick);
   };
 
   const markEnded = () => {

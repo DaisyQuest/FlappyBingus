@@ -35,6 +35,10 @@ describe("action queue", () => {
 
   it("drains empty queues to an empty array", () => {
     const queue = createActionQueue();
-    expect(queue.drain()).toEqual([]);
+    const first = queue.drain();
+    const second = queue.drain();
+    expect(first).toEqual([]);
+    expect(second).toEqual([]);
+    expect(first).toBe(second);
   });
 });
