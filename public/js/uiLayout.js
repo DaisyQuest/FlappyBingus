@@ -28,7 +28,6 @@ const SKILL_COOLDOWN_REFS = [
 
 const DONATE_MESSAGE = "Thank you so much for even considering to click this button! Any tips to support the development team are greatly appreciated!";
 const DONATE_VENMO = "Venmo: @Bingus69";
-
 function readCooldown(cfg, key, { multiplier = 1 } = {}) {
   const fallback = Number(DEFAULT_CONFIG?.skills?.[key]?.cooldown);
   const raw = Number(cfg?.skills?.[key]?.cooldown);
@@ -146,6 +145,29 @@ function createHowToCard(doc, refs) {
   actions.append(settingsAction);
 
   card.append(header, wrapper, actions);
+  return card;
+}
+
+function createMinigamesCard(doc, refs) {
+  const card = doc.createElement("div");
+  card.className = "info-card minigames-card";
+
+  const header = doc.createElement("div");
+  header.className = "minigames-header";
+
+  const button = createElement(doc, refs, "button", {
+    id: "minigamesLauncher",
+    className: "cta-btn wide minigames-btn",
+    text: "Minigames",
+    attrs: { type: "button" }
+  });
+
+  const hint = doc.createElement("div");
+  hint.className = "minigames-hint";
+  hint.textContent = "Explore 5 original samples built on the engine.";
+
+  header.append(button, hint);
+  card.append(header);
   return card;
 }
 
@@ -1259,6 +1281,83 @@ function createShopOverlay(doc, refs) {
   return overlay;
 }
 
+function createMinigamesOverlay(doc, refs) {
+  const overlay = createElement(doc, refs, "div", {
+    id: "minigamesOverlay",
+    className: "minigames-overlay modal-layer hidden",
+    attrs: { role: "dialog", "aria-modal": "true", "aria-labelledby": "minigamesOverlayTitle", "aria-hidden": "true" }
+  });
+
+  const panel = doc.createElement("div");
+  panel.className = "minigames-panel";
+
+  const header = doc.createElement("div");
+  header.className = "minigames-header-bar";
+  const title = createElement(doc, refs, "div", {
+    id: "minigamesOverlayTitle",
+    className: "section-title",
+    text: "Minigames"
+  });
+  const close = createElement(doc, refs, "button", {
+    id: "minigamesClose",
+    className: "minigames-close",
+    attrs: { type: "button" },
+    text: "Close"
+  });
+  header.append(title, close);
+
+  const body = doc.createElement("div");
+  body.className = "minigames-body";
+
+  const list = createElement(doc, refs, "div", {
+    id: "minigamesList",
+    className: "minigames-list",
+    attrs: { role: "list" }
+  });
+
+  const detail = doc.createElement("div");
+  detail.className = "minigames-detail";
+  const detailTitle = createElement(doc, refs, "div", {
+    id: "minigamesDetailTitle",
+    className: "minigames-detail-title"
+  });
+  const detailSummary = createElement(doc, refs, "div", {
+    id: "minigamesDetailSummary",
+    className: "minigames-detail-summary"
+  });
+  const detailInstructions = createElement(doc, refs, "div", {
+    id: "minigamesDetailInstructions",
+    className: "minigames-detail-instructions"
+  });
+  const stage = createElement(doc, refs, "div", {
+    id: "minigamesStage",
+    className: "minigames-stage"
+  });
+
+  const actions = doc.createElement("div");
+  actions.className = "minigames-actions";
+  const start = createElement(doc, refs, "button", {
+    id: "minigamesStart",
+    className: "cta-btn primary",
+    attrs: { type: "button" },
+    text: "Start"
+  });
+  const reset = createElement(doc, refs, "button", {
+    id: "minigamesReset",
+    className: "cta-btn",
+    attrs: { type: "button", disabled: true },
+    text: "Reset"
+  });
+  actions.append(start, reset);
+
+  detail.append(detailTitle, detailSummary, detailInstructions, stage, actions);
+  body.append(list, detail);
+
+  panel.append(header, body);
+  overlay.append(panel);
+  return overlay;
+}
+
 function createPurchaseModal(doc, refs) {
   const overlay = createElement(doc, refs, "div", {
     id: "purchaseModal",
@@ -1657,7 +1756,11 @@ function createMenuScreen(doc, refs) {
   mainPanel.className = "panel-main tab-panel";
   const mainGrid = doc.createElement("div");
   mainGrid.className = "info-grid";
-  mainGrid.append(createTrailCard(doc, refs), createHowToCard(doc, refs));
+  mainGrid.append(
+    createTrailCard(doc, refs),
+    createHowToCard(doc, refs),
+    createMinigamesCard(doc, refs)
+  );
   const themeLauncher = createElement(doc, refs, "button", {
     id: "themeLauncher",
     className: "theme-launcher",
@@ -1767,6 +1870,7 @@ function createMenuScreen(doc, refs) {
     trailOverlay,
     panel,
     createShopOverlay(doc, refs),
+    createMinigamesOverlay(doc, refs),
     createPurchaseModal(doc, refs),
     createHighscoreDetailsModal(doc, refs),
     createReplayModal(doc, refs)

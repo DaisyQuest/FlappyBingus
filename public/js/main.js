@@ -181,6 +181,7 @@ import {
 
 import { handleMenuEscape } from "./menuEscapeHandler.js";
 import { initSocialDock } from "./socialDock.js";
+import { initMinigames } from "./minigames.js";
 import { createTrailMenuHandlers } from "./trailMenuHandlers.js";
 import { createIconMenuHandlers } from "./iconMenuHandlers.js";
 import { createPipeTextureMenuHandlers } from "./pipeTextureMenuHandlers.js";
@@ -649,6 +650,10 @@ initSocialDock({
   discordPopover,
   donatePopover,
   dock: socialDock,
+  document
+});
+initMinigames({
+  ui,
   document
 });
 
