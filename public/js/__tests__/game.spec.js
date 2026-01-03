@@ -173,6 +173,19 @@ afterEach(() => {
 });
 
 describe("Game core utilities", () => {
+  it("interpolates player render positions between ticks", () => {
+    const { game } = buildGame();
+    game.player.x = 100;
+    game.player.y = 200;
+    game.player.renderPrevX = 80;
+    game.player.renderPrevY = 160;
+
+    expect(game._getRenderPlayerPosition(0)).toEqual({ x: 80, y: 160 });
+    expect(game._getRenderPlayerPosition(0.5)).toEqual({ x: 90, y: 180 });
+    expect(game._getRenderPlayerPosition(1)).toEqual({ x: 100, y: 200 });
+    expect(game._getRenderPlayerPosition(2)).toEqual({ x: 100, y: 200 });
+  });
+
   it("resizes canvas, recomputes player size, and initializes background layers", () => {
     const { game, canvas } = buildGame();
     game.resizeToWindow();

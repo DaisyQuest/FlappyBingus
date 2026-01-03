@@ -105,6 +105,21 @@ describe("replayManager", () => {
     expect(manager.drainPendingActions()).toEqual([]);
   });
 
+  it("omits empty action lists when recording ticks", () => {
+    const game = { setBackgroundRand: vi.fn(), setVisualRand: vi.fn() };
+    const manager = createReplayManager({ game });
+    const run = manager.startRecording("no-actions");
+
+    manager.recordTick({ move: { dx: 0, dy: 0 }, cursor: { x: 1, y: 2 } }, []);
+
+    expect(run.ticks).toHaveLength(1);
+    expect(run.ticks[0]).toEqual({
+      move: { dx: 0, dy: 0 },
+      cursor: { x: 1, y: 2 }
+    });
+    expect(run.ticks[0]).not.toHaveProperty("actions");
+  });
+
   it("returns null and reports status when a replay is missing", async () => {
     const onStatus = vi.fn();
     const manager = createReplayManager({ onStatus });

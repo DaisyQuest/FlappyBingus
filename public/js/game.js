@@ -88,6 +88,8 @@ export class Game {
       x: 0, y: 0, vx: 0, vy: 0,
       w: 48, h: 48, r: 18,
       lastX: 0, lastY: -1,
+      renderPrevX: 0,
+      renderPrevY: 0,
       invT: 0,
       dashT: 0, dashVX: 0, dashVY: 0,
       dashBounces: 0,
@@ -473,6 +475,8 @@ export class Game {
     p.dashBounces = 0;
     p.dashImpactFlash = 0;
     p.lastX = 0; p.lastY = -1;
+    p.renderPrevX = p.x;
+    p.renderPrevY = p.y;
   }
 
   _computePlayerSize() {
@@ -1192,6 +1196,8 @@ export class Game {
 
   _updatePlayer(dt) {
     const p = this.player;
+    p.renderPrevX = p.x;
+    p.renderPrevY = p.y;
 
     if (p.invT > 0) p.invT = Math.max(0, p.invT - dt);
     if (p.dashT > 0) p.dashT = Math.max(0, p.dashT - dt);
@@ -1707,9 +1713,11 @@ export class Game {
     if (this.floats.length > 80) this.floats.splice(0, this.floats.length - 80);
   }
 
-  render() {
+  render(alpha = 1) {
     /* v8 ignore start -- rendering paths are visual-only */
     const ctx = this.ctx;
+    const renderAlpha = Number.isFinite(alpha) ? clamp(alpha, 0, 1) : 1;
+    const renderPos = this._getRenderPlayerPosition(renderAlpha);
 
     // background (cached offscreen)
     const backgroundDrawn = drawBackgroundLayer(this.background, ctx, { width: this.W, height: this.H });
@@ -1743,7 +1751,7 @@ export class Game {
       t.draw(ctx);
     }
 
-    this._drawPlayer();
+    this._drawPlayer(renderPos);
 
     if (this.state === STATE.PLAY) {
       this._drawHUD();
@@ -1845,9 +1853,22 @@ _drawOrb(o) {
 
 
 
-  _drawPlayer() {
+  _getRenderPlayerPosition(alpha = 1) {
+    const p = this.player;
+    const t = Number.isFinite(alpha) ? clamp(alpha, 0, 1) : 1;
+    const prevX = Number.isFinite(p.renderPrevX) ? p.renderPrevX : p.x;
+    const prevY = Number.isFinite(p.renderPrevY) ? p.renderPrevY : p.y;
+    return {
+      x: lerp(prevX, p.x, t),
+      y: lerp(prevY, p.y, t)
+    };
+  }
+
+  _drawPlayer(renderPos = null) {
     const ctx = this.ctx;
     const p = this.player;
+    const px = Number.isFinite(renderPos?.x) ? renderPos.x : p.x;
+    const py = Number.isFinite(renderPos?.y) ? renderPos.y : p.y;
 
     ctx.save();
     ctx.shadowBlur = 18;
@@ -1860,8 +1881,8 @@ _drawOrb(o) {
       const outer = p.r * (1.6 + auraIntensity * (1.0 + auraPulse));
       const inner = Math.max(p.r * 0.6, outer * 0.35);
       const wobble = auraIntensity * p.r * 0.08;
-      const auraX = p.x + Math.sin(this.timeAlive * 18) * wobble;
-      const auraY = p.y + Math.cos(this.timeAlive * 15) * wobble;
+      const auraX = px + Math.sin(this.timeAlive * 18) * wobble;
+      const auraY = py + Math.cos(this.timeAlive * 15) * wobble;
       ctx.save();
       ctx.globalAlpha = clamp(0.25 + auraIntensity * 0.65, 0, 1);
       ctx.globalCompositeOperation = "lighter";
@@ -1891,12 +1912,12 @@ _drawOrb(o) {
     const ih = this.playerImg?.naturalHeight || this.playerImg?.height || 0;
     const ready = this.playerImg?.complete !== false;
     if (ready && iw > 0 && ih > 0) {
-      ctx.drawImage(this.playerImg, p.x - p.w * 0.5, p.y - p.h * 0.5, p.w, p.h);
+      ctx.drawImage(this.playerImg, px - p.w * 0.5, py - p.h * 0.5, p.w, p.h);
     } else {
       ctx.fillStyle = "rgba(120,210,255,.92)";
-      ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2); ctx.fill();
+      ctx.beginPath(); ctx.arc(px, py, p.r, 0, Math.PI * 2); ctx.fill();
       ctx.fillStyle = "rgba(0,0,0,.55)";
-      ctx.beginPath(); ctx.arc(p.x, p.y, Math.max(2, p.r * 0.18), 0, Math.PI * 2); ctx.fill();
+      ctx.beginPath(); ctx.arc(px, py, Math.max(2, p.r * 0.18), 0, Math.PI * 2); ctx.fill();
     }
 
     if (p.dashImpactFlash > 0) {
@@ -1904,7 +1925,7 @@ _drawOrb(o) {
       ctx.save();
       ctx.globalAlpha = a * 0.55;
       ctx.fillStyle = "rgba(255,200,120,.90)";
-      ctx.beginPath(); ctx.arc(p.x, p.y, p.r * 1.15, 0, Math.PI * 2); ctx.fill();
+      ctx.beginPath(); ctx.arc(px, py, p.r * 1.15, 0, Math.PI * 2); ctx.fill();
       ctx.restore();
     }
 
@@ -1914,12 +1935,12 @@ _drawOrb(o) {
       ctx.globalAlpha = 0.85;
       ctx.strokeStyle = "rgba(160,220,255,.95)";
       ctx.lineWidth = 2.4;
-      ctx.beginPath(); ctx.arc(p.x, p.y, p.r * 1.28, 0, Math.PI * 2); ctx.stroke();
+      ctx.beginPath(); ctx.arc(px, py, p.r * 1.28, 0, Math.PI * 2); ctx.stroke();
 
       ctx.globalAlpha = 0.45;
       ctx.strokeStyle = "rgba(255,255,255,.85)";
       ctx.lineWidth = 1.3;
-      ctx.beginPath(); ctx.arc(p.x, p.y, p.r * 1.06, -Math.PI * 0.15, Math.PI * 0.15); ctx.stroke();
+      ctx.beginPath(); ctx.arc(px, py, p.r * 1.06, -Math.PI * 0.15, Math.PI * 0.15); ctx.stroke();
     }
 
     ctx.restore();

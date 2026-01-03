@@ -2394,7 +2394,8 @@ function frame(ts) {
       }
     }
 
-    game.render();
+    const renderAlpha = clamp(acc / SIM_DT, 0, 1);
+    game.render(renderAlpha);
     if (tutorial?.active) tutorial.renderOverlay(ctx);
   }
 
