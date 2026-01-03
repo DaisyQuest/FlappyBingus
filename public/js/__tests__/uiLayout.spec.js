@@ -315,7 +315,7 @@ describe("uiLayout", () => {
     const iframe = discordPopover?.querySelector("iframe.discord-widget");
     const offerwallLabel = supportPopover?.querySelector(".support-offerwall-label");
     const offerwall = supportPopover?.querySelector(".support-offerwall");
-    const offerwallScript = offerwall?.querySelector("script[data-support-offerwall='cpalead']");
+    const offerwallIframe = offerwall?.querySelector("iframe.support-offerwall-iframe");
 
     expect(dock).toBeInstanceOf(window.HTMLDivElement);
     expect(discordButton).toBeInstanceOf(window.HTMLButtonElement);
@@ -331,7 +331,11 @@ describe("uiLayout", () => {
     expect(supportPopover?.textContent).toContain("CPAlead");
     expect(offerwallLabel?.textContent).toContain("offers");
     expect(offerwall?.getAttribute("aria-live")).toBe("polite");
-    expect(offerwallScript?.getAttribute("src")).toBe("https://www.fastrsrvr.com/offerwall.php?bid=EyDhpAOq");
+    expect(offerwallIframe?.getAttribute("src")).toBe("https://www.fastrsrvr.com/list/EyDhpAOq");
+    expect(offerwallIframe?.getAttribute("sandbox")).toBe(
+      "allow-popups allow-same-origin allow-scripts allow-top-navigation-by-user-activation allow-popups-to-escape-sandbox"
+    );
+    expect(offerwallIframe?.getAttribute("frameborder")).toBe("0");
     expect(ui.socialDock).toBe(dock);
   });
 
@@ -349,9 +353,15 @@ describe("uiLayout", () => {
     const offerwallRuleMatch = css.match(/\.support-offerwall\{[^}]*\}/);
 
     expect(offerwallRuleMatch).not.toBeNull();
-    expect(offerwallRuleMatch?.[0]).toContain("min-height:260px");
-    expect(offerwallRuleMatch?.[0]).toContain("max-height:320px");
+    expect(offerwallRuleMatch?.[0]).toContain("min-height:690px");
+    expect(offerwallRuleMatch?.[0]).toContain("max-height:690px");
     expect(offerwallRuleMatch?.[0]).toContain("overflow:hidden");
+
+    const offerwallIframeRuleMatch = css.match(/\.support-offerwall-iframe\{[^}]*\}/);
+    expect(offerwallIframeRuleMatch).not.toBeNull();
+    expect(offerwallIframeRuleMatch?.[0]).toContain("width:100%");
+    expect(offerwallIframeRuleMatch?.[0]).toContain("height:690px");
+    expect(offerwallIframeRuleMatch?.[0]).toContain("border:0");
   });
 
   it("positions the trail swatch to the left of the launcher text and exposes the overlay grid", () => {
