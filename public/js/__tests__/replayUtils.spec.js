@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import {
+  applyReplayTick,
   playbackTicks,
   playbackTicksDeterministic,
   chooseReplayRandSource,
@@ -56,6 +57,17 @@ function makeSequentialRaf(stepMs, count) {
 }
 
 describe("playbackTicks", () => {
+  it("skips action application when tick actions are missing", () => {
+    const game = makeGame();
+    const replayInput = makeReplayInput();
+
+    applyReplayTick({ tick: { move: { dx: 2, dy: 3 } }, game, replayInput, simDt: SIM_DT });
+
+    expect(game.handleAction).not.toHaveBeenCalled();
+    expect(game.update).toHaveBeenCalledTimes(1);
+    expect(replayInput._move).toEqual({ dx: 2, dy: 3 });
+  });
+
   it("plays ticks in real time and renders each frame when capturing", async () => {
     const game = makeGame();
     const replayInput = makeReplayInput();
