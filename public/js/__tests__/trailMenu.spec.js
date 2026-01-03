@@ -23,6 +23,8 @@ describe("trailMenu helpers", () => {
     expect(describeTrailLock({ id: "aurora", name: "Aurora" }, { unlocked: true })).toBe("Unlocked");
     expect(describeTrailLock({ id: "shop", name: "Shop", unlock: { type: "purchase", cost: 5 } }, { unlocked: false }))
       .toContain("Costs 5");
+    expect(describeTrailLock({ id: "ach", name: "Ach", unlock: { type: "achievement", id: "a1", label: "Skill" } }, { unlocked: false }))
+      .toContain("Skill");
   });
 
   it("renders trail options with lock badges, aria state, and labels only", () => {

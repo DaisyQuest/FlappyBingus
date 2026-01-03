@@ -305,6 +305,15 @@ export const ACHIEVEMENTS = Object.freeze([
   }
 ]);
 
+const SKILL_IDS = Object.freeze(["dash", "phase", "teleport", "slowField"]);
+
+const DEFAULT_SKILL_TOTALS = Object.freeze({
+  dash: 0,
+  phase: 0,
+  teleport: 0,
+  slowField: 0
+});
+
 const DEFAULT_STATE = Object.freeze({
   unlocked: Object.freeze({}),
   progress: Object.freeze({
@@ -325,7 +334,8 @@ const DEFAULT_STATE = Object.freeze({
     totalRuns: 0,
     maxBrokenPipesInExplosion: 0,
     maxBrokenPipesInRun: 0,
-    totalBrokenPipes: 0
+    totalBrokenPipes: 0,
+    skillTotals: DEFAULT_SKILL_TOTALS
   })
 });
 
@@ -361,11 +371,20 @@ export function normalizeAchievementState(raw) {
   }
 
   const progress = {
-    ...DEFAULT_STATE.progress
+    ...DEFAULT_STATE.progress,
+    skillTotals: { ...DEFAULT_SKILL_TOTALS }
   };
   for (const key of Object.keys(DEFAULT_STATE.progress)) {
     const val = raw?.progress?.[key];
-    if (val !== undefined) progress[key] = clampScore(val);
+    if (val === undefined) continue;
+    if (key === "skillTotals") {
+      const src = val && typeof val === "object" ? val : {};
+      for (const skillId of SKILL_IDS) {
+        if (src[skillId] !== undefined) progress.skillTotals[skillId] = clampScore(src[skillId]);
+      }
+    } else {
+      progress[key] = clampScore(val);
+    }
   }
 
   return { unlocked, progress };
@@ -383,7 +402,8 @@ export function evaluateRunForAchievements({
   totalScore,
   totalRuns,
   bestScore,
-  now = Date.now()
+  now = Date.now(),
+  definitions = ACHIEVEMENTS
 } = {}) {
   const state = normalizeAchievementState(previous);
   const unlocked = [];
@@ -461,8 +481,16 @@ export function evaluateRunForAchievements({
   if (safeAbilities === 0 && hasAbilities) {
     state.progress.maxScoreNoAbilities = Math.max(state.progress.maxScoreNoAbilities, safeScore);
   }
+  if (runStats?.skillUsage && typeof runStats.skillUsage === "object") {
+    const totals = state.progress.skillTotals || DEFAULT_SKILL_TOTALS;
+    const merged = {};
+    for (const id of SKILL_IDS) {
+      merged[id] = clampScore((totals[id] || 0) + clampScore(runStats.skillUsage[id]));
+    }
+    state.progress.skillTotals = merged;
+  }
 
-  for (const def of ACHIEVEMENTS) {
+  for (const def of definitions) {
     if (state.unlocked[def.id]) continue;
     const minScore = def.requirement?.minScore ?? 0;
     const scoreOnlyRequirement = Object.keys(def.requirement || {}).every((key) => key === "minScore");
@@ -536,6 +564,17 @@ export function evaluateRunForAchievements({
       def.requirement?.totalScore === undefined
         ? true
         : state.progress.totalScore >= def.requirement.totalScore;
+    const minSkillUsesOk = (() => {
+      if (def.requirement?.minSkillUses === undefined) return true;
+      const requirements = def.requirement.minSkillUses;
+      if (!requirements || typeof requirements !== "object") return false;
+      const totals = state.progress.skillTotals || DEFAULT_SKILL_TOTALS;
+      return SKILL_IDS.every((id) => {
+        const required = Number(requirements[id] ?? 0);
+        if (!Number.isFinite(required) || required <= 0) return true;
+        return totals[id] >= required;
+      });
+    })();
 
     if (
       meetsScore &&
@@ -555,7 +594,8 @@ export function evaluateRunForAchievements({
       minBrokenExplosionOk &&
       minBrokenRunOk &&
       totalBrokenOk &&
-      totalScoreOk
+      totalScoreOk &&
+      minSkillUsesOk
     ) {
       state.unlocked[def.id] = now;
       unlocked.push(def.id);
@@ -568,25 +608,36 @@ export function evaluateRunForAchievements({
 function progressFor(def, state) {
   const req = def?.requirement || {};
   const key = def?.progressKey;
+  if (key === "skillTotals") {
+    const totals = state.progress?.skillTotals || {};
+    const best = Object.values(totals).reduce((sum, val) => sum + (Number(val) || 0), 0);
+    const target = req.minSkillUses
+      ? Object.values(req.minSkillUses).reduce((sum, val) => sum + (Number(val) || 0), 0)
+      : 0;
+    const pct = target > 0 ? clamp(best / target, 0, 1) : 1;
+    return { best, pct, target };
+  }
   const best = key ? (state.progress?.[key] || 0) : 0;
-  const target =
-    req.minScore ??
-    req.totalScore ??
-    req.minPerfects ??
-    req.totalPerfects ??
-    req.minOrbs ??
-    req.totalOrbs ??
-    req.minOrbCombo ??
-    req.minPerfectCombo ??
-    req.minPipesDodged ??
-    req.totalPipesDodged ??
-    req.minRunTime ??
-    req.totalRunTime ??
-    req.totalRuns ??
-    req.minBrokenPipesInExplosion ??
-    req.minBrokenPipesInRun ??
-    req.totalBrokenPipes ??
-    0;
+  const target = (() => {
+    if (!key) return 0;
+    if (key === "bestScore") return req.minScore ?? 0;
+    if (key === "totalScore") return req.totalScore ?? 0;
+    if (key === "totalRuns") return req.totalRuns ?? 0;
+    if (key === "totalRunTime") return req.totalRunTime ?? 0;
+    if (key === "maxRunTime") return req.minRunTime ?? 0;
+    if (key === "maxOrbsInRun") return req.minOrbs ?? 0;
+    if (key === "totalOrbsCollected") return req.totalOrbs ?? 0;
+    if (key === "maxPerfectsInRun") return req.minPerfects ?? 0;
+    if (key === "totalPerfects") return req.totalPerfects ?? 0;
+    if (key === "maxOrbComboInRun") return req.minOrbCombo ?? 0;
+    if (key === "maxPerfectComboInRun") return req.minPerfectCombo ?? 0;
+    if (key === "maxPipesDodgedInRun") return req.minPipesDodged ?? 0;
+    if (key === "totalPipesDodged") return req.totalPipesDodged ?? 0;
+    if (key === "maxBrokenPipesInExplosion") return req.minBrokenPipesInExplosion ?? 0;
+    if (key === "maxBrokenPipesInRun") return req.minBrokenPipesInRun ?? 0;
+    if (key === "totalBrokenPipes") return req.totalBrokenPipes ?? 0;
+    return 0;
+  })();
   const pct = target > 0 ? clamp(best / target, 0, 1) : 1;
   return { best, pct, target };
 }
@@ -610,29 +661,57 @@ function classifyAchievement(def) {
 
 function describeRequirement(def) {
   const req = def?.requirement || {};
-  if (req.minScore !== undefined) return `Score ${req.minScore} in one run`;
-  if (req.totalScore !== undefined) return `Score ${req.totalScore} total`;
-  if (req.minPerfects !== undefined) return `Clear ${req.minPerfects} perfect gap${req.minPerfects === 1 ? "" : "s"} in one run`;
-  if (req.totalPerfects !== undefined) return `Clear ${req.totalPerfects} perfect gap${req.totalPerfects === 1 ? "" : "s"} total`;
-  if (req.minOrbs !== undefined) return `Collect ${req.minOrbs} orb${req.minOrbs === 1 ? "" : "s"} in one run`;
-  if (req.totalOrbs !== undefined) return `Collect ${req.totalOrbs} orb${req.totalOrbs === 1 ? "" : "s"} total`;
-  if (req.minOrbCombo !== undefined) return `Reach an orb combo of ${req.minOrbCombo} in one run`;
-  if (req.minPerfectCombo !== undefined) return `Reach a perfect gap combo of ${req.minPerfectCombo} in one run`;
-  if (req.minPipesDodged !== undefined) return `Dodge ${req.minPipesDodged} pipe${req.minPipesDodged === 1 ? "" : "s"} in one run`;
-  if (req.totalPipesDodged !== undefined) return `Dodge ${req.totalPipesDodged} pipe${req.totalPipesDodged === 1 ? "" : "s"} total`;
-  if (req.minRunTime !== undefined) return `Survive for ${req.minRunTime} second${req.minRunTime === 1 ? "" : "s"} in one run`;
-  if (req.totalRunTime !== undefined) return `Survive for ${req.totalRunTime} second${req.totalRunTime === 1 ? "" : "s"} total`;
-  if (req.totalRuns !== undefined) return `Play ${req.totalRuns} game${req.totalRuns === 1 ? "" : "s"} total`;
+  const clauses = [];
+  if (req.minScore !== undefined) clauses.push(`Score ${req.minScore} in one run`);
+  if (req.maxOrbs !== undefined) {
+    clauses.push(`Collect at most ${req.maxOrbs} orb${req.maxOrbs === 1 ? "" : "s"} in one run`);
+  }
+  if (req.maxAbilities !== undefined) {
+    const label = req.maxAbilities === 1 ? "ability" : "abilities";
+    clauses.push(`Use at most ${req.maxAbilities} ${label} in one run`);
+  }
+  if (req.totalScore !== undefined) clauses.push(`Score ${req.totalScore} total`);
+  if (req.minPerfects !== undefined) {
+    clauses.push(`Clear ${req.minPerfects} perfect gap${req.minPerfects === 1 ? "" : "s"} in one run`);
+  }
+  if (req.totalPerfects !== undefined) {
+    clauses.push(`Clear ${req.totalPerfects} perfect gap${req.totalPerfects === 1 ? "" : "s"} total`);
+  }
+  if (req.minOrbs !== undefined) clauses.push(`Collect ${req.minOrbs} orb${req.minOrbs === 1 ? "" : "s"} in one run`);
+  if (req.totalOrbs !== undefined) clauses.push(`Collect ${req.totalOrbs} orb${req.totalOrbs === 1 ? "" : "s"} total`);
+  if (req.minOrbCombo !== undefined) clauses.push(`Reach an orb combo of ${req.minOrbCombo} in one run`);
+  if (req.minPerfectCombo !== undefined) clauses.push(`Reach a perfect gap combo of ${req.minPerfectCombo} in one run`);
+  if (req.minPipesDodged !== undefined) {
+    clauses.push(`Dodge ${req.minPipesDodged} pipe${req.minPipesDodged === 1 ? "" : "s"} in one run`);
+  }
+  if (req.totalPipesDodged !== undefined) {
+    clauses.push(`Dodge ${req.totalPipesDodged} pipe${req.totalPipesDodged === 1 ? "" : "s"} total`);
+  }
+  if (req.minRunTime !== undefined) {
+    clauses.push(`Survive for ${req.minRunTime} second${req.minRunTime === 1 ? "" : "s"} in one run`);
+  }
+  if (req.totalRunTime !== undefined) {
+    clauses.push(`Survive for ${req.totalRunTime} second${req.totalRunTime === 1 ? "" : "s"} total`);
+  }
+  if (req.totalRuns !== undefined) clauses.push(`Play ${req.totalRuns} game${req.totalRuns === 1 ? "" : "s"} total`);
   if (req.minBrokenPipesInExplosion !== undefined) {
-    return `Break ${req.minBrokenPipesInExplosion} pipe${req.minBrokenPipesInExplosion === 1 ? "" : "s"} in one explosion`;
+    clauses.push(`Break ${req.minBrokenPipesInExplosion} pipe${req.minBrokenPipesInExplosion === 1 ? "" : "s"} in one explosion`);
   }
   if (req.minBrokenPipesInRun !== undefined) {
-    return `Break ${req.minBrokenPipesInRun} pipe${req.minBrokenPipesInRun === 1 ? "" : "s"} in one run`;
+    clauses.push(`Break ${req.minBrokenPipesInRun} pipe${req.minBrokenPipesInRun === 1 ? "" : "s"} in one run`);
   }
   if (req.totalBrokenPipes !== undefined) {
-    return `Break ${req.totalBrokenPipes} pipe${req.totalBrokenPipes === 1 ? "" : "s"} total`;
+    clauses.push(`Break ${req.totalBrokenPipes} pipe${req.totalBrokenPipes === 1 ? "" : "s"} total`);
   }
-  return "Unlock with a special challenge";
+  if (req.minSkillUses && typeof req.minSkillUses === "object") {
+    for (const id of SKILL_IDS) {
+      const amount = req.minSkillUses[id];
+      if (amount !== undefined) {
+        clauses.push(`Use ${id} ${amount} time${amount === 1 ? "" : "s"} total`);
+      }
+    }
+  }
+  return clauses.length ? clauses.join(" and ") : "Unlock with a special challenge";
 }
 
 function normalizeFilters(raw = {}) {

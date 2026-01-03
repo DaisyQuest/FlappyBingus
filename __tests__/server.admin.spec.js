@@ -52,7 +52,13 @@ async function importServer({ dataStoreOverrides = {}, configStoreOverrides = {}
   };
   server._setDataStoreForTests(mockDataStore);
   const configStore = {
-    getConfig: vi.fn(() => ({ session: { ttlSeconds: 10, refreshWindowSeconds: 5 }, rateLimits: {}, unlockableMenus: {} })),
+    getConfig: vi.fn(() => ({
+      session: { ttlSeconds: 10, refreshWindowSeconds: 5 },
+      rateLimits: {},
+      unlockableMenus: {},
+      achievements: { definitions: null },
+      unlockableOverrides: {}
+    })),
     getMeta: vi.fn(() => ({ lastLoadedAt: 123 })),
     save: vi.fn(async (config) => config),
     maybeReload: vi.fn(async () => ({})),
@@ -218,6 +224,65 @@ describe("admin routes", () => {
     const json = readJson(res);
     expect(json.unlockables).toBeDefined();
     expect(json.trails).toBeDefined();
+  });
+
+  it("returns achievement editor payloads", async () => {
+    const { server } = await importServer();
+    const res = createRes();
+    await server.route(createReq({ method: "GET", url: "/api/admin/achievements" }), res);
+    expect(res.status).toBe(200);
+    const json = readJson(res);
+    expect(json.achievements.definitions.length).toBeGreaterThan(0);
+    expect(json.achievements.schema).toBeTruthy();
+    expect(json.unlockables.length).toBeGreaterThan(0);
+  });
+
+  it("persists achievement and unlockable overrides updates", async () => {
+    const { server, configStore } = await importServer();
+    const payload = {
+      definitions: [
+        {
+          id: "custom_1",
+          title: "Custom",
+          description: "Custom",
+          reward: "",
+          progressKey: null,
+          requirement: { minScore: 5 }
+        }
+      ],
+      unlockableOverrides: {
+        trail: { classic: { type: "achievement", id: "custom_1" } }
+      }
+    };
+    const res = createRes();
+    await server.route(
+      createReq({ method: "PUT", url: "/api/admin/achievements", body: JSON.stringify(payload) }),
+      res
+    );
+    expect(res.status).toBe(200);
+    expect(configStore.save).toHaveBeenCalledWith(
+      expect.objectContaining({
+        achievements: expect.objectContaining({ definitions: payload.definitions }),
+        unlockableOverrides: expect.objectContaining({
+          trail: expect.objectContaining({ classic: expect.objectContaining({ id: "custom_1" }) })
+        })
+      })
+    );
+  });
+
+  it("rejects invalid achievement payloads", async () => {
+    const { server } = await importServer();
+    const res = createRes();
+    await server.route(
+      createReq({
+        method: "PUT",
+        url: "/api/admin/achievements",
+        body: JSON.stringify({ definitions: [{ id: "", title: "", description: "", requirement: { foo: 1 } }] })
+      }),
+      res
+    );
+    expect(res.status).toBe(400);
+    expect(readJson(res).error).toBe("invalid_achievement_definitions");
   });
 
   it("rejects invalid collection names", async () => {

@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Achievement Editor</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="stylesheet" href="/bigflappin/admin.css" />
+  <link rel="stylesheet" href="/achievementeditor/admin.css" />
+</head>
+<body>
+  <header class="admin-header">
+    <div class="admin-brand">
+      <span class="brand-dot"></span>
+      <div>
+        <div class="brand-title">Achievement Editor</div>
+        <div class="brand-subtitle">Manage achievement definitions and unlockable mappings</div>
+      </div>
+    </div>
+    <div class="admin-status" id="adminStatus">
+      <span class="status-dot"></span>
+      <span id="adminStatusText">Loading achievements…</span>
+    </div>
+  </header>
+
+  <div class="admin-shell">
+    <nav class="admin-nav" id="achievementNav"></nav>
+    <main class="admin-main" id="achievementMain">
+      <section class="panel loading" id="achievementLoading">
+        <h2>Loading editor…</h2>
+        <p>Please wait while the editor loads.</p>
+      </section>
+    </main>
+  </div>
+
+  <footer class="admin-footer">
+    <span>Flappy Bingus Achievement Editor</span>
+    <span id="adminMeta"></span>
+  </footer>
+
+  <script type="module" src="/achievementeditor/admin.js"></script>
+</body>
+</html>

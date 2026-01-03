@@ -1058,7 +1058,8 @@ function computeUnlockedTrailSet(trails = net.trails) {
   const achievements = net.user?.achievements || net.achievements?.state;
   const isRecordHolder = Boolean(net.user?.isRecordHolder);
   const owned = getOwnedUnlockables(net.user);
-  return new Set(getUnlockedTrails(trails, achievements, { isRecordHolder, ownedIds: owned }));
+  const best = net.user ? (net.user.bestScore | 0) : 0;
+  return new Set(getUnlockedTrails(trails, achievements, { isRecordHolder, ownedIds: owned, bestScore: best }));
 }
 
 function computeUnlockedPipeTextureSet(textures = net.pipeTextures) {

@@ -40,6 +40,18 @@ describe("trailProgression helpers", () => {
     expect(unlocked).toContain("starlight_pop");
   });
 
+  it("unlocks score-based trails when best score is high enough", () => {
+    const trails = [
+      { id: "classic", alwaysUnlocked: true },
+      { id: "score_trail", unlock: { type: "score", minScore: 100 } }
+    ];
+    const locked = getUnlockedTrails(trails, null, { bestScore: 50 });
+    expect(locked).not.toContain("score_trail");
+
+    const unlocked = getUnlockedTrails(trails, null, { bestScore: 150 });
+    expect(unlocked).toContain("score_trail");
+  });
+
   it("keeps classic available even without achievements", () => {
     const unlocked = getUnlockedTrails(DEFAULT_TRAILS, null, { isRecordHolder: false });
     expect(unlocked).toContain("classic");

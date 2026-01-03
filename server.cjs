@@ -30,6 +30,11 @@ const {
   evaluateRunForAchievements,
   buildAchievementsPayload
 } = require("./services/achievements.cjs");
+const {
+  ACHIEVEMENT_SCHEMA,
+  normalizeAchievementDefinitions,
+  resolveAchievementDefinitions
+} = require("./services/achievementDefinitions.cjs");
 const { MAX_MEDIA_BYTES, MAX_REPLAY_BYTES, normalizeBestRunRequest, hydrateReplayFromJson } = require("./services/bestRuns.cjs");
 const { DEFAULT_SKILL_TOTALS, normalizeSkillTotals } = require("./services/skillConsts.cjs");
 const {
@@ -52,6 +57,10 @@ const {
   syncUnlockablesState,
   isUnlockSatisfied
 } = require("./services/unlockables.cjs");
+const {
+  normalizeUnlockableOverrides,
+  applyUnlockableOverrides
+} = require("./services/unlockableOverrides.cjs");
 const {
   DEFAULT_CURRENCY_ID,
   normalizeCurrencyWallet,
@@ -96,16 +105,16 @@ function _setDataStoreForTests(mock) {
     ensureUserSchema,
     publicUser,
     listHighscores: () => topHighscores(20),
-    trails: TRAILS,
-    icons: ICONS,
-    pipeTextures: PIPE_TEXTURES,
-    unlockables: UNLOCKABLES.unlockables,
+    trails: () => getResolvedUnlockables().trails,
+    icons: () => getResolvedUnlockables().icons,
+    pipeTextures: () => getResolvedUnlockables().pipeTextures,
+    unlockables: () => getResolvedUnlockables().unlockables,
     syncUnlockablesState,
     clampScore: clampScoreDefault,
     normalizeAchievements: normalizeAchievementState,
     validateRunStats,
-    evaluateAchievements: evaluateRunForAchievements,
-    buildAchievementsPayload
+    evaluateAchievements: (payload) => evaluateRunForAchievements({ ...payload, definitions: getAchievementDefinitions() }),
+    buildAchievementsPayload: (user, unlocked) => buildAchievementsPayload(user, unlocked, getAchievementDefinitions())
   });
 }
 
@@ -216,6 +225,13 @@ const ENDPOINT_GROUPS = Object.freeze([
         summary: "Live server + database status dashboard.",
         page: true,
         link: "/status"
+      },
+      {
+        path: "/achievementeditor",
+        methods: ["GET"],
+        summary: "Admin tool for editing achievement requirements and unlock mappings.",
+        page: true,
+        link: "/achievementeditor"
       },
       {
         path: "/replayBrowser",
@@ -359,6 +375,11 @@ const ENDPOINT_GROUPS = Object.freeze([
         summary: "Fetch unlockable definitions."
       },
       {
+        path: "/api/admin/achievements",
+        methods: ["GET", "PUT"],
+        summary: "Read or update achievement definitions and unlockable mappings."
+      },
+      {
         path: "/api/admin/collections",
         methods: ["GET"],
         summary: "List available database collections."
@@ -403,6 +424,11 @@ const TRAILS = Object.freeze([
 const ICONS = normalizePlayerIcons(PLAYER_ICONS);
 const PIPE_TEXTURES = normalizePipeTextures(PIPE_TEXTURE_DEFS);
 const UNLOCKABLES = buildUnlockablesCatalog({ trails: TRAILS, icons: ICONS, pipeTextures: PIPE_TEXTURES });
+const UNLOCKABLE_IDS = Object.freeze({
+  trail: new Set(TRAILS.map((trail) => trail.id)),
+  player_texture: new Set(ICONS.map((icon) => icon.id)),
+  pipe_texture: new Set(PIPE_TEXTURES.map((texture) => texture.id))
+});
 
 const SERVER_CONFIG_PATH = process.env.SERVER_CONFIG_PATH;
 const SERVER_CONFIG_RELOAD_MS = Number(process.env.SERVER_CONFIG_RELOAD_MS || 15_000);
@@ -445,6 +471,24 @@ function getServerConfig() {
   return serverConfigStore?.getConfig?.() || structuredClone(DEFAULT_SERVER_CONFIG);
 }
 
+function getAchievementDefinitions() {
+  const cfg = getServerConfig();
+  return resolveAchievementDefinitions(cfg?.achievements?.definitions, ACHIEVEMENTS);
+}
+
+function getUnlockableOverrides() {
+  const cfg = getServerConfig();
+  const normalized = normalizeUnlockableOverrides(cfg?.unlockableOverrides, { allowedIdsByType: UNLOCKABLE_IDS });
+  return normalized.overrides;
+}
+
+function getResolvedUnlockables() {
+  const overrides = getUnlockableOverrides();
+  const resolved = applyUnlockableOverrides({ trails: TRAILS, icons: ICONS, pipeTextures: PIPE_TEXTURES }, overrides);
+  const { unlockables } = buildUnlockablesCatalog(resolved);
+  return { ...resolved, unlockables };
+}
+
 function getSessionConfig() {
   const cfg = getServerConfig();
   return cfg.session || DEFAULT_SERVER_CONFIG.session;
@@ -458,12 +502,7 @@ function getRateLimitConfig(pathname) {
 
 function getVisibleCatalog() {
   return applyUnlockableMenuConfig(
-    {
-      trails: TRAILS,
-      icons: ICONS,
-      pipeTextures: PIPE_TEXTURES,
-      unlockables: UNLOCKABLES.unlockables
-    },
+    getResolvedUnlockables(),
     getServerConfig()
   );
 }
@@ -658,8 +697,9 @@ function unlockedTrails({ achievements, bestScore = 0, ownedIds = [] } = {}, { r
       ? ownedIds.map((id) => (typeof id === "string" ? id : null)).filter(Boolean)
       : []
   );
+  const trails = getResolvedUnlockables().trails;
 
-  return TRAILS.filter((t) => {
+  return trails.filter((t) => {
     if (t.unlock) {
       return isUnlockSatisfied(
         { id: t.id, unlock: t.unlock },
@@ -682,7 +722,16 @@ function syncTrailAchievementsState(state, { bestScore = 0, totalRuns = 0, recor
   normalized.progress.bestScore = Math.max(normalized.progress.bestScore || 0, safeBest);
   normalized.progress.totalRuns = Math.max(normalized.progress.totalRuns || 0, normalizeCount(totalRuns));
 
-  for (const t of TRAILS) {
+  const trails = getResolvedUnlockables().trails;
+  for (const t of trails) {
+    const unlock = t.unlock;
+    if (unlock?.type === "achievement" && Number.isFinite(unlock.minScore)) {
+      if (safeBest < unlock.minScore) continue;
+      if (!normalized.unlocked[unlock.id]) {
+        normalized.unlocked[unlock.id] = now;
+      }
+      continue;
+    }
     if (!t.achievementId) continue;
     if (t.requiresRecordHolder && !recordHolder) continue;
     if (!Number.isFinite(t.minScore)) continue;
@@ -698,6 +747,7 @@ function syncTrailAchievementsState(state, { bestScore = 0, totalRuns = 0, recor
 
 function ensureUserSchema(u, { recordHolder = false } = {}) {
   if (!u || typeof u !== "object") return;
+  const resolvedUnlockables = getResolvedUnlockables();
   u.bestScore = normalizeScore(u.bestScore);
   u.runs = normalizeCount(u.runs);
   u.totalScore = normalizeTotal(u.totalScore);
@@ -732,7 +782,7 @@ function ensureUserSchema(u, { recordHolder = false } = {}) {
   u.settings = normalizeSettings(u.settings);
   u.unlockables = syncUnlockablesState(
     u.unlockables,
-    UNLOCKABLES.unlockables,
+    resolvedUnlockables.unlockables,
     {
       achievements: u.achievements,
       bestScore: u.bestScore,
@@ -748,13 +798,13 @@ function ensureUserSchema(u, { recordHolder = false } = {}) {
   );
   if (!unlocked.includes(u.selectedTrail)) u.selectedTrail = "classic";
 
-  const availableIconIds = unlockedIcons(u, { icons: ICONS, recordHolder });
+  const availableIconIds = unlockedIcons(u, { icons: resolvedUnlockables.icons, recordHolder });
   if (!availableIconIds.includes(u.selectedIcon)) {
     u.selectedIcon = availableIconIds[0] || DEFAULT_PLAYER_ICON_ID;
   }
 
   const availablePipeTextures = getUnlockedIdsByType({
-    unlockables: UNLOCKABLES.unlockables,
+    unlockables: resolvedUnlockables.unlockables,
     type: UNLOCKABLE_TYPES.pipeTexture,
     state: u.unlockables,
     context: { achievements: u.achievements, bestScore: u.bestScore, ownedIds: u.ownedUnlockables, recordHolder }
@@ -956,6 +1006,7 @@ function validateKeybindsPayload(binds) {
 
 function publicUser(u, { recordHolder = false } = {}) {
   if (!u) return null;
+  const resolvedUnlockables = getResolvedUnlockables();
   return {
     username: u.username,
     bestScore: u.bestScore | 0,
@@ -979,9 +1030,9 @@ function publicUser(u, { recordHolder = false } = {}) {
       { achievements: u.achievements, bestScore: u.bestScore, ownedIds: u.ownedUnlockables },
       { recordHolder }
     ),
-    unlockedIcons: unlockedIcons(u, { icons: ICONS, recordHolder }),
+    unlockedIcons: unlockedIcons(u, { icons: resolvedUnlockables.icons, recordHolder }),
     unlockedPipeTextures: getUnlockedIdsByType({
-      unlockables: UNLOCKABLES.unlockables,
+      unlockables: resolvedUnlockables.unlockables,
       type: UNLOCKABLE_TYPES.pipeTexture,
       state: u.unlockables,
       context: { achievements: u.achievements, bestScore: u.bestScore, ownedIds: u.ownedUnlockables, recordHolder }
@@ -1230,16 +1281,16 @@ scoreService = createScoreService({
   ensureUserSchema,
   publicUser,
   listHighscores: () => topHighscores(20),
-  trails: TRAILS,
-  icons: ICONS,
-  pipeTextures: PIPE_TEXTURES,
-  unlockables: UNLOCKABLES.unlockables,
+  trails: () => getResolvedUnlockables().trails,
+  icons: () => getResolvedUnlockables().icons,
+  pipeTextures: () => getResolvedUnlockables().pipeTextures,
+  unlockables: () => getResolvedUnlockables().unlockables,
   syncUnlockablesState,
   clampScore: clampScoreDefault,
   normalizeAchievements: normalizeAchievementState,
   validateRunStats,
-  evaluateAchievements: evaluateRunForAchievements,
-  buildAchievementsPayload
+  evaluateAchievements: (payload) => evaluateRunForAchievements({ ...payload, definitions: getAchievementDefinitions() }),
+  buildAchievementsPayload: (user, unlocked) => buildAchievementsPayload(user, unlocked, getAchievementDefinitions())
 });
 
 async function ensureDatabase(res) {
@@ -1722,7 +1773,7 @@ async function route(req, res) {
       icons: catalog.icons,
       trails: catalog.trails,
       pipeTextures: catalog.pipeTextures,
-      achievements: buildAchievementsPayload(u),
+      achievements: buildAchievementsPayload(u, [], getAchievementDefinitions()),
       ...buildSessionPayload(u.username)
     });
     return;
@@ -1756,7 +1807,7 @@ async function route(req, res) {
       icons: catalog.icons,
       trails: catalog.trails,
       pipeTextures: catalog.pipeTextures,
-      achievements: buildAchievementsPayload(u),
+      achievements: buildAchievementsPayload(u, [], getAchievementDefinitions()),
       ...buildSessionPayload(u.username)
     });
     return;
@@ -1928,7 +1979,8 @@ async function route(req, res) {
       return badRequest(res, "invalid_json");
     }
     const trailId = String(body.trailId || "").trim();
-    const exists = TRAILS.some((t) => t.id === trailId);
+    const resolvedUnlockables = getResolvedUnlockables();
+    const exists = resolvedUnlockables.trails.some((t) => t.id === trailId);
     if (!exists) return badRequest(res, "invalid_trail");
 
     const recordHolder = Boolean(u?.isRecordHolder);
@@ -1967,11 +2019,12 @@ async function route(req, res) {
     }
 
     const iconId = String(body.iconId || "").trim();
-    const exists = normalizePlayerIcons(ICONS).some((i) => i.id === iconId);
+    const resolvedUnlockables = getResolvedUnlockables();
+    const exists = normalizePlayerIcons(resolvedUnlockables.icons).some((i) => i.id === iconId);
     if (!exists) return badRequest(res, "invalid_icon");
 
     const recordHolder = Boolean(u?.isRecordHolder);
-    const unlocked = unlockedIcons(u, { icons: ICONS, recordHolder });
+    const unlocked = unlockedIcons(u, { icons: resolvedUnlockables.icons, recordHolder });
     if (!unlocked.includes(iconId)) return badRequest(res, "icon_locked");
 
     const updated = await dataStore.setIcon(u.key, iconId);
@@ -2003,14 +2056,15 @@ async function route(req, res) {
     }
 
     const textureId = String(body.textureId || "").trim();
-    const exists = PIPE_TEXTURES.some((t) => t.id === textureId);
+    const resolvedUnlockables = getResolvedUnlockables();
+    const exists = resolvedUnlockables.pipeTextures.some((t) => t.id === textureId);
     if (!exists) return badRequest(res, "invalid_pipe_texture");
 
     const mode = normalizePipeTextureMode(body.mode || DEFAULT_PIPE_TEXTURE_MODE);
 
     const recordHolder = Boolean(u?.isRecordHolder);
     const unlocked = getUnlockedIdsByType({
-      unlockables: UNLOCKABLES.unlockables,
+      unlockables: resolvedUnlockables.unlockables,
       type: UNLOCKABLE_TYPES.pipeTexture,
       state: u.unlockables,
       context: { achievements: u.achievements, bestScore: u.bestScore, ownedIds: u.ownedUnlockables, recordHolder }
@@ -2049,7 +2103,8 @@ async function route(req, res) {
     const unlockType = String(body.type || "").trim();
     if (!unlockId || !unlockType) return badRequest(res, "invalid_unlockable");
 
-    const def = UNLOCKABLES.unlockables.find((item) => item.id === unlockId && item.type === unlockType);
+    const resolvedUnlockables = getResolvedUnlockables();
+    const def = resolvedUnlockables.unlockables.find((item) => item.id === unlockId && item.type === unlockType);
     if (!def) return badRequest(res, "invalid_unlockable");
     if (def.unlock?.type !== "purchase") return badRequest(res, "unlock_not_purchasable");
 
@@ -2066,7 +2121,7 @@ async function route(req, res) {
     const ownedNext = Array.from(new Set([...ownedIds, def.unlock.id || def.id]));
     const nextUnlockables = syncUnlockablesState(
       u.unlockables,
-      UNLOCKABLES.unlockables,
+      resolvedUnlockables.unlockables,
       { achievements: u.achievements, bestScore: u.bestScore, ownedIds: ownedNext, recordHolder }
     ).state;
 
@@ -2196,14 +2251,67 @@ async function route(req, res) {
   }
 
   if (pathname === "/api/admin/unlockables" && req.method === "GET") {
+    const resolvedUnlockables = getResolvedUnlockables();
     sendJson(res, 200, {
       ok: true,
-      unlockables: UNLOCKABLES.unlockables,
-      trails: TRAILS,
-      icons: ICONS,
-      pipeTextures: PIPE_TEXTURES
+      unlockables: resolvedUnlockables.unlockables,
+      trails: resolvedUnlockables.trails,
+      icons: resolvedUnlockables.icons,
+      pipeTextures: resolvedUnlockables.pipeTextures
     });
     return;
+  }
+
+  if (pathname === "/api/admin/achievements") {
+    if (req.method === "GET") {
+      const definitions = getAchievementDefinitions();
+      const baseCatalog = buildUnlockablesCatalog({ trails: TRAILS, icons: ICONS, pipeTextures: PIPE_TEXTURES });
+      sendJson(res, 200, {
+        ok: true,
+        achievements: {
+          definitions,
+          schema: ACHIEVEMENT_SCHEMA
+        },
+        unlockables: baseCatalog.unlockables,
+        unlockableOverrides: getUnlockableOverrides(),
+        meta: serverConfigStore.getMeta()
+      });
+      return;
+    }
+    if (req.method === "PUT") {
+      let body;
+      try {
+        body = await readJsonBody(req);
+      } catch {
+        return badRequest(res, "invalid_json");
+      }
+      const definitionsPayload = body?.definitions ?? body?.achievements?.definitions ?? null;
+      const overridesPayload = body?.unlockableOverrides ?? body?.overrides ?? null;
+
+      const definitionResult = normalizeAchievementDefinitions(definitionsPayload, { fallback: null });
+      if (!definitionResult.ok) {
+        return sendJson(res, 400, { ok: false, error: "invalid_achievement_definitions", details: definitionResult.errors });
+      }
+      const overridesResult = normalizeUnlockableOverrides(overridesPayload, { allowedIdsByType: UNLOCKABLE_IDS });
+      if (!overridesResult.ok) {
+        return sendJson(res, 400, { ok: false, error: "invalid_unlockable_overrides", details: overridesResult.errors });
+      }
+
+      const current = getServerConfig();
+      const nextConfig = {
+        ...current,
+        achievements: { definitions: definitionResult.definitions },
+        unlockableOverrides: overridesResult.overrides
+      };
+      const saved = await serverConfigStore.save(nextConfig);
+      sendJson(res, 200, {
+        ok: true,
+        achievements: { definitions: resolveAchievementDefinitions(saved.achievements?.definitions, ACHIEVEMENTS) },
+        unlockableOverrides: saved.unlockableOverrides,
+        meta: serverConfigStore.getMeta()
+      });
+      return;
+    }
   }
 
   if (pathname === "/api/admin/collections" && req.method === "GET") {
@@ -2267,6 +2375,16 @@ async function route(req, res) {
       sendHtml(res, 200, html);
     } catch (err) {
       sendJson(res, 404, { ok: false, error: "admin_not_found", detail: err?.message || String(err) });
+    }
+    return;
+  }
+
+  if (pathname === "/achievementeditor" && req.method === "GET") {
+    try {
+      const html = await fs.readFile(path.join(PUBLIC_DIR, "achievementeditor", "index.html"), "utf8");
+      sendHtml(res, 200, html);
+    } catch (err) {
+      sendJson(res, 404, { ok: false, error: "achievement_editor_not_found", detail: err?.message || String(err) });
     }
     return;
   }

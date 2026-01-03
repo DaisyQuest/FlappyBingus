@@ -489,4 +489,25 @@ describe("evaluateRunForAchievements", () => {
       expect(state.unlocked[def.id]).toBe(now);
     });
   });
+
+  it("unlocks skill-usage achievements when totals are satisfied", () => {
+    const definition = {
+      id: "dash_master",
+      title: "Dash Master",
+      description: "Use dash often.",
+      requirement: { minSkillUses: { dash: 3 } }
+    };
+    const previous = normalizeAchievementState({
+      unlocked: {},
+      progress: { skillTotals: { dash: 2, phase: 0, teleport: 0, slowField: 0 } }
+    });
+    const { unlocked, state } = evaluateRunForAchievements({
+      previous,
+      runStats: { skillUsage: { dash: 1, phase: 0, teleport: 0, slowField: 0 } },
+      score: 0,
+      definitions: [definition]
+    });
+    expect(unlocked).toEqual([definition.id]);
+    expect(state.unlocked[definition.id]).toBeTypeOf("number");
+  });
 });

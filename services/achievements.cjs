@@ -453,7 +453,16 @@ function validateRunStats(raw) {
   };
 }
 
-function evaluateRunForAchievements({ previous, runStats, score, totalScore, totalRuns, bestScore, now = Date.now() } = {}) {
+function evaluateRunForAchievements({
+  previous,
+  runStats,
+  score,
+  totalScore,
+  totalRuns,
+  bestScore,
+  now = Date.now(),
+  definitions = ACHIEVEMENTS
+} = {}) {
   const state = normalizeAchievementState(previous);
   const unlocked = [];
 
@@ -541,7 +550,7 @@ function evaluateRunForAchievements({ previous, runStats, score, totalScore, tot
     state.progress.skillTotals = merged;
   }
 
-  for (const def of ACHIEVEMENTS) {
+  for (const def of definitions) {
     if (state.unlocked[def.id]) continue;
     const minScore = def.requirement?.minScore ?? 0;
     const scoreOnlyRequirement = Object.keys(def.requirement || {}).every((key) => key === "minScore");
@@ -615,6 +624,17 @@ function evaluateRunForAchievements({ previous, runStats, score, totalScore, tot
       def.requirement?.totalScore === undefined
         ? true
         : state.progress.totalScore >= def.requirement.totalScore;
+    const minSkillUsesOk = (() => {
+      if (def.requirement?.minSkillUses === undefined) return true;
+      const requirements = def.requirement.minSkillUses;
+      if (!requirements || typeof requirements !== "object") return false;
+      const totals = state.progress.skillTotals || DEFAULT_SKILL_TOTALS;
+      return SKILL_IDS.every((id) => {
+        const required = Number(requirements[id] ?? 0);
+        if (!Number.isFinite(required) || required <= 0) return true;
+        return totals[id] >= required;
+      });
+    })();
 
     if (
       meetsScore &&
@@ -634,7 +654,8 @@ function evaluateRunForAchievements({ previous, runStats, score, totalScore, tot
       minBrokenExplosionOk &&
       minBrokenRunOk &&
       totalBrokenOk &&
-      totalScoreOk
+      totalScoreOk &&
+      minSkillUsesOk
     ) {
       state.unlocked[def.id] = now;
       unlocked.push(def.id);
@@ -644,7 +665,7 @@ function evaluateRunForAchievements({ previous, runStats, score, totalScore, tot
   return { state, unlocked };
 }
 
-function buildAchievementsPayload(user, unlocked = []) {
+function buildAchievementsPayload(user, unlocked = [], definitions = ACHIEVEMENTS) {
   const state = normalizeAchievementState(user?.achievements);
   const seen = new Set();
   const uniqueUnlocked = [];
@@ -653,7 +674,7 @@ function buildAchievementsPayload(user, unlocked = []) {
     seen.add(id);
     uniqueUnlocked.push(id);
   }
-  return { definitions: ACHIEVEMENTS, state, unlocked: uniqueUnlocked };
+  return { definitions, state, unlocked: uniqueUnlocked };
 }
 
 module.exports = {
