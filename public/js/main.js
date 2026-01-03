@@ -86,7 +86,6 @@ import {
   DEFAULT_PLAYER_ICON_ID,
   DEFAULT_PLAYER_ICONS,
   describeIconLock,
-  getUnlockedPlayerIcons,
   normalizeIconSelection,
   normalizePlayerIcons
 } from "./playerIcons.js";
@@ -1053,12 +1052,17 @@ function computeUnlockedIconSet(icons = playerIcons) {
   const achievements = net.user?.achievements || net.achievements?.state;
   const owned = getOwnedUnlockables(net.user);
   const isRecordHolder = Boolean(net.user?.isRecordHolder);
+  const unlockables = net.unlockables?.unlockables || buildUnlockablesCatalog({ icons }).unlockables;
   return new Set(
-    getUnlockedPlayerIcons(icons, {
-      bestScore: best,
-      ownedIconIds: owned,
-      achievements,
-      recordHolder: isRecordHolder
+    getUnlockedIdsByType({
+      unlockables,
+      type: UNLOCKABLE_TYPES.playerTexture,
+      context: {
+        bestScore: best,
+        achievements,
+        ownedIds: owned,
+        recordHolder: isRecordHolder
+      }
     })
   );
 }

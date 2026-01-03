@@ -122,4 +122,30 @@ describe("unlockables", () => {
     });
     expect(unlockedIcons).not.toContain("badge");
   });
+
+  it("unlocks player textures based on record holder and ownership context", () => {
+    const { unlockables } = buildUnlockablesCatalog({
+      trails: [],
+      icons: [
+        { id: "record_icon", name: "Record Icon", unlock: { type: "record" } },
+        { id: "shop_icon", name: "Shop Icon", unlock: { type: "purchase", cost: 25 } }
+      ],
+      pipeTextures: []
+    });
+
+    const locked = getUnlockedIdsByType({
+      unlockables,
+      type: UNLOCKABLE_TYPES.playerTexture,
+      context: { recordHolder: false, ownedIds: [] }
+    });
+    expect(locked).not.toContain("record_icon");
+    expect(locked).not.toContain("shop_icon");
+
+    const unlocked = getUnlockedIdsByType({
+      unlockables,
+      type: UNLOCKABLE_TYPES.playerTexture,
+      context: { recordHolder: true, ownedIds: ["shop_icon"] }
+    });
+    expect(unlocked).toEqual(expect.arrayContaining(["record_icon", "shop_icon"]));
+  });
 });

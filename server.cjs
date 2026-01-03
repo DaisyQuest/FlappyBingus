@@ -573,6 +573,21 @@ function getResolvedUnlockables() {
   return { ...resolved, unlockables };
 }
 
+function getUnlockedIconIds(user, { resolvedUnlockables = getResolvedUnlockables(), recordHolder = false } = {}) {
+  const ownedIds = Array.isArray(user?.ownedUnlockables) ? user.ownedUnlockables : [];
+  return getUnlockedIdsByType({
+    unlockables: resolvedUnlockables.unlockables,
+    type: UNLOCKABLE_TYPES.playerTexture,
+    state: user?.unlockables,
+    context: {
+      achievements: user?.achievements,
+      bestScore: user?.bestScore,
+      ownedIds,
+      recordHolder
+    }
+  });
+}
+
 function getSessionConfig() {
   const cfg = getServerConfig();
   return cfg.session || DEFAULT_SERVER_CONFIG.session;
@@ -882,7 +897,7 @@ function ensureUserSchema(u, { recordHolder = false } = {}) {
   );
   if (!unlocked.includes(u.selectedTrail)) u.selectedTrail = "classic";
 
-  const availableIconIds = unlockedIcons(u, { icons: resolvedUnlockables.icons, recordHolder });
+  const availableIconIds = getUnlockedIconIds(u, { resolvedUnlockables, recordHolder });
   if (!availableIconIds.includes(u.selectedIcon)) {
     u.selectedIcon = availableIconIds[0] || DEFAULT_PLAYER_ICON_ID;
   }
@@ -1114,7 +1129,7 @@ function publicUser(u, { recordHolder = false } = {}) {
       { achievements: u.achievements, bestScore: u.bestScore, ownedIds: u.ownedUnlockables },
       { recordHolder }
     ),
-    unlockedIcons: unlockedIcons(u, { icons: resolvedUnlockables.icons, recordHolder }),
+    unlockedIcons: getUnlockedIconIds(u, { resolvedUnlockables, recordHolder }),
     unlockedPipeTextures: getUnlockedIdsByType({
       unlockables: resolvedUnlockables.unlockables,
       type: UNLOCKABLE_TYPES.pipeTexture,
@@ -2108,7 +2123,7 @@ async function route(req, res) {
     if (!exists) return badRequest(res, "invalid_icon");
 
     const recordHolder = Boolean(u?.isRecordHolder);
-    const unlocked = unlockedIcons(u, { icons: resolvedUnlockables.icons, recordHolder });
+    const unlocked = getUnlockedIconIds(u, { resolvedUnlockables, recordHolder });
     if (!unlocked.includes(iconId)) return badRequest(res, "icon_locked");
 
     const updated = await dataStore.setIcon(u.key, iconId);
