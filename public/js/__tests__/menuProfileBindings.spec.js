@@ -26,6 +26,7 @@ describe("menuProfileBindings", () => {
       usernameInput: { value: "" },
       pbText: { textContent: "" },
       bustercoinText: { textContent: "" },
+      supportcoinText: { textContent: "" },
       trailText: { textContent: "" },
       iconText: { textContent: "" },
       pipeTextureText: { textContent: "" }
@@ -33,7 +34,14 @@ describe("menuProfileBindings", () => {
 
     const result = syncMenuProfileBindings({
       refs,
-      user: { username: "pilot", bestScore: 42, selectedTrail: "aurora", selectedIcon: "alpha", selectedPipeTexture: "glass" },
+      user: {
+        username: "pilot",
+        bestScore: 42,
+        selectedTrail: "aurora",
+        selectedIcon: "alpha",
+        selectedPipeTexture: "glass",
+        currencies: { bustercoin: 11, supportcoin: 7 }
+      },
       trails: [{ id: "aurora", name: "Aurora Trail" }],
       icons: [{ id: "alpha", name: "Alpha Icon" }],
       pipeTextures: [{ id: "glass", name: "Glass Pipe" }],
@@ -42,8 +50,11 @@ describe("menuProfileBindings", () => {
 
     expect(result.username).toBe("pilot");
     expect(result.bestScore).toBe(42);
+    expect(result.supportcoins).toBe(7);
     expect(refs.usernameInput.value).toBe("pilot");
     expect(refs.pbText.textContent).toBe("42");
+    expect(refs.bustercoinText.textContent).toBe("11");
+    expect(refs.supportcoinText.textContent).toBe("7");
     expect(refs.trailText.textContent).toBe("Aurora Trail");
     expect(refs.iconText.textContent).toBe("Alpha Icon");
     expect(refs.pipeTextureText.textContent).toBe("Glass Pipe");

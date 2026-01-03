@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   DEFAULT_CURRENCY_ID,
+  SUPPORT_CURRENCY_ID,
   canAffordCurrency,
   creditCurrency,
   debitCurrency,
@@ -25,6 +26,8 @@ describe("currency system", () => {
   it("returns defaults for known and unknown currencies", () => {
     const known = getCurrencyDefinition(DEFAULT_CURRENCY_ID);
     expect(known.shortLabel).toBe("BC");
+    const support = getCurrencyDefinition(SUPPORT_CURRENCY_ID);
+    expect(support.shortLabel).toBe("SC");
     const unknown = getCurrencyDefinition("starlight");
     expect(unknown.shortLabel).toBe("STARLIGHT");
   });
@@ -39,6 +42,7 @@ describe("currency system", () => {
   it("derives balances from user payloads", () => {
     expect(getUserCurrencyBalance({ bustercoins: 7 }, DEFAULT_CURRENCY_ID)).toBe(7);
     expect(getUserCurrencyBalance({ currencies: { bustercoin: 9 } }, DEFAULT_CURRENCY_ID)).toBe(9);
+    expect(getUserCurrencyBalance({ currencies: { supportcoin: 4 } }, SUPPORT_CURRENCY_ID)).toBe(4);
     expect(getUserCurrencyBalance(null, DEFAULT_CURRENCY_ID)).toBe(0);
   });
 
@@ -57,6 +61,7 @@ describe("currency system", () => {
     const credit = creditCurrency({ bustercoin: 2 }, { currencyId: "bustercoin", amount: 3.1 });
     expect(credit.wallet.bustercoin).toBe(5);
     expect(formatCurrencyAmount(5, "bustercoin")).toBe("5 BC");
+    expect(formatCurrencyAmount(5, SUPPORT_CURRENCY_ID)).toBe("5 SC");
     expect(formatCurrencyAmount(5, "bustercoin", { showLabel: false })).toBe("5");
   });
 });

@@ -20,7 +20,7 @@ describe("userStatus", () => {
         username: "Bingus",
         runs: 12,
         totalScore: 3456,
-        currencies: { bustercoin: 42 }
+        currencies: { bustercoin: 42, supportcoin: 9 }
       }
     });
 
@@ -29,5 +29,6 @@ describe("userStatus", () => {
     expect(hint.text).toContain("Runs: 12");
     expect(hint.text).toContain("Total: 3456");
     expect(hint.text).toContain("Bustercoins: 42");
+    expect(hint.text).toContain("Supportcoins: 9");
   });
 });

@@ -28,6 +28,9 @@ const SKILL_COOLDOWN_REFS = [
 
 const DONATE_MESSAGE = "Thank you so much for even considering to click this button! Any tips to support the development team are greatly appreciated!";
 const DONATE_VENMO = "Venmo: @Bingus69";
+const SUPPORT_MESSAGE = "Support the game by watching a short ad or completing an offer.";
+const SUPPORT_REWARD = "Earn Supportcoins when your support is confirmed.";
+const SUPPORT_PROVIDER = "Offers are delivered via CPAlead reward tools/offer wall.";
 
 function readCooldown(cfg, key, { multiplier = 1 } = {}) {
   const fallback = Number(DEFAULT_CONFIG?.skills?.[key]?.cooldown);
@@ -1504,7 +1507,13 @@ function createProfileCard(doc, refs) {
   const bustercoinText = createElement(doc, refs, "span", { id: "bustercoinText", className: "kbd", text: "0" });
   busterBadge.append(bustercoinText);
 
-  pills.append(pbBadge, trailBadge, iconBadge, pipeTextureBadge, busterBadge);
+  const supportBadge = doc.createElement("div");
+  supportBadge.className = "badge";
+  supportBadge.textContent = "Supportcoins ";
+  const supportcoinText = createElement(doc, refs, "span", { id: "supportcoinText", className: "kbd", text: "0" });
+  supportBadge.append(supportcoinText);
+
+  pills.append(pbBadge, trailBadge, iconBadge, pipeTextureBadge, busterBadge, supportBadge);
 
   field.append(label, row, userHint, pills);
   card.append(title, field);
@@ -2002,7 +2011,27 @@ function createSocialDock(doc, refs) {
     }
   });
 
-  dock.append(discordItem, donateItem);
+  const supportItem = createSocialItem({
+    id: "supportButton",
+    text: "Support",
+    popoverId: "supportPopover",
+    popoverClass: "support-popover",
+    ariaLabel: "Open support offers",
+    popoverContent: (popover) => {
+      const copy = doc.createElement("p");
+      copy.className = "support-copy";
+      copy.textContent = SUPPORT_MESSAGE;
+      const reward = doc.createElement("p");
+      reward.className = "support-reward";
+      reward.textContent = SUPPORT_REWARD;
+      const provider = doc.createElement("p");
+      provider.className = "support-provider";
+      provider.textContent = SUPPORT_PROVIDER;
+      popover.append(copy, reward, provider);
+    }
+  });
+
+  dock.append(discordItem, donateItem, supportItem);
   return dock;
 }
 

@@ -18,7 +18,12 @@ const buildDock = () => {
   const donatePopover = document.createElement("div");
   donatePopover.id = "donatePopover";
 
-  dock.append(discordButton, discordPopover, donateButton, donatePopover);
+  const supportButton = document.createElement("button");
+  supportButton.id = "supportButton";
+  const supportPopover = document.createElement("div");
+  supportPopover.id = "supportPopover";
+
+  dock.append(discordButton, discordPopover, donateButton, donatePopover, supportButton, supportPopover);
   document.body.append(dock);
 
   return {
@@ -27,39 +32,72 @@ const buildDock = () => {
     discordButton,
     discordPopover,
     donateButton,
-    donatePopover
+    donatePopover,
+    supportButton,
+    supportPopover
   };
 };
 
 describe("initSocialDock", () => {
   it("toggles popovers and keeps aria state in sync", () => {
-    const { document, dock, discordButton, discordPopover, donateButton, donatePopover } = buildDock();
+    const {
+      document,
+      dock,
+      discordButton,
+      discordPopover,
+      donateButton,
+      donatePopover,
+      supportButton,
+      supportPopover
+    } = buildDock();
 
     initSocialDock({
       discordButton,
       donateButton,
+      supportButton,
       discordPopover,
       donatePopover,
+      supportPopover,
       dock,
       document
     });
 
     expect(discordButton.getAttribute("aria-expanded")).toBe("false");
     expect(donateButton.getAttribute("aria-expanded")).toBe("false");
+    expect(supportButton.getAttribute("aria-expanded")).toBe("false");
     expect(discordPopover.hidden).toBe(true);
     expect(donatePopover.hidden).toBe(true);
+    expect(supportPopover.hidden).toBe(true);
 
     discordButton.dispatchEvent(new document.defaultView.MouseEvent("click", { bubbles: true }));
     expect(discordButton.getAttribute("aria-expanded")).toBe("true");
     expect(discordPopover.hidden).toBe(false);
     expect(donateButton.getAttribute("aria-expanded")).toBe("false");
     expect(donatePopover.hidden).toBe(true);
+    expect(supportButton.getAttribute("aria-expanded")).toBe("false");
+    expect(supportPopover.hidden).toBe(true);
 
     donateButton.dispatchEvent(new document.defaultView.MouseEvent("click", { bubbles: true }));
     expect(donateButton.getAttribute("aria-expanded")).toBe("true");
     expect(donatePopover.hidden).toBe(false);
     expect(discordButton.getAttribute("aria-expanded")).toBe("false");
     expect(discordPopover.hidden).toBe(true);
+    expect(supportButton.getAttribute("aria-expanded")).toBe("false");
+    expect(supportPopover.hidden).toBe(true);
+
+    supportButton.dispatchEvent(new document.defaultView.MouseEvent("click", { bubbles: true }));
+    expect(supportButton.getAttribute("aria-expanded")).toBe("true");
+    expect(supportPopover.hidden).toBe(false);
+    expect(discordButton.getAttribute("aria-expanded")).toBe("false");
+    expect(discordPopover.hidden).toBe(true);
+    expect(donateButton.getAttribute("aria-expanded")).toBe("false");
+    expect(donatePopover.hidden).toBe(true);
+
+    donateButton.dispatchEvent(new document.defaultView.MouseEvent("click", { bubbles: true }));
+    expect(donatePopover.hidden).toBe(false);
+    expect(donateButton.getAttribute("aria-expanded")).toBe("true");
+    expect(supportPopover.hidden).toBe(true);
+    expect(supportButton.getAttribute("aria-expanded")).toBe("false");
 
     donateButton.dispatchEvent(new document.defaultView.MouseEvent("click", { bubbles: true }));
     expect(donatePopover.hidden).toBe(true);
@@ -67,13 +105,24 @@ describe("initSocialDock", () => {
   });
 
   it("closes popovers on outside click and escape", () => {
-    const { document, dock, discordButton, discordPopover, donateButton, donatePopover } = buildDock();
+    const {
+      document,
+      dock,
+      discordButton,
+      discordPopover,
+      donateButton,
+      donatePopover,
+      supportButton,
+      supportPopover
+    } = buildDock();
 
     initSocialDock({
       discordButton,
       donateButton,
+      supportButton,
       discordPopover,
       donatePopover,
+      supportPopover,
       dock,
       document
     });
@@ -89,6 +138,12 @@ describe("initSocialDock", () => {
 
     document.dispatchEvent(new document.defaultView.KeyboardEvent("keydown", { key: "Escape" }));
     expect(donatePopover.hidden).toBe(true);
+
+    supportButton.dispatchEvent(new document.defaultView.MouseEvent("click", { bubbles: true }));
+    expect(supportPopover.hidden).toBe(false);
+
+    document.body.dispatchEvent(new document.defaultView.MouseEvent("click", { bubbles: true }));
+    expect(supportPopover.hidden).toBe(true);
   });
 
   it("returns early when controls are missing", () => {

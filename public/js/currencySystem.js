@@ -3,6 +3,7 @@
 // =====================
 
 export const DEFAULT_CURRENCY_ID = "bustercoin";
+export const SUPPORT_CURRENCY_ID = "supportcoin";
 
 export const CURRENCY_DEFINITIONS = Object.freeze({
   [DEFAULT_CURRENCY_ID]: {
@@ -10,6 +11,12 @@ export const CURRENCY_DEFINITIONS = Object.freeze({
     name: "Bustercoin",
     pluralName: "Bustercoins",
     shortLabel: "BC"
+  },
+  [SUPPORT_CURRENCY_ID]: {
+    id: SUPPORT_CURRENCY_ID,
+    name: "Supportcoin",
+    pluralName: "Supportcoins",
+    shortLabel: "SC"
   }
 });
 

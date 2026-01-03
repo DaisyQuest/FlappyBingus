@@ -273,6 +273,7 @@ const {
   iconText,
   pipeTextureText,
   bustercoinText,
+  supportcoinText,
   final: finalEl,
   overDuration,
   overPB,
@@ -318,8 +319,10 @@ const {
   socialDock,
   discordButton,
   donateButton,
+  supportButton,
   discordPopover,
   donatePopover,
+  supportPopover,
   themeLauncher,
   themeOverlay,
   themeOverlayClose,
@@ -480,7 +483,7 @@ let pendingPurchase = null;
 const highscoreDetailsCache = new Map();
 
 const menuProfileModel = createMenuProfileModel({
-  refs: { usernameInput, pbText, trailText, iconText, pipeTextureText, bustercoinText },
+  refs: { usernameInput, pbText, trailText, iconText, pipeTextureText, bustercoinText, supportcoinText },
   user: net.user,
   trails: net.trails,
   icons: playerIcons,
@@ -646,8 +649,10 @@ applySkillSettingsToUI(skillSettings);
 initSocialDock({
   discordButton,
   donateButton,
+  supportButton,
   discordPopover,
   donatePopover,
+  supportPopover,
   dock: socialDock,
   document
 });
