@@ -234,6 +234,20 @@ const ENDPOINT_GROUPS = Object.freeze([
         link: "/achievementeditor"
       },
       {
+        path: "/iconeditor",
+        methods: ["GET"],
+        summary: "Admin tool for customizing player icons, animations, and particle mixes.",
+        page: true,
+        link: "/iconeditor"
+      },
+      {
+        path: "/traileditor",
+        methods: ["GET"],
+        summary: "Admin tool for customizing trail styles, animations, and particle mixes.",
+        page: true,
+        link: "/traileditor"
+      },
+      {
         path: "/replayBrowser",
         methods: ["GET"],
         summary: "Replay browser interface.",
@@ -2385,6 +2399,26 @@ async function route(req, res) {
       sendHtml(res, 200, html);
     } catch (err) {
       sendJson(res, 404, { ok: false, error: "achievement_editor_not_found", detail: err?.message || String(err) });
+    }
+    return;
+  }
+
+  if (pathname === "/iconeditor" && req.method === "GET") {
+    try {
+      const html = await fs.readFile(path.join(PUBLIC_DIR, "iconeditor", "index.html"), "utf8");
+      sendHtml(res, 200, html);
+    } catch (err) {
+      sendJson(res, 404, { ok: false, error: "icon_editor_not_found", detail: err?.message || String(err) });
+    }
+    return;
+  }
+
+  if (pathname === "/traileditor" && req.method === "GET") {
+    try {
+      const html = await fs.readFile(path.join(PUBLIC_DIR, "traileditor", "index.html"), "utf8");
+      sendHtml(res, 200, html);
+    } catch (err) {
+      sendJson(res, 404, { ok: false, error: "trail_editor_not_found", detail: err?.message || String(err) });
     }
     return;
   }

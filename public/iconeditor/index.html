@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Icon Editor</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="stylesheet" href="/bigflappin/admin.css" />
+  <link rel="stylesheet" href="/iconeditor/admin.css" />
+</head>
+<body>
+  <header class="admin-header">
+    <div class="admin-brand">
+      <span class="brand-dot"></span>
+      <div>
+        <div class="brand-title">Icon Editor</div>
+        <div class="brand-subtitle">Customize player icons, animations, and particle fills</div>
+      </div>
+    </div>
+    <div class="admin-status" id="adminStatus">
+      <span class="status-dot"></span>
+      <span id="adminStatusText">Loading icon editor…</span>
+    </div>
+  </header>
+
+  <div class="admin-shell">
+    <nav class="admin-nav" id="iconNav"></nav>
+    <main class="admin-main" id="iconMain">
+      <section class="panel loading" id="iconLoading">
+        <h2>Loading editor…</h2>
+        <p>Please wait while the editor loads.</p>
+      </section>
+    </main>
+  </div>
+
+  <footer class="admin-footer">
+    <span>Flappy Bingus Icon Editor</span>
+    <span id="adminMeta"></span>
+  </footer>
+
+  <script type="module" src="/iconeditor/admin.js"></script>
+</body>
+</html>
