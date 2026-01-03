@@ -707,6 +707,11 @@ export function evaluateRunForAchievements({
   return { state, unlocked };
 }
 
+export function resolveAchievementDefinitions(definitions, fallback = ACHIEVEMENTS) {
+  if (Array.isArray(definitions) && definitions.length) return definitions;
+  return fallback;
+}
+
 function progressFor(def, state) {
   const req = def?.requirement || {};
   const runRequirementEntries = getRunRequirementEntries(req);

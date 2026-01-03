@@ -5,6 +5,7 @@ import {
   normalizeAchievementState,
   renderAchievementsList,
   evaluateRunForAchievements,
+  resolveAchievementDefinitions,
   appendAchievementToast,
   __testables
 } from "../achievements.js";
@@ -219,6 +220,19 @@ describe("achievements helpers", () => {
     const progress = progressFor(definitions[0], second.state);
     expect(progress.best).toBe(83);
     expect(progress.target).toBe(100);
+  });
+
+  it("prefers custom definitions when resolving achievement lists", () => {
+    const custom = [
+      {
+        id: "custom_1",
+        title: "Custom One",
+        description: "Test",
+        requirement: { minScore: 5 }
+      }
+    ];
+    expect(resolveAchievementDefinitions(custom)).toBe(custom);
+    expect(resolveAchievementDefinitions(null)).toBe(ACHIEVEMENTS);
   });
 
   it("prefers in-game achievement popups over DOM fallbacks", () => {

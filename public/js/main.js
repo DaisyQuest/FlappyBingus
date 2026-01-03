@@ -73,7 +73,8 @@ import {
   normalizeAchievementState,
   renderAchievementsList,
   appendAchievementToast,
-  evaluateRunForAchievements
+  evaluateRunForAchievements,
+  resolveAchievementDefinitions
 } from "./achievements.js";
 import { renderScoreBreakdown } from "./scoreBreakdown.js";
 import { computePersonalBestStatus, updatePersonalBestElements } from "./personalBest.js";
@@ -1559,7 +1560,9 @@ function recordRunAchievements(ids = [], { showPopup = false } = {}) {
 
 function applyAchievementsPayload(payload) {
   if (!payload) return;
-  const definitions = payload.definitions?.length ? payload.definitions : (net.achievements?.definitions || ACHIEVEMENTS);
+  const definitions = resolveAchievementDefinitions(
+    payload.definitions?.length ? payload.definitions : net.achievements?.definitions
+  );
   const state = normalizeAchievementState(payload.state || payload);
   net.achievements = { definitions, state };
   if (net.user) net.user.achievements = state;
@@ -1586,6 +1589,7 @@ function checkRunAchievements() {
   if (!runAchievementBaseState || game?.state !== 1 /* PLAY */ || tutorial?.active) return;
   const runStats = game.getRunStats ? game.getRunStats() : null;
   if (!runStats) return;
+  const definitions = resolveAchievementDefinitions(net.achievements?.definitions);
   const { unlocked } = evaluateRunForAchievements({
     previous: runAchievementBaseState,
     runStats,
@@ -1593,7 +1597,8 @@ function checkRunAchievements() {
     totalScore: net.user?.totalScore,
     totalRuns: net.user?.runs,
     bestScore: net.user?.bestScore,
-    now: Date.now()
+    now: Date.now(),
+    definitions
   });
   if (!unlocked?.length) return;
   const newIds = unlocked.filter((id) => !runAchievementIds.has(id));
