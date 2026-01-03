@@ -139,13 +139,23 @@ function buildUnlockablesCatalog({ trails = [], icons = [], pipeTextures = [] } 
 function syncUnlockablesState(state, unlockables = [], context = {}, { now = Date.now() } = {}) {
   const normalized = normalizeUnlockableState(state);
   const newlyUnlocked = [];
+  const knownKeys = new Set();
 
   for (const def of Array.isArray(unlockables) ? unlockables : []) {
     const key = unlockKey(def);
-    if (normalized.unlocked[key]) continue;
-    if (!isUnlockSatisfied(def, context)) continue;
+    knownKeys.add(key);
+    const satisfied = isUnlockSatisfied(def, context);
+    if (normalized.unlocked[key]) {
+      if (!satisfied) delete normalized.unlocked[key];
+      continue;
+    }
+    if (!satisfied) continue;
     normalized.unlocked[key] = now;
     newlyUnlocked.push(key);
+  }
+
+  for (const key of Object.keys(normalized.unlocked)) {
+    if (!knownKeys.has(key)) delete normalized.unlocked[key];
   }
 
   return { state: normalized, unlocked: newlyUnlocked };

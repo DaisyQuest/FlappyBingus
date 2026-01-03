@@ -107,6 +107,18 @@ describe("server helpers (trails)", () => {
     expect(pub.unlockedPipeTextures).toContain("basic");
   });
 
+  it("drops unlockables that no longer meet requirements and resets selection", () => {
+    const u = {
+      ...baseUser(),
+      selectedPipeTexture: "digital",
+      bestScore: 0,
+      unlockables: { unlocked: { "pipe_texture:digital": 123 } }
+    };
+    server.ensureUserSchema(u, { recordHolder: false });
+    expect(u.unlockables.unlocked["pipe_texture:digital"]).toBeUndefined();
+    expect(u.selectedPipeTexture).toBe("basic");
+  });
+
   it("seeds achievement progress defaults when absent", () => {
     const u = baseUser();
     u.achievements = null;

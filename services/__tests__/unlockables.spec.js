@@ -82,4 +82,40 @@ describe("unlockables", () => {
     });
     expect(unlockedPipe).toEqual(expect.arrayContaining(["basic", "digital"]));
   });
+
+  it("revokes unlockables when conditions change", () => {
+    const { unlockables } = buildUnlockablesCatalog({
+      trails: sampleTrails,
+      icons: sampleIcons,
+      pipeTextures: sampleTextures
+    });
+    const initial = syncUnlockablesState(
+      { unlocked: {} },
+      unlockables,
+      { achievements: { unlocked: { achv: Date.now() } } },
+      { now: 111 }
+    );
+    expect(initial.state.unlocked["player_texture:badge"]).toBe(111);
+
+    const changedIcons = [{ id: "badge", name: "Badge", unlock: { type: "achievement", id: "new_ach" } }];
+    const { unlockables: updatedUnlockables } = buildUnlockablesCatalog({
+      trails: sampleTrails,
+      icons: changedIcons,
+      pipeTextures: sampleTextures
+    });
+    const updated = syncUnlockablesState(
+      initial.state,
+      updatedUnlockables,
+      { achievements: { unlocked: {} } },
+      { now: 222 }
+    );
+    expect(updated.state.unlocked["player_texture:badge"]).toBeUndefined();
+    const unlockedIcons = getUnlockedIdsByType({
+      unlockables: updatedUnlockables,
+      type: UNLOCKABLE_TYPES.playerTexture,
+      state: updated.state,
+      context: { achievements: { unlocked: {} } }
+    });
+    expect(unlockedIcons).not.toContain("badge");
+  });
 });
