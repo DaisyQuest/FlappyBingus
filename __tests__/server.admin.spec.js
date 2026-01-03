@@ -301,6 +301,21 @@ describe("admin routes", () => {
     expect(json.unlockables.length).toBeGreaterThan(0);
   });
 
+  it("includes custom trail styles in achievement editor unlockables", async () => {
+    const { server } = await importServer({
+      gameConfigStoreOverrides: {
+        getConfig: vi.fn(() => ({
+          trailStyles: { overrides: { meteor_shower: { rate: 14 } } }
+        }))
+      }
+    });
+    const res = createRes();
+    await server.route(createReq({ method: "GET", url: "/api/admin/achievements" }), res);
+    expect(res.status).toBe(200);
+    const json = readJson(res);
+    expect(json.unlockables.some((item) => item.id === "meteor_shower" && item.type === "trail")).toBe(true);
+  });
+
   it("persists achievement and unlockable overrides updates", async () => {
     const { server, configStore } = await importServer();
     const payload = {
