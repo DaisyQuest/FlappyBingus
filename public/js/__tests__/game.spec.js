@@ -97,8 +97,10 @@ const buildGameWith = (GameClass, configOverrides = {}, moveRef = { dx: 0, dy: 0
   const playerImg = { naturalWidth: 64, naturalHeight: 32 };
   const input = makeInput(moveRef);
   const binds = { getTrailId: () => "classic", getBinds: () => ({}) };
+  const game = new GameClass({ canvas, ctx, config, playerImg, input, onGameOver, ...binds });
+  game.setSkillSettings({ simpleBackground: false, simpleParticles: false, reducedEffects: false, extremeLowDetail: false });
   return {
-    game: new GameClass({ canvas, ctx, config, playerImg, input, onGameOver, ...binds }),
+    game,
     ctx,
     canvas,
     input,
@@ -241,6 +243,17 @@ describe("Game core utilities", () => {
         mode: "MONOCHROME"
       })
     );
+  });
+
+  it("draws minimal pipes when extreme low detail mode is enabled", () => {
+    const { game } = buildGame();
+    const drawSpy = vi.spyOn(pipeTextures, "drawPipeTexture");
+    game.setSkillSettings({ extremeLowDetail: true });
+
+    game._drawPipe({ x: 0, y: 0, w: 10, h: 10 }, "#fff");
+
+    expect(drawSpy).not.toHaveBeenCalled();
+    expect(game.ctx.fillRect).toHaveBeenCalledWith(0, 0, 10, 10);
   });
 
   it("falls back to world size when viewport dimensions are invalid", () => {

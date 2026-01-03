@@ -39,10 +39,11 @@ const baseUser = () => ({
       gradientStart: "#fff3a6",
       gradientEnd: "#7ce9ff"
     },
-    simpleBackground: false,
+    simpleBackground: true,
     simpleTextures: false,
-    simpleParticles: false,
-    reducedEffects: false
+    simpleParticles: true,
+    reducedEffects: true,
+    extremeLowDetail: false
   },
   runs: 1,
   totalScore: 100,

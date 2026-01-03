@@ -176,10 +176,11 @@ const DEFAULT_SETTINGS = Object.freeze({
   invulnBehavior: "long",
   textStylePreset: "basic",
   textStyleCustom: DEFAULT_TEXT_STYLE_CUSTOM,
-  simpleBackground: false,
+  simpleBackground: true,
   simpleTextures: false,
-  simpleParticles: false,
-  reducedEffects: false
+  simpleParticles: true,
+  reducedEffects: true,
+  extremeLowDetail: false
 });
 
 const ENDPOINT_GROUPS = Object.freeze([
@@ -861,7 +862,10 @@ function normalizeSettings(settings) {
     simpleBackground: typeof src.simpleBackground === "boolean" ? src.simpleBackground : DEFAULT_SETTINGS.simpleBackground,
     simpleTextures: typeof src.simpleTextures === "boolean" ? src.simpleTextures : DEFAULT_SETTINGS.simpleTextures,
     simpleParticles: typeof src.simpleParticles === "boolean" ? src.simpleParticles : DEFAULT_SETTINGS.simpleParticles,
-    reducedEffects: typeof src.reducedEffects === "boolean" ? src.reducedEffects : DEFAULT_SETTINGS.reducedEffects
+    reducedEffects: typeof src.reducedEffects === "boolean" ? src.reducedEffects : DEFAULT_SETTINGS.reducedEffects,
+    extremeLowDetail: typeof src.extremeLowDetail === "boolean"
+      ? src.extremeLowDetail
+      : DEFAULT_SETTINGS.extremeLowDetail
   };
 }
 
@@ -896,7 +900,10 @@ function validateSettingsPayload(settings) {
       : DEFAULT_SETTINGS.simpleParticles,
     reducedEffects: typeof settings.reducedEffects === "boolean"
       ? settings.reducedEffects
-      : DEFAULT_SETTINGS.reducedEffects
+      : DEFAULT_SETTINGS.reducedEffects,
+    extremeLowDetail: typeof settings.extremeLowDetail === "boolean"
+      ? settings.extremeLowDetail
+      : DEFAULT_SETTINGS.extremeLowDetail
   };
 }
 

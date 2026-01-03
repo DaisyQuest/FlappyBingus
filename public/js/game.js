@@ -1764,6 +1764,14 @@ export class Game {
   }
 
   _drawPipe(p, base) {
+    if (this.skillSettings?.extremeLowDetail) {
+      const ctx = this.ctx;
+      ctx.save();
+      ctx.fillStyle = typeof base === "string" ? base : rgb(base);
+      ctx.fillRect(p.x, p.y, p.w, p.h);
+      ctx.restore();
+      return;
+    }
     const selection = this.getPipeTexture ? this.getPipeTexture() : null;
     const textureId = this.skillSettings?.simpleTextures
       ? DEFAULT_PIPE_TEXTURE_ID
