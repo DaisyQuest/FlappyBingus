@@ -313,6 +313,9 @@ describe("uiLayout", () => {
     const supportButton = dock?.querySelector("#supportButton");
     const supportPopover = dock?.querySelector("#supportPopover");
     const iframe = discordPopover?.querySelector("iframe.discord-widget");
+    const offerwallLabel = supportPopover?.querySelector(".support-offerwall-label");
+    const offerwall = supportPopover?.querySelector(".support-offerwall");
+    const offerwallScript = offerwall?.querySelector("script[data-support-offerwall='cpalead']");
 
     expect(dock).toBeInstanceOf(window.HTMLDivElement);
     expect(discordButton).toBeInstanceOf(window.HTMLButtonElement);
@@ -326,6 +329,9 @@ describe("uiLayout", () => {
     expect(donatePopover?.textContent).toContain("Venmo: @Bingus69");
     expect(supportPopover?.textContent).toContain("Supportcoins");
     expect(supportPopover?.textContent).toContain("CPAlead");
+    expect(offerwallLabel?.textContent).toContain("offers");
+    expect(offerwall?.getAttribute("aria-live")).toBe("polite");
+    expect(offerwallScript?.getAttribute("src")).toBe("https://www.fastrsrvr.com/offerwall.php?bid=EyDhpAOq");
     expect(ui.socialDock).toBe(dock);
   });
 
@@ -336,6 +342,16 @@ describe("uiLayout", () => {
     expect(donateRuleMatch).not.toBeNull();
     expect(donateRuleMatch?.[0]).toContain("max-width:460px");
     expect(donateRuleMatch?.[0]).toContain("width:460px");
+  });
+
+  it("styles the support offerwall container within the popover", () => {
+    const css = fs.readFileSync(new URL("../../styles/flappybingus.css", import.meta.url), "utf8");
+    const offerwallRuleMatch = css.match(/\.support-offerwall\{[^}]*\}/);
+
+    expect(offerwallRuleMatch).not.toBeNull();
+    expect(offerwallRuleMatch?.[0]).toContain("min-height:260px");
+    expect(offerwallRuleMatch?.[0]).toContain("max-height:320px");
+    expect(offerwallRuleMatch?.[0]).toContain("overflow:hidden");
   });
 
   it("positions the trail swatch to the left of the launcher text and exposes the overlay grid", () => {

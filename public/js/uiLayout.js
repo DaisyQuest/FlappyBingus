@@ -31,6 +31,8 @@ const DONATE_VENMO = "Venmo: @Bingus69";
 const SUPPORT_MESSAGE = "Support the game by watching a short ad or completing an offer.";
 const SUPPORT_REWARD = "Earn Supportcoins when your support is confirmed.";
 const SUPPORT_PROVIDER = "Offers are delivered via CPAlead reward tools/offer wall.";
+const SUPPORT_OFFERWALL_MESSAGE = "Browse the offers below to confirm your Supportcoin reward.";
+const SUPPORT_OFFERWALL_SCRIPT_SRC = "https://www.fastrsrvr.com/offerwall.php?bid=EyDhpAOq";
 
 function readCooldown(cfg, key, { multiplier = 1 } = {}) {
   const fallback = Number(DEFAULT_CONFIG?.skills?.[key]?.cooldown);
@@ -2027,7 +2029,19 @@ function createSocialDock(doc, refs) {
       const provider = doc.createElement("p");
       provider.className = "support-provider";
       provider.textContent = SUPPORT_PROVIDER;
-      popover.append(copy, reward, provider);
+      const offerwallLabel = doc.createElement("p");
+      offerwallLabel.className = "support-offerwall-label";
+      offerwallLabel.textContent = SUPPORT_OFFERWALL_MESSAGE;
+      const offerwall = doc.createElement("div");
+      offerwall.className = "support-offerwall";
+      offerwall.setAttribute("aria-live", "polite");
+      const offerwallScript = doc.createElement("script");
+      offerwallScript.src = SUPPORT_OFFERWALL_SCRIPT_SRC;
+      offerwallScript.async = true;
+      offerwallScript.defer = true;
+      offerwallScript.dataset.supportOfferwall = "cpalead";
+      offerwall.append(offerwallScript);
+      popover.append(copy, reward, provider, offerwallLabel, offerwall);
     }
   });
 
