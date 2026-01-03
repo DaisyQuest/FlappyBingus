@@ -28,4 +28,28 @@ describe("trail editor helpers", () => {
       minScore: 150
     }));
   });
+
+  it("applies swatches to trail color inputs", () => {
+    const card = createTrailCard({
+      id: "swatch-trail",
+      defaults: {},
+      override: {},
+      trail: { name: "Swatch Trail", unlock: { type: "free" } },
+      allowRemove: true
+    });
+    const baseGroup = card.querySelector("[data-group='base']");
+    const modeSelect = baseGroup.querySelector("[data-field='colorMode']");
+    const valueInput = baseGroup.querySelector("[data-field='colorValue']");
+    const swatch = valueInput.closest(".field-row").querySelector(".color-swatch[data-color='#ffffff']");
+    swatch.click();
+    expect(modeSelect.value).toBe("fixed");
+    expect(valueInput.value).toBe("#ffffff");
+
+    modeSelect.value = "palette";
+    valueInput.value = "#111";
+    const paletteSwatch = valueInput.closest(".field-row").querySelector(".color-swatch[data-color='#38bdf8']");
+    paletteSwatch.click();
+    expect(valueInput.value).toBe("#111, #38bdf8");
+    expect(modeSelect.value).toBe("palette");
+  });
 });

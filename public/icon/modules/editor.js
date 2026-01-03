@@ -23,6 +23,19 @@ const ANIMATION_OPTIONS = [
   { value: "zigzag_scroll", label: "Zigzag Scroll" }
 ];
 
+const COLOR_SWATCHES = [
+  "#ffffff",
+  "#0f172a",
+  "#38bdf8",
+  "#22c55e",
+  "#facc15",
+  "#fb7185",
+  "#f97316",
+  "#a855f7",
+  "#f472b6",
+  "#94a3b8"
+];
+
 function formatDefault(value) {
   if (value === undefined || value === null) return "—";
   if (Array.isArray(value)) return value.map((v) => formatDefault(v)).join(" → ");
@@ -30,12 +43,15 @@ function formatDefault(value) {
   return String(value);
 }
 
-function createFieldRow(labelText, input, defaultValue) {
+function createFieldRow(labelText, input, defaultValue, options = {}) {
   const row = document.createElement("div");
   row.className = "field-row";
   const label = document.createElement("label");
   label.textContent = labelText;
   row.append(label, input);
+  if (options.swatches) {
+    row.appendChild(createColorSwatches(input, options.swatches));
+  }
   if (defaultValue !== undefined) {
     const hint = document.createElement("small");
     hint.textContent = `Default: ${formatDefault(defaultValue)}`;
@@ -71,6 +87,41 @@ function createSelect(options, value = "") {
   return select;
 }
 
+function createColorSwatches(input, { isListMode, onSelect } = {}) {
+  const row = document.createElement("div");
+  row.className = "color-swatch-row";
+  const swatches = document.createElement("div");
+  swatches.className = "color-swatches";
+  COLOR_SWATCHES.forEach((hex) => {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "color-swatch";
+    button.dataset.color = hex;
+    button.setAttribute("aria-label", `Set color ${hex}`);
+    button.style.background = hex;
+    button.addEventListener("click", () => {
+      if (typeof onSelect === "function") {
+        onSelect(hex);
+        return;
+      }
+      const listMode = typeof isListMode === "function"
+        ? isListMode()
+        : input.dataset.colorList === "true";
+      if (listMode) {
+        const values = input.value.split(",").map((entry) => entry.trim()).filter(Boolean);
+        values.push(hex);
+        input.value = values.join(", ");
+      } else {
+        input.value = hex;
+      }
+      input.dispatchEvent(new Event("input", { bubbles: true }));
+    });
+    swatches.appendChild(button);
+  });
+  row.appendChild(swatches);
+  return row;
+}
+
 function parseNumber(value) {
   if (value === undefined || value === null || value === "") return undefined;
   const num = Number(value);
@@ -93,12 +144,18 @@ function createPatternGroup(type, fields, values = {}, defaults = {}) {
   const wrapper = document.createElement("div");
   wrapper.className = "field-grid";
   wrapper.dataset.patternGroup = type;
-  fields.forEach(({ key, label, type: inputType }) => {
+  fields.forEach(({ key, label, type: inputType, isColor = false, isColorList = false }) => {
     const input = inputType === "number"
       ? createNumberInput(values?.[key])
       : createTextInput(values?.[key] ?? "");
     input.dataset.field = `pattern.${key}`;
-    wrapper.appendChild(createFieldRow(label, input, defaults?.[key]));
+    if (isColorList) input.dataset.colorList = "true";
+    wrapper.appendChild(createFieldRow(
+      label,
+      input,
+      defaults?.[key],
+      isColor || isColorList ? { swatches: {} } : {}
+    ));
   });
   return wrapper;
 }
@@ -107,12 +164,17 @@ function createAnimationGroup(type, fields, values = {}, defaults = {}) {
   const wrapper = document.createElement("div");
   wrapper.className = "field-grid";
   wrapper.dataset.animationGroup = type;
-  fields.forEach(({ key, label, type: inputType }) => {
+  fields.forEach(({ key, label, type: inputType, isColor = false }) => {
     const input = inputType === "number"
       ? createNumberInput(values?.[key])
       : createTextInput(values?.[key] ?? "");
     input.dataset.field = `animation.${key}`;
-    wrapper.appendChild(createFieldRow(label, input, defaults?.[key]));
+    wrapper.appendChild(createFieldRow(
+      label,
+      input,
+      defaults?.[key],
+      isColor ? { swatches: {} } : {}
+    ));
   });
   return wrapper;
 }
@@ -223,10 +285,10 @@ function createIconCard({ icon, defaults = {}, allowRemove = false } = {}) {
   const glow = createTextInput(icon?.style?.glow || "");
   glow.dataset.field = "glow";
   colorGrid.append(
-    createFieldRow("Fill", fill, defaults?.style?.fill),
-    createFieldRow("Core", core, defaults?.style?.core),
-    createFieldRow("Rim", rim, defaults?.style?.rim),
-    createFieldRow("Glow", glow, defaults?.style?.glow)
+    createFieldRow("Fill", fill, defaults?.style?.fill, { swatches: {} }),
+    createFieldRow("Core", core, defaults?.style?.core, { swatches: {} }),
+    createFieldRow("Rim", rim, defaults?.style?.rim, { swatches: {} }),
+    createFieldRow("Glow", glow, defaults?.style?.glow, { swatches: {} })
   );
   colors.appendChild(colorGrid);
 
@@ -239,44 +301,44 @@ function createIconCard({ icon, defaults = {}, allowRemove = false } = {}) {
 
   const patternFields = [
     createPatternGroup("zigzag", [
-      { key: "stroke", label: "Stroke", type: "text" },
-      { key: "background", label: "Background", type: "text" },
+      { key: "stroke", label: "Stroke", type: "text", isColor: true },
+      { key: "background", label: "Background", type: "text", isColor: true },
       { key: "amplitude", label: "Amplitude", type: "number" },
       { key: "waves", label: "Waves", type: "number" },
       { key: "spacing", label: "Spacing", type: "number" }
     ], icon?.style?.pattern || {}, defaults?.style?.pattern || {}),
     createPatternGroup("centerline", [
-      { key: "stroke", label: "Stroke", type: "text" },
-      { key: "accent", label: "Accent", type: "text" },
-      { key: "glow", label: "Glow", type: "text" }
+      { key: "stroke", label: "Stroke", type: "text", isColor: true },
+      { key: "accent", label: "Accent", type: "text", isColor: true },
+      { key: "glow", label: "Glow", type: "text", isColor: true }
     ], icon?.style?.pattern || {}, defaults?.style?.pattern || {}),
     createPatternGroup("stripes", [
-      { key: "colors", label: "Colors (comma)", type: "text" },
+      { key: "colors", label: "Colors (comma)", type: "text", isColorList: true },
       { key: "stripeWidth", label: "Stripe width", type: "number" },
       { key: "angle", label: "Angle", type: "number" },
-      { key: "glow", label: "Glow", type: "text" }
+      { key: "glow", label: "Glow", type: "text", isColor: true }
     ], icon?.style?.pattern || {}, defaults?.style?.pattern || {}),
     createPatternGroup("honeycomb", [
-      { key: "stroke", label: "Stroke", type: "text" },
+      { key: "stroke", label: "Stroke", type: "text", isColor: true },
       { key: "lineWidth", label: "Line width", type: "number" },
       { key: "cellSize", label: "Cell size", type: "number" },
-      { key: "glow", label: "Glow", type: "text" }
+      { key: "glow", label: "Glow", type: "text", isColor: true }
     ], icon?.style?.pattern || {}, defaults?.style?.pattern || {}),
     createPatternGroup("citrus_slice", [
-      { key: "stroke", label: "Stroke", type: "text" },
+      { key: "stroke", label: "Stroke", type: "text", isColor: true },
       { key: "lineWidth", label: "Line width", type: "number" },
       { key: "segments", label: "Segments", type: "number" },
       { key: "centerRadius", label: "Center radius", type: "number" },
-      { key: "glow", label: "Glow", type: "text" },
-      { key: "rindStroke", label: "Rind stroke", type: "text" },
-      { key: "segmentStroke", label: "Segment stroke", type: "text" },
+      { key: "glow", label: "Glow", type: "text", isColor: true },
+      { key: "rindStroke", label: "Rind stroke", type: "text", isColor: true },
+      { key: "segmentStroke", label: "Segment stroke", type: "text", isColor: true },
       { key: "segmentWidth", label: "Segment width", type: "number" }
     ], icon?.style?.pattern || {}, defaults?.style?.pattern || {}),
     createPatternGroup("cobblestone", [
-      { key: "base", label: "Base", type: "text" },
-      { key: "highlight", label: "Highlight", type: "text" },
-      { key: "stroke", label: "Stroke", type: "text" },
-      { key: "glow", label: "Glow", type: "text" },
+      { key: "base", label: "Base", type: "text", isColor: true },
+      { key: "highlight", label: "Highlight", type: "text", isColor: true },
+      { key: "stroke", label: "Stroke", type: "text", isColor: true },
+      { key: "glow", label: "Glow", type: "text", isColor: true },
       { key: "lineWidth", label: "Line width", type: "number" },
       { key: "stoneSize", label: "Stone size", type: "number" },
       { key: "gap", label: "Gap", type: "number" }
@@ -296,11 +358,11 @@ function createIconCard({ icon, defaults = {}, allowRemove = false } = {}) {
       { key: "speed", label: "Speed", type: "number" },
       { key: "layers", label: "Layers", type: "number" },
       { key: "smoothness", label: "Smoothness", type: "number" },
-      { key: "fallback", label: "Fallback", type: "text" },
-      { key: "paletteBase", label: "Palette base", type: "text" },
-      { key: "paletteEmber", label: "Palette ember", type: "text" },
-      { key: "paletteMolten", label: "Palette molten", type: "text" },
-      { key: "paletteFlare", label: "Palette flare", type: "text" }
+      { key: "fallback", label: "Fallback", type: "text", isColor: true },
+      { key: "paletteBase", label: "Palette base", type: "text", isColor: true },
+      { key: "paletteEmber", label: "Palette ember", type: "text", isColor: true },
+      { key: "paletteMolten", label: "Palette molten", type: "text", isColor: true },
+      { key: "paletteFlare", label: "Palette flare", type: "text", isColor: true }
     ], {
       speed: icon?.style?.animation?.speed,
       layers: icon?.style?.animation?.layers,
@@ -324,11 +386,11 @@ function createIconCard({ icon, defaults = {}, allowRemove = false } = {}) {
       { key: "speed", label: "Speed", type: "number" },
       { key: "bands", label: "Bands", type: "number" },
       { key: "embers", label: "Embers", type: "number" },
-      { key: "paletteBase", label: "Palette base", type: "text" },
-      { key: "paletteAsh", label: "Palette ash", type: "text" },
-      { key: "paletteEmber", label: "Palette ember", type: "text" },
-      { key: "paletteMolten", label: "Palette molten", type: "text" },
-      { key: "paletteFlare", label: "Palette flare", type: "text" }
+      { key: "paletteBase", label: "Palette base", type: "text", isColor: true },
+      { key: "paletteAsh", label: "Palette ash", type: "text", isColor: true },
+      { key: "paletteEmber", label: "Palette ember", type: "text", isColor: true },
+      { key: "paletteMolten", label: "Palette molten", type: "text", isColor: true },
+      { key: "paletteFlare", label: "Palette flare", type: "text", isColor: true }
     ], {
       speed: icon?.style?.animation?.speed,
       bands: icon?.style?.animation?.bands,

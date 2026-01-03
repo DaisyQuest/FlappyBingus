@@ -40,4 +40,24 @@ describe("icon editor helpers", () => {
     const read = readIconDefinition(card);
     expect(read.style.pattern.colors).toEqual(["#111", "#222", "#333"]);
   });
+
+  it("applies swatch selections to color fields", () => {
+    const icon = {
+      id: "swatchy",
+      name: "Swatchy",
+      unlock: { type: "free" },
+      style: { fill: "", pattern: { type: "stripes", colors: ["#111"] } }
+    };
+    const card = createIconCard({ icon, defaults: icon, allowRemove: true });
+    const fillInput = card.querySelector("[data-field='fill']");
+    const fillSwatch = fillInput.closest(".field-row").querySelector(".color-swatch");
+    fillSwatch.click();
+    expect(fillInput.value).toBe(fillSwatch.dataset.color);
+
+    const colorsInput = card.querySelector("[data-field='pattern.colors']");
+    colorsInput.value = "#111";
+    const listSwatch = colorsInput.closest(".field-row").querySelector(".color-swatch[data-color='#ffffff']");
+    listSwatch.click();
+    expect(colorsInput.value).toBe("#111, #ffffff");
+  });
 });
