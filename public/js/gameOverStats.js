@@ -32,10 +32,13 @@ function normalizeSkillTotals(skillTotals) {
   const entries = Object.entries(skillTotals);
   if (!entries.length) return null;
   const normalized = {};
+  let hasValue = false;
   for (const [key, value] of entries) {
-    normalized[key] = clampCount(value);
+    const clamped = clampCount(value);
+    normalized[key] = clamped;
+    if (clamped > 0) hasValue = true;
   }
-  return normalized;
+  return hasValue ? normalized : null;
 }
 
 function normalizeRunStats(runStats = null) {

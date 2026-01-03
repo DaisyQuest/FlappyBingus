@@ -32,11 +32,12 @@ export function normalizeTrails(list, { allowEmpty = false } = {}) {
   return list;
 }
 
-export function getUnlockedTrails(trails, achievements, { isRecordHolder = false, ownedIds = [] } = {}) {
+export function getUnlockedTrails(trails, achievements, { isRecordHolder = false, ownedIds = [], bestScore = 0 } = {}) {
   const defs = Array.isArray(trails) ? trails : DEFAULT_TRAILS;
   const unlockedAchievements = achievements?.unlocked && typeof achievements.unlocked === "object"
     ? achievements.unlocked
     : {};
+  const best = Number.isFinite(bestScore) ? bestScore : 0;
   const owned = new Set(
     Array.isArray(ownedIds)
       ? ownedIds.map((id) => (typeof id === "string" ? id : null)).filter(Boolean)
@@ -51,6 +52,7 @@ export function getUnlockedTrails(trails, achievements, { isRecordHolder = false
       if (t.alwaysUnlocked) return true;
       if (t.requiresRecordHolder && !isRecordHolder) return false;
       if (t.unlock?.type === "achievement") return Boolean(unlockedAchievements[t.unlock.id]);
+      if (t.unlock?.type === "score") return best >= (t.unlock.minScore || 0);
       const required = t.achievementId;
       return required ? Boolean(unlockedAchievements[required]) : false;
     })

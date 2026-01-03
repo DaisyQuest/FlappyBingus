@@ -22,7 +22,7 @@ export function buildTrailHint({ online, user, bestScore, trails, achievements }
   const totalTrails = Array.isArray(trails)
     ? trails.filter((t) => !t.requiresRecordHolder || isRecordHolder).length
     : 0;
-  const unlockedTrailIds = getUnlockedTrails(trails, achievements, { isRecordHolder, ownedIds });
+  const unlockedTrailIds = getUnlockedTrails(trails, achievements, { isRecordHolder, ownedIds, bestScore: best });
   const lockedCount = Math.max(0, totalTrails - unlockedTrailIds.length);
   const purchasableLocked = Array.isArray(trails)
     ? trails.some((t) => t?.unlock?.type === "purchase" && !unlockedTrailIds.includes(t.id))

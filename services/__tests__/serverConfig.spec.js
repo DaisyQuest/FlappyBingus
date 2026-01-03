@@ -43,12 +43,22 @@ describe("server config normalization", () => {
     const normalized = normalizeServerConfig({
       session: { ttlSeconds: 10 },
       rateLimits: { "/api/me": { limit: 5, windowMs: 1000 }, "/custom": { limit: 2, windowMs: 500 } },
-      unlockableMenus: { trail: { mode: "allowlist", ids: ["ember"] } }
+      unlockableMenus: { trail: { mode: "allowlist", ids: ["ember"] } },
+      achievements: {
+        definitions: [
+          { id: "sample", title: "Sample", description: "Sample", requirement: { minScore: 1 } }
+        ]
+      },
+      unlockableOverrides: {
+        trail: { ember: { type: "achievement", id: "sample" } }
+      }
     });
     expect(normalized.session.ttlSeconds).toBe(10);
     expect(normalized.rateLimits["/api/me"].limit).toBe(5);
     expect(normalized.rateLimits["/custom"].limit).toBe(2);
     expect(normalized.unlockableMenus.trail.mode).toBe("allowlist");
+    expect(normalized.achievements.definitions).toHaveLength(1);
+    expect(normalized.unlockableOverrides.trail.ember).toBeTruthy();
   });
 
   it("normalizes invalid values and trims menu ids", () => {
@@ -58,7 +68,9 @@ describe("server config normalization", () => {
       unlockableMenus: {
         trail: { mode: "allowlist", ids: [" ember ", "", null] },
         player_texture: { mode: "unknown", ids: ["icon-a"] }
-      }
+      },
+      achievements: { definitions: { id: "bad" } },
+      unlockableOverrides: { trail: { ember: "bad" } }
     });
 
     expect(normalized.session.ttlSeconds).toBe(1);
@@ -67,6 +79,8 @@ describe("server config normalization", () => {
     expect(normalized.rateLimits["/api/me"].windowMs).toBe(1);
     expect(normalized.unlockableMenus.trail.ids).toEqual(["ember"]);
     expect(normalized.unlockableMenus.player_texture.mode).toBe("all");
+    expect(normalized.achievements.definitions).toBeNull();
+    expect(normalized.unlockableOverrides.trail).toEqual({});
   });
 
   it("adds new rate limit keys with default normalization", () => {

@@ -10,6 +10,7 @@ import {
 } from "../achievements.js";
 
 const { classifyAchievement, normalizeFilters } = __testables;
+const { progressFor } = __testables;
 
 describe("achievements helpers", () => {
   let document;
@@ -74,7 +75,13 @@ describe("achievements helpers", () => {
       totalRuns: 11,
       maxBrokenPipesInExplosion: 12,
       maxBrokenPipesInRun: 0,
-      totalBrokenPipes: 501
+      totalBrokenPipes: 501,
+      skillTotals: {
+        dash: 0,
+        phase: 0,
+        teleport: 0,
+        slowField: 0
+      }
     });
   });
 
@@ -131,6 +138,56 @@ describe("achievements helpers", () => {
     expect(oneMinute?.querySelector(".achievement-requirement")?.textContent).toContain("Survive for 60 seconds");
     expect(tenMinute?.querySelector(".achievement-requirement")?.textContent).toContain("Survive for 600 seconds");
     expect(tenRun?.querySelector(".achievement-requirement")?.textContent).toContain("Play 10 games total");
+  });
+
+  it("renders compound requirement copy including skill usage", () => {
+    renderAchievementsList(container, {
+      definitions: [
+        {
+          id: "combo_skill",
+          title: "Combo Skill",
+          description: "Test",
+          requirement: { minScore: 100, minPerfectCombo: 5, minSkillUses: { dash: 2 } }
+        }
+      ],
+      state: normalizeAchievementState()
+    });
+    const row = container.querySelector(".achievement-row");
+    expect(row?.querySelector(".achievement-requirement")?.textContent).toContain("Score 100 in one run");
+    expect(row?.querySelector(".achievement-requirement")?.textContent).toContain("perfect gap combo of 5");
+    expect(row?.querySelector(".achievement-requirement")?.textContent).toContain("Use dash 2");
+  });
+
+  it("includes max-orb and max-ability constraints in requirement copy", () => {
+    renderAchievementsList(container, {
+      definitions: [
+        {
+          id: "discipline",
+          title: "Discipline",
+          description: "Test",
+          requirement: { minScore: 50, maxOrbs: 0, maxAbilities: 0 }
+        }
+      ],
+      state: normalizeAchievementState()
+    });
+    const text = container.querySelector(".achievement-requirement")?.textContent || "";
+    expect(text).toContain("Score 50 in one run");
+    expect(text).toContain("Collect at most 0 orbs");
+    expect(text).toContain("Use at most 0 abilities");
+  });
+
+  it("computes progress for skill total requirements", () => {
+    const state = normalizeAchievementState({
+      progress: { skillTotals: { dash: 3, phase: 2, teleport: 0, slowField: 0 } }
+    });
+    const def = {
+      requirement: { minSkillUses: { dash: 2, phase: 2 } },
+      progressKey: "skillTotals"
+    };
+    const progress = progressFor(def, state);
+    expect(progress.best).toBe(5);
+    expect(progress.target).toBe(4);
+    expect(progress.pct).toBe(1);
   });
 
   it("prefers in-game achievement popups over DOM fallbacks", () => {
@@ -274,6 +331,21 @@ describe("achievements helpers", () => {
     expect(state.progress.totalBrokenPipes).toBe(1060);
     expect(state.progress.totalRunTime).toBe(605);
     expect(state.progress.totalRuns).toBe(10);
+  });
+
+  it("unlocks achievements tied to skill usage totals", () => {
+    const previous = normalizeAchievementState({
+      progress: { skillTotals: { dash: 2, phase: 0, teleport: 0, slowField: 0 } }
+    });
+    const { unlocked } = evaluateRunForAchievements({
+      previous,
+      runStats: { skillUsage: { dash: 1, phase: 0, teleport: 0, slowField: 0 } },
+      score: 0,
+      definitions: [
+        { id: "dash_skill", title: "Dash", description: "Dash", requirement: { minSkillUses: { dash: 3 } } }
+      ]
+    });
+    expect(unlocked).toEqual(["dash_skill"]);
   });
 
   it("unlocks no-orb and no-ability achievements when constraints are met", () => {

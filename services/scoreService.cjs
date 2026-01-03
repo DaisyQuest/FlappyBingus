@@ -65,9 +65,10 @@ function createScoreService(deps) {
       totalRuns: user.runs,
       bestScore: user.bestScore
     });
+    const resolvedUnlockables = typeof unlockables === "function" ? unlockables() : unlockables;
     const unlockEval = syncUnlockablesState(
       user.unlockables,
-      unlockables,
+      resolvedUnlockables,
       {
         achievements: achievementEval.state,
         bestScore: Math.max(Number(user.bestScore) || 0, score),
@@ -94,9 +95,9 @@ function createScoreService(deps) {
         body: {
           ok: true,
           user: publicUser(updated, { recordHolder }),
-          trails,
-          icons,
-          pipeTextures,
+          trails: typeof trails === "function" ? trails() : trails,
+          icons: typeof icons === "function" ? icons() : icons,
+          pipeTextures: typeof pipeTextures === "function" ? pipeTextures() : pipeTextures,
           highscores,
           achievements: buildAchievementsPayload(updated, achievementEval.unlocked)
         }

@@ -1,0 +1,93 @@
+.achievement-grid {
+  display: grid;
+  gap: 16px;
+}
+
+.achievement-card {
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 14px;
+  padding: 16px;
+  background: rgba(15, 23, 42, 0.4);
+}
+
+.achievement-card header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.achievement-card h3 {
+  margin: 0;
+  font-size: 16px;
+}
+
+.achievement-form {
+  display: grid;
+  gap: 12px;
+}
+
+.achievement-form .field-row {
+  display: grid;
+  gap: 8px;
+}
+
+.achievement-form label {
+  font-weight: 700;
+  font-size: 12px;
+  letter-spacing: 0.2px;
+  text-transform: uppercase;
+}
+
+.achievement-form input,
+.achievement-form textarea,
+.achievement-form select {
+  width: 100%;
+  padding: 8px 10px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(15, 23, 42, 0.7);
+  color: inherit;
+}
+
+.achievement-requirements {
+  display: grid;
+  gap: 12px;
+}
+
+.requirement-grid {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+}
+
+.requirement-skills {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+}
+
+.unlockable-grid {
+  display: grid;
+  gap: 12px;
+}
+
+.unlockable-card {
+  padding: 12px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(15, 23, 42, 0.4);
+  display: grid;
+  gap: 6px;
+}
+
+.unlockable-card .muted {
+  opacity: 0.7;
+  font-size: 12px;
+}
+
+.unlockable-select {
+  display: grid;
+  gap: 6px;
+}

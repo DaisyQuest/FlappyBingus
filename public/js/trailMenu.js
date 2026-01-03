@@ -9,11 +9,24 @@ export const DEFAULT_TRAIL_HINT = "Click a trail to equip it.";
 export function describeTrailLock(trail, { unlocked = false, bestScore = 0, isRecordHolder = false } = {}) {
   if (!trail) return "";
   if (unlocked || trail.alwaysUnlocked) return "Unlocked";
+  if (trail.unlock?.type === "free") return "Unlocked";
   if (trail.unlock?.type === "purchase") {
     const currencyId = trail.unlock.currencyId || DEFAULT_CURRENCY_ID;
     return trail.unlock.cost
       ? `Locked: Costs ${formatCurrencyAmount(trail.unlock.cost, currencyId)}`
       : "Locked: Purchase";
+  }
+  if (trail.unlock?.type === "achievement") {
+    return trail.unlock.label ? `Locked: ${trail.unlock.label}` : "Complete its achievement to unlock.";
+  }
+  if (trail.unlock?.type === "score") {
+    const target = trail.unlock.minScore || 0;
+    const remaining = Math.max(0, target - (bestScore | 0));
+    if (remaining > 0) return `Score ${target} in one run to unlock (${remaining} to go).`;
+    return `Score ${target} in one run to unlock.`;
+  }
+  if (trail.unlock?.type === "record") {
+    return "Exclusive to record holders.";
   }
   if (trail.requiresRecordHolder && !isRecordHolder) {
     return "Exclusive to record holders.";
