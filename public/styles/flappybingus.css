@@ -233,14 +233,16 @@ canvas{position:absolute;inset:0;width:100%;height:100%;display:block;background
   width:100%;
 }
 .howto-card .card-actions .settings-nav{
-  flex:0 0 auto;
-  width:auto;
-  min-width:190px;
+  flex:1 1 auto;
+  width:100%;
+  min-width:0;
   max-width:100%;
+  box-sizing:border-box;
   align-self:center;
   flex-direction:column;
   gap:4px;
   text-align:center;
+  white-space:normal;
 }
 .howto-card .howto-actions{
   flex-wrap:wrap;
@@ -464,11 +466,13 @@ input[type="text"]::placeholder{color:rgba(255,255,255,.45)}
   white-space:nowrap;
 }
 .settings-nav-subtext{
+  display:block;
   font-size:12px;
   font-weight:700;
   text-transform:none;
   letter-spacing:.2px;
   color:rgba(255,255,255,.78);
+  white-space:normal;
 }
 .theme-callout{
   position:fixed;
