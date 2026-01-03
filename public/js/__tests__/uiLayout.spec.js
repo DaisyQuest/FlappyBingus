@@ -146,9 +146,12 @@ describe("uiLayout", () => {
     const settingsAction = mount.querySelector(".howto-card .card-nav[for='viewSettings']");
     const settingsActions = settingsAction?.parentElement;
     const actionsStyle = window.getComputedStyle(settingsActions);
+    const settingsStyle = window.getComputedStyle(settingsAction);
 
     expect(settingsActions?.classList.contains("howto-actions")).toBe(true);
     expect(actionsStyle.flexWrap).toBe("wrap");
+    expect(settingsStyle.maxWidth).toBe("100%");
+    expect(settingsStyle.whiteSpace).toBe("normal");
   });
 
   it("moves Settings and Achievements navigation into the primary cards", () => {
