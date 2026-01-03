@@ -37,6 +37,19 @@ const UNLOCK_OPTIONS = [
   { value: "record", label: "Record holder" }
 ];
 
+const COLOR_SWATCHES = [
+  "#ffffff",
+  "#0f172a",
+  "#38bdf8",
+  "#22c55e",
+  "#facc15",
+  "#fb7185",
+  "#f97316",
+  "#a855f7",
+  "#f472b6",
+  "#94a3b8"
+];
+
 function formatDefault(value) {
   if (value === undefined || value === null) return "—";
   if (Array.isArray(value)) return value.map((v) => formatDefault(v)).join(" → ");
@@ -45,12 +58,15 @@ function formatDefault(value) {
   return String(value);
 }
 
-function createFieldRow(labelText, input, defaultValue) {
+function createFieldRow(labelText, input, defaultValue, options = {}) {
   const row = document.createElement("div");
   row.className = "field-row";
   const label = document.createElement("label");
   label.textContent = labelText;
   row.append(label, input);
+  if (options.swatches) {
+    row.appendChild(createColorSwatches(input, options.swatches));
+  }
   if (defaultValue !== undefined) {
     const hint = document.createElement("small");
     hint.textContent = `Default: ${formatDefault(defaultValue)}`;
@@ -86,6 +102,41 @@ function createSelect(options, value = "") {
   return select;
 }
 
+function createColorSwatches(input, { isListMode, onSelect } = {}) {
+  const row = document.createElement("div");
+  row.className = "color-swatch-row";
+  const swatches = document.createElement("div");
+  swatches.className = "color-swatches";
+  COLOR_SWATCHES.forEach((hex) => {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "color-swatch";
+    button.dataset.color = hex;
+    button.setAttribute("aria-label", `Set color ${hex}`);
+    button.style.background = hex;
+    button.addEventListener("click", () => {
+      if (typeof onSelect === "function") {
+        onSelect(hex);
+        return;
+      }
+      const listMode = typeof isListMode === "function"
+        ? isListMode()
+        : input.dataset.colorList === "true";
+      if (listMode) {
+        const values = input.value.split(",").map((entry) => entry.trim()).filter(Boolean);
+        values.push(hex);
+        input.value = values.join(", ");
+      } else {
+        input.value = hex;
+      }
+      input.dispatchEvent(new Event("input", { bubbles: true }));
+    });
+    swatches.appendChild(button);
+  });
+  row.appendChild(swatches);
+  return row;
+}
+
 function createRangeFields({ label, key, value, defaults }) {
   const wrapper = document.createElement("div");
   wrapper.className = "field-grid";
@@ -116,7 +167,22 @@ function createColorFields({ group, defaults }) {
   wrapper.className = "field-grid";
   wrapper.append(
     createFieldRow("Color mode", modeSelect, defaultValue ? formatDefault(defaultValue) : "inherit"),
-    createFieldRow("Color value", valueInput)
+    createFieldRow("Color value", valueInput, undefined, {
+      swatches: {
+        isListMode: () => modeSelect.value === "palette",
+        onSelect: (hex) => {
+          if (!modeSelect.value) modeSelect.value = "fixed";
+          if (modeSelect.value === "palette") {
+            const values = valueInput.value.split(",").map((entry) => entry.trim()).filter(Boolean);
+            values.push(hex);
+            valueInput.value = values.join(", ");
+          } else {
+            valueInput.value = hex;
+          }
+          valueInput.dispatchEvent(new Event("input", { bubbles: true }));
+        }
+      }
+    })
   );
   return wrapper;
 }
@@ -246,11 +312,11 @@ function createGroupSection({
 
   const hexStroke = createTextInput(group.hexStyle?.stroke ?? "");
   hexStroke.dataset.field = "hexStroke";
-  advancedGrid.appendChild(createFieldRow("Hex stroke", hexStroke, defaults.hexStyle?.stroke));
+  advancedGrid.appendChild(createFieldRow("Hex stroke", hexStroke, defaults.hexStyle?.stroke, { swatches: {} }));
 
   const hexFill = createTextInput(group.hexStyle?.fill ?? "");
   hexFill.dataset.field = "hexFill";
-  advancedGrid.appendChild(createFieldRow("Hex fill", hexFill, defaults.hexStyle?.fill));
+  advancedGrid.appendChild(createFieldRow("Hex fill", hexFill, defaults.hexStyle?.fill, { swatches: {} }));
 
   const hexLineWidth = createNumberInput(group.hexStyle?.lineWidth ?? "");
   hexLineWidth.dataset.field = "hexLineWidth";
@@ -258,15 +324,15 @@ function createGroupSection({
 
   const sliceRind = createTextInput(group.sliceStyle?.rind ?? "");
   sliceRind.dataset.field = "sliceRind";
-  advancedGrid.appendChild(createFieldRow("Slice rind", sliceRind, defaults.sliceStyle?.rind));
+  advancedGrid.appendChild(createFieldRow("Slice rind", sliceRind, defaults.sliceStyle?.rind, { swatches: {} }));
 
   const slicePith = createTextInput(group.sliceStyle?.pith ?? "");
   slicePith.dataset.field = "slicePith";
-  advancedGrid.appendChild(createFieldRow("Slice pith", slicePith, defaults.sliceStyle?.pith));
+  advancedGrid.appendChild(createFieldRow("Slice pith", slicePith, defaults.sliceStyle?.pith, { swatches: {} }));
 
   const sliceSegment = createTextInput(group.sliceStyle?.segment ?? "");
   sliceSegment.dataset.field = "sliceSegment";
-  advancedGrid.appendChild(createFieldRow("Slice segment", sliceSegment, defaults.sliceStyle?.segment));
+  advancedGrid.appendChild(createFieldRow("Slice segment", sliceSegment, defaults.sliceStyle?.segment, { swatches: {} }));
 
   const sliceSegments = createNumberInput(group.sliceStyle?.segments ?? "");
   sliceSegments.dataset.field = "sliceSegments";
