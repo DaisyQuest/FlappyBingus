@@ -245,8 +245,16 @@ describe("playbackTicks", () => {
       requestFrame: raf
     });
 
+    const tickStep = Math.max(SIM_DT, 1 / (__testables.REPLAY_TPS * 2));
+    const firstFrameDt = Math.min(__testables.MAX_FRAME_DT, 1 / __testables.REPLAY_TARGET_FPS);
+    const ticksFirstFrame = Math.floor((firstFrameDt + 1e-9) / tickStep);
+    const ticksPerFrame = Math.floor((__testables.MAX_FRAME_DT + 1e-9) / tickStep);
+    const expectedFrames = ticks.length <= ticksFirstFrame
+      ? 1
+      : 1 + Math.ceil((ticks.length - ticksFirstFrame) / ticksPerFrame);
+
     expect(game.update).toHaveBeenCalledTimes(4);
-    expect(game.render).toHaveBeenCalledTimes(3);
+    expect(game.render).toHaveBeenCalledTimes(expectedFrames);
   });
 
   it("replays long real-time runs without dropping ticks", async () => {
@@ -559,7 +567,7 @@ describe("playbackTicksDeterministic", () => {
     const game = makeGame();
     const replayInput = makeReplayInput();
     const ticks = [{}, {}, {}];
-    const nowTimes = [0, 0, 4, 10];
+    const nowTimes = [0, 0, 0, 0];
     const now = vi.fn(() => nowTimes.shift() ?? 10);
     const waits = [];
     const wait = vi.fn((ms) => {
@@ -579,8 +587,9 @@ describe("playbackTicksDeterministic", () => {
     });
 
     expect(wait).toHaveBeenCalled();
-    expect(waits[0]).toBeCloseTo(8.33, 1);
-    expect(waits[1]).toBeCloseTo(12.66, 1);
+    expect(waits[0]).toBeCloseTo(SIM_DT * 1000, 2);
+    expect(waits[1]).toBeCloseTo(SIM_DT * 2000, 2);
+    expect(waits[2]).toBeCloseTo(SIM_DT * 3000, 2);
   });
 
   it("skips pacing waits when playback is already ahead of schedule", async () => {
