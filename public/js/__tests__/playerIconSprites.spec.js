@@ -103,6 +103,41 @@ describe("player icon sprites", () => {
     }
   });
 
+  it("supports animated fills for image-based icons", () => {
+    const addColorStop = vi.fn();
+    const createLinearGradient = vi.fn(() => ({ addColorStop }));
+    const ctx = {
+      save: () => {},
+      restore: () => {},
+      translate: () => {},
+      beginPath: () => {},
+      arc: () => {},
+      clip: () => {},
+      fill: () => {},
+      stroke: () => {},
+      clearRect: () => {},
+      drawImage: () => {},
+      createLinearGradient,
+      set lineWidth(v) { this._lineWidth = v; },
+      set strokeStyle(v) { this._strokeStyle = v; },
+      set shadowColor(v) { this._shadowColor = v; },
+      set shadowBlur(v) { this._shadowBlur = v; },
+      set globalAlpha(v) { this._globalAlpha = v; }
+    };
+    const canvas = { width: 64, height: 64 };
+    const icon = {
+      style: {
+        fill: "#000",
+        animation: { type: "lava", speed: 0.2 }
+      }
+    };
+    const image = { width: 32, height: 32, naturalWidth: 32, naturalHeight: 32 };
+
+    __testables.drawImageIconFrame(ctx, canvas, icon, image, { animationPhase: 0.5 });
+    expect(createLinearGradient).toHaveBeenCalled();
+    expect(addColorStop).toHaveBeenCalled();
+  });
+
   it("applies a zigzag pattern when defined", () => {
     const calls = [];
     const ctx = {

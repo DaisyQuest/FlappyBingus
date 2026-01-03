@@ -430,51 +430,17 @@ function drawCobblestone(ctx, radius, options = {}) {
   ctx.restore?.();
 }
 
-function renderIconFrame(ctx, canvas, icon = {}, { animationPhase = 0 } = {}) {
-  if (!ctx || !canvas) return;
-  const style = icon.style || {};
-  const fill = style.fill || DEFAULT_FILL;
-  const core = style.core || style.fill || DEFAULT_CORE;
-  const rim = style.rim || DEFAULT_RIM;
-  const glow = style.glow || DEFAULT_GLOW;
-  const pattern = style.pattern;
-  const animation = style.animation;
-
-  ctx.clearRect?.(0, 0, canvas.width, canvas.height);
-  ctx.save?.();
-  ctx.translate?.(canvas.width * 0.5, canvas.height * 0.5);
-
-  const outer = canvas.width * 0.46;
-  const inner = outer * 0.68;
-
-  const isLava = animation?.type === "lava";
-  const isCapeFlow = animation?.type === "cape_flow";
-  const fillStyle = isLava
-    ? createLavaGradient(ctx, outer, animation, animationPhase)
-    : (isCapeFlow ? createCapeFlowGradient(ctx, outer, animation, animationPhase) : fill);
-  const coreFillStyle = isLava
-    ? createLavaGradient(ctx, inner, animation, (animationPhase + 0.22) % 1)
-    : (isCapeFlow ? createCapeFlowGradient(ctx, inner, animation, (animationPhase + 0.17) % 1) : core);
-
-  fillCircle(ctx, outer, fillStyle, { color: glow, blur: Math.max(6, canvas.width * 0.12) });
-  if (isCapeFlow && ctx.beginPath && ctx.arc && ctx.clip) {
-    ctx.save?.();
-    ctx.beginPath();
-    ctx.arc(0, 0, outer * 0.96, 0, Math.PI * 2);
-    ctx.clip();
-    drawCapeEmbers(ctx, outer * 0.95, animation, animationPhase);
-    ctx.restore?.();
-  }
-  if (ctx.lineWidth !== undefined) {
-    ctx.shadowBlur = 0;
-    ctx.lineWidth = Math.max(2, canvas.width * 0.06);
-    ctx.strokeStyle = rim;
-    ctx.beginPath();
-    ctx.arc(0, 0, outer * 0.96, 0, Math.PI * 2);
-    ctx.stroke();
-  }
-  fillCircle(ctx, inner, coreFillStyle, { color: glow, blur: Math.max(4, canvas.width * 0.08) });
-
+function drawIconPattern(ctx, canvas, {
+  pattern,
+  fill,
+  core,
+  rim,
+  glow,
+  outer,
+  animationPhase = 0,
+  animation
+}) {
+  if (!pattern) return;
   if (pattern?.type === "zigzag") {
     drawZigZag(ctx, outer * 0.75, {
       stroke: pattern.stroke || rim,
@@ -537,23 +503,97 @@ function renderIconFrame(ctx, canvas, icon = {}, { animationPhase = 0 } = {}) {
     });
     canvas.__pattern = { type: "cobblestone" };
   }
-
-  ctx.restore?.();
 }
 
-function drawImageIconFrame(ctx, canvas, icon, image) {
+function renderIconFrame(ctx, canvas, icon = {}, { animationPhase = 0 } = {}) {
   if (!ctx || !canvas) return;
-  const style = icon?.style || {};
+  const style = icon.style || {};
   const fill = style.fill || DEFAULT_FILL;
+  const core = style.core || style.fill || DEFAULT_CORE;
   const rim = style.rim || DEFAULT_RIM;
   const glow = style.glow || DEFAULT_GLOW;
+  const pattern = style.pattern;
+  const animation = style.animation;
 
   ctx.clearRect?.(0, 0, canvas.width, canvas.height);
   ctx.save?.();
   ctx.translate?.(canvas.width * 0.5, canvas.height * 0.5);
 
   const outer = canvas.width * 0.46;
-  fillCircle(ctx, outer, fill, { color: glow, blur: Math.max(6, canvas.width * 0.12) });
+  const inner = outer * 0.68;
+
+  const isLava = animation?.type === "lava";
+  const isCapeFlow = animation?.type === "cape_flow";
+  const fillStyle = isLava
+    ? createLavaGradient(ctx, outer, animation, animationPhase)
+    : (isCapeFlow ? createCapeFlowGradient(ctx, outer, animation, animationPhase) : fill);
+  const coreFillStyle = isLava
+    ? createLavaGradient(ctx, inner, animation, (animationPhase + 0.22) % 1)
+    : (isCapeFlow ? createCapeFlowGradient(ctx, inner, animation, (animationPhase + 0.17) % 1) : core);
+
+  fillCircle(ctx, outer, fillStyle, { color: glow, blur: Math.max(6, canvas.width * 0.12) });
+  if (isCapeFlow && ctx.beginPath && ctx.arc && ctx.clip) {
+    ctx.save?.();
+    ctx.beginPath();
+    ctx.arc(0, 0, outer * 0.96, 0, Math.PI * 2);
+    ctx.clip();
+    drawCapeEmbers(ctx, outer * 0.95, animation, animationPhase);
+    ctx.restore?.();
+  }
+  if (ctx.lineWidth !== undefined) {
+    ctx.shadowBlur = 0;
+    ctx.lineWidth = Math.max(2, canvas.width * 0.06);
+    ctx.strokeStyle = rim;
+    ctx.beginPath();
+    ctx.arc(0, 0, outer * 0.96, 0, Math.PI * 2);
+    ctx.stroke();
+  }
+  fillCircle(ctx, inner, coreFillStyle, { color: glow, blur: Math.max(4, canvas.width * 0.08) });
+
+  drawIconPattern(ctx, canvas, {
+    pattern,
+    fill,
+    core,
+    rim,
+    glow,
+    outer,
+    animationPhase,
+    animation
+  });
+
+  ctx.restore?.();
+}
+
+function drawImageIconFrame(ctx, canvas, icon, image, { animationPhase = 0 } = {}) {
+  if (!ctx || !canvas) return;
+  const style = icon?.style || {};
+  const fill = style.fill || DEFAULT_FILL;
+  const core = style.core || style.fill || DEFAULT_CORE;
+  const rim = style.rim || DEFAULT_RIM;
+  const glow = style.glow || DEFAULT_GLOW;
+  const pattern = style.pattern;
+  const animation = style.animation;
+
+  ctx.clearRect?.(0, 0, canvas.width, canvas.height);
+  ctx.save?.();
+  ctx.translate?.(canvas.width * 0.5, canvas.height * 0.5);
+
+  const outer = canvas.width * 0.46;
+  const isLava = animation?.type === "lava";
+  const isCapeFlow = animation?.type === "cape_flow";
+  const fillStyle = isLava
+    ? createLavaGradient(ctx, outer, animation, animationPhase)
+    : (isCapeFlow ? createCapeFlowGradient(ctx, outer, animation, animationPhase) : fill);
+
+  fillCircle(ctx, outer, fillStyle, { color: glow, blur: Math.max(6, canvas.width * 0.12) });
+  if (isCapeFlow && ctx.beginPath && ctx.arc && ctx.clip) {
+    ctx.save?.();
+    ctx.beginPath();
+    ctx.arc(0, 0, outer * 0.96, 0, Math.PI * 2);
+    ctx.clip();
+    drawCapeEmbers(ctx, outer * 0.95, animation, animationPhase);
+    ctx.restore?.();
+  }
 
   const imgWidth = image?.naturalWidth || image?.width || 0;
   const imgHeight = image?.naturalHeight || image?.height || 0;
@@ -577,6 +617,17 @@ function drawImageIconFrame(ctx, canvas, icon, image) {
     ctx.arc(0, 0, outer * 0.96, 0, Math.PI * 2);
     ctx.stroke();
   }
+
+  drawIconPattern(ctx, canvas, {
+    pattern,
+    fill,
+    core,
+    rim,
+    glow,
+    outer,
+    animationPhase,
+    animation
+  });
   ctx.restore?.();
 }
 
@@ -626,7 +677,7 @@ export function createPlayerIconSprite(icon = {}, { size = 96 } = {}) {
     if (imageSrc && typeof Image === "function") {
       const image = new Image();
       canvas.__image = image;
-      const renderImage = () => drawImageIconFrame(ctx, canvas, icon, image);
+      const renderImage = (opts = {}) => drawImageIconFrame(ctx, canvas, icon, image, opts);
       image.addEventListener?.("load", () => {
         renderImage();
         canvas.__imageLoaded = true;
@@ -634,6 +685,8 @@ export function createPlayerIconSprite(icon = {}, { size = 96 } = {}) {
       }, { once: true });
       image.src = imageSrc;
       renderImage();
+      const animation = maybeStartSpriteAnimation(canvas, icon, renderImage);
+      if (animation) canvas.__animation = animation;
     } else {
       const renderFrame = (opts = {}) => renderIconFrame(ctx, canvas, icon, opts);
       renderFrame();

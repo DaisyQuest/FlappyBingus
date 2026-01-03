@@ -858,6 +858,68 @@ describe("server routes and helpers", () => {
     expect(payload.icons?.length).toBeGreaterThan(0);
   });
 
+  it("returns icon style overrides for the public endpoint", async () => {
+    const { server } = await importServer({
+      gameConfigStoreOverrides: {
+        getConfig: vi.fn(() => ({
+          iconStyles: {
+            overrides: { spark: { name: "Spark", style: { fill: "#fff" } } }
+          }
+        }))
+      }
+    });
+    const res = createRes();
+    await server.route(createReq({ url: "/api/icon-styles" }), res);
+    const payload = readJson(res);
+    expect(payload.ok).toBe(true);
+    expect(payload.overrides.spark.name).toBe("Spark");
+  });
+
+  it("serves admin icon styles with merged icons", async () => {
+    const { server } = await importServer({
+      gameConfigStoreOverrides: {
+        getConfig: vi.fn(() => ({
+          iconStyles: {
+            overrides: {
+              custom_icon: {
+                name: "Custom Icon",
+                style: { fill: "#111" }
+              }
+            }
+          }
+        })),
+        getMeta: vi.fn(() => ({ lastLoadedAt: 999 }))
+      }
+    });
+    const res = createRes();
+    await server.route(createReq({ url: "/api/admin/icon-styles" }), res);
+    const payload = readJson(res);
+    expect(payload.ok).toBe(true);
+    expect(payload.overrides.custom_icon.name).toBe("Custom Icon");
+    expect(payload.icons.some((icon) => icon.id === "custom_icon")).toBe(true);
+    expect(payload.defaults.length).toBeGreaterThan(0);
+  });
+
+  it("rejects invalid admin icon style payloads", async () => {
+    const { server } = await importServer({
+      gameConfigStoreOverrides: {
+        save: vi.fn(async (config) => config)
+      }
+    });
+    const res = createRes();
+    await server.route(
+      createReq({
+        method: "PUT",
+        url: "/api/admin/icon-styles",
+        body: JSON.stringify({ overrides: { bad: { style: { pattern: { type: "unknown" } } } } })
+      }),
+      res
+    );
+    const payload = readJson(res);
+    expect(res.status).toBe(400);
+    expect(payload.error).toBe("invalid_icon_style_overrides");
+  });
+
   it("validates and persists pipe texture selections", async () => {
     const { server, mockDataStore } = await importServer({
       getUserByKey: vi.fn(async () => ({ ...baseUser(), bestScore: 0 })),
