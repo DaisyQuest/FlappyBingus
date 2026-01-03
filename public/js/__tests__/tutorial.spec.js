@@ -94,6 +94,28 @@ const makeCtx = () => {
   return ctx;
 };
 
+const makeOverlayCtx = () => {
+  const gradient = { addColorStop: vi.fn() };
+  return {
+    save: vi.fn(),
+    restore: vi.fn(),
+    beginPath: vi.fn(),
+    arc: vi.fn(),
+    moveTo: vi.fn(),
+    lineTo: vi.fn(),
+    arcTo: vi.fn(),
+    closePath: vi.fn(),
+    stroke: vi.fn(),
+    fill: vi.fn(),
+    setLineDash: vi.fn(),
+    strokeRect: vi.fn(),
+    fillText: vi.fn(),
+    strokeText: vi.fn(),
+    createLinearGradient: vi.fn(() => gradient),
+    measureText: vi.fn((text) => ({ width: String(text).length * 6 })),
+  };
+};
+
 describe("Tutorial skill variants", () => {
   it("teaches destroy dash and advances after a shatter", () => {
     const game = setupGame();
@@ -541,6 +563,33 @@ describe("Tutorial copy, guides, and slow-field flows", () => {
     };
     tutorial._boundPointerDown(nextEvent);
     expect(spy).toHaveBeenCalledWith(1);
+    tutorial.stop();
+  });
+
+  it("renders a compact tutorial bubble with the dash behavior note", () => {
+    const game = setupGame();
+    const tutorial = new Tutorial({ game, input: game.input, getBinds: () => ({}), onExit: () => {} });
+    tutorial.start();
+
+    const idx = tutorial._steps().findIndex((s) => s.id === "dash_destroy");
+    tutorial._enterStep(idx);
+
+    const ctx = makeOverlayCtx();
+    tutorial.renderOverlay(ctx);
+
+    const hasDashNote = ctx.fillText.mock.calls.some(([text]) =>
+      String(text).includes("Change Dash behavior in the settings menu!")
+    );
+    expect(hasDashNote).toBe(true);
+
+    ctx.fillText.mockClear();
+    tutorial._enterStep(tutorial._steps().findIndex((s) => s.id === "move"));
+    tutorial.renderOverlay(ctx);
+
+    const hasNoteAfterMove = ctx.fillText.mock.calls.some(([text]) =>
+      String(text).includes("Change Dash behavior in the settings menu!")
+    );
+    expect(hasNoteAfterMove).toBe(false);
     tutorial.stop();
   });
 

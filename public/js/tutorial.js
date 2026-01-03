@@ -458,95 +458,165 @@ export class Tutorial {
     if (!this.active) return;
 
     const { title, body, objective, hotkey } = this._uiCopy();
+    const showDashNote = this._stepId() === "dash_destroy";
     const stepNum = this._stepIndex + 1;
     const stepTot = this._steps().length;
 
     ctx.save();
-    ctx.textAlign = "center";
+    ctx.textAlign = "left";
     ctx.textBaseline = "top";
 
-    const cx = this.game.W * 0.5;
-    const top = Math.max(42, Math.min(88, this.game.H * 0.08));
-    const maxW = Math.min(this.game.W * 0.9, 980);
-    const textW = Math.max(240, maxW - 48);
+    const panelPad = 14;
+    const panelX = 16;
+    const panelY = 16;
+    const panelW = Math.min(360, this.game.W - panelX * 2);
+    const textW = Math.max(200, panelW - panelPad * 2);
+
+    const stepFont = "700 12px \"Baloo 2\",system-ui,-apple-system,Segoe UI,Roboto,sans-serif";
+    const titleFont = "900 22px \"Baloo 2\",system-ui,-apple-system,Segoe UI,Roboto,sans-serif";
+    const hotkeyFont = "800 14px \"Baloo 2\",system-ui,-apple-system,Segoe UI,Roboto,sans-serif";
+    const hintFont = "700 12px \"Baloo 2\",system-ui,-apple-system,Segoe UI,Roboto,sans-serif";
+    const bodyFont = "700 16px \"Baloo 2\",system-ui,-apple-system,Segoe UI,Roboto,sans-serif";
+    const objectiveFont = "800 16px \"Baloo 2\",system-ui,-apple-system,Segoe UI,Roboto,sans-serif";
+    const noteFont = "700 12px \"Baloo 2\",system-ui,-apple-system,Segoe UI,Roboto,sans-serif";
+
+    const stepLineH = 14;
+    const titleLineH = 24;
+    const bodyLineH = 20;
+    const objectiveLineH = 20;
+    const hintLineH = 14;
+    const noteLineH = 14;
+    const navH = 24;
+    const navGap = 8;
+
+    ctx.font = bodyFont;
+    const bodyLines = wrapLines(ctx, body, textW);
+    ctx.font = objectiveFont;
+    const objectiveLines = wrapLines(ctx, `Objective: ${objective}`, textW);
+    const keyTxt = hotkey?.label ? String(hotkey.label).toUpperCase() : "";
+    ctx.font = hotkeyFont;
+    const keyW = keyTxt ? Math.min(textW, ctx.measureText(keyTxt).width + 24) : 0;
+    const keyH = keyTxt ? 22 : 0;
+    const hintLines = hotkey?.hint ? wrapLines(ctx, hotkey.hint, textW) : [];
+    const noteLines = showDashNote ? wrapLines(ctx, "Change Dash behavior in the settings menu!", textW) : [];
+
+    let cursorY = panelY + panelPad;
+    const stepY = cursorY;
+    cursorY += stepLineH + 6;
+    const titleY = cursorY;
+    cursorY += titleLineH + 8;
+    const hotkeyY = keyTxt ? cursorY : null;
+    if (keyTxt) {
+      cursorY += keyH + 6;
+      if (hintLines.length) {
+        cursorY += hintLines.length * hintLineH + 4;
+      }
+      cursorY += 6;
+    }
+    const bodyY = cursorY;
+    cursorY += bodyLines.length * bodyLineH + 6;
+    const objectiveY = cursorY;
+    cursorY += objectiveLines.length * objectiveLineH + 6;
+    const noteY = noteLines.length ? cursorY : null;
+    if (noteLines.length) {
+      cursorY += noteLines.length * noteLineH + 6;
+    }
+    const navY = cursorY + navGap;
+    cursorY = navY + navH + panelPad;
+    const panelH = cursorY - panelY;
 
     // Step indicator
-    ctx.font = "800 18px \"Baloo 2\",system-ui,-apple-system,Segoe UI,Roboto,sans-serif";
-    ctx.fillStyle = "rgba(255,255,255,.88)";
-    ctx.shadowColor = "rgba(0,0,0,.45)";
-    ctx.shadowBlur = 12;
-    ctx.fillText(`Tutorial • Step ${stepNum}/${stepTot}`, cx, top);
+    ctx.shadowColor = "rgba(0,0,0,.35)";
+    ctx.shadowBlur = 10;
+    roundRectPath(ctx, panelX, panelY, panelW, panelH, 16);
+    ctx.fillStyle = "rgba(25,35,55,.72)";
+    ctx.fill();
+    ctx.shadowBlur = 0;
+    ctx.strokeStyle = "rgba(255,255,255,.30)";
+    ctx.lineWidth = 2;
+    ctx.stroke();
 
-    // Title (big + bubbly like menu)
-    const titleY = top + 24;
-    ctx.font = "900 46px \"Baloo 2\",system-ui,-apple-system,Segoe UI,Roboto,sans-serif";
-    const grad = bubblyGradient(ctx, cx, Math.min(maxW * 0.75, 820));
-    ctx.lineWidth = 4.2;
-    ctx.strokeStyle = "rgba(0,0,0,.55)";
-    ctx.strokeText(title, cx, titleY);
+    ctx.font = stepFont;
+    ctx.fillStyle = "rgba(200,220,255,.85)";
+    ctx.fillText(`Tutorial • Step ${stepNum}/${stepTot}`, panelX + panelPad, stepY);
+
+    // Title
+    ctx.font = titleFont;
+    const grad = bubblyGradient(ctx, panelX + panelW * 0.5, panelW);
+    ctx.lineWidth = 2.4;
+    ctx.strokeStyle = "rgba(0,0,0,.45)";
+    ctx.strokeText(title, panelX + panelPad, titleY);
     ctx.fillStyle = grad;
-    ctx.fillText(title, cx, titleY);
+    ctx.fillText(title, panelX + panelPad, titleY);
 
     // Hotkey callout
-    let bodyY = titleY + 58;
-    if (hotkey?.label) {
-      ctx.font = "900 22px \"Baloo 2\",system-ui,-apple-system,Segoe UI,Roboto,sans-serif";
-      const keyTxt = String(hotkey.label).toUpperCase();
-      const keyW = ctx.measureText(keyTxt).width + 36;
-      const keyH = 36;
+    if (keyTxt) {
+      ctx.font = hotkeyFont;
       drawPill(ctx, {
-        x: cx - keyW * 0.5,
-        y: bodyY - 10,
+        x: panelX + panelPad,
+        y: hotkeyY,
         w: keyW,
         h: keyH,
-        r: 18,
+        r: 12,
         fill: "rgba(255,255,255,.16)",
-        stroke: "rgba(255,255,255,.68)",
+        stroke: "rgba(255,255,255,.55)",
         alpha: 0.98
       });
       ctx.fillStyle = "rgba(255,255,255,.96)";
-      ctx.strokeStyle = "rgba(0,0,0,.52)";
-      ctx.lineWidth = 2.2;
-      ctx.strokeText(keyTxt, cx, bodyY - 6);
-      ctx.fillText(keyTxt, cx, bodyY - 6);
-      if (hotkey.hint) {
-        ctx.font = "800 16px \"Baloo 2\",system-ui,-apple-system,Segoe UI,Roboto,sans-serif";
-        ctx.fillStyle = "rgba(220,240,255,.90)";
-        ctx.fillText(hotkey.hint, cx, bodyY + 20);
-        bodyY += 18;
+      ctx.strokeStyle = "rgba(0,0,0,.4)";
+      ctx.lineWidth = 1.4;
+      ctx.strokeText(keyTxt, panelX + panelPad + 10, hotkeyY + 3);
+      ctx.fillText(keyTxt, panelX + panelPad + 10, hotkeyY + 3);
+      if (hintLines.length) {
+        ctx.font = hintFont;
+        ctx.fillStyle = "rgba(220,240,255,.88)";
+        let hintY = hotkeyY + keyH + 4;
+        for (const line of hintLines) {
+          ctx.fillText(line, panelX + panelPad, hintY);
+          hintY += hintLineH;
+        }
       }
-      bodyY += keyH + 12;
     }
 
     // Body copy
-    ctx.font = "800 22px \"Baloo 2\",system-ui,-apple-system,Segoe UI,Roboto,sans-serif";
-    ctx.fillStyle = "rgba(240,245,255,.95)";
-    ctx.strokeStyle = "rgba(0,0,0,.55)";
-    ctx.lineWidth = 3.2;
-    const lines = wrapLines(ctx, body, textW);
-    const lineH = 28;
-    for (const ln of lines) {
-      ctx.strokeText(ln, cx, bodyY);
-      ctx.fillText(ln, cx, bodyY);
-      bodyY += lineH;
+    ctx.font = bodyFont;
+    ctx.fillStyle = "rgba(235,242,255,.95)";
+    ctx.strokeStyle = "rgba(0,0,0,.4)";
+    ctx.lineWidth = 2.2;
+    let bodyLineY = bodyY;
+    for (const ln of bodyLines) {
+      ctx.strokeText(ln, panelX + panelPad, bodyLineY);
+      ctx.fillText(ln, panelX + panelPad, bodyLineY);
+      bodyLineY += bodyLineH;
     }
 
     // Objective (accent)
-    bodyY += 10;
-    const objTxt = `Objective: ${objective}`;
-    ctx.font = "900 24px \"Baloo 2\",system-ui,-apple-system,Segoe UI,Roboto,sans-serif";
+    ctx.font = objectiveFont;
     ctx.fillStyle = "rgba(255,245,210,.96)";
-    ctx.strokeStyle = "rgba(0,0,0,.58)";
-    ctx.lineWidth = 3.4;
-    ctx.strokeText(objTxt, cx, bodyY);
-    ctx.fillText(objTxt, cx, bodyY);
+    ctx.strokeStyle = "rgba(0,0,0,.45)";
+    ctx.lineWidth = 2.2;
+    let objLineY = objectiveY;
+    for (const ln of objectiveLines) {
+      ctx.strokeText(ln, panelX + panelPad, objLineY);
+      ctx.fillText(ln, panelX + panelPad, objLineY);
+      objLineY += objectiveLineH;
+    }
 
-    this._renderDashBehaviorNote(ctx);
-    this._renderNavButtons(ctx);
+    if (noteLines.length) {
+      ctx.font = noteFont;
+      ctx.fillStyle = "rgba(210,230,255,.85)";
+      let noteLineY = noteY;
+      for (const ln of noteLines) {
+        ctx.fillText(ln, panelX + panelPad, noteLineY);
+        noteLineY += noteLineH;
+      }
+    }
+
+    this._renderNavButtons(ctx, { x: panelX, y: panelY, w: panelW, h: panelH, pad: panelPad, y0: navY, h0: navH });
 
     ctx.restore();
 
-    const meta = { panel: { x: cx - maxW * 0.5, y: top, w: maxW, h: bodyY - top + 36 }, textBottom: bodyY + 36 };
+    const meta = { panel: { x: panelX, y: panelY, w: panelW, h: panelH }, textBottom: panelY + panelH };
 
     // Guidance markers / per-step helpers
     this._renderGuides(ctx, meta);
@@ -565,53 +635,28 @@ export class Tutorial {
       ctx.shadowColor = "rgba(0,0,0,.55)";
       ctx.shadowBlur = 14;
       ctx.fillStyle = "rgba(255,255,255,.92)";
-      ctx.fillText(this._msgFlash, this.game.W * 0.5, bodyY + 28);
+      ctx.fillText(this._msgFlash, panelX + panelW * 0.5, panelY + panelH + 20);
       ctx.restore();
     }
   }
 
-  _renderDashBehaviorNote(ctx) {
-    if (this._stepId() !== "dash_destroy") return;
-    const text = "Change Dash behavior in the settings menu!";
-    const padX = 18;
-    const padY = 10;
-    ctx.save();
-    ctx.font = "900 18px \"Baloo 2\",system-ui,-apple-system,Segoe UI,Roboto,sans-serif";
-    const w = ctx.measureText(text).width + padX * 2;
-    const h = 36;
-    const margin = 18;
-    const x = this.game.W - w - margin;
-    const y = margin;
-    drawPill(ctx, {
-      x,
-      y,
-      w,
-      h,
-      r: 16,
-      fill: "rgba(40,60,90,.55)",
-      stroke: "rgba(255,255,255,.70)",
-      alpha: 0.98
-    });
-    ctx.fillStyle = "rgba(255,255,255,.94)";
-    ctx.textAlign = "center";
-    ctx.textBaseline = "middle";
-    ctx.fillText(text, x + w * 0.5, y + h * 0.5 + padY * 0.0);
-    ctx.restore();
-  }
-
-  _renderNavButtons(ctx) {
-    const pad = 16;
+  _renderNavButtons(ctx, panel) {
+    const pad = 10;
     const gap = 10;
-    const h = 34;
-    const font = "900 18px \"Baloo 2\",system-ui,-apple-system,Segoe UI,Roboto,sans-serif";
+    const h = panel?.h0 ?? 24;
+    const font = "800 14px \"Baloo 2\",system-ui,-apple-system,Segoe UI,Roboto,sans-serif";
     const labels = { prev: "Back", next: "Next" };
     ctx.save();
     ctx.font = font;
     const prevW = ctx.measureText(labels.prev).width + 30;
     const nextW = ctx.measureText(labels.next).width + 30;
     const totalW = prevW + nextW + gap;
-    const x0 = this.game.W - totalW - pad;
-    const y0 = this.game.H - h - pad;
+    const panelX = panel?.x ?? 0;
+    const panelY = panel?.y ?? 0;
+    const panelW = panel?.w ?? this.game.W;
+    const panelH = panel?.h ?? this.game.H;
+    const x0 = panelX + panelW - totalW - pad;
+    const y0 = panel?.y0 ?? (panelY + panelH - h - pad);
 
     const prevDisabled = this._stepIndex <= 0;
     const nextDisabled = this._stepIndex >= this._steps().length - 1;
@@ -622,12 +667,12 @@ export class Tutorial {
         y: y0,
         w,
         h,
-        r: 14,
-        fill: disabled ? "rgba(120,120,120,.25)" : "rgba(255,255,255,.18)",
-        stroke: disabled ? "rgba(140,140,140,.35)" : "rgba(255,255,255,.70)",
+        r: 10,
+        fill: disabled ? "rgba(120,120,120,.2)" : "rgba(255,255,255,.18)",
+        stroke: disabled ? "rgba(140,140,140,.35)" : "rgba(255,255,255,.55)",
         alpha: 0.98
       });
-      ctx.fillStyle = disabled ? "rgba(200,200,200,.5)" : "rgba(255,255,255,.96)";
+      ctx.fillStyle = disabled ? "rgba(200,200,200,.55)" : "rgba(255,255,255,.92)";
       ctx.textAlign = "center";
       ctx.textBaseline = "middle";
       ctx.fillText(label, x + w * 0.5, y0 + h * 0.5);
