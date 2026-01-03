@@ -92,7 +92,7 @@ export function createIconMenuHandlers({
       syncUnlockablesCatalog({ trails: net.trails });
       syncIconCatalog(res.icons || net.icons);
       syncPipeTextureCatalog(res.pipeTextures || net.pipeTextures);
-      applyIconSelection(res.user?.selectedIcon || id, playerIcons);
+      applyIconSelection(res.user?.selectedIcon || id, getPlayerIcons());
     } else if (outcome.revert) {
       applyIconSelection(previous, playerIcons);
     }
