@@ -27,7 +27,16 @@ describe("icon menu handlers", () => {
       icons: []
     };
     const applyIconSelection = vi.fn();
-    const apiSetIcon = vi.fn().mockResolvedValue({ ok: true, user: { selectedIcon: "spark" } });
+    let icons = [{ id: "spark", name: "Spark" }];
+    const getPlayerIcons = () => icons;
+    const syncIconCatalog = vi.fn((nextIcons) => {
+      if (Array.isArray(nextIcons)) icons = nextIcons;
+    });
+    const apiSetIcon = vi.fn().mockResolvedValue({
+      ok: true,
+      user: { selectedIcon: "glow" },
+      icons: [{ id: "spark", name: "Spark" }, { id: "glow", name: "Glow" }]
+    });
     const classifyIconSaveResponse = vi.fn().mockReturnValue({
       outcome: "saved",
       online: true,
@@ -44,7 +53,7 @@ describe("icon menu handlers", () => {
         iconOverlayClose: document.getElementById("overlay-close")
       },
       getNet: () => net,
-      getPlayerIcons: () => [{ id: "spark", name: "Spark" }],
+      getPlayerIcons,
       getCurrentIconId: () => "spark",
       computeUnlockedIconSet: vi.fn().mockReturnValue(new Set(["spark"])),
       openPurchaseModal: vi.fn(),
@@ -55,7 +64,7 @@ describe("icon menu handlers", () => {
       setNetUser: vi.fn((user) => { net.user = user; }),
       normalizeTrails: vi.fn().mockReturnValue([]),
       syncUnlockablesCatalog: vi.fn(),
-      syncIconCatalog: vi.fn(),
+      syncIconCatalog,
       syncPipeTextureCatalog: vi.fn(),
       setUserHint: vi.fn(),
       recoverSession: vi.fn(),
@@ -70,10 +79,16 @@ describe("icon menu handlers", () => {
 
     await handlers.handleOptionsClick({ target: button });
 
-    expect(applyIconSelection).toHaveBeenCalledWith(
+    expect(applyIconSelection).toHaveBeenNthCalledWith(
+      1,
       "spark",
       [{ id: "spark", name: "Spark" }],
       expect.any(Set)
+    );
+    expect(applyIconSelection).toHaveBeenNthCalledWith(
+      2,
+      "glow",
+      [{ id: "spark", name: "Spark" }, { id: "glow", name: "Glow" }]
     );
     expect(apiSetIcon).toHaveBeenCalledWith("spark");
     expect(classifyIconSaveResponse).toHaveBeenCalled();
