@@ -1,5 +1,5 @@
-import { DEFAULT_PLAYER_ICONS } from "/js/playerIcons.js";
 import { getBestParticleEffects, getRoundTableAgents } from "/shared/particleLibrary.js";
+import { getCosmeticsConfig, saveCosmeticsConfig } from "/shared/adminCosmeticsApi.js";
 import { collectIconDefinitions, createIconCard } from "./modules/editor.js";
 
 const statusChip = document.getElementById("adminStatus");
@@ -9,6 +9,7 @@ const main = document.getElementById("iconMain");
 const metaText = document.getElementById("adminMeta");
 
 const state = {
+  cosmetics: {},
   icons: [],
   particleEffects: getBestParticleEffects(),
   agents: getRoundTableAgents()
@@ -51,30 +52,6 @@ function createPanel(title, subtitle) {
   return { panel, actions };
 }
 
-function exportIcons(grid) {
-  const icons = collectIconDefinitions(grid);
-  const payload = { icons };
-  const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement("a");
-  link.href = url;
-  link.download = "icon-editor.json";
-  link.click();
-  URL.revokeObjectURL(url);
-  setStatus("Exported icon JSON", "ok");
-}
-
-async function copyIcons(grid) {
-  const icons = collectIconDefinitions(grid);
-  const payload = JSON.stringify({ icons }, null, 2);
-  if (navigator.clipboard?.writeText) {
-    await navigator.clipboard.writeText(payload);
-    setStatus("Copied icon JSON to clipboard", "ok");
-    return;
-  }
-  setStatus("Clipboard unavailable; use export instead", "error");
-}
-
 function renderIconEditor() {
   clearMain();
   const { panel, actions } = createPanel(
@@ -83,15 +60,13 @@ function renderIconEditor() {
   );
 
   const reloadBtn = document.createElement("button");
-  reloadBtn.textContent = "Reload defaults";
+  reloadBtn.textContent = "Reload";
   const addBtn = document.createElement("button");
   addBtn.textContent = "Add icon";
-  const copyBtn = document.createElement("button");
-  copyBtn.textContent = "Copy JSON";
-  const exportBtn = document.createElement("button");
-  exportBtn.textContent = "Export JSON";
-  exportBtn.className = "primary";
-  actions.append(reloadBtn, addBtn, copyBtn, exportBtn);
+  const saveBtn = document.createElement("button");
+  saveBtn.textContent = "Save";
+  saveBtn.className = "primary";
+  actions.append(reloadBtn, addBtn, saveBtn);
 
   const grid = document.createElement("div");
   grid.className = "editor-grid";
@@ -105,11 +80,7 @@ function renderIconEditor() {
     });
   }
 
-  reloadBtn.addEventListener("click", () => {
-    state.icons = DEFAULT_PLAYER_ICONS.map((icon) => ({ ...icon }));
-    refresh();
-    setStatus("Reloaded icon defaults", "ok");
-  });
+  reloadBtn.addEventListener("click", () => loadConfig());
 
   addBtn.addEventListener("click", () => {
     const blank = {
@@ -122,8 +93,22 @@ function renderIconEditor() {
     grid.appendChild(createIconCard(blank, { particleEffects: state.particleEffects }));
   });
 
-  copyBtn.addEventListener("click", () => copyIcons(grid));
-  exportBtn.addEventListener("click", () => exportIcons(grid));
+  saveBtn.addEventListener("click", async () => {
+    try {
+      setStatus("Saving icons…");
+      const icons = collectIconDefinitions(grid);
+      const trails = state.cosmetics?.trails ?? null;
+      const trailStyles = state.cosmetics?.trailStyles ?? {};
+      await saveCosmeticsConfig({ icons, trails, trailStyles });
+      state.cosmetics = { ...(state.cosmetics || {}), icons };
+      state.icons = icons.map((icon) => ({ ...icon }));
+      refresh();
+      setStatus("Icons saved", "ok");
+    } catch (err) {
+      console.error(err);
+      setStatus("Failed to save icons", "error");
+    }
+  });
 
   refresh();
 }
@@ -173,6 +158,18 @@ function renderParticleLibrary() {
   main.appendChild(panel);
 }
 
+async function loadConfig() {
+  setStatus("Loading icon configuration…");
+  const data = await getCosmeticsConfig();
+  state.cosmetics = data.cosmetics || {};
+  const fromConfig = Array.isArray(state.cosmetics.icons) ? state.cosmetics.icons : null;
+  const fromCatalog = Array.isArray(data.catalog?.icons) ? data.catalog.icons : [];
+  state.icons = (fromConfig || fromCatalog).map((icon) => ({ ...icon }));
+  setStatus("Icon editor ready", "ok");
+  setMeta(`Config updated ${new Date(data.meta?.lastLoadedAt || Date.now()).toLocaleString()}`);
+  renderIconEditor();
+}
+
 function renderNav() {
   const items = [
     { id: "icons", label: "Icons", render: renderIconEditor },
@@ -194,12 +191,8 @@ function renderNav() {
   if (first) first.classList.add("active");
 }
 
-function loadDefaults() {
-  state.icons = DEFAULT_PLAYER_ICONS.map((icon) => ({ ...icon }));
-  setStatus("Icon editor ready", "ok");
-  setMeta(`Loaded ${state.icons.length} icons · ${new Date().toLocaleString()}`);
-}
-
 renderNav();
-loadDefaults();
-renderIconEditor();
+loadConfig().catch((err) => {
+  console.error(err);
+  setStatus("Failed to load icons", "error");
+});

@@ -35,6 +35,11 @@ describe("trail editor helpers", () => {
     expect(parseStyleJson("invalid", STYLE_MAP.classic)).toEqual(STYLE_MAP.classic);
   });
 
+  it("strips placeholder functions from style JSON", () => {
+    const parsed = parseStyleJson("{\"color\":\"[Function]\",\"rate\":18}", STYLE_MAP.classic);
+    expect(parsed).toEqual({ rate: 18 });
+  });
+
   it("collects trail definitions with particles and unlock overrides", () => {
     const grid = document.createElement("div");
     const card = createTrailCard(

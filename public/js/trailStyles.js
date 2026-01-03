@@ -3,6 +3,20 @@
 // =====================
 import { hsla } from "./util.js";
 
+const CUSTOM_TRAIL_STYLES = new Map();
+const isPlainObject = (value) => Boolean(value && typeof value === "object" && !Array.isArray(value));
+const cloneStyle = (value) => {
+  if (Array.isArray(value)) return value.map((entry) => cloneStyle(entry));
+  if (value && typeof value === "object") {
+    const next = {};
+    Object.entries(value).forEach(([key, entry]) => {
+      next[key] = cloneStyle(entry);
+    });
+    return next;
+  }
+  return value;
+};
+
 const pick = (arr, rnd) => arr[Math.min(arr.length - 1, Math.floor(rnd(0, arr.length)))];
 const paletteColor = (palette) => ({ rand: r }) => pick(palette, r);
 const sweepColor = ({ base = 0, spread = 180, sat = 100, light = 70, alpha = 0.85 }) => ({ hue, i }) => {
@@ -394,8 +408,26 @@ const TRAIL_STYLES = Object.freeze({
 
 export const TRAIL_STYLE_IDS = Object.freeze(Object.keys(TRAIL_STYLES));
 
+export function registerTrailStyles(styles = {}) {
+  if (!isPlainObject(styles)) return;
+  Object.entries(styles).forEach(([id, style]) => {
+    if (!id || !isPlainObject(style)) return;
+    CUSTOM_TRAIL_STYLES.set(id, cloneStyle(style));
+  });
+}
+
+export function clearCustomTrailStyles() {
+  CUSTOM_TRAIL_STYLES.clear();
+}
+
+export function getTrailStyleIds() {
+  return Array.from(new Set([...TRAIL_STYLE_IDS, ...CUSTOM_TRAIL_STYLES.keys()]));
+}
+
 export function trailStyleFor(id) {
-  const st = TRAIL_STYLES[id] || TRAIL_STYLES.classic;
+  const base = TRAIL_STYLES[id];
+  const custom = CUSTOM_TRAIL_STYLES.get(id);
+  const st = custom ? (base ? mergeStyle(base, custom) : custom) : base || TRAIL_STYLES.classic;
   const sparkle = st.sparkle || sparkleDefaults;
   const glint = st.glint || glintDefaults;
   return {
@@ -403,4 +435,18 @@ export function trailStyleFor(id) {
     sparkle: { ...sparkle },
     glint: { ...glint }
   };
+}
+
+function mergeStyle(base, override) {
+  if (!isPlainObject(override)) return base;
+  if (!isPlainObject(base)) return { ...override };
+  const merged = { ...base };
+  Object.entries(override).forEach(([key, value]) => {
+    if (isPlainObject(value) && isPlainObject(base[key])) {
+      merged[key] = mergeStyle(base[key], value);
+      return;
+    }
+    merged[key] = value;
+  });
+  return merged;
 }

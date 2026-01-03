@@ -128,14 +128,32 @@ export function resolveTrailStyleId(trail = {}, styleIds = []) {
   return styleIds[0] || "";
 }
 
+function stripFunctionPlaceholders(value) {
+  if (value === "[Function]" || typeof value === "function") return undefined;
+  if (Array.isArray(value)) {
+    const next = value
+      .map((entry) => stripFunctionPlaceholders(entry))
+      .filter((entry) => entry !== undefined);
+    return next;
+  }
+  if (!value || typeof value !== "object") return value;
+  const cleaned = {};
+  Object.entries(value).forEach(([key, entry]) => {
+    const next = stripFunctionPlaceholders(entry);
+    if (next === undefined) return;
+    cleaned[key] = next;
+  });
+  return cleaned;
+}
+
 export function parseStyleJson(raw, fallback = {}) {
-  if (typeof raw !== "string") return fallback;
+  if (typeof raw !== "string") return stripFunctionPlaceholders(fallback);
   try {
     const parsed = JSON.parse(raw);
-    if (!parsed || typeof parsed !== "object") return fallback;
-    return parsed;
+    if (!parsed || typeof parsed !== "object") return stripFunctionPlaceholders(fallback);
+    return stripFunctionPlaceholders(parsed);
   } catch {
-    return fallback;
+    return stripFunctionPlaceholders(fallback);
   }
 }
 

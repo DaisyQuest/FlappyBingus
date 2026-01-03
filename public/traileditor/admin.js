@@ -1,6 +1,6 @@
-import { DEFAULT_TRAILS } from "/js/trailProgression.js";
-import { TRAIL_STYLE_IDS, trailStyleFor } from "/js/trailStyles.js";
+import { clearCustomTrailStyles, getTrailStyleIds, registerTrailStyles, trailStyleFor } from "/js/trailStyles.js";
 import { getBestParticleEffects, getRoundTableAgents } from "/shared/particleLibrary.js";
+import { getCosmeticsConfig, saveCosmeticsConfig } from "/shared/adminCosmeticsApi.js";
 import { collectTrailDefinitions, createTrailCard } from "./modules/editor.js";
 
 const statusChip = document.getElementById("adminStatus");
@@ -10,10 +10,11 @@ const main = document.getElementById("trailMain");
 const metaText = document.getElementById("adminMeta");
 
 const state = {
+  cosmetics: {},
   trails: [],
   particleEffects: getBestParticleEffects(),
   agents: getRoundTableAgents(),
-  styleIds: [...TRAIL_STYLE_IDS]
+  styleIds: []
 };
 
 function setStatus(text, tone = "info") {
@@ -53,30 +54,6 @@ function createPanel(title, subtitle) {
   return { panel, actions };
 }
 
-function exportTrails(grid) {
-  const styleLookup = Object.fromEntries(state.styleIds.map((id) => [id, trailStyleFor(id)]));
-  const payload = collectTrailDefinitions(grid, { styleLookup });
-  const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement("a");
-  link.href = url;
-  link.download = "trail-editor.json";
-  link.click();
-  URL.revokeObjectURL(url);
-  setStatus("Exported trail JSON", "ok");
-}
-
-async function copyTrails(grid) {
-  const styleLookup = Object.fromEntries(state.styleIds.map((id) => [id, trailStyleFor(id)]));
-  const payload = JSON.stringify(collectTrailDefinitions(grid, { styleLookup }), null, 2);
-  if (navigator.clipboard?.writeText) {
-    await navigator.clipboard.writeText(payload);
-    setStatus("Copied trail JSON to clipboard", "ok");
-    return;
-  }
-  setStatus("Clipboard unavailable; use export instead", "error");
-}
-
 function renderTrailEditor() {
   clearMain();
   const { panel, actions } = createPanel(
@@ -85,15 +62,13 @@ function renderTrailEditor() {
   );
 
   const reloadBtn = document.createElement("button");
-  reloadBtn.textContent = "Reload defaults";
+  reloadBtn.textContent = "Reload";
   const addBtn = document.createElement("button");
   addBtn.textContent = "Add trail";
-  const copyBtn = document.createElement("button");
-  copyBtn.textContent = "Copy JSON";
-  const exportBtn = document.createElement("button");
-  exportBtn.textContent = "Export JSON";
-  exportBtn.className = "primary";
-  actions.append(reloadBtn, addBtn, copyBtn, exportBtn);
+  const saveBtn = document.createElement("button");
+  saveBtn.textContent = "Save";
+  saveBtn.className = "primary";
+  actions.append(reloadBtn, addBtn, saveBtn);
 
   const grid = document.createElement("div");
   grid.className = "editor-grid";
@@ -116,11 +91,7 @@ function renderTrailEditor() {
     });
   }
 
-  reloadBtn.addEventListener("click", () => {
-    state.trails = DEFAULT_TRAILS.map((trail) => ({ ...trail }));
-    refresh();
-    setStatus("Reloaded trail defaults", "ok");
-  });
+  reloadBtn.addEventListener("click", () => loadConfig());
 
   addBtn.addEventListener("click", () => {
     const blank = {
@@ -137,8 +108,26 @@ function renderTrailEditor() {
     }));
   });
 
-  copyBtn.addEventListener("click", () => copyTrails(grid));
-  exportBtn.addEventListener("click", () => exportTrails(grid));
+  saveBtn.addEventListener("click", async () => {
+    try {
+      setStatus("Saving trails…");
+      const payload = collectTrailDefinitions(grid, { styleLookup: styleMap() });
+      const icons = state.cosmetics?.icons ?? null;
+      const res = await saveCosmeticsConfig({ icons, trails: payload.trails, trailStyles: payload.styles });
+      const nextTrails = Array.isArray(res.catalog?.trails) ? res.catalog.trails : payload.trails;
+      const nextTrailStyles = res.catalog?.trailStyles || payload.styles || {};
+      state.cosmetics = { ...(state.cosmetics || {}), trails: nextTrails, trailStyles: nextTrailStyles };
+      clearCustomTrailStyles();
+      registerTrailStyles(nextTrailStyles);
+      state.styleIds = getTrailStyleIds();
+      state.trails = nextTrails.map((trail) => ({ ...trail }));
+      refresh();
+      setStatus("Trails saved", "ok");
+    } catch (err) {
+      console.error(err);
+      setStatus("Failed to save trails", "error");
+    }
+  });
 
   refresh();
 }
@@ -188,6 +177,22 @@ function renderParticleLibrary() {
   main.appendChild(panel);
 }
 
+async function loadConfig() {
+  setStatus("Loading trail configuration…");
+  const data = await getCosmeticsConfig();
+  state.cosmetics = data.cosmetics || {};
+  const fromConfig = Array.isArray(state.cosmetics.trails) ? state.cosmetics.trails : null;
+  const fromCatalog = Array.isArray(data.catalog?.trails) ? data.catalog.trails : [];
+  const trailStyles = state.cosmetics?.trailStyles || data.catalog?.trailStyles || {};
+  clearCustomTrailStyles();
+  registerTrailStyles(trailStyles);
+  state.styleIds = getTrailStyleIds();
+  state.trails = (fromConfig || fromCatalog).map((trail) => ({ ...trail }));
+  setStatus("Trail editor ready", "ok");
+  setMeta(`Config updated ${new Date(data.meta?.lastLoadedAt || Date.now()).toLocaleString()}`);
+  renderTrailEditor();
+}
+
 function renderNav() {
   const items = [
     { id: "trails", label: "Trails", render: renderTrailEditor },
@@ -209,12 +214,8 @@ function renderNav() {
   if (first) first.classList.add("active");
 }
 
-function loadDefaults() {
-  state.trails = DEFAULT_TRAILS.map((trail) => ({ ...trail }));
-  setStatus("Trail editor ready", "ok");
-  setMeta(`Loaded ${state.trails.length} trails · ${new Date().toLocaleString()}`);
-}
-
 renderNav();
-loadDefaults();
-renderTrailEditor();
+loadConfig().catch((err) => {
+  console.error(err);
+  setStatus("Failed to load trails", "error");
+});
