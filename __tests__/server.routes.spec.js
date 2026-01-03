@@ -951,6 +951,29 @@ describe("server routes and helpers", () => {
     expect(payload.defaults.length).toBeGreaterThan(0);
   });
 
+  it("keeps valid icon overrides even when some overrides are invalid", async () => {
+    const { server } = await importServer({
+      gameConfigStoreOverrides: {
+        getConfig: vi.fn(() => ({
+          iconStyles: {
+            overrides: {
+              good_icon: { name: "Good Icon", style: { fill: "#123456" } },
+              bad_icon: { style: { pattern: { type: "unknown" } } }
+            }
+          }
+        }))
+      }
+    });
+    const res = createRes();
+    await server.route(
+      createReq({ method: "GET", url: "/api/me", headers: { cookie: buildSessionCookie(server, "PlayerOne") } }),
+      res
+    );
+    const payload = readJson(res);
+    expect(res.status).toBe(200);
+    expect(payload.icons.some((icon) => icon.id === "good_icon")).toBe(true);
+  });
+
   it("rejects invalid admin icon style payloads", async () => {
     const { server } = await importServer({
       gameConfigStoreOverrides: {

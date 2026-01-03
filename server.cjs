@@ -564,8 +564,7 @@ function getTrailDefinitions(overrides = getTrailStyleOverrides()) {
 function getIconDefinitions() {
   const overrides = getIconStyleOverrides();
   const normalized = normalizeIconStyleOverrides({ overrides });
-  const safeOverrides = normalized.ok ? normalized.overrides : {};
-  return applyIconStyleOverrides({ icons: ICONS_BASE, overrides: safeOverrides });
+  return applyIconStyleOverrides({ icons: ICONS_BASE, overrides: normalized.overrides });
 }
 
 function getResolvedUnlockables() {
