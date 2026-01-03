@@ -288,6 +288,21 @@ describe("server routes and helpers", () => {
     expect(res.body).toContain("<title>Replay Browser</title>");
   });
 
+  it("serves the endpoint browser page with page links and api entries", async () => {
+    const { server } = await importServer();
+    const res = createRes();
+
+    await server.route(createReq({ method: "GET", url: "/endpointBrowser" }), res);
+
+    expect(res.status).toBe(200);
+    expect(res.headers["Content-Type"]).toContain("text/html");
+    expect(res.body).toContain("<title>Endpoint Browser</title>");
+    expect(res.body).toContain('data-endpoint="/api/run/best"');
+    expect(res.body).toContain('data-endpoint="/endpointBrowser"');
+    expect(res.body).toContain('href="/highscores"');
+    expect(res.body).toContain('href="/trail_previews?format=html"');
+  });
+
   it("serves a player card JPEG for a valid username", async () => {
     const { server } = await importServer({
       getBestRunByUsername: vi.fn(async () => ({

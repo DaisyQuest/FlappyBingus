@@ -182,6 +182,200 @@ const DEFAULT_SETTINGS = Object.freeze({
   reducedEffects: false
 });
 
+const ENDPOINT_GROUPS = Object.freeze([
+  {
+    id: "pages",
+    title: "Pages & Experiences",
+    description: "Human-friendly views and dashboards rendered by the server.",
+    endpoints: [
+      {
+        path: "/",
+        methods: ["GET"],
+        summary: "Main game client served from the public directory.",
+        page: true,
+        link: "/"
+      },
+      {
+        path: "/endpointBrowser",
+        methods: ["GET"],
+        summary: "Curated directory of every public endpoint.",
+        page: true,
+        link: "/endpointBrowser"
+      },
+      {
+        path: "/highscores",
+        methods: ["GET"],
+        summary: "HTML leaderboard view.",
+        page: true,
+        link: "/highscores"
+      },
+      {
+        path: "/status",
+        methods: ["GET"],
+        summary: "Live server + database status dashboard.",
+        page: true,
+        link: "/status"
+      },
+      {
+        path: "/replayBrowser",
+        methods: ["GET"],
+        summary: "Replay browser interface.",
+        page: true,
+        link: "/replayBrowser"
+      },
+      {
+        path: "/trail_previews",
+        methods: ["GET"],
+        summary: "Trail preview gallery (HTML when requested).",
+        page: true,
+        link: "/trail_previews?format=html"
+      },
+      {
+        path: "/unlockables",
+        methods: ["GET"],
+        summary: "Unlockables catalog (HTML when requested).",
+        page: true,
+        link: "/unlockables?format=html"
+      },
+      {
+        path: "/bigflappin",
+        methods: ["GET"],
+        summary: "Admin UI from the public bundle.",
+        page: true,
+        link: "/bigflappin"
+      }
+    ]
+  },
+  {
+    id: "identity",
+    title: "Identity & Session APIs",
+    description: "Session bootstrapping and current-user data.",
+    endpoints: [
+      {
+        path: "/api/me",
+        methods: ["GET"],
+        summary: "Returns the current player session payload."
+      },
+      {
+        path: "/api/register",
+        methods: ["POST"],
+        summary: "Register or log in with a username."
+      }
+    ]
+  },
+  {
+    id: "scores",
+    title: "Scores & Runs APIs",
+    description: "Submit runs, load replays, and query leaderboards.",
+    endpoints: [
+      {
+        path: "/api/score",
+        methods: ["POST"],
+        summary: "Submit a score and progression updates."
+      },
+      {
+        path: "/api/run/best",
+        methods: ["GET", "POST"],
+        summary: "Fetch or upload the best run for a player."
+      },
+      {
+        path: "/api/replays",
+        methods: ["GET"],
+        summary: "List stored best-run replay metadata."
+      },
+      {
+        path: "/playerCard",
+        methods: ["GET"],
+        summary: "Render a JPEG player card from replay data."
+      },
+      {
+        path: "/api/highscores",
+        methods: ["GET"],
+        summary: "JSON highscores feed."
+      },
+      {
+        path: "/api/stats",
+        methods: ["GET"],
+        summary: "Aggregate run statistics."
+      }
+    ]
+  },
+  {
+    id: "cosmetics",
+    title: "Cosmetics & Settings APIs",
+    description: "Select cosmetics, spend currency, and update settings.",
+    endpoints: [
+      {
+        path: "/api/cosmetics/trail",
+        methods: ["POST"],
+        summary: "Select the active trail cosmetic."
+      },
+      {
+        path: "/api/cosmetics/icon",
+        methods: ["POST"],
+        summary: "Select the active player icon."
+      },
+      {
+        path: "/api/cosmetics/pipe_texture",
+        methods: ["POST"],
+        summary: "Select the active pipe texture."
+      },
+      {
+        path: "/api/shop/purchase",
+        methods: ["POST"],
+        summary: "Purchase a cosmetic unlockable."
+      },
+      {
+        path: "/api/binds",
+        methods: ["POST"],
+        summary: "Update keybind settings."
+      },
+      {
+        path: "/api/settings",
+        methods: ["POST"],
+        summary: "Update player accessibility and effect settings."
+      }
+    ]
+  },
+  {
+    id: "admin",
+    title: "Admin & Config APIs",
+    description: "Config and content-management endpoints.",
+    endpoints: [
+      {
+        path: "/api/admin/config",
+        methods: ["GET", "PUT"],
+        summary: "Read or update server configuration."
+      },
+      {
+        path: "/api/admin/game-config",
+        methods: ["GET", "PUT"],
+        summary: "Read or update game configuration."
+      },
+      {
+        path: "/api/admin/unlockables",
+        methods: ["GET"],
+        summary: "Fetch unlockable definitions."
+      },
+      {
+        path: "/api/admin/collections",
+        methods: ["GET"],
+        summary: "List available database collections."
+      },
+      {
+        path: "/api/admin/collections/:collection",
+        methods: ["GET", "POST"],
+        summary: "List or insert documents in a collection."
+      },
+      {
+        path: "/api/admin/collections/:collection/:docId",
+        methods: ["GET", "PUT"],
+        summary: "Fetch or replace a document by ID."
+      }
+    ]
+  }
+]);
+
 const TRAILS = Object.freeze([
   { id: "classic", name: "Classic", minScore: 0, achievementId: "trail_classic_1", alwaysUnlocked: true },
   { id: "ember", name: "Ember Core", minScore: 100, achievementId: "trail_ember_100" },
@@ -1198,6 +1392,210 @@ function renderStatusPage(status) {
 </html>`;
 }
 
+function renderEndpointBrowserPage(groups) {
+  const sections = groups
+    .map((group) => {
+      const cards = group.endpoints
+        .map((endpoint) => {
+          const methods = endpoint.methods
+            .map((method) => `<span class="method method-${method.toLowerCase()}">${escapeHtml(method)}</span>`)
+            .join("");
+          const summary = endpoint.summary ? `<p>${escapeHtml(endpoint.summary)}</p>` : "";
+          const link =
+            endpoint.page && endpoint.link
+              ? `<a class="endpoint-link" href="${escapeHtml(endpoint.link)}">Open ${escapeHtml(endpoint.path)}</a>`
+              : "";
+          return `<article class="endpoint-card" data-endpoint="${escapeHtml(endpoint.path)}">
+              <div class="endpoint-heading">
+                <div class="endpoint-path">${escapeHtml(endpoint.path)}</div>
+                <div class="endpoint-methods">${methods}</div>
+              </div>
+              ${summary}
+              ${link}
+            </article>`;
+        })
+        .join("");
+
+      return `<section class="endpoint-section" data-group="${escapeHtml(group.id)}">
+          <header>
+            <h2>${escapeHtml(group.title)}</h2>
+            <p>${escapeHtml(group.description)}</p>
+          </header>
+          <div class="endpoint-grid">
+            ${cards}
+          </div>
+        </section>`;
+    })
+    .join("");
+
+  return `<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>Endpoint Browser</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #060912;
+      --bg-alt: #0e1526;
+      --card: rgba(16, 24, 42, 0.9);
+      --card-border: rgba(255, 255, 255, 0.08);
+      --accent: #7cf6ff;
+      --accent-2: #b37cff;
+      --text: #e2e8f0;
+      --muted: #94a3b8;
+      --glow: 0 0 20px rgba(124, 246, 255, 0.25);
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: "Inter", "Segoe UI", system-ui, -apple-system, sans-serif;
+      background: radial-gradient(circle at top, #1a2340, var(--bg) 55%);
+      color: var(--text);
+    }
+    header.hero {
+      padding: 48px 24px 32px;
+      text-align: center;
+      background: linear-gradient(135deg, rgba(124, 246, 255, 0.15), rgba(179, 124, 255, 0.1));
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    }
+    header.hero h1 {
+      margin: 0 0 12px;
+      font-size: clamp(2rem, 4vw, 3rem);
+      text-shadow: var(--glow);
+    }
+    header.hero p {
+      margin: 0 auto;
+      max-width: 720px;
+      color: var(--muted);
+      font-size: 1rem;
+    }
+    .hero-actions {
+      margin-top: 24px;
+      display: flex;
+      justify-content: center;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+    .hero-actions a {
+      text-decoration: none;
+      padding: 10px 16px;
+      border-radius: 999px;
+      border: 1px solid rgba(255, 255, 255, 0.18);
+      background: rgba(8, 12, 24, 0.8);
+      color: var(--text);
+      transition: transform 0.2s ease, border-color 0.2s ease;
+    }
+    .hero-actions a:hover {
+      transform: translateY(-1px);
+      border-color: var(--accent);
+    }
+    main {
+      padding: 32px 20px 64px;
+      max-width: 1100px;
+      margin: 0 auto;
+    }
+    .endpoint-section {
+      margin-bottom: 40px;
+    }
+    .endpoint-section header h2 {
+      margin: 0 0 8px;
+      font-size: 1.6rem;
+    }
+    .endpoint-section header p {
+      margin: 0;
+      color: var(--muted);
+    }
+    .endpoint-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: 16px;
+      margin-top: 18px;
+    }
+    .endpoint-card {
+      padding: 16px;
+      border-radius: 16px;
+      background: var(--card);
+      border: 1px solid var(--card-border);
+      box-shadow: 0 10px 30px rgba(8, 12, 24, 0.45);
+    }
+    .endpoint-heading {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      align-items: center;
+      margin-bottom: 12px;
+    }
+    .endpoint-path {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+      font-size: 0.95rem;
+      color: var(--accent);
+    }
+    .endpoint-methods {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+    .method {
+      padding: 2px 8px;
+      border-radius: 999px;
+      font-size: 0.7rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      font-weight: 700;
+      border: 1px solid transparent;
+    }
+    .method-get { background: rgba(80, 200, 120, 0.15); color: #86efac; border-color: rgba(134, 239, 172, 0.4); }
+    .method-post { background: rgba(255, 191, 71, 0.15); color: #fde68a; border-color: rgba(253, 230, 138, 0.35); }
+    .method-put { background: rgba(129, 140, 248, 0.2); color: #c7d2fe; border-color: rgba(199, 210, 254, 0.3); }
+    .endpoint-card p {
+      margin: 0 0 14px;
+      color: var(--muted);
+      font-size: 0.9rem;
+    }
+    .endpoint-link {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      text-decoration: none;
+      color: var(--text);
+      padding: 8px 12px;
+      border-radius: 12px;
+      border: 1px solid rgba(124, 246, 255, 0.4);
+      background: rgba(124, 246, 255, 0.08);
+      transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+    .endpoint-link:hover {
+      transform: translateY(-1px);
+      box-shadow: var(--glow);
+    }
+    footer {
+      text-align: center;
+      color: var(--muted);
+      padding-top: 20px;
+      font-size: 0.85rem;
+    }
+  </style>
+</head>
+<body>
+  <header class="hero">
+    <h1>Endpoint Browser</h1>
+    <p>Every public route at your fingertips—crafted for quick discovery, testing, and sharing.</p>
+    <div class="hero-actions">
+      <a href="/">Back to game</a>
+      <a href="/highscores">Highscores</a>
+      <a href="/status">Status</a>
+    </div>
+  </header>
+  <main>
+    ${sections}
+    <footer>Tip: API endpoints expect JSON and are rate limited. Page endpoints are safe to click.</footer>
+  </main>
+</body>
+</html>`;
+}
+
 // --------- Static serving ----------
 async function serveStatic(reqPath, res) {
   // Serve engine modules for browser imports (for headless bridge + parity tests)
@@ -1873,6 +2271,11 @@ async function route(req, res) {
     } catch (err) {
       sendJson(res, 404, { ok: false, error: "replay_browser_not_found", detail: err?.message || String(err) });
     }
+    return;
+  }
+
+  if (pathname === "/endpointBrowser" && req.method === "GET") {
+    sendHtml(res, 200, renderEndpointBrowserPage(ENDPOINT_GROUPS));
     return;
   }
 
