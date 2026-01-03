@@ -56,8 +56,8 @@ const TRAIL_DISTANCE_SCALE = 1.18;
 const TRAIL_JITTER_SCALE = 0.55;
 const TRAIL_AURA_RATE = 0.42;
 const COMBO_WINDOW_BASE = 10;
-const COMBO_WINDOW_MIN = 4;
-const COMBO_WINDOW_DECAY = 0.35;
+const COMBO_WINDOW_MIN = 5;
+const COMBO_WINDOW_DECAY = 5 / 39;
 const SIMPLE_PARTICLE_SCALE = 0.5;
 const REDUCED_PARTICLE_SCALE = 0.35;
 
@@ -1615,8 +1615,7 @@ export class Game {
       if (circleCircle(this.player.x, this.player.y, this.player.r, ob.x, ob.y, ob.r)) {
         this.orbs.splice(i, 1);
 
-        const maxC = Math.max(1, Number(this.cfg.scoring.orbComboMax) || 30);
-        this.combo = Math.min(maxC, this.combo + 1);
+        this.combo += 1;
         this._recordOrbCombo(this.combo);
         this.bustercoinsEarned = (this.bustercoinsEarned || 0) + 1;
         this.comboTimer = this.getComboWindow(this.combo);
@@ -1963,7 +1962,7 @@ _drawOrb(o) {
   _comboAuraState() {
     const combo = Math.max(0, this.combo | 0);
     if (combo <= 0) return null;
-    const comboMax = Math.max(1, Number(this.cfg.scoring.orbComboMax) || 30, COMBO_AURA_THRESHOLDS.flameAt);
+    const comboMax = Math.max(1, COMBO_AURA_THRESHOLDS.flameAt, combo);
     const comboWindow = this.getComboWindow(combo);
     const timerRatio = comboWindow > 0 ? clamp(this.comboTimer / comboWindow, 0, 1) : 0;
     return buildComboAuraStyle({ combo, comboMax, timerRatio });

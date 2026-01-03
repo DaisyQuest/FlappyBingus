@@ -467,6 +467,13 @@ describe("Combo timer logic", () => {
     expect(game.getComboWindow(1)).toBe(10);
   });
 
+  it("scales the combo window down to a 5s floor", () => {
+    const { game } = buildGame();
+    expect(game.getComboWindow(20)).toBeCloseTo(7.56, 2);
+    expect(game.getComboWindow(40)).toBeCloseTo(5, 5);
+    expect(game.getComboWindow(80)).toBeCloseTo(5, 5);
+  });
+
   it("resets combo timer on orb pickup", () => {
     const { game } = buildGame();
     stabilizeRun(game);
@@ -535,6 +542,17 @@ describe("Combo timer logic", () => {
     expect(game.comboTimer).toBeCloseTo(game.getComboWindow(2), 5);
   });
 
+  it("does not cap orb combos when config orbComboMax is low", () => {
+    const { game } = buildGame({ scoring: { orbComboMax: 2 } });
+    stabilizeRun(game);
+    game.orbs = [orbStub(), orbStub({ x: 12, y: 12 }), orbStub({ x: 11, y: 11 })];
+
+    game.update(0.1);
+
+    expect(game.combo).toBe(3);
+    expect(game.runStats.maxOrbCombo).toBe(3);
+  });
+
   it("lets pickups at timer zero save the combo", () => {
     const { game } = buildGame();
     stabilizeRun(game);
@@ -577,6 +595,8 @@ describe("Combo timer logic", () => {
     game.comboTimer = game.getComboWindow(35);
     const flaming = game._comboAuraState();
     expect(flaming?.flame).toBeGreaterThan(0);
+    expect(flaming?.comboMax).toBeGreaterThanOrEqual(35);
+    expect(flaming?.fill).toBeCloseTo(1, 5);
   });
 });
 
