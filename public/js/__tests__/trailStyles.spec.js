@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { TRAIL_STYLE_IDS, trailStyleFor } from "../trailStyles.js";
+import {
+  TRAIL_STYLE_IDS,
+  clearCustomTrailStyles,
+  getTrailStyleIds,
+  registerTrailStyles,
+  trailStyleFor
+} from "../trailStyles.js";
 
 const hueFromHsla = (color) => Number(color.match(/hsla\(([^,]+)/)?.[1]);
 
@@ -149,5 +155,22 @@ describe("trailStyles", () => {
     expect(honey.hexStyle?.stroke).toContain("rgba");
     expect(honey.sparkle.particleShape).toBe("hexagon");
     expect(honey.glint.particleShape).toBe("hexagon");
+  });
+
+  it("registers custom trail styles and merges ids", () => {
+    clearCustomTrailStyles();
+    registerTrailStyles({
+      custom_trail: { rate: 12, sparkle: { rate: 0 } },
+      classic: { rate: 96, sparkle: { rate: 1 } }
+    });
+    expect(getTrailStyleIds()).toContain("custom_trail");
+    const custom = trailStyleFor("custom_trail");
+    expect(custom.rate).toBe(12);
+    const classic = trailStyleFor("classic");
+    expect(classic.rate).toBe(96);
+    expect(typeof classic.color).toBe("function");
+    expect(classic.sparkle.rate).toBe(1);
+    clearCustomTrailStyles();
+    expect(getTrailStyleIds()).not.toContain("custom_trail");
   });
 });

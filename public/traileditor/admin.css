@@ -1,0 +1,106 @@
+.editor-grid {
+  display: grid;
+  gap: 16px;
+}
+
+.editor-card {
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 14px;
+  padding: 16px;
+  background: rgba(15, 23, 42, 0.4);
+  display: grid;
+  gap: 12px;
+}
+
+.editor-card header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+
+.editor-form {
+  display: grid;
+  gap: 12px;
+}
+
+.editor-form .field-row {
+  display: grid;
+  gap: 8px;
+}
+
+.editor-form label {
+  font-weight: 700;
+  font-size: 12px;
+  letter-spacing: 0.2px;
+  text-transform: uppercase;
+}
+
+.editor-form input,
+.editor-form textarea,
+.editor-form select {
+  width: 100%;
+  padding: 8px 10px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(15, 23, 42, 0.7);
+  color: inherit;
+}
+
+.field-grid {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+}
+
+.style-textarea {
+  min-height: 200px;
+  font-family: "SFMono-Regular", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 12px;
+}
+
+.particle-grid {
+  display: grid;
+  gap: 8px;
+}
+
+.particle-entry {
+  display: grid;
+  grid-template-columns: 1fr 80px;
+  gap: 8px;
+  align-items: center;
+}
+
+.particle-total {
+  font-size: 12px;
+  opacity: 0.7;
+}
+
+.agent-grid {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+}
+
+.agent-card {
+  border-radius: 12px;
+  padding: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(15, 23, 42, 0.35);
+  display: grid;
+  gap: 6px;
+}
+
+.effect-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.effect-pill {
+  padding: 4px 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  font-size: 12px;
+  background: rgba(15, 23, 42, 0.5);
+}
