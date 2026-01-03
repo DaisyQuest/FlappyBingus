@@ -20,18 +20,13 @@ const duskColor = ({ rand: r, i }) => hsla((335 + r(-12, 12) + i * 1.1) % 360, 6
 const haloColor = ({ hue, rand: r }) => hsla((hue + r(-12, 12)) % 360, 92, 76, 0.48);
 const cometColor = ({ hue, rand: r }) => hsla((hue + r(-24, 24)) % 360, 100, 70, 0.9);
 const prismColor = ({ hue, i }) => hsla((hue + i * 18) % 360, 100, 70, 0.88);
-const NYAN_RAINBOW = Object.freeze([
-  [255, 60, 68],
-  [255, 148, 66],
-  [255, 230, 96],
-  [120, 248, 138],
-  [88, 210, 255],
-  [92, 140, 255]
-]);
-const clampChannel = (value) => Math.max(0, Math.min(255, Math.round(value)));
-const nyanRibbonColor = ({ i }) => {
-  const [red, green, blue] = NYAN_RAINBOW[i % NYAN_RAINBOW.length];
-  return `rgba(${clampChannel(red)}, ${clampChannel(green)}, ${clampChannel(blue)}, 0.96)`;
+const PRISMATIC_HUE_STEP = 180 / 7;
+const PRISMATIC_RIBBON_HUES = Object.freeze(
+  Array.from({ length: 7 }, (_, idx) => Number((idx * PRISMATIC_HUE_STEP).toFixed(4)))
+);
+const prismaticRibbonColor = ({ i }) => {
+  const hue = PRISMATIC_RIBBON_HUES[i % PRISMATIC_RIBBON_HUES.length];
+  return hsla(hue, 100, 68, 0.96);
 };
 const nebulaSmoke = ({ hue, rand: r }) => hsla((hue + r(-30, 30)) % 360, 64, 64, 0.55);
 const starGlow = ({ rand: r, i }) => hsla((52 + r(-18, 18) + i * 2) % 360, 96, 86, 0.9);
@@ -164,22 +159,22 @@ const TRAIL_STYLES = Object.freeze({
     aura: { rate: 30, size: [4.6, 9.2], life: [0.6, 0.9], color: haloColor }
   },
   rainbow: {
-    rate: 120,
-    life: [0.32, 0.54],
-    size: [4.6, 6.6],
-    speed: [16, 96],
-    drag: 11.4,
+    rate: 168,
+    life: [0.36, 0.62],
+    size: [6.2, 9.6],
+    speed: [18, 104],
+    drag: 11.8,
     add: false,
     jitterScale: 0.02,
     particleShape: "pixel",
     banding: {
-      count: NYAN_RAINBOW.length,
+      count: PRISMATIC_RIBBON_HUES.length,
       spreadScale: 1.05,
       jitterScale: 0
     },
-    color: nyanRibbonColor,
-    sparkle: { ...sparkleDefaults, rate: 0, add: false, color: nyanRibbonColor },
-    glint: { ...glintDefaults, rate: 0, add: false, color: nyanRibbonColor }
+    color: prismaticRibbonColor,
+    sparkle: { ...sparkleDefaults, rate: 0, add: false, color: prismaticRibbonColor },
+    glint: { ...glintDefaults, rate: 0, add: false, color: prismaticRibbonColor }
   },
   solar: {
     rate: 96,

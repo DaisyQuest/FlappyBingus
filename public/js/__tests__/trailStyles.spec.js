@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { TRAIL_STYLE_IDS, trailStyleFor } from "../trailStyles.js";
 
+const hueFromHsla = (color) => Number(color.match(/hsla\(([^,]+)/)?.[1]);
+
 describe("trailStyles", () => {
   it("falls back to the classic style when the id is unknown", () => {
     const classic = trailStyleFor("classic");
@@ -64,10 +66,16 @@ describe("trailStyles", () => {
 
     const rainbow = trailStyleFor("rainbow");
     const fixedRand = () => 0;
-    expect(rainbow.color({ rand: fixedRand, hue: 0, i: 0 })).toBe("rgba(255, 60, 68, 0.96)");
-    expect(rainbow.color({ rand: fixedRand, hue: 0, i: 1 })).toBe("rgba(255, 148, 66, 0.96)");
-    expect(rainbow.color({ rand: fixedRand, hue: 0, i: 2 })).toBe("rgba(255, 230, 96, 0.96)");
-    expect(rainbow.rate).toBeLessThanOrEqual(130);
+    const hues = Array.from({ length: 7 }, (_, idx) => hueFromHsla(rainbow.color({ rand: fixedRand, hue: 0, i: idx })));
+    expect(hues[0]).toBeCloseTo(0, 4);
+    expect(hues[1]).toBeCloseTo(180 / 7, 4);
+    expect(hues[2]).toBeCloseTo((180 / 7) * 2, 4);
+    expect(hues[6]).toBeCloseTo((180 / 7) * 6, 4);
+    expect(hueFromHsla(rainbow.color({ rand: fixedRand, hue: 0, i: 7 }))).toBeCloseTo(hues[0], 4);
+    expect(rainbow.color({ rand: fixedRand, hue: 0, i: 0 })).toContain("hsla(");
+    expect(rainbow.banding?.count).toBe(7);
+    expect(rainbow.rate).toBeGreaterThanOrEqual(150);
+    expect(rainbow.size[0]).toBeGreaterThanOrEqual(6);
     expect(rainbow.jitterScale).toBeLessThanOrEqual(0.02);
     expect(rainbow.banding?.spreadScale).toBeGreaterThanOrEqual(1);
     expect(rainbow.banding?.jitterScale).toBe(0);
