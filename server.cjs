@@ -61,6 +61,7 @@ const {
   normalizeUnlockableOverrides,
   applyUnlockableOverrides
 } = require("./services/unlockableOverrides.cjs");
+const { normalizeTrailStyleOverrides } = require("./services/trailStyleOverrides.cjs");
 const {
   DEFAULT_CURRENCY_ID,
   normalizeCurrencyWallet,
@@ -234,6 +235,13 @@ const ENDPOINT_GROUPS = Object.freeze([
         link: "/achievementeditor"
       },
       {
+        path: "/traileditor",
+        methods: ["GET"],
+        summary: "Admin tool for editing trail particles and trail style definitions.",
+        page: true,
+        link: "/traileditor"
+      },
+      {
         path: "/replayBrowser",
         methods: ["GET"],
         summary: "Replay browser interface.",
@@ -351,6 +359,11 @@ const ENDPOINT_GROUPS = Object.freeze([
         path: "/api/settings",
         methods: ["POST"],
         summary: "Update player accessibility and effect settings."
+      },
+      {
+        path: "/api/trail-styles",
+        methods: ["GET"],
+        summary: "Fetch runtime trail style overrides."
       }
     ]
   },
@@ -378,6 +391,11 @@ const ENDPOINT_GROUPS = Object.freeze([
         path: "/api/admin/achievements",
         methods: ["GET", "PUT"],
         summary: "Read or update achievement definitions and unlockable mappings."
+      },
+      {
+        path: "/api/admin/trail-styles",
+        methods: ["GET", "PUT"],
+        summary: "Read or update trail style overrides."
       },
       {
         path: "/api/admin/collections",
@@ -480,6 +498,12 @@ function getUnlockableOverrides() {
   const cfg = getServerConfig();
   const normalized = normalizeUnlockableOverrides(cfg?.unlockableOverrides, { allowedIdsByType: UNLOCKABLE_IDS });
   return normalized.overrides;
+}
+
+function getTrailStyleOverrides() {
+  const cfg = gameConfigStore?.getConfig?.() || {};
+  const overrides = cfg?.trailStyles?.overrides;
+  return overrides && typeof overrides === "object" ? overrides : {};
 }
 
 function getResolvedUnlockables() {
@@ -2206,6 +2230,11 @@ async function route(req, res) {
     return;
   }
 
+  if (pathname === "/api/trail-styles" && req.method === "GET") {
+    sendJson(res, 200, { ok: true, overrides: getTrailStyleOverrides() });
+    return;
+  }
+
   if (pathname === "/api/admin/config") {
     if (req.method === "GET") {
       const config = getServerConfig();
@@ -2245,6 +2274,45 @@ async function route(req, res) {
         sendJson(res, 200, { ok: true, config: saved, path: GAME_CONFIG_PATH, meta: gameConfigStore.getMeta() });
       } catch (err) {
         sendJson(res, 500, { ok: false, error: "game_config_write_failed", detail: err?.message || String(err) });
+      }
+      return;
+    }
+  }
+
+  if (pathname === "/api/admin/trail-styles") {
+    if (req.method === "GET") {
+      sendJson(res, 200, { ok: true, overrides: getTrailStyleOverrides(), meta: gameConfigStore.getMeta() });
+      return;
+    }
+    if (req.method === "PUT") {
+      let body;
+      try {
+        body = await readJsonBody(req);
+      } catch {
+        return badRequest(res, "invalid_json");
+      }
+      const overridesPayload = body?.overrides ?? body?.trailStyles?.overrides ?? body;
+      const result = normalizeTrailStyleOverrides({ overrides: overridesPayload });
+      if (!result.ok) {
+        return sendJson(res, 400, { ok: false, error: "invalid_trail_style_overrides", details: result.errors });
+      }
+      const current = gameConfigStore.getConfig();
+      const nextConfig = {
+        ...(current || {}),
+        trailStyles: {
+          ...(current?.trailStyles || {}),
+          overrides: result.overrides
+        }
+      };
+      try {
+        const saved = await gameConfigStore.save(nextConfig);
+        sendJson(res, 200, {
+          ok: true,
+          overrides: saved?.trailStyles?.overrides || {},
+          meta: gameConfigStore.getMeta()
+        });
+      } catch (err) {
+        sendJson(res, 500, { ok: false, error: "trail_style_write_failed", detail: err?.message || String(err) });
       }
       return;
     }
@@ -2385,6 +2453,16 @@ async function route(req, res) {
       sendHtml(res, 200, html);
     } catch (err) {
       sendJson(res, 404, { ok: false, error: "achievement_editor_not_found", detail: err?.message || String(err) });
+    }
+    return;
+  }
+
+  if (pathname === "/traileditor" && req.method === "GET") {
+    try {
+      const html = await fs.readFile(path.join(PUBLIC_DIR, "traileditor", "index.html"), "utf8");
+      sendHtml(res, 200, html);
+    } catch (err) {
+      sendJson(res, 404, { ok: false, error: "trail_editor_not_found", detail: err?.message || String(err) });
     }
     return;
   }

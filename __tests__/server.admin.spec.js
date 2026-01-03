@@ -118,6 +118,70 @@ describe("admin routes", () => {
     expect(gameConfigStore.save).toHaveBeenCalledWith({ scoring: { pipeDodge: 2 } });
   });
 
+  it("reads and writes trail style overrides through the game config store", async () => {
+    const { server, gameConfigStore } = await importServer({
+      gameConfigStoreOverrides: {
+        getConfig: vi.fn(() => ({
+          trailStyles: { overrides: { classic: { rate: 10 } } }
+        })),
+        save: vi.fn(async (config) => config)
+      }
+    });
+
+    const getRes = createRes();
+    await server.route(createReq({ method: "GET", url: "/api/admin/trail-styles" }), getRes);
+    expect(getRes.status).toBe(200);
+    expect(readJson(getRes).overrides.classic.rate).toBe(10);
+
+    const putRes = createRes();
+    await server.route(
+      createReq({
+        method: "PUT",
+        url: "/api/admin/trail-styles",
+        body: JSON.stringify({ overrides: { classic: { rate: 12 } } })
+      }),
+      putRes
+    );
+    expect(putRes.status).toBe(200);
+    expect(gameConfigStore.save).toHaveBeenCalledWith(
+      expect.objectContaining({
+        trailStyles: expect.objectContaining({
+          overrides: { classic: { rate: 12 } }
+        })
+      })
+    );
+  });
+
+  it("rejects invalid trail style overrides payloads", async () => {
+    const { server } = await importServer();
+    const putRes = createRes();
+    await server.route(
+      createReq({
+        method: "PUT",
+        url: "/api/admin/trail-styles",
+        body: JSON.stringify({ overrides: { classic: { particleShape: "blob" } } })
+      }),
+      putRes
+    );
+    expect(putRes.status).toBe(400);
+    expect(readJson(putRes).error).toBe("invalid_trail_style_overrides");
+  });
+
+  it("exposes trail style overrides for runtime clients", async () => {
+    const { server } = await importServer({
+      gameConfigStoreOverrides: {
+        getConfig: vi.fn(() => ({
+          trailStyles: { overrides: { classic: { rate: 9 } } }
+        }))
+      }
+    });
+
+    const getRes = createRes();
+    await server.route(createReq({ method: "GET", url: "/api/trail-styles" }), getRes);
+    expect(getRes.status).toBe(200);
+    expect(readJson(getRes).overrides.classic.rate).toBe(9);
+  });
+
   it("persists player config changes via the game config store", async () => {
     const { server, gameConfigStore } = await importServer();
 

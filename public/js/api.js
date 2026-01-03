@@ -13,6 +13,7 @@ const CLIENT_RATE_LIMITS = Object.freeze({
   "/api/settings": { limit: 8, windowMs: 10_000 },
   "/api/highscores": { limit: 10, windowMs: 5_000 },
   "/api/stats": { limit: 10, windowMs: 10_000 },
+  "/api/trail-styles": { limit: 6, windowMs: 10_000 },
   "/trail_previews": { limit: 4, windowMs: 5_000 }
 });
 
@@ -179,6 +180,11 @@ export async function apiGetHighscores(limit = 20) {
 export async function apiGetStats() {
   if (hitClientRateLimit("/api/stats")) return null;
   return requestJson("/api/stats", { method: "GET" });
+}
+
+export async function apiGetTrailStyles() {
+  if (hitClientRateLimit("/api/trail-styles")) return null;
+  return requestJson("/api/trail-styles", { method: "GET" });
 }
 
 export async function apiGetTrailPreviews() {

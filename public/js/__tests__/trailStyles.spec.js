@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { TRAIL_STYLE_IDS, trailStyleFor } from "../trailStyles.js";
+import { TRAIL_STYLE_IDS, setTrailStyleOverrides, trailStyleFor } from "../trailStyles.js";
 
 const hueFromHsla = (color) => Number(color.match(/hsla\(([^,]+)/)?.[1]);
 
@@ -149,5 +149,34 @@ describe("trailStyles", () => {
     expect(honey.hexStyle?.stroke).toContain("rgba");
     expect(honey.sparkle.particleShape).toBe("hexagon");
     expect(honey.glint.particleShape).toBe("hexagon");
+  });
+
+  it("applies trail style overrides with extra particle groups", () => {
+    const res = setTrailStyleOverrides({
+      classic: {
+        rate: 12,
+        color: "#ffdd55",
+        sparkle: { rate: 0 },
+        extras: [
+          {
+            mode: "sparkle",
+            rate: 4,
+            particleShape: "star",
+            color: ["#ffffff", "#ffeeaa"]
+          }
+        ]
+      }
+    });
+
+    expect(res.ok).toBe(true);
+    const style = trailStyleFor("classic");
+    expect(style.rate).toBe(12);
+    expect(style.color({ rand: () => 0, hue: 0, i: 0 })).toBe("#ffdd55");
+    expect(style.sparkle.rate).toBe(0);
+    expect(style.extras).toHaveLength(1);
+    const extraColor = style.extras[0].color({ rand: () => 0, hue: 0, i: 0 });
+    expect(extraColor).toBe("#ffffff");
+    expect(style.extras[0].particleShape).toBe("star");
+    setTrailStyleOverrides({});
   });
 });
