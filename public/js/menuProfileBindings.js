@@ -3,7 +3,7 @@
 // ================================
 import { DEFAULT_PLAYER_ICON_ID } from "./playerIcons.js";
 import { DEFAULT_PIPE_TEXTURE_ID } from "./pipeTextures.js";
-import { DEFAULT_CURRENCY_ID, getUserCurrencyBalance } from "./currencySystem.js";
+import { DEFAULT_CURRENCY_ID, SUPPORT_CURRENCY_ID, getUserCurrencyBalance } from "./currencySystem.js";
 
 export function getIconDisplayName(id, icons = []) {
   if (!id) return DEFAULT_PLAYER_ICON_ID;
@@ -41,6 +41,9 @@ export function syncMenuProfileBindings({
   const bustercoins = getUserCurrencyBalance(user, DEFAULT_CURRENCY_ID);
   if (refs.bustercoinText) refs.bustercoinText.textContent = String(bustercoins);
 
+  const supportcoins = getUserCurrencyBalance(user, SUPPORT_CURRENCY_ID);
+  if (refs.supportcoinText) refs.supportcoinText.textContent = String(supportcoins);
+
   const trailId = user?.selectedTrail || fallbackTrailId;
   if (refs.trailText) refs.trailText.textContent = getTrailDisplayName(trailId, trails);
 
@@ -54,6 +57,7 @@ export function syncMenuProfileBindings({
     username,
     bestScore,
     bustercoins,
+    supportcoins,
     trailId,
     iconId,
     pipeTextureId

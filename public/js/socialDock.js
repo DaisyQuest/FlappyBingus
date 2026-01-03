@@ -1,12 +1,14 @@
 export function initSocialDock({
   discordButton,
   donateButton,
+  supportButton,
   discordPopover,
   donatePopover,
+  supportPopover,
   dock,
   document: docOverride
 } = {}) {
-  if (!discordButton || !donateButton || !discordPopover || !donatePopover) return;
+  if (!discordButton || !donateButton || !supportButton || !discordPopover || !donatePopover || !supportPopover) return;
 
   const doc = docOverride || discordButton.ownerDocument || window.document;
   const dockEl = dock
@@ -22,6 +24,7 @@ export function initSocialDock({
   const hideAll = () => {
     setExpanded(discordButton, discordPopover, false);
     setExpanded(donateButton, donatePopover, false);
+    setExpanded(supportButton, supportPopover, false);
   };
 
   hideAll();
@@ -36,6 +39,14 @@ export function initSocialDock({
     const shouldOpen = donatePopover.hidden;
     setExpanded(donateButton, donatePopover, shouldOpen);
     setExpanded(discordButton, discordPopover, false);
+    setExpanded(supportButton, supportPopover, false);
+  });
+
+  supportButton.addEventListener("click", () => {
+    const shouldOpen = supportPopover.hidden;
+    setExpanded(supportButton, supportPopover, shouldOpen);
+    setExpanded(discordButton, discordPopover, false);
+    setExpanded(donateButton, donatePopover, false);
   });
 
   doc.addEventListener("click", (event) => {

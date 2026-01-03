@@ -219,6 +219,7 @@ describe("uiLayout", () => {
       "trailOverlay",
       "trailOverlayClose",
       "bustercoinText",
+      "supportcoinText",
       "trailPreviewCanvas",
       "final",
       "overDuration",
@@ -250,8 +251,10 @@ describe("uiLayout", () => {
       "socialDock",
       "discordButton",
       "donateButton",
+      "supportButton",
       "discordPopover",
       "donatePopover",
+      "supportPopover",
       "viewAchievements",
       "settingsHeaderBack",
       "dashCooldownValue",
@@ -307,16 +310,22 @@ describe("uiLayout", () => {
     const donateButton = dock?.querySelector("#donateButton");
     const discordPopover = dock?.querySelector("#discordPopover");
     const donatePopover = dock?.querySelector("#donatePopover");
+    const supportButton = dock?.querySelector("#supportButton");
+    const supportPopover = dock?.querySelector("#supportPopover");
     const iframe = discordPopover?.querySelector("iframe.discord-widget");
 
     expect(dock).toBeInstanceOf(window.HTMLDivElement);
     expect(discordButton).toBeInstanceOf(window.HTMLButtonElement);
     expect(donateButton).toBeInstanceOf(window.HTMLButtonElement);
+    expect(supportButton).toBeInstanceOf(window.HTMLButtonElement);
     expect(discordPopover?.hidden).toBe(true);
     expect(donatePopover?.hidden).toBe(true);
+    expect(supportPopover?.hidden).toBe(true);
     expect(iframe?.getAttribute("src")).toContain("discord.com/widget");
     expect(donatePopover?.textContent).toContain("Thank you so much");
     expect(donatePopover?.textContent).toContain("Venmo: @Bingus69");
+    expect(supportPopover?.textContent).toContain("Supportcoins");
+    expect(supportPopover?.textContent).toContain("CPAlead");
     expect(ui.socialDock).toBe(dock);
   });
 
