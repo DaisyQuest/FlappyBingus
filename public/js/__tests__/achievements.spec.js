@@ -53,7 +53,8 @@ describe("achievements helpers", () => {
         totalRuns: 11.4,
         maxBrokenPipesInExplosion: 12.9,
         maxBrokenPipesInRun: -4,
-        totalBrokenPipes: 501.2
+        totalBrokenPipes: 501.2,
+        bestRunProgress: { combo: 1.2, shaky: -0.5 }
       }
     });
     expect(normalized.unlocked).toEqual({ no_orbs_100: 2000 });
@@ -81,7 +82,8 @@ describe("achievements helpers", () => {
         phase: 0,
         teleport: 0,
         slowField: 0
-      }
+      },
+      bestRunProgress: { combo: 1, shaky: 0 }
     });
   });
 
@@ -188,6 +190,35 @@ describe("achievements helpers", () => {
     expect(progress.best).toBe(5);
     expect(progress.target).toBe(4);
     expect(progress.pct).toBe(1);
+  });
+
+  it("tracks and reports the best run percent for compound run requirements", () => {
+    const definitions = [
+      {
+        id: "combo_goal",
+        title: "Combo Goal",
+        description: "Test",
+        requirement: { minScore: 2000, minOrbs: 50, minPerfectCombo: 20 }
+      }
+    ];
+
+    const first = evaluateRunForAchievements({
+      previous: null,
+      runStats: { orbsCollected: 50, maxPerfectCombo: 20 },
+      score: 1000,
+      definitions
+    });
+    const second = evaluateRunForAchievements({
+      previous: first.state,
+      runStats: { orbsCollected: 0, maxPerfectCombo: 10 },
+      score: 1500,
+      definitions
+    });
+
+    expect(second.state.progress.bestRunProgress.combo_goal).toBeCloseTo(0.83, 2);
+    const progress = progressFor(definitions[0], second.state);
+    expect(progress.best).toBe(83);
+    expect(progress.target).toBe(100);
   });
 
   it("prefers in-game achievement popups over DOM fallbacks", () => {

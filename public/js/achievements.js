@@ -335,7 +335,8 @@ const DEFAULT_STATE = Object.freeze({
     maxBrokenPipesInExplosion: 0,
     maxBrokenPipesInRun: 0,
     totalBrokenPipes: 0,
-    skillTotals: DEFAULT_SKILL_TOTALS
+    skillTotals: DEFAULT_SKILL_TOTALS,
+    bestRunProgress: {}
   })
 });
 
@@ -343,6 +344,67 @@ function clampScore(v) {
   const n = Number(v);
   if (!Number.isFinite(n) || n < 0) return 0;
   return Math.min(1_000_000_000, Math.floor(n));
+}
+
+function clampPercent(v) {
+  const n = Number(v);
+  if (!Number.isFinite(n)) return 0;
+  return Math.max(0, Math.min(1, n));
+}
+
+const RUN_REQUIREMENT_CONFIG = Object.freeze([
+  { key: "minScore", type: "min", getValue: (ctx) => ctx.score, hasValue: () => true },
+  { key: "maxOrbs", type: "max", getValue: (ctx) => ctx.orbs, hasValue: (ctx) => ctx.hasOrbs },
+  { key: "maxAbilities", type: "max", getValue: (ctx) => ctx.abilities, hasValue: (ctx) => ctx.hasAbilities },
+  { key: "minOrbs", type: "min", getValue: (ctx) => ctx.orbs, hasValue: (ctx) => ctx.hasOrbs },
+  { key: "minPerfects", type: "min", getValue: (ctx) => ctx.perfects, hasValue: (ctx) => ctx.hasPerfects },
+  { key: "minPipesDodged", type: "min", getValue: (ctx) => ctx.pipesDodged, hasValue: (ctx) => ctx.hasPipesDodged },
+  { key: "minOrbCombo", type: "min", getValue: (ctx) => ctx.orbCombo, hasValue: (ctx) => ctx.hasOrbCombo },
+  { key: "minPerfectCombo", type: "min", getValue: (ctx) => ctx.perfectCombo, hasValue: (ctx) => ctx.hasPerfectCombo },
+  { key: "minRunTime", type: "min", getValue: (ctx) => ctx.runTime, hasValue: (ctx) => ctx.hasRunTime },
+  { key: "minBrokenPipesInExplosion", type: "min", getValue: (ctx) => ctx.brokenExplosion, hasValue: (ctx) => ctx.hasBrokenExplosion },
+  { key: "minBrokenPipesInRun", type: "min", getValue: (ctx) => ctx.brokenPipes, hasValue: (ctx) => ctx.hasBrokenPipes }
+]);
+
+function getRunRequirementEntries(requirement) {
+  if (!requirement || typeof requirement !== "object") return [];
+  return RUN_REQUIREMENT_CONFIG.filter((entry) => requirement[entry.key] !== undefined);
+}
+
+function computeRunRequirementPercent(requirement, context) {
+  const entries = getRunRequirementEntries(requirement);
+  if (entries.length <= 1) return null;
+  let sum = 0;
+  for (const entry of entries) {
+    const target = Number(requirement[entry.key]);
+    if (!Number.isFinite(target)) {
+      sum += 0;
+      continue;
+    }
+    if (!entry.hasValue(context)) {
+      sum += 0;
+      continue;
+    }
+    const value = entry.getValue(context);
+    if (!Number.isFinite(value)) {
+      sum += 0;
+      continue;
+    }
+    if (entry.type === "max") {
+      if (target <= 0) {
+        sum += value <= target ? 1 : 0;
+      } else if (value <= target) {
+        sum += 1;
+      } else {
+        sum += clampPercent(target / value);
+      }
+    } else if (target <= 0) {
+      sum += 1;
+    } else {
+      sum += clampPercent(value / target);
+    }
+  }
+  return clampPercent(sum / entries.length);
 }
 
 const ACHIEVEMENT_CATEGORIES = Object.freeze({
@@ -372,7 +434,8 @@ export function normalizeAchievementState(raw) {
 
   const progress = {
     ...DEFAULT_STATE.progress,
-    skillTotals: { ...DEFAULT_SKILL_TOTALS }
+    skillTotals: { ...DEFAULT_SKILL_TOTALS },
+    bestRunProgress: { ...DEFAULT_STATE.progress.bestRunProgress }
   };
   for (const key of Object.keys(DEFAULT_STATE.progress)) {
     const val = raw?.progress?.[key];
@@ -381,6 +444,13 @@ export function normalizeAchievementState(raw) {
       const src = val && typeof val === "object" ? val : {};
       for (const skillId of SKILL_IDS) {
         if (src[skillId] !== undefined) progress.skillTotals[skillId] = clampScore(src[skillId]);
+      }
+    } else if (key === "bestRunProgress") {
+      if (val && typeof val === "object") {
+        progress.bestRunProgress = {};
+        for (const [id, pct] of Object.entries(val)) {
+          progress.bestRunProgress[id] = clampPercent(pct);
+        }
       }
     } else {
       progress[key] = clampScore(val);
@@ -490,8 +560,40 @@ export function evaluateRunForAchievements({
     state.progress.skillTotals = merged;
   }
 
+  const runRequirementContext = {
+    score: safeScore,
+    orbs: safeOrbs,
+    abilities: safeAbilities,
+    perfects: safePerfects,
+    pipesDodged: safePipesDodged,
+    orbCombo: safeOrbCombo,
+    perfectCombo: safePerfectCombo,
+    brokenPipes: safeBrokenPipes,
+    brokenExplosion: safeBrokenExplosion,
+    runTime: safeRunTime,
+    hasOrbs,
+    hasAbilities,
+    hasPerfects,
+    hasPipesDodged,
+    hasOrbCombo,
+    hasPerfectCombo,
+    hasBrokenPipes: brokenPipes !== null && brokenPipes !== undefined,
+    hasBrokenExplosion: maxBrokenPipesInExplosion !== null && maxBrokenPipesInExplosion !== undefined,
+    hasRunTime: runTime !== null && runTime !== undefined
+  };
+  if (!state.progress.bestRunProgress || typeof state.progress.bestRunProgress !== "object") {
+    state.progress.bestRunProgress = {};
+  }
+
   for (const def of definitions) {
     if (state.unlocked[def.id]) continue;
+    const runPercent = computeRunRequirementPercent(def.requirement, runRequirementContext);
+    if (runPercent !== null) {
+      const currentBest = clampPercent(state.progress.bestRunProgress[def.id] ?? 0);
+      if (runPercent > currentBest) {
+        state.progress.bestRunProgress[def.id] = runPercent;
+      }
+    }
     const minScore = def.requirement?.minScore ?? 0;
     const scoreOnlyRequirement = Object.keys(def.requirement || {}).every((key) => key === "minScore");
     const meetsScore = scoreOnlyRequirement ? bestScoreProgress >= minScore : safeScore >= minScore;
@@ -607,6 +709,11 @@ export function evaluateRunForAchievements({
 
 function progressFor(def, state) {
   const req = def?.requirement || {};
+  const runRequirementEntries = getRunRequirementEntries(req);
+  if (runRequirementEntries.length > 1) {
+    const pct = clampPercent(state.progress?.bestRunProgress?.[def.id] ?? 0);
+    return { best: Math.round(pct * 100), pct, target: 100 };
+  }
   const key = def?.progressKey;
   if (key === "skillTotals") {
     const totals = state.progress?.skillTotals || {};

@@ -47,7 +47,8 @@ describe("achievements definitions", () => {
         totalRuns: 12.7,
         maxBrokenPipesInExplosion: 8.9,
         maxBrokenPipesInRun: -1,
-        totalBrokenPipes: 250.4
+        totalBrokenPipes: 250.4,
+        bestRunProgress: { combo: 1.5, shaky: -0.4 }
       }
     });
 
@@ -76,7 +77,8 @@ describe("achievements definitions", () => {
         phase: 0,
         teleport: 0,
         slowField: 0
-      }
+      },
+      bestRunProgress: { combo: 1, shaky: 0 }
     });
   });
 });
