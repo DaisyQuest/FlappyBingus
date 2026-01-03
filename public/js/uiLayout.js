@@ -32,7 +32,8 @@ const SUPPORT_MESSAGE = "Support the game by watching a short ad or completing a
 const SUPPORT_REWARD = "Earn Supportcoins when your support is confirmed.";
 const SUPPORT_PROVIDER = "Offers are delivered via CPAlead reward tools/offer wall.";
 const SUPPORT_OFFERWALL_MESSAGE = "Browse the offers below to confirm your Supportcoin reward.";
-const SUPPORT_OFFERWALL_SCRIPT_SRC = "https://www.fastrsrvr.com/offerwall.php?bid=EyDhpAOq";
+const SUPPORT_OFFERWALL_IFRAME_SRC = "https://www.fastrsrvr.com/list/EyDhpAOq";
+const SUPPORT_OFFERWALL_IFRAME_SANDBOX = "allow-popups allow-same-origin allow-scripts allow-top-navigation-by-user-activation allow-popups-to-escape-sandbox";
 
 function readCooldown(cfg, key, { multiplier = 1 } = {}) {
   const fallback = Number(DEFAULT_CONFIG?.skills?.[key]?.cooldown);
@@ -2035,12 +2036,13 @@ function createSocialDock(doc, refs) {
       const offerwall = doc.createElement("div");
       offerwall.className = "support-offerwall";
       offerwall.setAttribute("aria-live", "polite");
-      const offerwallScript = doc.createElement("script");
-      offerwallScript.src = SUPPORT_OFFERWALL_SCRIPT_SRC;
-      offerwallScript.async = true;
-      offerwallScript.defer = true;
-      offerwallScript.dataset.supportOfferwall = "cpalead";
-      offerwall.append(offerwallScript);
+      const offerwallIframe = doc.createElement("iframe");
+      offerwallIframe.className = "support-offerwall-iframe";
+      offerwallIframe.src = SUPPORT_OFFERWALL_IFRAME_SRC;
+      offerwallIframe.setAttribute("sandbox", SUPPORT_OFFERWALL_IFRAME_SANDBOX);
+      offerwallIframe.setAttribute("frameborder", "0");
+      offerwallIframe.title = "Support offers";
+      offerwall.append(offerwallIframe);
       popover.append(copy, reward, provider, offerwallLabel, offerwall);
     }
   });
