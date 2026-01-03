@@ -55,4 +55,33 @@ describe("achievement service helpers", () => {
     expect(second.state.progress.totalRunTime).toBe(600);
     expect(second.unlocked).toContain("total_run_time_600");
   });
+
+  it("records the best combined run progress for compound requirements", async () => {
+    const { evaluateRunForAchievements } = await import("../services/achievements.cjs");
+
+    const definitions = [
+      {
+        id: "discipline",
+        title: "Discipline",
+        description: "Test",
+        requirement: { minScore: 100, maxOrbs: 0 }
+      }
+    ];
+
+    const first = evaluateRunForAchievements({
+      previous: null,
+      runStats: { orbsCollected: 0 },
+      score: 50,
+      definitions
+    });
+    expect(first.state.progress.bestRunProgress.discipline).toBeCloseTo(0.75, 2);
+
+    const second = evaluateRunForAchievements({
+      previous: first.state,
+      runStats: { orbsCollected: 1 },
+      score: 120,
+      definitions
+    });
+    expect(second.state.progress.bestRunProgress.discipline).toBeCloseTo(0.75, 2);
+  });
 });
