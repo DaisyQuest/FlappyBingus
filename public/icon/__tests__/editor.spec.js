@@ -8,7 +8,6 @@ describe("icon editor helpers", () => {
     const icon = {
       id: "spark",
       name: "Spark",
-      unlock: { type: "score", minScore: 10, label: "Score 10" },
       imageSrc: "/spark.png",
       style: {
         fill: "#fff",
@@ -23,7 +22,7 @@ describe("icon editor helpers", () => {
     const overrides = collectIconOverrides(root);
     expect(overrides.spark.name).toBe("Spark");
     expect(overrides.spark.imageSrc).toBe("/spark.png");
-    expect(overrides.spark.unlock.type).toBe("score");
+    expect(overrides.spark.unlock).toBeUndefined();
     expect(overrides.spark.style.pattern.type).toBe("stripes");
     expect(overrides.spark.style.animation.type).toBe("lava");
   });
@@ -38,11 +37,27 @@ describe("icon editor helpers", () => {
     expect(overrides).toEqual({});
   });
 
+  it("preserves unlock overrides when fields are not editable", () => {
+    const icon = {
+      id: "spark",
+      name: "Spark",
+      imageSrc: "/spark.png"
+    };
+    const card = createIconCard({ icon, defaults: icon, overrideEnabled: true, allowRemove: true });
+    const root = document.createElement("div");
+    root.appendChild(card);
+
+    const overrides = collectIconOverrides(root, {
+      existingOverrides: { spark: { unlock: { type: "purchase", cost: 10 } } }
+    });
+
+    expect(overrides.spark.unlock).toEqual({ type: "purchase", cost: 10 });
+  });
+
   it("reads color lists into arrays", () => {
     const icon = {
       id: "stripe",
       name: "Stripe",
-      unlock: { type: "free" },
       style: { pattern: { type: "stripes", colors: ["#111", "#222"] } }
     };
     const card = createIconCard({ icon, defaults: icon, overrideEnabled: true, allowRemove: false });

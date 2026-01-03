@@ -114,17 +114,26 @@ export function collectUnlockableOverrides({ unlockableOverrides = {}, root = do
     const type = card.dataset.unlockableType;
     const id = card.dataset.unlockableId;
     if (!type || !id) return;
-    const existing = base?.[type]?.[id];
-    if (existing && existing.type !== "achievement") return;
-    const select = card.querySelector("select[data-unlockable-select]");
-    if (!select) return;
-    const value = select.value;
     if (!base[type]) base[type] = {};
-    if (!value) {
-      if (base[type]) delete base[type][id];
-      return;
+    const unlockType = card.querySelector("[data-unlock-type]")?.value || "free";
+    const unlock = { type: unlockType };
+    const label = parseText(card.querySelector("[data-unlock-label]")?.value);
+    if (label) unlock.label = label;
+
+    if (unlockType === "achievement") {
+      const achievementId = parseText(card.querySelector("[data-unlock-achievement]")?.value);
+      if (achievementId) unlock.id = achievementId;
+    } else if (unlockType === "score") {
+      const minScore = parseNumber(card.querySelector("[data-unlock-score]")?.value);
+      unlock.minScore = minScore ?? 0;
+    } else if (unlockType === "purchase") {
+      const cost = parseNumber(card.querySelector("[data-unlock-cost]")?.value);
+      unlock.cost = cost ?? 0;
+      const currencyId = parseText(card.querySelector("[data-unlock-currency]")?.value);
+      if (currencyId) unlock.currencyId = currencyId;
     }
-    base[type][id] = { type: "achievement", id: value };
+
+    base[type][id] = unlock;
   });
   return base;
 }
@@ -159,4 +168,16 @@ function createTextarea(value = "") {
   input.rows = 2;
   input.value = value;
   return input;
+}
+
+function parseNumber(value) {
+  if (value === undefined || value === null || value === "") return undefined;
+  const num = Number(value);
+  return Number.isFinite(num) ? num : undefined;
+}
+
+function parseText(value) {
+  if (value === undefined || value === null) return undefined;
+  const trimmed = String(value).trim();
+  return trimmed.length ? trimmed : undefined;
 }

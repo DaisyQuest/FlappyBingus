@@ -160,7 +160,7 @@ function renderIconEditor() {
   reloadBtn.addEventListener("click", () => loadConfig());
   addBtn.addEventListener("click", () => {
     const card = createIconCard({
-      icon: { id: "", name: "", unlock: { type: "free" }, style: {} },
+      icon: { id: "", name: "", style: {} },
       defaults: {},
       overrideEnabled: true,
       allowRemove: false
@@ -175,7 +175,7 @@ function renderIconEditor() {
   saveBtn.addEventListener("click", async () => {
     try {
       setStatus("Saving icon styles…");
-      const overrides = collectIconOverrides(grid);
+      const overrides = collectIconOverrides(grid, { existingOverrides: state.overrides });
       await saveIconStyleOverrides({ overrides });
       state.overrides = overrides;
       setStatus("Icon styles saved", "ok");

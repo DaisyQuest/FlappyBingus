@@ -234,14 +234,14 @@ const ENDPOINT_GROUPS = Object.freeze([
       {
         path: "/achievementeditor",
         methods: ["GET"],
-        summary: "Admin tool for editing achievement requirements and unlock mappings.",
+        summary: "Legacy admin page (redirects to /bigflappin).",
         page: true,
         link: "/achievementeditor"
       },
       {
         path: "/traileditor",
         methods: ["GET"],
-        summary: "Admin tool for editing trail particles and trail style definitions.",
+        summary: "Legacy admin page (redirects to /bigflappin).",
         page: true,
         link: "/traileditor"
       },
@@ -2562,22 +2562,12 @@ async function route(req, res) {
   }
 
   if (pathname === "/achievementeditor" && req.method === "GET") {
-    try {
-      const html = await fs.readFile(path.join(PUBLIC_DIR, "achievementeditor", "index.html"), "utf8");
-      sendHtml(res, 200, html);
-    } catch (err) {
-      sendJson(res, 404, { ok: false, error: "achievement_editor_not_found", detail: err?.message || String(err) });
-    }
+    send(res, 302, { Location: "/bigflappin" }, "");
     return;
   }
 
   if (pathname === "/traileditor" && req.method === "GET") {
-    try {
-      const html = await fs.readFile(path.join(PUBLIC_DIR, "traileditor", "index.html"), "utf8");
-      sendHtml(res, 200, html);
-    } catch (err) {
-      sendJson(res, 404, { ok: false, error: "trail_editor_not_found", detail: err?.message || String(err) });
-    }
+    send(res, 302, { Location: "/bigflappin" }, "");
     return;
   }
 
@@ -2715,7 +2705,7 @@ async function route(req, res) {
   }
 
   if ((pathname === "/icon" || pathname === "/icon/") && req.method === "GET") {
-    return serveStatic("/icon/index.html", res);
+    return send(res, 302, { Location: "/bigflappin" }, "");
   }
 
   // Static files (this is what must serve /js/main.js)

@@ -1,11 +1,3 @@
-const UNLOCK_OPTIONS = [
-  { value: "free", label: "Free" },
-  { value: "score", label: "Score" },
-  { value: "achievement", label: "Achievement" },
-  { value: "purchase", label: "Purchase" },
-  { value: "record", label: "Record holder" }
-];
-
 const PATTERN_OPTIONS = [
   { value: "", label: "None" },
   { value: "zigzag", label: "Zigzag" },
@@ -190,33 +182,6 @@ function createIconCard({ icon, defaults = {}, overrideEnabled = true, allowRemo
   );
   basic.appendChild(basicGrid);
 
-  const unlock = document.createElement("section");
-  unlock.className = "section-card";
-  unlock.innerHTML = "<strong>Unlock</strong>";
-  const unlockGrid = document.createElement("div");
-  unlockGrid.className = "field-grid";
-  const unlockType = createSelect(UNLOCK_OPTIONS, icon?.unlock?.type || "free");
-  unlockType.dataset.field = "unlockType";
-  const unlockLabel = createTextInput(icon?.unlock?.label || "");
-  unlockLabel.dataset.field = "unlockLabel";
-  const unlockId = createTextInput(icon?.unlock?.id || "");
-  unlockId.dataset.field = "unlockId";
-  const unlockScore = createNumberInput(icon?.unlock?.minScore ?? "");
-  unlockScore.dataset.field = "unlockScore";
-  const unlockCost = createNumberInput(icon?.unlock?.cost ?? "");
-  unlockCost.dataset.field = "unlockCost";
-  const unlockCurrency = createTextInput(icon?.unlock?.currencyId || "");
-  unlockCurrency.dataset.field = "unlockCurrency";
-  unlockGrid.append(
-    createFieldRow("Type", unlockType, defaults?.unlock?.type),
-    createFieldRow("Label", unlockLabel, defaults?.unlock?.label),
-    createFieldRow("Achievement ID", unlockId, defaults?.unlock?.id),
-    createFieldRow("Score min", unlockScore, defaults?.unlock?.minScore),
-    createFieldRow("Cost", unlockCost, defaults?.unlock?.cost),
-    createFieldRow("Currency ID", unlockCurrency, defaults?.unlock?.currencyId)
-  );
-  unlock.appendChild(unlockGrid);
-
   const colors = document.createElement("section");
   colors.className = "section-card";
   colors.innerHTML = "<strong>Style</strong>";
@@ -366,7 +331,7 @@ function createIconCard({ icon, defaults = {}, overrideEnabled = true, allowRemo
   ];
   animationFields.forEach((group) => animationSection.appendChild(group));
 
-  controls.append(basic, unlock, colors, patternSection, animationSection);
+  controls.append(basic, colors, patternSection, animationSection);
   body.appendChild(controls);
   card.appendChild(body);
 
@@ -381,12 +346,6 @@ function createIconCard({ icon, defaults = {}, overrideEnabled = true, allowRemo
       idInput.value = defaults.id;
       nameInput.value = defaults.name || defaults.id;
       imageInput.value = defaults.imageSrc || "";
-      unlockType.value = defaults.unlock?.type || "free";
-      unlockLabel.value = defaults.unlock?.label || "";
-      unlockId.value = defaults.unlock?.id || "";
-      unlockScore.value = defaults.unlock?.minScore ?? "";
-      unlockCost.value = defaults.unlock?.cost ?? "";
-      unlockCurrency.value = defaults.unlock?.currencyId || "";
       fill.value = defaults.style?.fill || "";
       core.value = defaults.style?.core || "";
       rim.value = defaults.style?.rim || "";
@@ -440,24 +399,6 @@ function readIconDefinition(card) {
     if (imageSrc.length) icon.imageSrc = imageSrc;
     else icon.imageSrc = "";
   }
-
-  const unlockType = card.querySelector("[data-field='unlockType']")?.value || "free";
-  const unlock = { type: unlockType };
-  const unlockLabel = parseText(card.querySelector("[data-field='unlockLabel']")?.value);
-  if (unlockLabel) unlock.label = unlockLabel;
-  if (unlockType === "score") {
-    const minScore = parseNumber(card.querySelector("[data-field='unlockScore']")?.value);
-    if (minScore !== undefined) unlock.minScore = minScore;
-  } else if (unlockType === "achievement") {
-    const unlockId = parseText(card.querySelector("[data-field='unlockId']")?.value);
-    if (unlockId) unlock.id = unlockId;
-  } else if (unlockType === "purchase") {
-    const cost = parseNumber(card.querySelector("[data-field='unlockCost']")?.value);
-    if (cost !== undefined) unlock.cost = cost;
-    const currencyId = parseText(card.querySelector("[data-field='unlockCurrency']")?.value);
-    if (currencyId) unlock.currencyId = currencyId;
-  }
-  icon.unlock = unlock;
 
   const style = {};
   let hasStyle = false;
@@ -532,7 +473,7 @@ function readIconDefinition(card) {
   return icon;
 }
 
-function collectIconOverrides(root) {
+function collectIconOverrides(root, { existingOverrides = {} } = {}) {
   const overrides = {};
   const cards = root.querySelectorAll("[data-icon-card]");
   cards.forEach((card) => {
@@ -540,7 +481,8 @@ function collectIconOverrides(root) {
     if (!enabled) return;
     const icon = readIconDefinition(card);
     if (!icon?.id) return;
-    const override = { ...icon };
+    const existing = existingOverrides?.[icon.id] || {};
+    const override = { ...existing, ...icon };
     delete override.id;
     overrides[icon.id] = override;
   });

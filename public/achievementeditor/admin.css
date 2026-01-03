@@ -91,3 +91,16 @@
   display: grid;
   gap: 6px;
 }
+
+.unlockable-fields {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  margin-top: 10px;
+}
+
+.unlockable-fields .field-row {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
