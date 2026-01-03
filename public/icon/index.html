@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Icon Editor</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="stylesheet" href="/icon/admin.css" />
+</head>
+<body>
+  <header class="admin-header">
+    <div class="admin-brand">
+      <span class="brand-dot"></span>
+      <div>
+        <div class="brand-title">Icon Editor</div>
+        <div class="brand-subtitle">Create, tweak, and ship player icons instantly</div>
+      </div>
+    </div>
+    <div class="admin-status" id="adminStatus">
+      <span class="status-dot"></span>
+      <span id="adminStatusText">Loading icons…</span>
+    </div>
+  </header>
+
+  <div class="admin-shell">
+    <nav class="admin-nav" id="iconNav"></nav>
+    <main class="admin-main" id="iconMain">
+      <section class="panel loading" id="iconLoading">
+        <h2>Loading icon data…</h2>
+        <p>Fetching icon overrides and unlockable catalog.</p>
+      </section>
+    </main>
+  </div>
+
+  <footer class="admin-footer">
+    <span>Flappy Bingus Icon Editor</span>
+    <span id="adminMeta"></span>
+  </footer>
+
+  <script type="module" src="/icon/admin.js"></script>
+</body>
+</html>

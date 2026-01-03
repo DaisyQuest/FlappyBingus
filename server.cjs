@@ -44,6 +44,10 @@ const {
   unlockedIcons
 } = require("./services/playerIcons.cjs");
 const {
+  applyIconStyleOverrides,
+  normalizeIconStyleOverrides
+} = require("./services/iconStyleOverrides.cjs");
+const {
   DEFAULT_PIPE_TEXTURE_ID,
   DEFAULT_PIPE_TEXTURE_MODE,
   PIPE_TEXTURES: PIPE_TEXTURE_DEFS,
@@ -364,6 +368,11 @@ const ENDPOINT_GROUPS = Object.freeze([
         path: "/api/trail-styles",
         methods: ["GET"],
         summary: "Fetch runtime trail style overrides."
+      },
+      {
+        path: "/api/icon-styles",
+        methods: ["GET"],
+        summary: "Fetch runtime icon style overrides."
       }
     ]
   },
@@ -396,6 +405,11 @@ const ENDPOINT_GROUPS = Object.freeze([
         path: "/api/admin/trail-styles",
         methods: ["GET", "PUT"],
         summary: "Read or update trail style overrides."
+      },
+      {
+        path: "/api/admin/icon-styles",
+        methods: ["GET", "PUT"],
+        summary: "Read or update icon style overrides."
       },
       {
         path: "/api/admin/collections",
@@ -439,9 +453,9 @@ const TRAILS = Object.freeze([
   { id: "world_record", name: "World Record Cherry Blossom", minScore: 3000, achievementId: "trail_world_record_3000", requiresRecordHolder: true }
 ]);
 
-const ICONS = normalizePlayerIcons(PLAYER_ICONS);
+const ICONS_BASE = normalizePlayerIcons(PLAYER_ICONS);
 const PIPE_TEXTURES = normalizePipeTextures(PIPE_TEXTURE_DEFS);
-const UNLOCKABLES = buildUnlockablesCatalog({ trails: TRAILS, icons: ICONS, pipeTextures: PIPE_TEXTURES });
+const UNLOCKABLES = buildUnlockablesCatalog({ trails: TRAILS, icons: ICONS_BASE, pipeTextures: PIPE_TEXTURES });
 
 const SERVER_CONFIG_PATH = process.env.SERVER_CONFIG_PATH;
 const SERVER_CONFIG_RELOAD_MS = Number(process.env.SERVER_CONFIG_RELOAD_MS || 15_000);
@@ -501,6 +515,12 @@ function getTrailStyleOverrides() {
   return overrides && typeof overrides === "object" ? overrides : {};
 }
 
+function getIconStyleOverrides() {
+  const cfg = gameConfigStore?.getConfig?.() || {};
+  const overrides = cfg?.iconStyles?.overrides;
+  return overrides && typeof overrides === "object" ? overrides : {};
+}
+
 function formatTrailName(id) {
   return String(id || "")
     .trim()
@@ -524,18 +544,28 @@ function getTrailDefinitions() {
   return [...TRAILS, ...customTrails];
 }
 
+function getIconDefinitions() {
+  const overrides = getIconStyleOverrides();
+  const normalized = normalizeIconStyleOverrides({ overrides });
+  const safeOverrides = normalized.ok ? normalized.overrides : {};
+  return applyIconStyleOverrides({ icons: ICONS_BASE, overrides: safeOverrides });
+}
+
 function getUnlockableIds() {
   const trails = getTrailDefinitions();
   return {
     trail: new Set(trails.map((trail) => trail.id)),
-    player_texture: new Set(ICONS.map((icon) => icon.id)),
+    player_texture: new Set(getIconDefinitions().map((icon) => icon.id)),
     pipe_texture: new Set(PIPE_TEXTURES.map((texture) => texture.id))
   };
 }
 
 function getResolvedUnlockables() {
   const overrides = getUnlockableOverrides();
-  const resolved = applyUnlockableOverrides({ trails: getTrailDefinitions(), icons: ICONS, pipeTextures: PIPE_TEXTURES }, overrides);
+  const resolved = applyUnlockableOverrides(
+    { trails: getTrailDefinitions(), icons: getIconDefinitions(), pipeTextures: PIPE_TEXTURES },
+    overrides
+  );
   const { unlockables } = buildUnlockablesCatalog(resolved);
   return { ...resolved, unlockables };
 }
@@ -2262,6 +2292,11 @@ async function route(req, res) {
     return;
   }
 
+  if (pathname === "/api/icon-styles" && req.method === "GET") {
+    sendJson(res, 200, { ok: true, overrides: getIconStyleOverrides() });
+    return;
+  }
+
   if (pathname === "/api/admin/config") {
     if (req.method === "GET") {
       const config = getServerConfig();
@@ -2345,6 +2380,54 @@ async function route(req, res) {
     }
   }
 
+  if (pathname === "/api/admin/icon-styles") {
+    if (req.method === "GET") {
+      const overrides = getIconStyleOverrides();
+      sendJson(res, 200, {
+        ok: true,
+        overrides,
+        icons: getIconDefinitions(),
+        defaults: ICONS_BASE,
+        meta: gameConfigStore.getMeta()
+      });
+      return;
+    }
+    if (req.method === "PUT") {
+      let body;
+      try {
+        body = await readJsonBody(req);
+      } catch {
+        return badRequest(res, "invalid_json");
+      }
+      const overridesPayload = body?.overrides ?? body?.iconStyles?.overrides ?? body;
+      const result = normalizeIconStyleOverrides({ overrides: overridesPayload });
+      if (!result.ok) {
+        return sendJson(res, 400, { ok: false, error: "invalid_icon_style_overrides", details: result.errors });
+      }
+      const current = gameConfigStore.getConfig();
+      const nextConfig = {
+        ...(current || {}),
+        iconStyles: {
+          ...(current?.iconStyles || {}),
+          overrides: result.overrides
+        }
+      };
+      try {
+        const saved = await gameConfigStore.save(nextConfig);
+        sendJson(res, 200, {
+          ok: true,
+          overrides: saved?.iconStyles?.overrides || {},
+          icons: getIconDefinitions(),
+          defaults: ICONS_BASE,
+          meta: gameConfigStore.getMeta()
+        });
+      } catch (err) {
+        sendJson(res, 500, { ok: false, error: "icon_style_write_failed", detail: err?.message || String(err) });
+      }
+      return;
+    }
+  }
+
   if (pathname === "/api/admin/unlockables" && req.method === "GET") {
     const resolvedUnlockables = getResolvedUnlockables();
     sendJson(res, 200, {
@@ -2362,7 +2445,7 @@ async function route(req, res) {
       const definitions = getAchievementDefinitions();
       const baseCatalog = buildUnlockablesCatalog({
         trails: getTrailDefinitions(),
-        icons: ICONS,
+        icons: getIconDefinitions(),
         pipeTextures: PIPE_TEXTURES
       });
       sendJson(res, 200, {
@@ -2631,6 +2714,10 @@ async function route(req, res) {
     return;
   }
 
+  if ((pathname === "/icon" || pathname === "/icon/") && req.method === "GET") {
+    return serveStatic("/icon/index.html", res);
+  }
+
   // Static files (this is what must serve /js/main.js)
   return serveStatic(pathname, res);
 }
@@ -2681,7 +2768,7 @@ if (require.main === module) {
 
 module.exports = {
   TRAILS,
-  ICONS,
+  ICONS: ICONS_BASE,
   unlockedTrails,
   unlockedIcons,
   ensureUserSchema,

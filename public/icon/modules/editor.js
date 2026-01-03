@@ -1,0 +1,554 @@
+const UNLOCK_OPTIONS = [
+  { value: "free", label: "Free" },
+  { value: "score", label: "Score" },
+  { value: "achievement", label: "Achievement" },
+  { value: "purchase", label: "Purchase" },
+  { value: "record", label: "Record holder" }
+];
+
+const PATTERN_OPTIONS = [
+  { value: "", label: "None" },
+  { value: "zigzag", label: "Zigzag" },
+  { value: "centerline", label: "Centerline" },
+  { value: "stripes", label: "Stripes" },
+  { value: "honeycomb", label: "Honeycomb" },
+  { value: "citrus_slice", label: "Citrus Slice" },
+  { value: "cobblestone", label: "Cobblestone" }
+];
+
+const ANIMATION_OPTIONS = [
+  { value: "", label: "None" },
+  { value: "lava", label: "Lava Flow" },
+  { value: "cape_flow", label: "Cape Flow" },
+  { value: "zigzag_scroll", label: "Zigzag Scroll" }
+];
+
+function formatDefault(value) {
+  if (value === undefined || value === null) return "—";
+  if (Array.isArray(value)) return value.map((v) => formatDefault(v)).join(" → ");
+  if (typeof value === "object") return "object";
+  return String(value);
+}
+
+function createFieldRow(labelText, input, defaultValue) {
+  const row = document.createElement("div");
+  row.className = "field-row";
+  const label = document.createElement("label");
+  label.textContent = labelText;
+  row.append(label, input);
+  if (defaultValue !== undefined) {
+    const hint = document.createElement("small");
+    hint.textContent = `Default: ${formatDefault(defaultValue)}`;
+    row.appendChild(hint);
+  }
+  return row;
+}
+
+function createTextInput(value = "") {
+  const input = document.createElement("input");
+  input.type = "text";
+  input.value = value ?? "";
+  return input;
+}
+
+function createNumberInput(value = "") {
+  const input = document.createElement("input");
+  input.type = "number";
+  input.value = value === null || value === undefined ? "" : String(value);
+  input.step = "any";
+  return input;
+}
+
+function createSelect(options, value = "") {
+  const select = document.createElement("select");
+  options.forEach((opt) => {
+    const option = document.createElement("option");
+    option.value = opt.value;
+    option.textContent = opt.label;
+    select.appendChild(option);
+  });
+  select.value = value ?? "";
+  return select;
+}
+
+function parseNumber(value) {
+  if (value === undefined || value === null || value === "") return undefined;
+  const num = Number(value);
+  return Number.isFinite(num) ? num : undefined;
+}
+
+function parseText(value) {
+  if (value === undefined || value === null) return undefined;
+  const trimmed = String(value).trim();
+  return trimmed.length ? trimmed : undefined;
+}
+
+function parseColorList(value) {
+  const text = parseText(value);
+  if (!text) return undefined;
+  return text.split(",").map((entry) => entry.trim()).filter(Boolean);
+}
+
+function createPatternGroup(type, fields, values = {}, defaults = {}) {
+  const wrapper = document.createElement("div");
+  wrapper.className = "field-grid";
+  wrapper.dataset.patternGroup = type;
+  fields.forEach(({ key, label, type: inputType }) => {
+    const input = inputType === "number"
+      ? createNumberInput(values?.[key])
+      : createTextInput(values?.[key] ?? "");
+    input.dataset.field = `pattern.${key}`;
+    wrapper.appendChild(createFieldRow(label, input, defaults?.[key]));
+  });
+  return wrapper;
+}
+
+function createAnimationGroup(type, fields, values = {}, defaults = {}) {
+  const wrapper = document.createElement("div");
+  wrapper.className = "field-grid";
+  wrapper.dataset.animationGroup = type;
+  fields.forEach(({ key, label, type: inputType }) => {
+    const input = inputType === "number"
+      ? createNumberInput(values?.[key])
+      : createTextInput(values?.[key] ?? "");
+    input.dataset.field = `animation.${key}`;
+    wrapper.appendChild(createFieldRow(label, input, defaults?.[key]));
+  });
+  return wrapper;
+}
+
+function updatePatternVisibility(card) {
+  const select = card.querySelector("[data-field='patternType']");
+  if (!select) return;
+  card.querySelectorAll("[data-pattern-group]").forEach((group) => {
+    group.classList.toggle("hidden", group.dataset.patternGroup !== select.value);
+  });
+}
+
+function updateAnimationVisibility(card) {
+  const select = card.querySelector("[data-field='animationType']");
+  if (!select) return;
+  card.querySelectorAll("[data-animation-group]").forEach((group) => {
+    group.classList.toggle("hidden", group.dataset.animationGroup !== select.value);
+  });
+}
+
+function createIconCard({ icon, defaults = {}, overrideEnabled = true, allowRemove = false } = {}) {
+  const card = document.createElement("section");
+  card.className = "icon-card";
+  card.dataset.iconCard = "true";
+  card.dataset.defaultIcon = allowRemove ? "true" : "false";
+
+  const header = document.createElement("header");
+  const titleWrap = document.createElement("div");
+  const heading = document.createElement("h3");
+  heading.textContent = icon?.name || icon?.id || "New icon";
+  const pill = document.createElement("span");
+  pill.className = "pill";
+  pill.textContent = allowRemove ? "Default" : "Custom";
+  titleWrap.append(heading, pill);
+
+  const toggleWrap = document.createElement("label");
+  toggleWrap.className = "icon-toggle";
+  const toggle = document.createElement("input");
+  toggle.type = "checkbox";
+  toggle.checked = overrideEnabled;
+  toggle.dataset.field = "overrideEnabled";
+  toggleWrap.append(toggle, document.createTextNode("Override enabled"));
+
+  header.append(titleWrap, toggleWrap);
+  card.appendChild(header);
+
+  const body = document.createElement("div");
+  body.className = "icon-card-body";
+
+  const preview = document.createElement("div");
+  preview.className = "icon-preview";
+  const previewWrap = document.createElement("div");
+  previewWrap.dataset.iconPreview = "true";
+  preview.append(previewWrap);
+  body.appendChild(preview);
+
+  const controls = document.createElement("div");
+  controls.className = "icon-controls";
+
+  const basic = document.createElement("section");
+  basic.className = "section-card";
+  basic.innerHTML = "<strong>Basics</strong>";
+  const basicGrid = document.createElement("div");
+  basicGrid.className = "field-grid";
+  const idInput = createTextInput(icon?.id || "");
+  idInput.dataset.field = "id";
+  const nameInput = createTextInput(icon?.name || "");
+  nameInput.dataset.field = "name";
+  const imageInput = createTextInput(icon?.imageSrc || "");
+  imageInput.dataset.field = "imageSrc";
+  basicGrid.append(
+    createFieldRow("ID", idInput, defaults?.id),
+    createFieldRow("Name", nameInput, defaults?.name),
+    createFieldRow("Image src", imageInput, defaults?.imageSrc)
+  );
+  basic.appendChild(basicGrid);
+
+  const unlock = document.createElement("section");
+  unlock.className = "section-card";
+  unlock.innerHTML = "<strong>Unlock</strong>";
+  const unlockGrid = document.createElement("div");
+  unlockGrid.className = "field-grid";
+  const unlockType = createSelect(UNLOCK_OPTIONS, icon?.unlock?.type || "free");
+  unlockType.dataset.field = "unlockType";
+  const unlockLabel = createTextInput(icon?.unlock?.label || "");
+  unlockLabel.dataset.field = "unlockLabel";
+  const unlockId = createTextInput(icon?.unlock?.id || "");
+  unlockId.dataset.field = "unlockId";
+  const unlockScore = createNumberInput(icon?.unlock?.minScore ?? "");
+  unlockScore.dataset.field = "unlockScore";
+  const unlockCost = createNumberInput(icon?.unlock?.cost ?? "");
+  unlockCost.dataset.field = "unlockCost";
+  const unlockCurrency = createTextInput(icon?.unlock?.currencyId || "");
+  unlockCurrency.dataset.field = "unlockCurrency";
+  unlockGrid.append(
+    createFieldRow("Type", unlockType, defaults?.unlock?.type),
+    createFieldRow("Label", unlockLabel, defaults?.unlock?.label),
+    createFieldRow("Achievement ID", unlockId, defaults?.unlock?.id),
+    createFieldRow("Score min", unlockScore, defaults?.unlock?.minScore),
+    createFieldRow("Cost", unlockCost, defaults?.unlock?.cost),
+    createFieldRow("Currency ID", unlockCurrency, defaults?.unlock?.currencyId)
+  );
+  unlock.appendChild(unlockGrid);
+
+  const colors = document.createElement("section");
+  colors.className = "section-card";
+  colors.innerHTML = "<strong>Style</strong>";
+  const colorGrid = document.createElement("div");
+  colorGrid.className = "field-grid";
+  const fill = createTextInput(icon?.style?.fill || "");
+  fill.dataset.field = "fill";
+  const core = createTextInput(icon?.style?.core || "");
+  core.dataset.field = "core";
+  const rim = createTextInput(icon?.style?.rim || "");
+  rim.dataset.field = "rim";
+  const glow = createTextInput(icon?.style?.glow || "");
+  glow.dataset.field = "glow";
+  colorGrid.append(
+    createFieldRow("Fill", fill, defaults?.style?.fill),
+    createFieldRow("Core", core, defaults?.style?.core),
+    createFieldRow("Rim", rim, defaults?.style?.rim),
+    createFieldRow("Glow", glow, defaults?.style?.glow)
+  );
+  colors.appendChild(colorGrid);
+
+  const patternSection = document.createElement("section");
+  patternSection.className = "section-card";
+  patternSection.innerHTML = "<strong>Pattern</strong>";
+  const patternSelect = createSelect(PATTERN_OPTIONS, icon?.style?.pattern?.type || "");
+  patternSelect.dataset.field = "patternType";
+  patternSection.appendChild(createFieldRow("Pattern", patternSelect, defaults?.style?.pattern?.type));
+
+  const patternFields = [
+    createPatternGroup("zigzag", [
+      { key: "stroke", label: "Stroke", type: "text" },
+      { key: "background", label: "Background", type: "text" },
+      { key: "amplitude", label: "Amplitude", type: "number" },
+      { key: "waves", label: "Waves", type: "number" },
+      { key: "spacing", label: "Spacing", type: "number" }
+    ], icon?.style?.pattern || {}, defaults?.style?.pattern || {}),
+    createPatternGroup("centerline", [
+      { key: "stroke", label: "Stroke", type: "text" },
+      { key: "accent", label: "Accent", type: "text" },
+      { key: "glow", label: "Glow", type: "text" }
+    ], icon?.style?.pattern || {}, defaults?.style?.pattern || {}),
+    createPatternGroup("stripes", [
+      { key: "colors", label: "Colors (comma)", type: "text" },
+      { key: "stripeWidth", label: "Stripe width", type: "number" },
+      { key: "angle", label: "Angle", type: "number" },
+      { key: "glow", label: "Glow", type: "text" }
+    ], icon?.style?.pattern || {}, defaults?.style?.pattern || {}),
+    createPatternGroup("honeycomb", [
+      { key: "stroke", label: "Stroke", type: "text" },
+      { key: "lineWidth", label: "Line width", type: "number" },
+      { key: "cellSize", label: "Cell size", type: "number" },
+      { key: "glow", label: "Glow", type: "text" }
+    ], icon?.style?.pattern || {}, defaults?.style?.pattern || {}),
+    createPatternGroup("citrus_slice", [
+      { key: "stroke", label: "Stroke", type: "text" },
+      { key: "lineWidth", label: "Line width", type: "number" },
+      { key: "segments", label: "Segments", type: "number" },
+      { key: "centerRadius", label: "Center radius", type: "number" },
+      { key: "glow", label: "Glow", type: "text" },
+      { key: "rindStroke", label: "Rind stroke", type: "text" },
+      { key: "segmentStroke", label: "Segment stroke", type: "text" },
+      { key: "segmentWidth", label: "Segment width", type: "number" }
+    ], icon?.style?.pattern || {}, defaults?.style?.pattern || {}),
+    createPatternGroup("cobblestone", [
+      { key: "base", label: "Base", type: "text" },
+      { key: "highlight", label: "Highlight", type: "text" },
+      { key: "stroke", label: "Stroke", type: "text" },
+      { key: "glow", label: "Glow", type: "text" },
+      { key: "lineWidth", label: "Line width", type: "number" },
+      { key: "stoneSize", label: "Stone size", type: "number" },
+      { key: "gap", label: "Gap", type: "number" }
+    ], icon?.style?.pattern || {}, defaults?.style?.pattern || {})
+  ];
+  patternFields.forEach((group) => patternSection.appendChild(group));
+
+  const animationSection = document.createElement("section");
+  animationSection.className = "section-card";
+  animationSection.innerHTML = "<strong>Animation</strong>";
+  const animationSelect = createSelect(ANIMATION_OPTIONS, icon?.style?.animation?.type || "");
+  animationSelect.dataset.field = "animationType";
+  animationSection.appendChild(createFieldRow("Animation", animationSelect, defaults?.style?.animation?.type));
+
+  const animationFields = [
+    createAnimationGroup("lava", [
+      { key: "speed", label: "Speed", type: "number" },
+      { key: "layers", label: "Layers", type: "number" },
+      { key: "smoothness", label: "Smoothness", type: "number" },
+      { key: "fallback", label: "Fallback", type: "text" },
+      { key: "paletteBase", label: "Palette base", type: "text" },
+      { key: "paletteEmber", label: "Palette ember", type: "text" },
+      { key: "paletteMolten", label: "Palette molten", type: "text" },
+      { key: "paletteFlare", label: "Palette flare", type: "text" }
+    ], {
+      speed: icon?.style?.animation?.speed,
+      layers: icon?.style?.animation?.layers,
+      smoothness: icon?.style?.animation?.smoothness,
+      fallback: icon?.style?.animation?.fallback,
+      paletteBase: icon?.style?.animation?.palette?.base,
+      paletteEmber: icon?.style?.animation?.palette?.ember,
+      paletteMolten: icon?.style?.animation?.palette?.molten,
+      paletteFlare: icon?.style?.animation?.palette?.flare
+    }, {
+      speed: defaults?.style?.animation?.speed,
+      layers: defaults?.style?.animation?.layers,
+      smoothness: defaults?.style?.animation?.smoothness,
+      fallback: defaults?.style?.animation?.fallback,
+      paletteBase: defaults?.style?.animation?.palette?.base,
+      paletteEmber: defaults?.style?.animation?.palette?.ember,
+      paletteMolten: defaults?.style?.animation?.palette?.molten,
+      paletteFlare: defaults?.style?.animation?.palette?.flare
+    }),
+    createAnimationGroup("cape_flow", [
+      { key: "speed", label: "Speed", type: "number" },
+      { key: "bands", label: "Bands", type: "number" },
+      { key: "embers", label: "Embers", type: "number" },
+      { key: "paletteBase", label: "Palette base", type: "text" },
+      { key: "paletteAsh", label: "Palette ash", type: "text" },
+      { key: "paletteEmber", label: "Palette ember", type: "text" },
+      { key: "paletteMolten", label: "Palette molten", type: "text" },
+      { key: "paletteFlare", label: "Palette flare", type: "text" }
+    ], {
+      speed: icon?.style?.animation?.speed,
+      bands: icon?.style?.animation?.bands,
+      embers: icon?.style?.animation?.embers,
+      paletteBase: icon?.style?.animation?.palette?.base,
+      paletteAsh: icon?.style?.animation?.palette?.ash,
+      paletteEmber: icon?.style?.animation?.palette?.ember,
+      paletteMolten: icon?.style?.animation?.palette?.molten,
+      paletteFlare: icon?.style?.animation?.palette?.flare
+    }, {
+      speed: defaults?.style?.animation?.speed,
+      bands: defaults?.style?.animation?.bands,
+      embers: defaults?.style?.animation?.embers,
+      paletteBase: defaults?.style?.animation?.palette?.base,
+      paletteAsh: defaults?.style?.animation?.palette?.ash,
+      paletteEmber: defaults?.style?.animation?.palette?.ember,
+      paletteMolten: defaults?.style?.animation?.palette?.molten,
+      paletteFlare: defaults?.style?.animation?.palette?.flare
+    }),
+    createAnimationGroup("zigzag_scroll", [
+      { key: "speed", label: "Speed", type: "number" }
+    ], {
+      speed: icon?.style?.animation?.speed
+    }, {
+      speed: defaults?.style?.animation?.speed
+    })
+  ];
+  animationFields.forEach((group) => animationSection.appendChild(group));
+
+  controls.append(basic, unlock, colors, patternSection, animationSection);
+  body.appendChild(controls);
+  card.appendChild(body);
+
+  if (allowRemove) {
+    const actions = document.createElement("div");
+    actions.className = "icon-actions";
+    const resetBtn = document.createElement("button");
+    resetBtn.type = "button";
+    resetBtn.textContent = "Revert to defaults";
+    resetBtn.addEventListener("click", () => {
+      if (!defaults?.id) return;
+      idInput.value = defaults.id;
+      nameInput.value = defaults.name || defaults.id;
+      imageInput.value = defaults.imageSrc || "";
+      unlockType.value = defaults.unlock?.type || "free";
+      unlockLabel.value = defaults.unlock?.label || "";
+      unlockId.value = defaults.unlock?.id || "";
+      unlockScore.value = defaults.unlock?.minScore ?? "";
+      unlockCost.value = defaults.unlock?.cost ?? "";
+      unlockCurrency.value = defaults.unlock?.currencyId || "";
+      fill.value = defaults.style?.fill || "";
+      core.value = defaults.style?.core || "";
+      rim.value = defaults.style?.rim || "";
+      glow.value = defaults.style?.glow || "";
+      patternSelect.value = defaults.style?.pattern?.type || "";
+      animationSelect.value = defaults.style?.animation?.type || "";
+      card.querySelectorAll("[data-field^='pattern.']").forEach((input) => {
+        input.value = defaults.style?.pattern?.[input.dataset.field.replace("pattern.", "")] ?? "";
+      });
+      card.querySelectorAll("[data-field^='animation.']").forEach((input) => {
+        const key = input.dataset.field.replace("animation.", "");
+        const paletteKey = key.startsWith("palette")
+          ? key.replace("palette", "").toLowerCase()
+          : null;
+        if (paletteKey) {
+          input.value = defaults.style?.animation?.palette?.[paletteKey] ?? "";
+        } else {
+          input.value = defaults.style?.animation?.[key] ?? "";
+        }
+      });
+      updatePatternVisibility(card);
+      updateAnimationVisibility(card);
+    });
+    const disableBtn = document.createElement("button");
+    disableBtn.type = "button";
+    disableBtn.textContent = "Disable override";
+    disableBtn.addEventListener("click", () => {
+      toggle.checked = false;
+    });
+    actions.append(resetBtn, disableBtn);
+    card.appendChild(actions);
+  }
+
+  patternSelect.addEventListener("change", () => updatePatternVisibility(card));
+  animationSelect.addEventListener("change", () => updateAnimationVisibility(card));
+  updatePatternVisibility(card);
+  updateAnimationVisibility(card);
+
+  return card;
+}
+
+function readIconDefinition(card) {
+  const id = parseText(card.querySelector("[data-field='id']")?.value);
+  if (!id) return null;
+  const icon = { id };
+  const name = parseText(card.querySelector("[data-field='name']")?.value);
+  if (name) icon.name = name;
+  const imageSrcRaw = card.querySelector("[data-field='imageSrc']")?.value;
+  if (imageSrcRaw !== undefined) {
+    const imageSrc = String(imageSrcRaw).trim();
+    if (imageSrc.length) icon.imageSrc = imageSrc;
+    else icon.imageSrc = "";
+  }
+
+  const unlockType = card.querySelector("[data-field='unlockType']")?.value || "free";
+  const unlock = { type: unlockType };
+  const unlockLabel = parseText(card.querySelector("[data-field='unlockLabel']")?.value);
+  if (unlockLabel) unlock.label = unlockLabel;
+  if (unlockType === "score") {
+    const minScore = parseNumber(card.querySelector("[data-field='unlockScore']")?.value);
+    if (minScore !== undefined) unlock.minScore = minScore;
+  } else if (unlockType === "achievement") {
+    const unlockId = parseText(card.querySelector("[data-field='unlockId']")?.value);
+    if (unlockId) unlock.id = unlockId;
+  } else if (unlockType === "purchase") {
+    const cost = parseNumber(card.querySelector("[data-field='unlockCost']")?.value);
+    if (cost !== undefined) unlock.cost = cost;
+    const currencyId = parseText(card.querySelector("[data-field='unlockCurrency']")?.value);
+    if (currencyId) unlock.currencyId = currencyId;
+  }
+  icon.unlock = unlock;
+
+  const style = {};
+  let hasStyle = false;
+  const fill = parseText(card.querySelector("[data-field='fill']")?.value);
+  const core = parseText(card.querySelector("[data-field='core']")?.value);
+  const rim = parseText(card.querySelector("[data-field='rim']")?.value);
+  const glow = parseText(card.querySelector("[data-field='glow']")?.value);
+  if (fill) {
+    style.fill = fill;
+    hasStyle = true;
+  }
+  if (core) {
+    style.core = core;
+    hasStyle = true;
+  }
+  if (rim) {
+    style.rim = rim;
+    hasStyle = true;
+  }
+  if (glow) {
+    style.glow = glow;
+    hasStyle = true;
+  }
+
+  const patternType = card.querySelector("[data-field='patternType']")?.value || "";
+  if (patternType) {
+    const pattern = { type: patternType };
+    card.querySelectorAll("[data-field^='pattern.']").forEach((input) => {
+      const key = input.dataset.field.replace("pattern.", "");
+      const value = key === "colors" ? parseColorList(input.value) : parseText(input.value);
+      const numberValue = ["amplitude", "waves", "spacing", "stripeWidth", "angle", "lineWidth", "cellSize", "segments", "centerRadius", "segmentWidth", "stoneSize", "gap"].includes(key)
+        ? parseNumber(input.value)
+        : value;
+      if (numberValue !== undefined) pattern[key] = numberValue;
+    });
+    style.pattern = pattern;
+    hasStyle = true;
+  } else {
+    style.pattern = null;
+    hasStyle = true;
+  }
+
+  const animationType = card.querySelector("[data-field='animationType']")?.value || "";
+  if (animationType) {
+    const animation = { type: animationType };
+    card.querySelectorAll("[data-field^='animation.']").forEach((input) => {
+      const key = input.dataset.field.replace("animation.", "");
+      if (key.startsWith("palette")) {
+        const paletteKey = key.replace("palette", "").toLowerCase();
+        const value = parseText(input.value);
+        if (value) {
+          animation.palette = animation.palette || {};
+          animation.palette[paletteKey] = value;
+        }
+      } else {
+        const num = parseNumber(input.value);
+        if (num !== undefined) animation[key] = num;
+        else {
+          const value = parseText(input.value);
+          if (value) animation[key] = value;
+        }
+      }
+    });
+    style.animation = animation;
+    hasStyle = true;
+  } else {
+    style.animation = null;
+    hasStyle = true;
+  }
+
+  if (hasStyle) icon.style = style;
+  return icon;
+}
+
+function collectIconOverrides(root) {
+  const overrides = {};
+  const cards = root.querySelectorAll("[data-icon-card]");
+  cards.forEach((card) => {
+    const enabled = card.querySelector("[data-field='overrideEnabled']")?.checked;
+    if (!enabled) return;
+    const icon = readIconDefinition(card);
+    if (!icon?.id) return;
+    const override = { ...icon };
+    delete override.id;
+    overrides[icon.id] = override;
+  });
+  return overrides;
+}
+
+export {
+  createIconCard,
+  collectIconOverrides,
+  readIconDefinition
+};
