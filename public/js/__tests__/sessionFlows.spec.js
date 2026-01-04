@@ -78,4 +78,17 @@ describe("sessionFlows", () => {
     expect(deps.net.trails).toEqual([]);
     expect(deps.syncUnlockablesCatalog).toHaveBeenCalledWith({ trails: [] });
   });
+
+  it("syncs an empty icon catalog when no sources return icons", async () => {
+    const deps = buildDeps({
+      net: { user: null, online: true, trails: [], icons: [], pipeTextures: [] },
+      apiGetMe: vi.fn().mockResolvedValue({ ok: true, user: { username: "pilot" }, icons: [] }),
+      apiGetIconRegistry: vi.fn().mockResolvedValue({ ok: true, icons: [] })
+    });
+
+    const { refreshProfileAndHighscores } = createSessionFlows(deps);
+    await refreshProfileAndHighscores();
+
+    expect(deps.syncIconCatalog).toHaveBeenCalledWith([]);
+  });
 });

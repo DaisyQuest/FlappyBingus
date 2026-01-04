@@ -1,12 +1,13 @@
 "use strict";
 
 const { DEFAULT_CURRENCY_ID, normalizeCurrencyId, getCurrencyDefinition } = require("./currency.cjs");
-const { DEFAULT_PLAYER_ICON_ID, buildBaseIcons } = require("./iconRegistry.cjs");
+const { buildBaseIcons } = require("./iconRegistry.cjs");
 
 const PLAYER_ICONS = Object.freeze(buildBaseIcons());
 
 function normalizePlayerIcons(list) {
-  const src = Array.isArray(list) ? list : [];
+  const hasList = Array.isArray(list);
+  const src = hasList ? list : PLAYER_ICONS;
   const seen = new Set();
   const out = [];
 
@@ -26,7 +27,9 @@ function normalizePlayerIcons(list) {
     });
   }
 
-  return out.length ? out : PLAYER_ICONS.map((i) => ({ ...i, unlock: normalizeUnlock(i.unlock) }));
+  if (out.length) return out;
+  if (hasList) return [];
+  return PLAYER_ICONS.map((i) => ({ ...i, unlock: normalizeUnlock(i.unlock) }));
 }
 
 function normalizeUnlock(unlock) {
@@ -95,7 +98,6 @@ function unlockedIcons(user, { icons = PLAYER_ICONS, recordHolder = false } = {}
 }
 
 module.exports = {
-  DEFAULT_PLAYER_ICON_ID,
   PLAYER_ICONS,
   normalizePlayerIcons,
   normalizeUnlock,

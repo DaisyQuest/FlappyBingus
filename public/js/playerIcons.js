@@ -3,11 +3,7 @@
 // Player icon definitions + helpers for unlock logic and UI presentation.
 // =====================
 import { DEFAULT_CURRENCY_ID, formatCurrencyAmount, normalizeCurrencyId } from "./currencySystem.js";
-import { DEFAULT_PLAYER_ICON_ID, buildBaseIcons } from "./iconRegistry.js";
-
-export { DEFAULT_PLAYER_ICON_ID };
-
-export const DEFAULT_PLAYER_ICONS = Object.freeze(buildBaseIcons());
+import { buildBaseIcons } from "./iconRegistry.js";
 
 export function normalizeIconUnlock(unlock) {
   if (!unlock || typeof unlock !== "object") return { type: "free", label: "Free" };
@@ -32,8 +28,8 @@ export function normalizeIconUnlock(unlock) {
 
 export function normalizePlayerIcons(list, { allowEmpty = false } = {}) {
   const hasList = Array.isArray(list);
-  const src = hasList ? list : [];
-  const prefersExplicitCatalog = hasList && src.length > DEFAULT_PLAYER_ICONS.length;
+  const baseIcons = buildBaseIcons();
+  const src = hasList ? list : baseIcons;
   const seen = new Set();
   const out = [];
 
@@ -54,8 +50,8 @@ export function normalizePlayerIcons(list, { allowEmpty = false } = {}) {
   }
 
   if (out.length) return out;
-  if ((allowEmpty && hasList) || prefersExplicitCatalog) return [];
-  return DEFAULT_PLAYER_ICONS.map((i) => ({ ...i, unlock: normalizeIconUnlock(i.unlock) }));
+  if (hasList) return allowEmpty ? [] : [];
+  return baseIcons.map((i) => ({ ...i, unlock: normalizeIconUnlock(i.unlock) }));
 }
 
 export function getUnlockedPlayerIcons(icons, {
@@ -107,7 +103,7 @@ export function normalizeIconSelection({
   currentId,
   userSelectedId,
   unlockedIds,
-  fallbackId = DEFAULT_PLAYER_ICON_ID
+  fallbackId
 }) {
   const unlocked = unlockedIds instanceof Set ? unlockedIds : new Set(unlockedIds || []);
   const current = currentId && unlocked.has(currentId) ? currentId : null;
@@ -115,7 +111,7 @@ export function normalizeIconSelection({
   if (current) return current;
   if (userChoice) return userChoice;
   const [firstUnlocked] = unlocked;
-  return firstUnlocked || fallbackId;
+  return firstUnlocked || fallbackId || "";
 }
 
 export function describeIconLock(icon, { unlocked }) {
@@ -135,6 +131,11 @@ export function describeIconLock(icon, { unlocked }) {
     default:
       return "Locked";
   }
+}
+
+export function getFirstIconId(icons = []) {
+  if (!Array.isArray(icons) || !icons.length) return "";
+  return icons[0]?.id || "";
 }
 
 export const __testables = {

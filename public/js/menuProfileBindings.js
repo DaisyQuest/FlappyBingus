@@ -1,13 +1,14 @@
 // ================================
 // FILE: public/js/menuProfileBindings.js
 // ================================
-import { DEFAULT_PLAYER_ICON_ID } from "./playerIcons.js";
+import { getFirstIconId } from "./playerIcons.js";
 import { DEFAULT_PIPE_TEXTURE_ID } from "./pipeTextures.js";
 import { DEFAULT_CURRENCY_ID, SUPPORT_CURRENCY_ID, getUserCurrencyBalance } from "./currencySystem.js";
 
 export function getIconDisplayName(id, icons = []) {
-  if (!id) return DEFAULT_PLAYER_ICON_ID;
-  return icons.find((i) => i.id === id)?.name || id || DEFAULT_PLAYER_ICON_ID;
+  const fallbackId = getFirstIconId(icons);
+  if (!id) return fallbackId;
+  return icons.find((i) => i.id === id)?.name || id || fallbackId;
 }
 
 export function getTrailDisplayName(id, trails = []) {
@@ -28,10 +29,11 @@ export function syncMenuProfileBindings({
   pipeTextures = [],
   fallbackUsername = "",
   fallbackTrailId = "classic",
-  fallbackIconId = DEFAULT_PLAYER_ICON_ID,
+  fallbackIconId = "",
   fallbackPipeTextureId = DEFAULT_PIPE_TEXTURE_ID,
   bestScoreFallback = 0
 } = {}) {
+  const resolvedFallbackIconId = fallbackIconId || getFirstIconId(icons);
   const username = user?.username || fallbackUsername || "";
   if (refs.usernameInput) refs.usernameInput.value = username;
 
@@ -47,7 +49,7 @@ export function syncMenuProfileBindings({
   const trailId = user?.selectedTrail || fallbackTrailId;
   if (refs.trailText) refs.trailText.textContent = getTrailDisplayName(trailId, trails);
 
-  const iconId = user?.selectedIcon || fallbackIconId;
+  const iconId = user?.selectedIcon || resolvedFallbackIconId;
   if (refs.iconText) refs.iconText.textContent = getIconDisplayName(iconId, icons);
 
   const pipeTextureId = user?.selectedPipeTexture || fallbackPipeTextureId;
@@ -72,7 +74,7 @@ export function createMenuProfileModel({
   pipeTextures = [],
   fallbackUsername = "",
   fallbackTrailId = "classic",
-  fallbackIconId = DEFAULT_PLAYER_ICON_ID,
+  fallbackIconId = "",
   fallbackPipeTextureId = DEFAULT_PIPE_TEXTURE_ID,
   bestScoreFallback = 0
 } = {}) {

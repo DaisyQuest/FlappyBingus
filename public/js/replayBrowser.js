@@ -1,6 +1,6 @@
 import { loadConfig } from "./config.js";
 import { Game } from "./game.js";
-import { DEFAULT_PLAYER_ICON_ID, DEFAULT_PLAYER_ICONS } from "./playerIcons.js";
+import { buildBaseIcons } from "./iconRegistry.js";
 import { DEFAULT_PIPE_TEXTURE_ID, DEFAULT_PIPE_TEXTURE_MODE, normalizePipeTextureMode } from "./pipeTextures.js";
 import { getCachedIconSprite } from "./swatchPainter.js";
 import { createReplayPlaybackController } from "./replayBrowserPlayer.js";
@@ -201,7 +201,8 @@ export async function initReplayBrowser(root = document.querySelector("[data-rep
 
   const { config } = await loadConfig();
   const ctx = canvas?.getContext("2d");
-  const icon = DEFAULT_PLAYER_ICONS.find((entry) => entry.id === DEFAULT_PLAYER_ICON_ID) || DEFAULT_PLAYER_ICONS[0];
+  const baseIcons = buildBaseIcons();
+  const icon = baseIcons[0];
   const playerImg = getCachedIconSprite(icon);
   const defaultCosmetics = {
     trailId: "classic",
@@ -244,7 +245,7 @@ export async function initReplayBrowser(root = document.querySelector("[data-rep
     game.getTrailId = () => resolved.trailId;
     game.getPipeTexture = () => ({ id: resolved.pipeTextureId, mode: resolved.pipeTextureMode });
 
-    const nextIcon = DEFAULT_PLAYER_ICONS.find((entry) => entry.id === resolved.iconId) || icon;
+    const nextIcon = baseIcons.find((entry) => entry.id === resolved.iconId) || icon;
     game.setPlayerImage(getCachedIconSprite(nextIcon));
 
     return () => {

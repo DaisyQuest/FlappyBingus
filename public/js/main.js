@@ -83,10 +83,10 @@ import { updatePersonalBestUI } from "./personalBestUI.js";
 import { buildGameOverStats, GAME_OVER_STAT_VIEWS } from "./gameOverStats.js";
 import { buildUnlockablesCatalog, getUnlockedIdsByType, resolveUnlockablesForType, UNLOCKABLE_TYPES } from "./unlockables.js";
 import { DEFAULT_CURRENCY_ID, getUserCurrencyBalance } from "./currencySystem.js";
+import { buildBaseIcons } from "./iconRegistry.js";
 import {
-  DEFAULT_PLAYER_ICON_ID,
-  DEFAULT_PLAYER_ICONS,
   describeIconLock,
+  getFirstIconId,
   normalizeIconSelection,
   normalizePlayerIcons
 } from "./playerIcons.js";
@@ -452,9 +452,12 @@ function updateSkillCooldownUI(cfg) {
 
 // ---- Boot + runtime state ----
 const boot = createBootState();
+const baseIcons = buildBaseIcons();
+const normalizedBaseIcons = normalizePlayerIcons(baseIcons);
+const fallbackIconId = getFirstIconId(normalizedBaseIcons);
 const net = createNetState({
   defaultTrails: DEFAULT_TRAILS,
-  defaultIcons: DEFAULT_PLAYER_ICONS,
+  icons: normalizedBaseIcons,
   normalizePipeTextures,
   achievements: { definitions: ACHIEVEMENTS, normalizeState: normalizeAchievementState },
   buildUnlockablesCatalog
@@ -468,12 +471,12 @@ let skillSettings = readSettingsCookie() || normalizeSkillSettings(DEFAULT_SKILL
 let CFG = null;
 let trailPreview = null;
 let currentTrailId = "classic";
-let playerIcons = normalizePlayerIcons(DEFAULT_PLAYER_ICONS);
+let playerIcons = normalizedBaseIcons;
 const iconLookup = createIconLookup(playerIcons);
 let currentIconId = normalizeIconSelection({
   currentId: readIconCookie(),
   unlockedIds: playerIcons.map((i) => i.id),
-  fallbackId: DEFAULT_PLAYER_ICON_ID
+  fallbackId: fallbackIconId
 });
 let currentPipeTextureId = readPipeTextureCookie() || DEFAULT_PIPE_TEXTURE_ID;
 let currentPipeTextureMode = normalizePipeTextureMode(readPipeTextureModeCookie() || DEFAULT_PIPE_TEXTURE_MODE);
@@ -482,7 +485,7 @@ let pendingPurchase = null;
 const highscoreDetailsCache = new Map();
 const cosmeticsDefaults = {
   trailId: "classic",
-  iconId: DEFAULT_PLAYER_ICON_ID,
+  iconId: fallbackIconId,
   pipeTextureId: DEFAULT_PIPE_TEXTURE_ID,
   pipeTextureMode: DEFAULT_PIPE_TEXTURE_MODE
 };
@@ -573,7 +576,7 @@ const iconMenuController = createIconMenuController({
   refreshTrailMenu: () => refreshTrailMenu(currentTrailId),
   writeIconCookie,
   DEFAULT_ICON_HINT,
-  fallbackIconId: DEFAULT_PLAYER_ICON_ID
+  fallbackIconId
 });
 syncLauncherSwatch(currentIconId, playerIcons, playerImg);
 syncPipeTextureCatalog(net.pipeTextures);

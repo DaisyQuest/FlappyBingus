@@ -195,20 +195,16 @@ function updateAnimationVisibility(card) {
   });
 }
 
-function createIconCard({ icon, defaults = {}, allowRemove = false } = {}) {
+function createIconCard({ icon, allowRemove = false } = {}) {
   const card = document.createElement("section");
   card.className = "icon-card";
   card.dataset.iconCard = "true";
-  card.dataset.defaultIcon = allowRemove ? "true" : "false";
 
   const header = document.createElement("header");
   const titleWrap = document.createElement("div");
   const heading = document.createElement("h3");
   heading.textContent = icon?.name || icon?.id || "New icon";
-  const pill = document.createElement("span");
-  pill.className = "pill";
-  pill.textContent = allowRemove ? "Default" : "Custom";
-  titleWrap.append(heading, pill);
+  titleWrap.append(heading);
 
   header.append(titleWrap);
   card.appendChild(header);
@@ -238,9 +234,9 @@ function createIconCard({ icon, defaults = {}, allowRemove = false } = {}) {
   const imageInput = createTextInput(icon?.imageSrc || "");
   imageInput.dataset.field = "imageSrc";
   basicGrid.append(
-    createFieldRow("ID", idInput, defaults?.id),
-    createFieldRow("Name", nameInput, defaults?.name),
-    createFieldRow("Image src", imageInput, defaults?.imageSrc)
+    createFieldRow("ID", idInput),
+    createFieldRow("Name", nameInput),
+    createFieldRow("Image src", imageInput)
   );
   basic.appendChild(basicGrid);
 
@@ -262,12 +258,12 @@ function createIconCard({ icon, defaults = {}, allowRemove = false } = {}) {
   const unlockCurrency = createTextInput(icon?.unlock?.currencyId || "");
   unlockCurrency.dataset.field = "unlockCurrency";
   unlockGrid.append(
-    createFieldRow("Type", unlockType, defaults?.unlock?.type),
-    createFieldRow("Label", unlockLabel, defaults?.unlock?.label),
-    createFieldRow("Achievement ID", unlockId, defaults?.unlock?.id),
-    createFieldRow("Score min", unlockScore, defaults?.unlock?.minScore),
-    createFieldRow("Cost", unlockCost, defaults?.unlock?.cost),
-    createFieldRow("Currency ID", unlockCurrency, defaults?.unlock?.currencyId)
+    createFieldRow("Type", unlockType),
+    createFieldRow("Label", unlockLabel),
+    createFieldRow("Achievement ID", unlockId),
+    createFieldRow("Score min", unlockScore),
+    createFieldRow("Cost", unlockCost),
+    createFieldRow("Currency ID", unlockCurrency)
   );
   unlock.appendChild(unlockGrid);
 
@@ -285,10 +281,10 @@ function createIconCard({ icon, defaults = {}, allowRemove = false } = {}) {
   const glow = createTextInput(icon?.style?.glow || "");
   glow.dataset.field = "glow";
   colorGrid.append(
-    createFieldRow("Fill", fill, defaults?.style?.fill, { swatches: {} }),
-    createFieldRow("Core", core, defaults?.style?.core, { swatches: {} }),
-    createFieldRow("Rim", rim, defaults?.style?.rim, { swatches: {} }),
-    createFieldRow("Glow", glow, defaults?.style?.glow, { swatches: {} })
+    createFieldRow("Fill", fill, undefined, { swatches: {} }),
+    createFieldRow("Core", core, undefined, { swatches: {} }),
+    createFieldRow("Rim", rim, undefined, { swatches: {} }),
+    createFieldRow("Glow", glow, undefined, { swatches: {} })
   );
   colors.appendChild(colorGrid);
 
@@ -297,7 +293,7 @@ function createIconCard({ icon, defaults = {}, allowRemove = false } = {}) {
   patternSection.innerHTML = "<strong>Pattern</strong>";
   const patternSelect = createSelect(PATTERN_OPTIONS, icon?.style?.pattern?.type || "");
   patternSelect.dataset.field = "patternType";
-  patternSection.appendChild(createFieldRow("Pattern", patternSelect, defaults?.style?.pattern?.type));
+  patternSection.appendChild(createFieldRow("Pattern", patternSelect));
 
   const patternFields = [
     createPatternGroup("zigzag", [
@@ -306,24 +302,24 @@ function createIconCard({ icon, defaults = {}, allowRemove = false } = {}) {
       { key: "amplitude", label: "Amplitude", type: "number" },
       { key: "waves", label: "Waves", type: "number" },
       { key: "spacing", label: "Spacing", type: "number" }
-    ], icon?.style?.pattern || {}, defaults?.style?.pattern || {}),
+    ], icon?.style?.pattern || {}),
     createPatternGroup("centerline", [
       { key: "stroke", label: "Stroke", type: "text", isColor: true },
       { key: "accent", label: "Accent", type: "text", isColor: true },
       { key: "glow", label: "Glow", type: "text", isColor: true }
-    ], icon?.style?.pattern || {}, defaults?.style?.pattern || {}),
+    ], icon?.style?.pattern || {}),
     createPatternGroup("stripes", [
       { key: "colors", label: "Colors (comma)", type: "text", isColorList: true },
       { key: "stripeWidth", label: "Stripe width", type: "number" },
       { key: "angle", label: "Angle", type: "number" },
       { key: "glow", label: "Glow", type: "text", isColor: true }
-    ], icon?.style?.pattern || {}, defaults?.style?.pattern || {}),
+    ], icon?.style?.pattern || {}),
     createPatternGroup("honeycomb", [
       { key: "stroke", label: "Stroke", type: "text", isColor: true },
       { key: "lineWidth", label: "Line width", type: "number" },
       { key: "cellSize", label: "Cell size", type: "number" },
       { key: "glow", label: "Glow", type: "text", isColor: true }
-    ], icon?.style?.pattern || {}, defaults?.style?.pattern || {}),
+    ], icon?.style?.pattern || {}),
     createPatternGroup("citrus_slice", [
       { key: "stroke", label: "Stroke", type: "text", isColor: true },
       { key: "lineWidth", label: "Line width", type: "number" },
@@ -333,7 +329,7 @@ function createIconCard({ icon, defaults = {}, allowRemove = false } = {}) {
       { key: "rindStroke", label: "Rind stroke", type: "text", isColor: true },
       { key: "segmentStroke", label: "Segment stroke", type: "text", isColor: true },
       { key: "segmentWidth", label: "Segment width", type: "number" }
-    ], icon?.style?.pattern || {}, defaults?.style?.pattern || {}),
+    ], icon?.style?.pattern || {}),
     createPatternGroup("cobblestone", [
       { key: "base", label: "Base", type: "text", isColor: true },
       { key: "highlight", label: "Highlight", type: "text", isColor: true },
@@ -342,7 +338,7 @@ function createIconCard({ icon, defaults = {}, allowRemove = false } = {}) {
       { key: "lineWidth", label: "Line width", type: "number" },
       { key: "stoneSize", label: "Stone size", type: "number" },
       { key: "gap", label: "Gap", type: "number" }
-    ], icon?.style?.pattern || {}, defaults?.style?.pattern || {})
+    ], icon?.style?.pattern || {})
   ];
   patternFields.forEach((group) => patternSection.appendChild(group));
 
@@ -351,7 +347,7 @@ function createIconCard({ icon, defaults = {}, allowRemove = false } = {}) {
   animationSection.innerHTML = "<strong>Animation</strong>";
   const animationSelect = createSelect(ANIMATION_OPTIONS, icon?.style?.animation?.type || "");
   animationSelect.dataset.field = "animationType";
-  animationSection.appendChild(createFieldRow("Animation", animationSelect, defaults?.style?.animation?.type));
+  animationSection.appendChild(createFieldRow("Animation", animationSelect));
 
   const animationFields = [
     createAnimationGroup("lava", [
@@ -372,15 +368,6 @@ function createIconCard({ icon, defaults = {}, allowRemove = false } = {}) {
       paletteEmber: icon?.style?.animation?.palette?.ember,
       paletteMolten: icon?.style?.animation?.palette?.molten,
       paletteFlare: icon?.style?.animation?.palette?.flare
-    }, {
-      speed: defaults?.style?.animation?.speed,
-      layers: defaults?.style?.animation?.layers,
-      smoothness: defaults?.style?.animation?.smoothness,
-      fallback: defaults?.style?.animation?.fallback,
-      paletteBase: defaults?.style?.animation?.palette?.base,
-      paletteEmber: defaults?.style?.animation?.palette?.ember,
-      paletteMolten: defaults?.style?.animation?.palette?.molten,
-      paletteFlare: defaults?.style?.animation?.palette?.flare
     }),
     createAnimationGroup("cape_flow", [
       { key: "speed", label: "Speed", type: "number" },
@@ -400,22 +387,11 @@ function createIconCard({ icon, defaults = {}, allowRemove = false } = {}) {
       paletteEmber: icon?.style?.animation?.palette?.ember,
       paletteMolten: icon?.style?.animation?.palette?.molten,
       paletteFlare: icon?.style?.animation?.palette?.flare
-    }, {
-      speed: defaults?.style?.animation?.speed,
-      bands: defaults?.style?.animation?.bands,
-      embers: defaults?.style?.animation?.embers,
-      paletteBase: defaults?.style?.animation?.palette?.base,
-      paletteAsh: defaults?.style?.animation?.palette?.ash,
-      paletteEmber: defaults?.style?.animation?.palette?.ember,
-      paletteMolten: defaults?.style?.animation?.palette?.molten,
-      paletteFlare: defaults?.style?.animation?.palette?.flare
     }),
     createAnimationGroup("zigzag_scroll", [
       { key: "speed", label: "Speed", type: "number" }
     ], {
       speed: icon?.style?.animation?.speed
-    }, {
-      speed: defaults?.style?.animation?.speed
     })
   ];
   animationFields.forEach((group) => animationSection.appendChild(group));
@@ -427,43 +403,6 @@ function createIconCard({ icon, defaults = {}, allowRemove = false } = {}) {
   if (allowRemove) {
     const actions = document.createElement("div");
     actions.className = "icon-actions";
-    const resetBtn = document.createElement("button");
-    resetBtn.type = "button";
-    resetBtn.textContent = "Revert to defaults";
-    resetBtn.addEventListener("click", () => {
-      if (!defaults?.id) return;
-      idInput.value = defaults.id;
-      nameInput.value = defaults.name || defaults.id;
-      imageInput.value = defaults.imageSrc || "";
-      unlockType.value = defaults.unlock?.type || "free";
-      unlockLabel.value = defaults.unlock?.label || "";
-      unlockId.value = defaults.unlock?.id || "";
-      unlockScore.value = defaults.unlock?.minScore ?? "";
-      unlockCost.value = defaults.unlock?.cost ?? "";
-      unlockCurrency.value = defaults.unlock?.currencyId || "";
-      fill.value = defaults.style?.fill || "";
-      core.value = defaults.style?.core || "";
-      rim.value = defaults.style?.rim || "";
-      glow.value = defaults.style?.glow || "";
-      patternSelect.value = defaults.style?.pattern?.type || "";
-      animationSelect.value = defaults.style?.animation?.type || "";
-      card.querySelectorAll("[data-field^='pattern.']").forEach((input) => {
-        input.value = defaults.style?.pattern?.[input.dataset.field.replace("pattern.", "")] ?? "";
-      });
-      card.querySelectorAll("[data-field^='animation.']").forEach((input) => {
-        const key = input.dataset.field.replace("animation.", "");
-        const paletteKey = key.startsWith("palette")
-          ? key.replace("palette", "").toLowerCase()
-          : null;
-        if (paletteKey) {
-          input.value = defaults.style?.animation?.palette?.[paletteKey] ?? "";
-        } else {
-          input.value = defaults.style?.animation?.[key] ?? "";
-        }
-      });
-      updatePatternVisibility(card);
-      updateAnimationVisibility(card);
-    });
     const disableBtn = document.createElement("button");
     disableBtn.type = "button";
     disableBtn.textContent = "Clear unlock to free";
@@ -475,7 +414,7 @@ function createIconCard({ icon, defaults = {}, allowRemove = false } = {}) {
       unlockCost.value = "";
       unlockCurrency.value = "";
     });
-    actions.append(resetBtn, disableBtn);
+    actions.append(disableBtn);
     card.appendChild(actions);
   }
 

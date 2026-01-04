@@ -14,7 +14,7 @@ describe("menuProfileBindings", () => {
     const textures = [{ id: "basic", name: "Basic Pipe" }];
 
     expect(getIconDisplayName("alpha", icons)).toBe("Alpha Icon");
-    expect(getIconDisplayName("", icons)).toBe("hi_vis_orange");
+    expect(getIconDisplayName("", icons)).toBe("alpha");
     expect(getTrailDisplayName("classic", trails)).toBe("Classic Trail");
     expect(getTrailDisplayName("", trails)).toBe("");
     expect(getPipeTextureDisplayName("basic", textures)).toBe("Basic Pipe");
