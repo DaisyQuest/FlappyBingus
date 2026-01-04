@@ -359,4 +359,69 @@ describe("icon menu handlers", () => {
 
     expect(elements.iconHint.textContent).toBe("Hover text");
   });
+
+  it("avoids duplicate icon saves while a request is in flight", async () => {
+    const elements = buildElements();
+    const net = {
+      user: { username: "pilot", selectedIcon: "old" },
+      online: true,
+      trails: [],
+      icons: [],
+      pipeTextures: []
+    };
+    let resolveSave;
+    const apiSetIcon = vi.fn(() => new Promise((resolve) => {
+      resolveSave = resolve;
+    }));
+
+    const handlers = createIconMenuHandlers({
+      elements,
+      getNet: () => net,
+      getPlayerIcons: () => [{ id: "spark", name: "Spark" }],
+      getCurrentIconId: () => "old",
+      getIconMenuState: () => ({ unlocked: new Set(["spark"]) }),
+      openPurchaseModal: vi.fn(),
+      applyIconSelection: vi.fn(),
+      ensureLoggedInForSave: vi.fn().mockResolvedValue(true),
+      apiSetIcon,
+      classifyIconSaveResponse: vi.fn(() => ({
+        outcome: "saved",
+        online: true,
+        revert: false,
+        needsReauth: false,
+        message: "Icon saved."
+      })),
+      setNetUser: vi.fn(),
+      mergeTrailCatalog: vi.fn((trails) => trails),
+      syncUnlockablesCatalog: vi.fn(),
+      syncIconCatalog: vi.fn(),
+      syncPipeTextureCatalog: vi.fn(),
+      setUserHint: vi.fn(),
+      recoverSession: vi.fn(),
+      refreshIconMenu: vi.fn(),
+      toggleIconMenu: vi.fn(),
+      resetIconHint: vi.fn(),
+      describeIconLock: vi.fn(() => "Locked"),
+      iconHoverText: vi.fn(() => "Hover"),
+      DEFAULT_CURRENCY_ID: "bustercoin",
+      UNLOCKABLE_TYPES: { playerTexture: "player_texture" }
+    });
+
+    const first = handlers.handlers.handleOptionsClick({ target: elements.button });
+    await Promise.resolve();
+    const second = handlers.handlers.handleOptionsClick({ target: elements.button });
+
+    expect(apiSetIcon).toHaveBeenCalledTimes(1);
+
+    resolveSave({
+      ok: true,
+      user: { username: "pilot", selectedIcon: "spark" },
+      trails: [],
+      icons: [],
+      pipeTextures: []
+    });
+
+    await first;
+    await second;
+  });
 });

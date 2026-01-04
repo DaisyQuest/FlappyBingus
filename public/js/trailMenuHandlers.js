@@ -39,6 +39,7 @@ export function createTrailMenuHandlers({
     trailOverlayClose,
     trailOptions
   } = elements;
+  let trailSaveInFlight = null;
 
   const handleLauncherClick = () => {
     refreshTrailMenu(getCurrentTrailId());
@@ -65,6 +66,7 @@ export function createTrailMenuHandlers({
 
     const net = getNet();
     const id = btn.dataset.trailId;
+    if (trailSaveInFlight === id) return;
     const menuState = getTrailMenuState?.({ trails: net.trails, user: net.user, achievementsState: net.achievements?.state }) || {};
     const {
       orderedTrails: ordered = Array.isArray(net.trails) ? net.trails : [],
@@ -111,28 +113,35 @@ export function createTrailMenuHandlers({
 
     if (!net.user && !(await ensureLoggedInForSave())) return;
 
-    const res = await apiSetTrail(id);
-    await handleTrailSaveResponse({
-      res,
-      net,
-      orderedTrails: ordered,
-      selectedTrailId: id,
-      currentTrailId: getCurrentTrailId(),
-      currentIconId: getCurrentIconId(),
-      playerIcons: getPlayerIcons(),
-      setNetUser,
-      setUserHint,
-      setTrailHint,
-      buildTrailHint,
-      mergeTrailCatalog,
-      syncUnlockablesCatalog,
-      syncIconCatalog,
-      syncPipeTextureCatalog,
-      refreshTrailMenu,
-      applyIconSelection,
-      getAuthStatusFromResponse,
-      recoverSession
-    });
+    trailSaveInFlight = id;
+    try {
+      const res = await apiSetTrail(id);
+      await handleTrailSaveResponse({
+        res,
+        net,
+        orderedTrails: ordered,
+        selectedTrailId: id,
+        currentTrailId: getCurrentTrailId(),
+        currentIconId: getCurrentIconId(),
+        playerIcons: getPlayerIcons(),
+        setNetUser,
+        setUserHint,
+        setTrailHint,
+        buildTrailHint,
+        mergeTrailCatalog,
+        syncUnlockablesCatalog,
+        syncIconCatalog,
+        syncPipeTextureCatalog,
+        refreshTrailMenu,
+        applyIconSelection,
+        getAuthStatusFromResponse,
+        recoverSession
+      });
+    } finally {
+      if (trailSaveInFlight === id) {
+        trailSaveInFlight = null;
+      }
+    }
   };
 
   const handleOptionsMouseOver = (event) => {

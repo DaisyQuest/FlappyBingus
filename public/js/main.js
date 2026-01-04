@@ -1621,7 +1621,6 @@ createPipeTextureMenuHandlers({
   openPurchaseModal,
   applyPipeTextureSelection,
   shouldTriggerSelectionSave,
-  triggerUserSave: () => saveUserBtn?.click?.(),
   ensureLoggedInForSave,
   apiSetPipeTexture,
   getAuthStatusFromResponse,
