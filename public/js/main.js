@@ -122,6 +122,7 @@ import { normalizeTrailSelection } from "./trailSelectUtils.js";
 import { setTrailStyleOverrides } from "./trailStyles.js";
 import { buildTrailHint, GUEST_TRAIL_HINT_TEXT } from "./trailHint.js";
 import { DEFAULT_TRAILS, normalizeTrails, sortTrailsForDisplay } from "./trailProgression.js";
+import { createTrailMenuStateProvider } from "./trailMenuState.js";
 import { computePipeColor } from "./pipeColors.js";
 import { hydrateBestRunPayload, maybeUploadBestRun } from "./bestRunRecorder.js";
 import { renderHighscores } from "./highscores.js";
@@ -197,6 +198,7 @@ import { createReplayBytesMeasurer } from "./main/replayMetrics.js";
 import { createPersonalBestUpdater } from "./main/personalBestAdapter.js";
 import { createVolumeController } from "./main/audioControls.js";
 import { refreshBootUI } from "./main/bootUI.js";
+import { createTrailMenuController } from "./main/trailMenuController.js";
 import {
   computeUnlockedIconSet,
   computeUnlockedPipeTextureSet,
@@ -462,7 +464,6 @@ let skillSettings = readSettingsCookie() || normalizeSkillSettings(DEFAULT_SKILL
 // config + assets
 let CFG = null;
 let trailPreview = null;
-let lastTrailHint = { className: "hint", text: DEFAULT_TRAIL_HINT };
 let currentTrailId = "classic";
 let playerIcons = normalizePlayerIcons(DEFAULT_PLAYER_ICONS);
 const iconLookup = createIconLookup(playerIcons);
@@ -518,6 +519,32 @@ trailPreview = trailPreviewCanvas ? new TrailPreview({
   canvas: trailPreviewCanvas,
   playerImg
 }) : null;
+const getTrailMenuState = createTrailMenuStateProvider({
+  sortTrailsForDisplay,
+  computeUnlockedTrailSet
+});
+const trailMenuController = createTrailMenuController({
+  elements: { trailText, trailLauncher, trailHint, trailOptions },
+  getNet: () => net,
+  getTrailMenuState,
+  getCurrentTrailId: () => currentTrailId,
+  setCurrentTrailId: (id) => { currentTrailId = id; },
+  getCurrentIconId: () => currentIconId,
+  getPlayerIcons: () => playerIcons,
+  getPlayerImage: () => playerImg,
+  getTrailDisplayName,
+  normalizeTrailSelection,
+  renderTrailMenuOptions,
+  describeTrailLock,
+  buildTrailHint,
+  shouldTriggerGuestSave,
+  syncMenuProfileBindingsFromState,
+  syncLauncherSwatch,
+  trailPreview,
+  saveUserButton: saveUserBtn,
+  DEFAULT_TRAIL_HINT,
+  GUEST_TRAIL_HINT_TEXT
+});
 syncLauncherSwatch(currentIconId, playerIcons, playerImg);
 syncPipeTextureCatalog(net.pipeTextures);
 syncPipeTextureSwatch(currentPipeTextureId, net.pipeTextures);
@@ -756,7 +783,6 @@ function setNetUser(nextUser, { syncProfile = true } = {}) {
 }
 
 let reauthInProgress = false;
-let guestSaveTriggered = false;
 
 function setUserHint() {
   const best = net.user ? (net.user.bestScore | 0) : 0;
@@ -988,11 +1014,6 @@ const computeUnlockedIconSetForMenu = (icons = playerIcons) => computeUnlockedIc
   achievementsState: resolveAchievementsState(),
   unlockables: net.unlockables?.unlockables
 });
-const computeUnlockedTrailSetForMenu = (trails = net.trails) => computeUnlockedTrailSet({
-  trails,
-  user: net.user,
-  achievementsState: resolveAchievementsState()
-});
 const computeUnlockedPipeTextureSetForMenu = (textures = net.pipeTextures) => computeUnlockedPipeTextureSet({
   textures,
   user: net.user,
@@ -1117,93 +1138,12 @@ function applyPipeTextureSelection(
   syncPipeTextureSwatch(currentPipeTextureId, textures);
 }
 
-function applyTrailSelection(id, trails = net.trails) {
-  const safeId = id || "classic";
-  currentTrailId = safeId;
-  if (trailText) {
-    trailText.textContent = getTrailDisplayName(safeId, trails);
-  }
-  if (trailLauncher) {
-    const nameEl = trailLauncher.querySelector(".trail-launcher-name");
-    if (nameEl) nameEl.textContent = getTrailDisplayName(safeId, trails);
-  }
-  trailPreview?.setTrail(safeId);
-  syncLauncherSwatch(currentIconId, playerIcons, playerImg);
-}
-
-function setTrailHint(hint, { persist = true } = {}) {
-  if (trailHint) {
-    const current = trailHint.textContent;
-    const nextText = hint?.text;
-    if (shouldTriggerGuestSave({
-      currentText: current,
-      nextText,
-      alreadyTriggered: guestSaveTriggered
-    })) {
-      guestSaveTriggered = true;
-      saveUserBtn?.click?.();
-    } else if (nextText !== GUEST_TRAIL_HINT_TEXT) {
-      guestSaveTriggered = false;
-    }
-    trailHint.className = hint.className || "hint";
-    trailHint.textContent = hint.text || DEFAULT_TRAIL_HINT;
-  }
-  if (persist) {
-    lastTrailHint = hint;
-  }
-}
-
-function resumeTrailPreview(selectedId = currentTrailId || "classic") {
-  applyTrailSelection(selectedId || currentTrailId || "classic");
-  trailPreview?.start();
-}
-
-function pauseTrailPreview() {
-  trailPreview?.stop();
-}
-
-function refreshTrailMenu(selectedId = currentTrailId) {
-  const best = net.user ? (net.user.bestScore | 0) : 0;
-  const isRecordHolder = Boolean(net.user?.isRecordHolder);
-  const achievements = net.user?.achievements || net.achievements?.state;
-  const orderedTrails = sortTrailsForDisplay(net.trails, { isRecordHolder });
-  const unlocked = computeUnlockedTrailSetForMenu(orderedTrails);
-  const selected = normalizeTrailSelection({
-    currentId: selectedId,
-    userSelectedId: net.user?.selectedTrail,
-    selectValue: selectedId,
-    unlockedIds: unlocked,
-    fallbackId: "classic"
-  });
-
-  applyTrailSelection(selected, orderedTrails);
-
-  const { rendered } = renderTrailMenuOptions({
-    container: trailOptions,
-    trails: orderedTrails,
-    selectedId: selected,
-    unlockedIds: unlocked,
-    lockTextFor: (trail, { unlocked: unlockedTrail }) => describeTrailLock(trail, {
-      unlocked: unlockedTrail ?? unlocked.has(trail.id),
-      bestScore: best,
-      isRecordHolder
-    })
-  });
-
-  syncMenuProfileBindingsFromState({ bestScoreFallback: best, fallbackTrailId: selected });
-
-  const hint = buildTrailHint({
-    online: net.online,
-    user: net.user,
-    bestScore: best,
-    trails: orderedTrails,
-    achievements
-  });
-  if (trailHint) {
-    setTrailHint(rendered ? hint : { className: "hint bad", text: "No trails available." });
-  }
-  return { selected, unlocked, orderedTrails, best };
-}
+const applyTrailSelection = (...args) => trailMenuController.applyTrailSelection(...args);
+const setTrailHint = (...args) => trailMenuController.setTrailHint(...args);
+const resumeTrailPreview = (...args) => trailMenuController.resumeTrailPreview(...args);
+const pauseTrailPreview = (...args) => trailMenuController.pauseTrailPreview(...args);
+const refreshTrailMenu = (...args) => trailMenuController.refreshTrailMenu(...args);
+const getLastTrailHint = () => trailMenuController.getLastTrailHint();
 
 function renderPipeTextureModeButtons(mode = currentPipeTextureMode) {
   if (!pipeTextureModeOptions) return;
@@ -1658,7 +1598,7 @@ createTrailMenuHandlers({
   getCurrentTrailId: () => currentTrailId,
   getCurrentIconId: () => currentIconId,
   getPlayerIcons: () => playerIcons,
-  getLastTrailHint: () => lastTrailHint,
+  getLastTrailHint,
   apiSetTrail,
   refreshTrailMenu,
   toggleTrailMenu,
@@ -1677,8 +1617,7 @@ createTrailMenuHandlers({
   applyIconSelection,
   getAuthStatusFromResponse,
   recoverSession,
-  sortTrailsForDisplay,
-  computeUnlockedTrailSet: computeUnlockedTrailSetForMenu,
+  getTrailMenuState,
   describeTrailLock,
   trailHoverText,
   DEFAULT_TRAIL_HINT,
@@ -1951,7 +1890,8 @@ window.addEventListener("keydown", (e) => {
     pipeTextureOverlay,
     closeTrailMenu: () => {
       toggleTrailMenu(trailOverlay, false);
-      if (lastTrailHint) setTrailHint(lastTrailHint, { persist: false });
+      const lastHint = getLastTrailHint();
+      if (lastHint) setTrailHint(lastHint, { persist: false });
     },
     closeIconMenu: () => {
       toggleIconMenu(iconOverlay, false);

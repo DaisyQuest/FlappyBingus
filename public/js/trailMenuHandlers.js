@@ -26,8 +26,7 @@ export function createTrailMenuHandlers({
   applyIconSelection,
   getAuthStatusFromResponse,
   recoverSession,
-  sortTrailsForDisplay,
-  computeUnlockedTrailSet,
+  getTrailMenuState,
   describeTrailLock,
   trailHoverText,
   DEFAULT_TRAIL_HINT,
@@ -66,9 +65,13 @@ export function createTrailMenuHandlers({
 
     const net = getNet();
     const id = btn.dataset.trailId;
-    const ordered = sortTrailsForDisplay(net.trails, { isRecordHolder: Boolean(net.user?.isRecordHolder) });
-    const unlocked = computeUnlockedTrailSet(ordered);
-    const best = net.user ? (net.user.bestScore | 0) : 0;
+    const menuState = getTrailMenuState?.({ trails: net.trails, user: net.user, achievementsState: net.achievements?.state }) || {};
+    const {
+      orderedTrails: ordered = Array.isArray(net.trails) ? net.trails : [],
+      unlocked = new Set(),
+      bestScore: best = net.user ? (net.user.bestScore | 0) : 0,
+      isRecordHolder = Boolean(net.user?.isRecordHolder)
+    } = menuState;
     const targetTrail = ordered.find((t) => t.id === id) || { id, name: id };
 
     if (!unlocked.has(id)) {
@@ -89,7 +92,7 @@ export function createTrailMenuHandlers({
         || describeTrailLock(targetTrail, {
           unlocked: false,
           bestScore: best,
-          isRecordHolder: Boolean(net.user?.isRecordHolder)
+          isRecordHolder
         });
       refreshTrailMenu(getCurrentTrailId());
       setTrailHint({ className: "hint bad", text: lockText }, { persist: false });
@@ -137,13 +140,19 @@ export function createTrailMenuHandlers({
     if (!btn) return;
     const net = getNet();
     const id = btn.dataset.trailId;
-    const trail = net.trails.find((item) => item.id === id) || { id, name: btn.dataset.trailName || id };
-    const best = net.user ? (net.user.bestScore | 0) : 0;
-    const unlocked = computeUnlockedTrailSet(net.trails).has(id);
+    const menuState = getTrailMenuState?.({ trails: net.trails, user: net.user, achievementsState: net.achievements?.state }) || {};
+    const {
+      orderedTrails: ordered = Array.isArray(net.trails) ? net.trails : [],
+      unlocked = new Set(),
+      bestScore: best = net.user ? (net.user.bestScore | 0) : 0,
+      isRecordHolder = Boolean(net.user?.isRecordHolder)
+    } = menuState;
+    const trail = ordered.find((item) => item.id === id) || { id, name: btn.dataset.trailName || id };
+    const unlockedTrail = unlocked.has(id);
     const lockText = btn.dataset.statusText
-      || describeTrailLock(trail, { unlocked, bestScore: best, isRecordHolder: Boolean(net.user?.isRecordHolder) });
-    const text = trailHoverText(trail, { unlocked, lockText });
-    setTrailHint({ className: unlocked ? "hint good" : "hint", text }, { persist: false });
+      || describeTrailLock(trail, { unlocked: unlockedTrail, bestScore: best, isRecordHolder });
+    const text = trailHoverText(trail, { unlocked: unlockedTrail, lockText });
+    setTrailHint({ className: unlockedTrail ? "hint good" : "hint", text }, { persist: false });
   };
 
   const handleOptionsMouseOut = (event) => {
