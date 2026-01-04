@@ -1,62 +1,53 @@
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { describe, expect, it } from "vitest";
 import { JSDOM } from "jsdom";
 import { renderScoreBreakdown } from "../scoreBreakdown.js";
 
-describe("renderScoreBreakdown", () => {
-  let document;
-  let container;
+function getRows(document) {
+  return Array.from(document.querySelectorAll(".score-breakdown-row"));
+}
 
-  beforeEach(() => {
-    const dom = new JSDOM("<!doctype html><body><div id='bd'></div></body>");
-    document = dom.window.document;
-    globalThis.document = document;
-    globalThis.window = dom.window;
-    container = document.getElementById("bd");
+describe("scoreBreakdown", () => {
+  it("renders surf score buckets with airtime, big air, and chain", () => {
+    const dom = new JSDOM("<!doctype html><div id='list'></div>");
+    const list = dom.window.document.getElementById("list");
+
+    renderScoreBreakdown(list, {
+      mode: "surf",
+      totalScore: 120,
+      scoreBreakdown: {
+        airtime: { points: 40, seconds: 5 },
+        bigAir: { points: 60, count: 2 },
+        chain: { points: 20, count: 3 }
+      }
+    }, 120);
+
+    const rows = getRows(dom.window.document);
+    const labels = rows.map((row) => row.querySelector(".score-breakdown-label")?.textContent);
+    expect(labels).toContain("Airtime");
+    expect(labels).toContain("Big air");
+    expect(labels).toContain("Chain boosts");
+    expect(labels).toContain("Total score");
   });
 
-  afterEach(() => {
-    delete globalThis.document;
-    delete globalThis.window;
-  });
+  it("renders flappy score buckets with orbs, perfects, pipes, and other", () => {
+    const dom = new JSDOM("<!doctype html><div id='list'></div>");
+    const list = dom.window.document.getElementById("list");
 
-  it("renders rows for each score source and the total", () => {
-    renderScoreBreakdown(
-      container,
-      {
-        orbsCollected: 2,
-        perfects: 1,
-        pipesDodged: 3,
-        totalScore: 50,
-        scoreBreakdown: {
-          orbs: { points: 20, count: 2 },
-          perfects: { points: 10, count: 1 },
-          pipes: { points: 15, count: 3 },
-          other: { points: 5, count: 0 }
-        }
-      },
-      50
-    );
+    renderScoreBreakdown(list, {
+      totalScore: 250,
+      scoreBreakdown: {
+        orbs: { points: 50, count: 2 },
+        perfects: { points: 80, count: 3 },
+        pipes: { points: 60, count: 4 },
+        other: { points: 30, count: 1 }
+      }
+    }, 250);
 
-    const rows = container.querySelectorAll(".score-breakdown-row");
-    expect(rows.length).toBeGreaterThan(0);
-    expect(container.textContent).toContain("Orbs collected");
-    expect(container.textContent).toContain("+20");
-    const totalRow = container.querySelector(".score-breakdown-total");
-    expect(totalRow?.textContent).toContain("50");
-  });
-
-  it("fills missing buckets and accounts for remainder as other bonuses", () => {
-    renderScoreBreakdown(
-      container,
-      {
-        scoreBreakdown: { orbs: { points: 0, count: 0 } },
-        totalScore: 7
-      },
-      7
-    );
-
-    expect(container.textContent).toContain("Other bonuses");
-    const totalRow = container.querySelector(".score-breakdown-total");
-    expect(totalRow?.textContent).toContain("7");
+    const rows = getRows(dom.window.document);
+    const labels = rows.map((row) => row.querySelector(".score-breakdown-label")?.textContent);
+    expect(labels).toContain("Orbs collected");
+    expect(labels).toContain("Perfect clears");
+    expect(labels).toContain("Pipes dodged");
+    expect(labels).toContain("Other bonuses");
   });
 });

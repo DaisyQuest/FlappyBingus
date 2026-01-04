@@ -36,6 +36,7 @@ import {
 import { SIM_DT } from "./simPrecision.js";
 
 import { Game } from "./game.js";
+import { SurfGame } from "./surfGame.js";
 import { GameDriver } from "/engine/gameDriver.js";
 
 // Tutorial
@@ -200,6 +201,7 @@ const {
   menu,
   over,
   start: startBtn,
+  startSurf: startSurfBtn,
   tutorial: tutorialBtn,
   restart: restartBtn,
   retrySeed: retrySeedBtn,
@@ -384,7 +386,7 @@ const textStyleElements = {
 };
 
 // ---- Local best fallback cookie (legacy support) ----
-function updatePersonalBestUIWrapper(finalScore, userBestScore) {
+function updatePersonalBestUIWrapper(finalScore, userBestScore, { mode = GAME_MODES.FLAPPY } = {}) {
   updatePersonalBestUI({
     finalScore,
     userBestScore,
@@ -393,8 +395,8 @@ function updatePersonalBestUIWrapper(finalScore, userBestScore) {
       badgeEl: overPbBadge,
       statusEl: overPbStatus
     },
-    readLocalBest,
-    writeLocalBest,
+    readLocalBest: (readMode) => readLocalBest(readMode ?? mode),
+    writeLocalBest: (value, writeMode) => writeLocalBest(value, writeMode ?? mode),
     computePersonalBestStatus,
     updatePersonalBestElements
   });
@@ -422,6 +424,10 @@ function updateGameOverStats({ view = currentStatsView, runStats = lastRunStats,
   overPerfectCombo.textContent = String(resolved.combo.perfect);
   renderSkillUsageStats(skillUsageStats, resolved.skillUsage);
   applyStatsLabels(resolved.labels);
+  if (overStatsToggle) {
+    overStatsToggle.disabled = resolved.toggleEnabled === false;
+    overStatsToggle.classList.toggle("hidden", resolved.toggleEnabled === false);
+  }
 }
 
 let menuParallaxControl = null;
@@ -433,6 +439,12 @@ function setUIMode(isUI) {
     menuParallaxControl.setEnabled(active);
     if (active) menuParallaxControl.applyFromPoint();
   }
+}
+
+function setActiveMode(mode) {
+  currentMode = mode === GAME_MODES.SURF ? GAME_MODES.SURF : GAME_MODES.FLAPPY;
+  game = currentMode === GAME_MODES.SURF ? surfGame : flappyGame;
+  driver = currentMode === GAME_MODES.SURF ? surfDriver : flappyDriver;
 }
 
 function updateSkillCooldownUI(cfg) {
@@ -559,6 +571,11 @@ const ctx = canvas.getContext("2d", { alpha: false });
 
 // Deterministic sim clock
 const MAX_FRAME = 1 / 20;
+const GAME_MODES = Object.freeze({
+  FLAPPY: "flappy",
+  SURF: "surf"
+});
+let currentMode = GAME_MODES.FLAPPY;
 let acc = 0;
 let lastTs = 0;
 
@@ -660,6 +677,7 @@ initSocialDock({
 // They are enqueued and applied at the next simulation tick boundary.
 // This makes live run and replay have identical action timing.
 const input = new Input(canvas, () => binds, (actionId) => {
+  if (currentMode !== GAME_MODES.FLAPPY) return;
   // IMPORTANT: actions are queued and applied on the next fixed tick.
   // Tutorial runs without a replay recorder, so it keeps its own queue.
   if (tutorial?.active && game.state === 1 /* PLAY */) {
@@ -703,13 +721,28 @@ const buildGameInstance = ({ onGameOver, input: gameInput }) => new Game({
   onGameOver
 });
 
-let game = buildGameInstance({ onGameOver: (score) => onGameOver(score), input });
+const buildSurfInstance = ({ onGameOver, input: gameInput }) => new SurfGame({
+  canvas,
+  ctx,
+  playerImg,
+  input: gameInput,
+  getTrailId: () => {
+    if (net.user?.selectedTrail) return net.user.selectedTrail;
+    return currentTrailId || "classic";
+  },
+  onGameOver
+});
+
+const flappyGame = buildGameInstance({ onGameOver: (score) => onGameOver(score), input });
+const surfGame = buildSurfInstance({ onGameOver: (score) => onGameOver(score), input });
+let game = flappyGame;
 let replayGame = buildGameInstance({ onGameOver: () => {}, input: replayIdleInput });
-game.setSkillSettings(skillSettings);
+flappyGame.setSkillSettings(skillSettings);
+surfGame.setSkillSettings(skillSettings);
 replayGame.setSkillSettings(skillSettings);
 
-let driver = new GameDriver({
-  game,
+let flappyDriver = new GameDriver({
+  game: flappyGame,
   syncRandSource: setRandSource,
   captureSnapshots: false,
   mapState(engineState, g) {
@@ -719,10 +752,16 @@ let driver = new GameDriver({
     engineState.player = { ...(engineState.player || {}), x: g.player?.x, y: g.player?.y, vx: g.player?.vx, vy: g.player?.vy };
   }
 });
+let surfDriver = new GameDriver({
+  game: surfGame,
+  syncRandSource: setRandSource,
+  captureSnapshots: false
+});
+let driver = flappyDriver;
 
 // Tutorial wires into the same game instance.
 tutorial = new Tutorial({
-  game,
+  game: flappyGame,
   input,
   getBinds: () => binds,
   onExit: () => toMenu()
@@ -730,7 +769,7 @@ tutorial = new Tutorial({
 
 replayManager = createReplayManager({
   canvas,
-  game,
+  game: flappyGame,
   playbackGame: replayGame,
   input,
   menu,
@@ -754,13 +793,15 @@ replayManager = createReplayManager({
 });
 
 window.addEventListener("resize", () => {
-  game.resizeToWindow();
+  flappyGame.resizeToWindow();
+  surfGame.resizeToWindow();
   replayGame.resizeToWindow();
   trailPreview?.resize();
 });
 // On some browsers, zoom changes fire visualViewport resize without window resize.
 window.visualViewport?.addEventListener("resize", () => {
-  game.resizeToWindow();
+  flappyGame.resizeToWindow();
+  surfGame.resizeToWindow();
   replayGame.resizeToWindow();
   trailPreview?.resize();
 });
@@ -768,6 +809,7 @@ window.visualViewport?.addEventListener("resize", () => {
 // ---- Boot UI ----
 function refreshBootUI() {
   startBtn.disabled = !(boot.imgReady && boot.cfgReady);
+  if (startSurfBtn) startSurfBtn.disabled = startBtn.disabled;
   if (tutorialBtn) tutorialBtn.disabled = startBtn.disabled;
 
   bootPill.classList.remove("ok", "bad", "neutral");
@@ -1026,7 +1068,8 @@ function syncIconCatalog(nextIcons = null) {
   net.icons = normalized.map((i) => ({ ...i }));
   clearIconSpriteCache();
   playerImg = getCachedIconSprite(playerIcons.find((i) => i.id === currentIconId) || playerIcons[0]);
-  game?.setPlayerImage(playerImg);
+  flappyGame?.setPlayerImage(playerImg);
+  surfGame?.setPlayerImage(playerImg);
   trailPreview?.setPlayerImage(playerImg);
   syncLauncherSwatch(currentIconId, playerIcons, playerImg);
   syncUnlockablesCatalog({ icons: playerIcons });
@@ -1176,7 +1219,8 @@ function applyIconSelection(id = currentIconId, icons = playerIcons, unlocked = 
   }
 
   playerImg = getCachedIconSprite(icons.find((i) => i.id === nextId) || icons[0]);
-  game.setPlayerImage(playerImg);
+  flappyGame.setPlayerImage(playerImg);
+  surfGame.setPlayerImage(playerImg);
   trailPreview?.setPlayerImage(playerImg);
   syncLauncherSwatch(nextId, icons, playerImg);
   renderIconOptions(nextId, unlocked, icons, playerImg);
@@ -1597,7 +1641,7 @@ function resetRunAchievements() {
 }
 
 function checkRunAchievements() {
-  if (!runAchievementBaseState || game?.state !== 1 /* PLAY */ || tutorial?.active) return;
+  if (!runAchievementBaseState || currentMode !== GAME_MODES.FLAPPY || game?.state !== 1 /* PLAY */ || tutorial?.active) return;
   const runStats = game.getRunStats ? game.getRunStats() : null;
   if (!runStats) return;
   const definitions = resolveAchievementDefinitions(net.achievements?.definitions);
@@ -1645,7 +1689,8 @@ async function updateSkillSettings(next, { persist = true } = {}) {
   const normalized = normalizeSkillSettings(next || DEFAULT_SKILL_SETTINGS);
   const changed = !skillSettingsEqual(skillSettings, normalized);
   skillSettings = normalized;
-  game.setSkillSettings(skillSettings);
+  flappyGame.setSkillSettings(skillSettings);
+  surfGame.setSkillSettings(skillSettings);
   replayGame.setSkillSettings(skillSettings);
   applySkillSettingsToUI(skillSettings);
   writeSettingsCookie(skillSettings);
@@ -2005,6 +2050,10 @@ startBtn.addEventListener("click", async () => {
   await ensureAudioReady();
   await startGame({ mode: "new" });
 });
+startSurfBtn?.addEventListener("click", async () => {
+  await ensureAudioReady();
+  await startSurf();
+});
 
 // Tutorial
 tutorialBtn?.addEventListener("click", async () => {
@@ -2061,7 +2110,11 @@ window.addEventListener("keydown", (e) => {
     e.preventDefault();
     (async () => {
       await ensureAudioReady();
-      await startGame({ mode: "new" });
+      if (currentMode === GAME_MODES.SURF) {
+        await startSurf();
+      } else {
+        await startGame({ mode: "new" });
+      }
     })();
   }
 }, { passive: false });
@@ -2076,6 +2129,7 @@ function toMenu() {
 
   setUIMode(true);
   rebindController.reset();
+  setActiveMode(GAME_MODES.FLAPPY);
 
   over.classList.add("hidden");
   menu.classList.remove("hidden");
@@ -2092,6 +2146,7 @@ function startTutorial() {
 
   setUIMode(false);
   rebindController.reset();
+  setActiveMode(GAME_MODES.FLAPPY);
 
   input.reset();
   replayManager?.reset();
@@ -2117,6 +2172,7 @@ async function startGame({ mode = "new" } = {}) {
 
   setUIMode(false);
   rebindController.reset();
+  setActiveMode(GAME_MODES.FLAPPY);
 
   input.reset();
 
@@ -2159,6 +2215,35 @@ async function startGame({ mode = "new" } = {}) {
   window.focus();
 }
 
+async function startSurf() {
+  musicStop();
+  pauseTrailPreview();
+
+  setUIMode(false);
+  rebindController.reset();
+  setActiveMode(GAME_MODES.SURF);
+
+  input.reset();
+
+  const seed = genRandomSeed();
+  if (seedInput) seedInput.value = seed;
+  writeSeed(seed);
+
+  menu.classList.add("hidden");
+  over.classList.add("hidden");
+
+  acc = 0;
+  resetRunAchievements();
+  surfGame.startRun({ seed });
+
+  if (exportGifBtn) exportGifBtn.disabled = true;
+  if (exportMp4Btn) exportMp4Btn.disabled = true;
+  if (watchReplayBtn) watchReplayBtn.classList.add("hidden");
+
+  musicStartLoop();
+  window.focus();
+}
+
 async function onGameOver(finalScore) {
   // Tutorial auto-retries its current scenario instead of showing GAME OVER.
   if (tutorial?.active) {
@@ -2176,10 +2261,23 @@ async function onGameOver(finalScore) {
   lastRunStats = runStats;
   currentStatsView = GAME_OVER_STAT_VIEWS.run;
   renderScoreBreakdown(scoreBreakdown, runStats, finalScore);
-  updatePersonalBestUIWrapper(finalScore, net.user?.bestScore);
-  updateGameOverStats({ view: currentStatsView, runStats, achievementsState: net.user?.achievements, skillTotals: net.user?.skillTotals });
+  updatePersonalBestUIWrapper(finalScore, net.user?.bestScore, { mode: currentMode });
+  updateGameOverStats({
+    view: currentStatsView,
+    runStats,
+    achievementsState: currentMode === GAME_MODES.FLAPPY ? net.user?.achievements : null,
+    skillTotals: currentMode === GAME_MODES.FLAPPY ? net.user?.skillTotals : null
+  });
 
   over.classList.remove("hidden");
+
+  if (currentMode === GAME_MODES.SURF) {
+    if (retrySeedBtn) retrySeedBtn.disabled = true;
+    if (exportGifBtn) exportGifBtn.disabled = true;
+    if (exportMp4Btn) exportMp4Btn.disabled = true;
+    if (watchReplayBtn) watchReplayBtn.classList.add("hidden");
+    return;
+  }
 
   if (net.user) {
     const coinsEarned = game?.bustercoinsEarned || 0;
@@ -2341,7 +2439,9 @@ function frame(ts) {
   // Per-frame tutorial UI (skill intro animations, etc.)
   if (tutorial?.active) tutorial.frame(dt);
 
-  if (!replayManager?.isReplaying()) {
+  const activeReplay = currentMode === GAME_MODES.FLAPPY ? replayManager : null;
+
+  if (!activeReplay?.isReplaying()) {
     acc += dt;
 
     while (acc >= SIM_DT) {
@@ -2353,12 +2453,12 @@ function frame(ts) {
       if (tutorial?.active && game.state === 1 /* PLAY */) {
         actions = tutorial.drainActions();
       } else if (game.state === 1 /* PLAY */) {
-        actions = replayManager?.drainPendingActions() || [];
+        actions = activeReplay?.drainPendingActions() || [];
       }
 
       // Record tick data
       if (!tutorial?.active && game.state === 1 /* PLAY */) {
-        replayManager?.recordTick(snap, actions);
+        activeReplay?.recordTick(snap, actions);
       }
 
       // Apply actions for this tick to the live game (tutorial or normal run)
@@ -2409,7 +2509,7 @@ function frame(ts) {
       acc -= SIM_DT;
 
       if (game.state === 2 /* OVER */) {
-        replayManager?.clearPendingActions();
+        activeReplay?.clearPendingActions();
         break;
       }
     }

@@ -64,4 +64,15 @@ describe("game over stats builder", () => {
     expect(result.skillUsage).toBeNull();
     expect(result.labels.mode).toBe("Run stats");
   });
+
+  it("uses surf labels and disables lifetime stats when run stats are in surf mode", () => {
+    const runStats = { mode: "surf", maxChain: 5.4, maxBigAir: 220.2 };
+    const result = buildGameOverStats({ view: GAME_OVER_STAT_VIEWS.lifetime, runStats });
+
+    expect(result.view).toBe(GAME_OVER_STAT_VIEWS.run);
+    expect(result.combo).toEqual({ orb: 5, perfect: 220 });
+    expect(result.skillUsage).toBeNull();
+    expect(result.labels.mode).toBe("Surf stats");
+    expect(result.toggleEnabled).toBe(false);
+  });
 });

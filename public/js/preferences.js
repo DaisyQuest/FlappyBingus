@@ -6,20 +6,26 @@ import { normalizeSkillSettings } from "./settings.js";
 import { normalizePipeTextureMode } from "./pipeTextures.js";
 
 const LOCAL_BEST_COOKIE = "chocolate_chip";
+const SURF_LOCAL_BEST_COOKIE = "chocolate_chip_surf";
 const SEED_COOKIE = "sesame_seed";
 const SETTINGS_COOKIE = "bingus_settings";
 const ICON_COOKIE = "bingus_icon";
 const PIPE_TEXTURE_COOKIE = "bingus_pipe_texture";
 const PIPE_TEXTURE_MODE_COOKIE = "bingus_pipe_texture_mode";
 
-export function readLocalBest() {
-  const raw = getCookie(LOCAL_BEST_COOKIE);
+function resolveBestCookie(mode) {
+  if (mode === "surf") return SURF_LOCAL_BEST_COOKIE;
+  return LOCAL_BEST_COOKIE;
+}
+
+export function readLocalBest(mode = "flappy") {
+  const raw = getCookie(resolveBestCookie(mode));
   const n = Number.parseInt(raw, 10);
   return (Number.isFinite(n) && n >= 0) ? Math.min(n, 1e9) : 0;
 }
 
-export function writeLocalBest(v) {
-  setCookie(LOCAL_BEST_COOKIE, String(Math.max(0, Math.min(1e9, v | 0))), 3650);
+export function writeLocalBest(v, mode = "flappy") {
+  setCookie(resolveBestCookie(mode), String(Math.max(0, Math.min(1e9, v | 0))), 3650);
 }
 
 export function readSeed() {
