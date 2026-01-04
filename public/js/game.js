@@ -50,6 +50,7 @@ import {
   refreshBackgroundLayer,
   updateBackgroundDots
 } from "./backgroundLayer.js";
+import { buildRunStats } from "./gameStats.js";
 
 const TRAIL_LIFE_SCALE = 1.45;
 const TRAIL_DISTANCE_SCALE = 1.18;
@@ -191,40 +192,11 @@ export class Game {
   }
 
   getRunStats() {
-    const toInt = (v) => {
-      const n = Number(v);
-      if (!Number.isFinite(n) || n < 0) return 0;
-      return Math.floor(n);
-    };
-    const skills = {};
-    const rawSkills = this.runStats?.skillUsage || {};
-    for (const id of ["dash", "phase", "teleport", "slowField"]) {
-      skills[id] = toInt(rawSkills[id]);
-    }
-    const bucket = (b = {}) => ({
-      points: toInt(b.points),
-      count: toInt(b.count)
+    return buildRunStats({
+      runStats: this.runStats,
+      timeAlive: this.timeAlive,
+      score: this.score
     });
-    const breakdown = this.runStats?.scoreBreakdown || {};
-    return {
-      orbsCollected: toInt(this.runStats?.orbsCollected),
-      abilitiesUsed: toInt(this.runStats?.abilitiesUsed),
-      perfects: toInt(this.runStats?.perfects),
-      pipesDodged: toInt(this.runStats?.pipesDodged),
-      maxOrbCombo: toInt(this.runStats?.maxOrbCombo),
-      maxPerfectCombo: toInt(this.runStats?.maxPerfectCombo),
-      brokenPipes: toInt(this.runStats?.brokenPipes),
-      maxBrokenPipesInExplosion: toInt(this.runStats?.maxBrokenPipesInExplosion),
-      runTime: toInt(this.timeAlive),
-      totalScore: toInt(this.score),
-      skillUsage: skills,
-      scoreBreakdown: {
-        orbs: bucket(breakdown.orbs),
-        perfects: bucket(breakdown.perfects),
-        pipes: bucket(breakdown.pipes),
-        other: bucket(breakdown.other)
-      }
-    };
   }
 
   _resetRunStats() {
