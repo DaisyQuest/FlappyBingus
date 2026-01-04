@@ -1604,6 +1604,35 @@ describe("server routes and helpers", () => {
     expect(comet).toEqual(expect.objectContaining({ name: "Comet", unlock: expect.objectContaining({ type: "free" }) }));
   });
 
+  it("merges custom trails into allowlisted unlockables output", async () => {
+    const { server } = await importServer({
+      configStoreOverrides: {
+        getConfig: vi.fn(() => ({
+          session: { ttlSeconds: 10, refreshWindowSeconds: 5 },
+          rateLimits: {},
+          unlockableMenus: {
+            trail: { mode: "allowlist", ids: ["classic"] },
+            player_texture: { mode: "all", ids: [] },
+            pipe_texture: { mode: "all", ids: [] }
+          },
+          achievements: { definitions: null }
+        }))
+      },
+      gameConfigStoreOverrides: {
+        getConfig: vi.fn(() => ({
+          trailStyles: { overrides: { comet: { rate: 8 } } }
+        }))
+      }
+    });
+
+    const jsonRes = createRes();
+    await server.route(createReq({ url: "/unlockables", headers: { accept: "application/json" } }), jsonRes);
+    const payload = readJson(jsonRes);
+    const trailIds = payload.unlockables.filter((item) => item.type === "trail").map((item) => item.id);
+    expect(trailIds).toEqual(expect.arrayContaining(["classic", "comet"]));
+    expect(trailIds).not.toContain("ember");
+  });
+
   it("renders the status page with uptime and database error details", async () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2024-01-01T00:00:00Z"));
