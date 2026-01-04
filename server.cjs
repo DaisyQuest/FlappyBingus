@@ -224,6 +224,13 @@ const ENDPOINT_GROUPS = Object.freeze([
         link: "/endpointBrowser"
       },
       {
+        path: "/playerSessionData",
+        methods: ["GET"],
+        summary: "Friendly HTML printout of the current player's session data.",
+        page: true,
+        link: "/playerSessionData"
+      },
+      {
         path: "/highscores",
         methods: ["GET"],
         summary: "HTML leaderboard view.",
@@ -1708,6 +1715,56 @@ function renderStatusPage(status) {
 </html>`;
 }
 
+function renderPlayerSessionDataPage({ payload, error, username } = {}) {
+  const hasPayload = Boolean(payload);
+  const statusText = hasPayload ? "Active session" : "No active session";
+  const statusClass = hasPayload ? "status-ok" : "status-missing";
+  const headerSubtitle = hasPayload && username ? `for ${escapeHtml(username)}` : "Sign in to view session data.";
+  const errorMarkup = error ? `<p class="error">${escapeHtml(error)}</p>` : "";
+  const payloadMarkup = hasPayload
+    ? `<pre><code>${escapeHtml(JSON.stringify(payload, null, 2))}</code></pre>`
+    : `<div class="empty">No session data available.</div>`;
+  return `<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>Player Session Data</title>
+  <style>
+    body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;margin:0;background:#0b1220;color:#e5e7eb}
+    header{padding:18px 16px;border-bottom:1px solid rgba(255,255,255,.10);background:#0b1020}
+    .wrap{max-width:960px;margin:0 auto;padding:18px 16px 40px}
+    h1{margin:0;font-size:24px}
+    h2{margin:0 0 12px 0;font-size:18px}
+    .subtitle{color:#94a3b8;margin-top:6px}
+    .status{display:inline-flex;align-items:center;gap:8px;font-weight:600;margin-top:12px}
+    .status-ok{color:#10b981}
+    .status-missing{color:#f87171}
+    .card{margin-top:18px;background:#0f172a;border:1px solid rgba(255,255,255,.08);border-radius:12px;padding:16px}
+    pre{white-space:pre-wrap;word-break:break-word;margin:0;font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace}
+    .error{color:#f87171;margin-top:12px}
+    .empty{color:#94a3b8}
+  </style>
+</head>
+<body>
+  <header>
+    <div class="wrap">
+      <h1>Player Session Data</h1>
+      <div class="subtitle">${headerSubtitle}</div>
+      <div class="status ${statusClass}">${statusText}</div>
+      ${errorMarkup}
+    </div>
+  </header>
+  <main class="wrap">
+    <section class="card">
+      <h2>Session Payload</h2>
+      ${payloadMarkup}
+    </section>
+  </main>
+</body>
+</html>`;
+}
+
 function renderEndpointBrowserPage(groups) {
   const sections = groups
     .map((group) => {
@@ -2953,6 +3010,28 @@ async function route(req, res) {
 
   if (pathname === "/endpointBrowser" && req.method === "GET") {
     sendHtml(res, 200, renderEndpointBrowserPage(ENDPOINT_GROUPS));
+    return;
+  }
+
+  if (pathname === "/playerSessionData" && req.method === "GET") {
+    if (!(await ensureDatabase(res))) return;
+    const u = await getUserFromReq(req, { withRecordHolder: true, res });
+    if (!u) {
+      sendHtml(res, 401, renderPlayerSessionDataPage({ error: "Unauthorized session." }));
+      return;
+    }
+    const recordHolder = Boolean(u?.isRecordHolder);
+    const catalog = getVisibleCatalog();
+    const payload = {
+      ok: true,
+      user: publicUser(u, { recordHolder }),
+      icons: catalog.icons,
+      trails: catalog.trails,
+      pipeTextures: catalog.pipeTextures,
+      achievements: buildAchievementsPayload(u, [], getAchievementDefinitions()),
+      ...buildSessionPayload(u.username)
+    };
+    sendHtml(res, 200, renderPlayerSessionDataPage({ payload, username: u.username }));
     return;
   }
 

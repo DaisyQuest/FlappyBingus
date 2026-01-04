@@ -479,7 +479,59 @@ describe("server routes and helpers", () => {
     expect(res.body).toContain('data-endpoint="/api/run/best"');
     expect(res.body).toContain('data-endpoint="/endpointBrowser"');
     expect(res.body).toContain('href="/highscores"');
+    expect(res.body).toContain('href="/playerSessionData"');
     expect(res.body).toContain('href="/trail_previews?format=html"');
+  });
+
+  it("serves player session data as friendly HTML when authenticated", async () => {
+    const { server } = await importServer();
+    const res = createRes();
+
+    await server.route(
+      createReq({
+        method: "GET",
+        url: "/playerSessionData",
+        headers: { cookie: buildSessionCookie(server, "PlayerOne") }
+      }),
+      res
+    );
+
+    expect(res.status).toBe(200);
+    expect(res.headers["Content-Type"]).toContain("text/html");
+    expect(res.body).toContain("<title>Player Session Data</title>");
+    expect(res.body).toContain("PlayerOne");
+    expect(res.body).toContain("sessionToken");
+  });
+
+  it("returns an unauthorized HTML response when session data is missing", async () => {
+    const { server } = await importServer();
+    const res = createRes();
+
+    await server.route(createReq({ method: "GET", url: "/playerSessionData" }), res);
+
+    expect(res.status).toBe(401);
+    expect(res.headers["Content-Type"]).toContain("text/html");
+    expect(res.body).toContain("No active session");
+    expect(res.body).toContain("Unauthorized session.");
+  });
+
+  it("clears invalid session cookies when serving player session data", async () => {
+    const { server } = await importServer();
+    const res = createRes();
+
+    await server.route(
+      createReq({
+        method: "GET",
+        url: "/playerSessionData",
+        headers: { cookie: "bingus_session=not-a-token" }
+      }),
+      res
+    );
+
+    expect(res.status).toBe(401);
+    const cleared = getCookieHeader(res, "bingus_session");
+    expect(cleared).toMatch(/Max-Age=0/);
+    expect(res.body).toContain("Unauthorized session.");
   });
 
   it("serves a player card JPEG for a valid username", async () => {
