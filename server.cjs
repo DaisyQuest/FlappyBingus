@@ -637,24 +637,45 @@ function getVisibleCatalog() {
   const resolved = getResolvedUnlockables();
   const config = getServerConfig();
   const menus = config?.unlockableMenus || DEFAULT_SERVER_CONFIG.unlockableMenus;
+  const trailMenu = menus?.trail || DEFAULT_SERVER_CONFIG.unlockableMenus.trail;
   const playerMenu = menus?.player_texture || DEFAULT_SERVER_CONFIG.unlockableMenus.player_texture;
+  const baseTrailIds = new Set(TRAILS.map((trail) => trail.id));
   const baseIconIds = new Set(getBaseIconCatalog().map((icon) => icon.id));
+  const customTrailIds = resolved.trails
+    .map((trail) => trail?.id)
+    .filter((id) => id && !baseTrailIds.has(id));
   const customIconIds = resolved.icons
     .map((icon) => icon?.id)
     .filter((id) => id && !baseIconIds.has(id));
+  const shouldMergeCustomTrails = trailMenu?.mode === "allowlist" && customTrailIds.length > 0;
   const shouldMergeCustomIcons = playerMenu?.mode === "allowlist" && customIconIds.length > 0;
-  const adjustedConfig = shouldMergeCustomIcons
+  const adjustedConfig = shouldMergeCustomTrails || shouldMergeCustomIcons
     ? {
       ...config,
       unlockableMenus: {
         ...menus,
-        player_texture: {
-          ...playerMenu,
-          ids: [
-            ...(Array.isArray(playerMenu.ids) ? playerMenu.ids : []),
-            ...customIconIds.filter((id) => !playerMenu.ids?.includes(id))
-          ]
-        }
+        ...(shouldMergeCustomTrails
+          ? {
+            trail: {
+              ...trailMenu,
+              ids: [
+                ...(Array.isArray(trailMenu.ids) ? trailMenu.ids : []),
+                ...customTrailIds.filter((id) => !trailMenu.ids?.includes(id))
+              ]
+            }
+          }
+          : {}),
+        ...(shouldMergeCustomIcons
+          ? {
+            player_texture: {
+              ...playerMenu,
+              ids: [
+                ...(Array.isArray(playerMenu.ids) ? playerMenu.ids : []),
+                ...customIconIds.filter((id) => !playerMenu.ids?.includes(id))
+              ]
+            }
+          }
+          : {})
       }
     }
     : config;
