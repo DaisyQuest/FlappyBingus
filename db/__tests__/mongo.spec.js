@@ -43,6 +43,7 @@ const makeCollection = (overrides = {}) => ({
   findOneAndUpdate: vi.fn(),
   countDocuments: vi.fn(),
   deleteOne: vi.fn(async () => ({})),
+  deleteMany: vi.fn(async () => ({})),
   aggregate: vi.fn(() => ({ toArray: vi.fn(async () => []) })),
   find: vi.fn(() => ({
     sort: vi.fn().mockReturnThis(),
@@ -51,6 +52,7 @@ const makeCollection = (overrides = {}) => ({
   })),
   replaceOne: vi.fn(async () => ({})),
   insertOne: vi.fn(async () => ({ insertedId: "inserted" })),
+  bulkWrite: vi.fn(async () => ({})),
   ...overrides
 });
 
@@ -258,6 +260,70 @@ describe("MongoDataStore connection lifecycle", () => {
 
     expect(db).toEqual({ name: "db" });
     expect(store.status.lastAttemptAt).toBeNull();
+  });
+});
+
+describe("MongoDataStore icon registry helpers", () => {
+  it("maps icon registry documents into icon definitions", async () => {
+    const { MongoDataStore } = await loadModule();
+    const collection = makeCollection({
+      find: vi.fn(() => ({
+        sort: vi.fn().mockReturnThis(),
+        toArray: vi.fn(async () => ([
+          { _id: "alpha", name: "Alpha", unlock: { type: "free" }, updatedAt: 1 },
+          { _id: "beta", id: "beta", name: "Beta", unlock: { type: "free" } },
+          { _id: "", name: "Bad" }
+        ]))
+      }))
+    });
+    connectBehavior.db.collection = vi.fn(() => collection);
+    const store = new MongoDataStore({ uri: "mongodb://ok", dbName: "db" });
+    await store.connect();
+    const icons = await store.getIconRegistry();
+    expect(icons).toEqual([
+      { id: "alpha", name: "Alpha", unlock: { type: "free" } },
+      { id: "beta", name: "Beta", unlock: { type: "free" } }
+    ]);
+  });
+
+  it("persists icon registry updates and removes stale entries", async () => {
+    const { MongoDataStore } = await loadModule();
+    const bulkWrite = vi.fn(async () => ({}));
+    const deleteMany = vi.fn(async () => ({}));
+    const collection = makeCollection({ bulkWrite, deleteMany });
+    connectBehavior.db.collection = vi.fn(() => collection);
+    const store = new MongoDataStore({ uri: "mongodb://ok", dbName: "db" });
+    await store.connect();
+    await store.saveIconRegistry([{ id: "spark", name: "Spark", unlock: { type: "free" } }]);
+    expect(bulkWrite).toHaveBeenCalledWith([
+      {
+        replaceOne: {
+          filter: { _id: "spark" },
+          replacement: {
+            _id: "spark",
+            id: "spark",
+            name: "Spark",
+            unlock: { type: "free" },
+            updatedAt: expect.any(Number)
+          },
+          upsert: true
+        }
+      }
+    ], { ordered: false });
+    expect(deleteMany).toHaveBeenCalledWith({ _id: { $nin: ["spark"] } });
+  });
+
+  it("clears icon registry entries when saving an empty catalog", async () => {
+    const { MongoDataStore } = await loadModule();
+    const bulkWrite = vi.fn(async () => ({}));
+    const deleteMany = vi.fn(async () => ({}));
+    const collection = makeCollection({ bulkWrite, deleteMany });
+    connectBehavior.db.collection = vi.fn(() => collection);
+    const store = new MongoDataStore({ uri: "mongodb://ok", dbName: "db" });
+    await store.connect();
+    await store.saveIconRegistry([]);
+    expect(bulkWrite).not.toHaveBeenCalled();
+    expect(deleteMany).toHaveBeenCalledWith({});
   });
 });
 

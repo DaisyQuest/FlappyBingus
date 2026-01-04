@@ -13,8 +13,6 @@ function buildDeps(overrides = {}) {
   const icons = overrides.icons || [{ id: "hi_vis_orange" }];
   const pipeTextures = overrides.pipeTextures || [{ id: "basic" }];
   const unlockables = overrides.unlockables || [];
-  const syncUnlockablesState = overrides.syncUnlockablesState
-    || vi.fn((state) => ({ state: state || { unlocked: {} }, unlocked: [] }));
   const normalizeAchievements = overrides.normalizeAchievements || ((state) => state || { unlocked: {}, progress: {} });
   const validateRunStats =
     overrides.validateRunStats || (() => ({
@@ -40,7 +38,6 @@ function buildDeps(overrides = {}) {
     icons,
     pipeTextures,
     unlockables,
-    syncUnlockablesState,
     normalizeAchievements,
     validateRunStats,
     evaluateAchievements,
@@ -144,7 +141,7 @@ describe("scoreService", () => {
     expect(deps.dataStore.recordScore).toHaveBeenCalledWith(
       user,
       123,
-      expect.objectContaining({ bustercoinsEarned: 0, runTime: null, unlockables: expect.anything() })
+      expect.objectContaining({ bustercoinsEarned: 0, runTime: null })
     );
     expect(deps.ensureUserSchema).toHaveBeenCalledWith(updated, { recordHolder: false });
     expect(deps.listHighscores).toHaveBeenCalled();
@@ -159,46 +156,6 @@ describe("scoreService", () => {
       highscores: [{ username: "a", bestScore: 1 }]
     });
     expect(res.body.achievements).toBeTruthy();
-  });
-
-  it("syncs unlockables based on the updated score", async () => {
-    const user = { key: "u", username: "Sync", bestScore: 5, ownedIcons: [] };
-    const updated = { ...user, bestScore: 10, achievements: { unlocked: {}, progress: {} } };
-    const syncUnlockablesState = vi.fn(() => ({ state: { unlocked: { "pipe_texture:basic": 123 } }, unlocked: [] }));
-    const localDeps = buildDeps({
-      syncUnlockablesState,
-      unlockables: [{ id: "basic", type: "pipe_texture", unlock: { type: "free" } }]
-    });
-    localDeps.dataStore.recordScore.mockResolvedValue(updated);
-    const svc = createScoreService(localDeps);
-
-    const res = await svc.submitScore(user, 10);
-    expect(res.ok).toBe(true);
-    expect(syncUnlockablesState).toHaveBeenCalledWith(
-      user.unlockables,
-      expect.any(Array),
-      expect.objectContaining({ bestScore: 10, ownedIds: [] })
-    );
-  });
-
-  it("accepts unlockable providers as functions", async () => {
-    const user = { key: "u", username: "Dyn" };
-    const updated = { ...user, bestScore: 2, achievements: { unlocked: {}, progress: {} } };
-    const unlockables = vi.fn(() => [{ id: "basic", type: "pipe_texture", unlock: { type: "free" } }]);
-    const syncUnlockablesState = vi.fn(() => ({ state: { unlocked: {} }, unlocked: [] }));
-    const localDeps = buildDeps({ unlockables, syncUnlockablesState });
-    localDeps.dataStore.recordScore.mockResolvedValue(updated);
-
-    const svc = createScoreService(localDeps);
-    const res = await svc.submitScore(user, 2);
-
-    expect(res.ok).toBe(true);
-    expect(unlockables).toHaveBeenCalled();
-    expect(syncUnlockablesState).toHaveBeenCalledWith(
-      undefined,
-      expect.any(Array),
-      expect.objectContaining({ bestScore: 2 })
-    );
   });
 
   it("marks the submitting user as the record holder when appropriate", async () => {
@@ -329,24 +286,6 @@ describe("scoreService", () => {
     expect(res.ok).toBe(true);
     expect(normalizeAchievements).toHaveBeenCalledWith(undefined);
     expect(evaluateAchievements).toHaveBeenCalledWith(expect.objectContaining({ previous: { unlocked: { a: 1 }, progress: {} } }));
-  });
-
-  it("passes unlockable state through to recordScore", async () => {
-    const user = { key: "u", username: "unlock" };
-    const updated = { ...user, bestScore: 10, achievements: { unlocked: {}, progress: {} } };
-    const syncUnlockablesState = vi.fn(() => ({ state: null, unlocked: [] }));
-    const localDeps = buildDeps({ syncUnlockablesState });
-    localDeps.dataStore.recordScore.mockResolvedValue(updated);
-
-    const svc = createScoreService(localDeps);
-    const res = await svc.submitScore(user, 10);
-
-    expect(res.ok).toBe(true);
-    expect(localDeps.dataStore.recordScore).toHaveBeenCalledWith(
-      user,
-      10,
-      expect.objectContaining({ unlockables: null })
-    );
   });
 
   it("maps recordScore failures to service errors", async () => {

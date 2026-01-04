@@ -107,7 +107,7 @@ describe("server helpers (trails)", () => {
     expect(pub.unlockedPipeTextures).toContain("basic");
   });
 
-  it("drops unlockables that no longer meet requirements and resets selection", () => {
+  it("ignores legacy unlockable state when selecting pipe textures", () => {
     const u = {
       ...baseUser(),
       selectedPipeTexture: "digital",
@@ -115,8 +115,8 @@ describe("server helpers (trails)", () => {
       unlockables: { unlocked: { "pipe_texture:digital": 123 } }
     };
     server.ensureUserSchema(u, { recordHolder: false });
-    expect(u.unlockables.unlocked["pipe_texture:digital"]).toBeUndefined();
     expect(u.selectedPipeTexture).toBe("basic");
+    expect(u.unlockables.unlocked["pipe_texture:digital"]).toBe(123);
   });
 
   it("seeds achievement progress defaults when absent", () => {

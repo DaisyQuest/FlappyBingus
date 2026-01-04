@@ -35,21 +35,6 @@ function normalizeUnlock(unlock) {
   return { type: "free", label: unlock.label || "Free" };
 }
 
-function unlockKey(def) {
-  return `${def.type}:${def.id}`;
-}
-
-function normalizeUnlockableState(raw = null) {
-  const unlocked = {};
-  if (raw?.unlocked && typeof raw.unlocked === "object") {
-    for (const [id, ts] of Object.entries(raw.unlocked)) {
-      const n = Number(ts);
-      if (Number.isFinite(n) && n > 0) unlocked[id] = Math.floor(n);
-    }
-  }
-  return { unlocked };
-}
-
 function isUnlockSatisfied(def, context = {}) {
   const unlock = def.unlock || { type: "free" };
   const bestScore = Number.isFinite(context.bestScore) ? context.bestScore : 0;
@@ -141,38 +126,11 @@ function buildUnlockablesCatalog({ trails = [], icons = [], pipeTextures = [] } 
   return { unlockables };
 }
 
-function syncUnlockablesState(state, unlockables = [], context = {}, { now = Date.now() } = {}) {
-  const normalized = normalizeUnlockableState(state);
-  const newlyUnlocked = [];
-  const knownKeys = new Set();
-
-  for (const def of Array.isArray(unlockables) ? unlockables : []) {
-    const key = unlockKey(def);
-    knownKeys.add(key);
-    const satisfied = isUnlockSatisfied(def, context);
-    if (normalized.unlocked[key]) {
-      if (!satisfied) delete normalized.unlocked[key];
-      continue;
-    }
-    if (!satisfied) continue;
-    normalized.unlocked[key] = now;
-    newlyUnlocked.push(key);
-  }
-
-  for (const key of Object.keys(normalized.unlocked)) {
-    if (!knownKeys.has(key)) delete normalized.unlocked[key];
-  }
-
-  return { state: normalized, unlocked: newlyUnlocked };
-}
-
 function getUnlockedIdsByType({ unlockables = [], type, state = null, context = {} } = {}) {
   const result = [];
-  const normalized = normalizeUnlockableState(state);
   for (const def of Array.isArray(unlockables) ? unlockables : []) {
     if (def.type !== type) continue;
-    const key = unlockKey(def);
-    if (normalized.unlocked[key] || isUnlockSatisfied(def, context)) {
+    if (isUnlockSatisfied(def, context)) {
       result.push(def.id);
     }
   }
@@ -182,10 +140,7 @@ function getUnlockedIdsByType({ unlockables = [], type, state = null, context = 
 module.exports = {
   UNLOCKABLE_TYPES,
   normalizeUnlock,
-  normalizeUnlockableState,
   buildUnlockablesCatalog,
-  syncUnlockablesState,
   getUnlockedIdsByType,
-  unlockKey,
   isUnlockSatisfied
 };

@@ -23,6 +23,7 @@ const {
   DEFAULT_SERVER_CONFIG
 } = require("./services/serverConfig.cjs");
 const { createGameConfigStore } = require("./services/gameConfigStore.cjs");
+const { createIconRegistryStore } = require("./services/iconRegistryStore.cjs");
 const {
   ACHIEVEMENTS,
   normalizeAchievementState,
@@ -38,7 +39,6 @@ const {
 const { MAX_MEDIA_BYTES, MAX_REPLAY_BYTES, normalizeBestRunRequest, hydrateReplayFromJson } = require("./services/bestRuns.cjs");
 const { DEFAULT_SKILL_TOTALS, normalizeSkillTotals } = require("./services/skillConsts.cjs");
 const {
-  PLAYER_ICONS,
   normalizePlayerIcons,
   unlockedIcons
 } = require("./services/playerIcons.cjs");
@@ -55,7 +55,6 @@ const {
   normalizeUnlock,
   buildUnlockablesCatalog,
   getUnlockedIdsByType,
-  syncUnlockablesState,
   isUnlockSatisfied
 } = require("./services/unlockables.cjs");
 const { normalizeTrailStyleOverrides } = require("./services/trailStyleOverrides.cjs");
@@ -114,7 +113,6 @@ function _setDataStoreForTests(mock) {
     icons: () => getResolvedUnlockables().icons,
     pipeTextures: () => getResolvedUnlockables().pipeTextures,
     unlockables: () => getResolvedUnlockables().unlockables,
-    syncUnlockablesState,
     clampScore: clampScoreDefault,
     normalizeAchievements: normalizeAchievementState,
     validateRunStats,
@@ -133,6 +131,10 @@ function _setConfigStoreForTests(mock) {
 
 function _setGameConfigStoreForTests(mock) {
   gameConfigStore = mock;
+}
+
+function _setIconRegistryStoreForTests(mock) {
+  iconRegistryStore = mock;
 }
 
 // Cookie that holds username (legacy)
@@ -486,6 +488,7 @@ let serverConfigStore = createServerConfigStore({
   reloadIntervalMs: SERVER_CONFIG_RELOAD_MS
 });
 let gameConfigStore = createGameConfigStore({ configPath: GAME_CONFIG_PATH });
+let iconRegistryStore = createIconRegistryStore();
 
 function createServerConfigPersistence(store) {
   return {
@@ -507,6 +510,15 @@ function createGameConfigPersistence(store) {
     },
     save: async (config) => {
       await store.saveGameConfig(config);
+    }
+  };
+}
+
+function createIconRegistryPersistence(store) {
+  return {
+    load: async () => await store.getIconRegistry(),
+    save: async (icons) => {
+      await store.saveIconRegistry(icons);
     }
   };
 }
@@ -586,8 +598,7 @@ function getTrailDefinitions(overrides = getTrailStyleOverrides()) {
 }
 
 function getIconDefinitions() {
-  const cfg = gameConfigStore?.getConfig?.() || {};
-  const storedIcons = Array.isArray(cfg?.iconStyles?.icons) ? cfg.iconStyles.icons : null;
+  const storedIcons = iconRegistryStore?.getIcons?.() || [];
   return resolveIconCatalog({ storedIcons });
 }
 
@@ -602,7 +613,6 @@ function getUnlockedIconIds(user, { resolvedUnlockables = getResolvedUnlockables
   return getUnlockedIdsByType({
     unlockables: resolvedUnlockables.unlockables,
     type: UNLOCKABLE_TYPES.playerTexture,
-    state: user?.unlockables,
     context: {
       achievements: user?.achievements,
       bestScore: user?.bestScore,
@@ -925,17 +935,6 @@ function ensureUserSchema(u, { recordHolder = false } = {}) {
   // Merge any missing bind keys with defaults
   u.keybinds = mergeKeybinds(DEFAULT_KEYBINDS, u.keybinds);
   u.settings = normalizeSettings(u.settings);
-  u.unlockables = syncUnlockablesState(
-    u.unlockables,
-    resolvedUnlockables.unlockables,
-    {
-      achievements: u.achievements,
-      bestScore: u.bestScore,
-      ownedIds: u.ownedUnlockables,
-      recordHolder
-    }
-  ).state;
-
   // Ensure selected trail is unlocked
   const unlocked = unlockedTrails(
     { achievements: u.achievements, bestScore: u.bestScore, ownedIds: u.ownedUnlockables },
@@ -951,7 +950,6 @@ function ensureUserSchema(u, { recordHolder = false } = {}) {
   const availablePipeTextures = getUnlockedIdsByType({
     unlockables: resolvedUnlockables.unlockables,
     type: UNLOCKABLE_TYPES.pipeTexture,
-    state: u.unlockables,
     context: { achievements: u.achievements, bestScore: u.bestScore, ownedIds: u.ownedUnlockables, recordHolder }
   });
   if (!availablePipeTextures.includes(u.selectedPipeTexture)) {
@@ -1180,7 +1178,6 @@ function publicUser(u, { recordHolder = false } = {}) {
     unlockedPipeTextures: getUnlockedIdsByType({
       unlockables: resolvedUnlockables.unlockables,
       type: UNLOCKABLE_TYPES.pipeTexture,
-      state: u.unlockables,
       context: { achievements: u.achievements, bestScore: u.bestScore, ownedIds: u.ownedUnlockables, recordHolder }
     }),
     isRecordHolder: Boolean(recordHolder)
@@ -1526,7 +1523,6 @@ scoreService = createScoreService({
   icons: () => getResolvedUnlockables().icons,
   pipeTextures: () => getResolvedUnlockables().pipeTextures,
   unlockables: () => getResolvedUnlockables().unlockables,
-  syncUnlockablesState,
   clampScore: clampScoreDefault,
   normalizeAchievements: normalizeAchievementState,
   validateRunStats,
@@ -2509,7 +2505,6 @@ async function route(req, res) {
     const unlocked = getUnlockedIdsByType({
       unlockables: resolvedUnlockables.unlockables,
       type: UNLOCKABLE_TYPES.pipeTexture,
-      state: u.unlockables,
       context: { achievements: u.achievements, bestScore: u.bestScore, ownedIds: u.ownedUnlockables, recordHolder }
     });
     if (!unlocked.includes(textureId)) return badRequest(res, "pipe_texture_locked");
@@ -2562,18 +2557,11 @@ async function route(req, res) {
     if (!debit.ok) return badRequest(res, "insufficient_funds");
 
     const ownedNext = Array.from(new Set([...ownedIds, def.unlock.id || def.id]));
-    const nextUnlockables = syncUnlockablesState(
-      u.unlockables,
-      resolvedUnlockables.unlockables,
-      { achievements: u.achievements, bestScore: u.bestScore, ownedIds: ownedNext, recordHolder }
-    ).state;
-
     const updated = await dataStore.purchaseUnlockable(u.key, {
       ownedUnlockables: ownedNext,
       ownedIcons: ownedNext,
       currencies: debit.wallet,
-      bustercoins: getCurrencyBalance(debit.wallet, DEFAULT_CURRENCY_ID),
-      unlockables: nextUnlockables
+      bustercoins: getCurrencyBalance(debit.wallet, DEFAULT_CURRENCY_ID)
     });
     ensureUserSchema(updated, { recordHolder });
     const catalog = getVisibleCatalog();
@@ -2760,7 +2748,7 @@ async function route(req, res) {
       sendJson(res, 200, {
         ok: true,
         icons: getIconDefinitions(),
-        meta: gameConfigStore.getMeta()
+        meta: iconRegistryStore.getMeta()
       });
       return;
     }
@@ -2779,20 +2767,12 @@ async function route(req, res) {
       if (!result.ok) {
         return sendJson(res, 400, { ok: false, error: "invalid_icon_catalog", details: result.errors });
       }
-      const current = gameConfigStore.getConfig();
-      const nextConfig = {
-        ...(current || {}),
-        iconStyles: {
-          ...(current?.iconStyles || {}),
-          icons: result.icons
-        }
-      };
       try {
-        await gameConfigStore.save(nextConfig);
+        await iconRegistryStore.save(result.icons);
         sendJson(res, 200, {
           ok: true,
           icons: getIconDefinitions(),
-          meta: gameConfigStore.getMeta()
+          meta: iconRegistryStore.getMeta()
         });
       } catch (err) {
         sendJson(res, 500, { ok: false, error: "icon_catalog_write_failed", detail: err?.message || String(err) });
@@ -3092,6 +3072,7 @@ async function startServer() {
     console.log(`[bingus] database ready at ${st.uri} (db ${st.dbName})`);
     serverConfigStore.setPersistence(createServerConfigPersistence(dataStore));
     gameConfigStore.setPersistence(createGameConfigPersistence(dataStore));
+    iconRegistryStore.setPersistence(createIconRegistryPersistence(dataStore));
   } catch (err) {
     console.error("[bingus] database connection failed at startup:", err);
   }
@@ -3104,6 +3085,21 @@ async function startServer() {
     await gameConfigStore.load();
   } catch (err) {
     console.error("[bingus] game config load failed:", err);
+  }
+  try {
+    await iconRegistryStore.load();
+  } catch (err) {
+    console.error("[bingus] icon registry load failed:", err);
+  }
+
+  try {
+    const legacyIcons = gameConfigStore.getConfig()?.iconStyles?.icons;
+    if (!iconRegistryStore.getIcons().length && Array.isArray(legacyIcons) && legacyIcons.length) {
+      await iconRegistryStore.save(legacyIcons);
+      console.log("[bingus] migrated legacy icon registry into MongoDB");
+    }
+  } catch (err) {
+    console.warn("[bingus] icon registry migration skipped:", err?.message || err);
   }
 
   const server = http.createServer((req, res) => {
@@ -3140,6 +3136,7 @@ module.exports = {
   _setReplayMp4PipelineForTests,
   _setConfigStoreForTests,
   _setGameConfigStoreForTests,
+  _setIconRegistryStoreForTests,
   route,
   startServer,
   __testables: {

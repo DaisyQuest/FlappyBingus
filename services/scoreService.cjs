@@ -15,7 +15,6 @@ function createScoreService(deps) {
     icons,
     pipeTextures,
     unlockables = [],
-    syncUnlockablesState = () => ({ state: null, unlocked: [] }),
     clampScore = clampScoreDefault,
     normalizeAchievements = (state) => state,
     validateRunStats = () => ({ ok: true, stats: { orbsCollected: null, abilitiesUsed: null, perfects: null } }),
@@ -65,23 +64,10 @@ function createScoreService(deps) {
       totalRuns: user.runs,
       bestScore: user.bestScore
     });
-    const resolvedUnlockables = typeof unlockables === "function" ? unlockables() : unlockables;
-    const unlockEval = syncUnlockablesState(
-      user.unlockables,
-      resolvedUnlockables,
-      {
-        achievements: achievementEval.state,
-        bestScore: Math.max(Number(user.bestScore) || 0, score),
-        ownedIds: user.ownedIcons || [],
-        recordHolder: false
-      }
-    );
-
     try {
       const updated = await dataStore.recordScore(user, score, {
         bustercoinsEarned,
         achievements: achievementEval.state,
-        unlockables: unlockEval.state,
         skillUsage: runStats?.skillUsage,
         runTime: runStats?.runTime
       });
