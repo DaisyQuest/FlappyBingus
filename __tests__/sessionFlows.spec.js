@@ -56,6 +56,7 @@ function createDeps(overrides = {}) {
     renderBindUI: vi.fn(),
     refreshBootUI: vi.fn(),
     playerIcons: [{ id: "icon-1" }],
+    getPlayerIcons: vi.fn(() => [{ id: "icon-from-getter" }]),
     getCurrentIconId: vi.fn(() => "icon-1"),
     getCurrentPipeTextureId: vi.fn(() => "pipe-1"),
     getCurrentPipeTextureMode: vi.fn(() => "NORMAL"),
@@ -91,7 +92,8 @@ describe("session flows", () => {
     expect(net.highscores).toEqual([{ username: "bee", score: 5 }]);
     expect(deps.setMenuSubtitle).toHaveBeenCalledWith("Runs:12");
     expect(deps.refreshTrailMenu).toHaveBeenCalled();
-    expect(deps.applyIconSelection).toHaveBeenCalledWith("icon-1", deps.playerIcons);
+    expect(deps.getPlayerIcons).toHaveBeenCalled();
+    expect(deps.applyIconSelection).toHaveBeenCalledWith("icon-1", [{ id: "icon-from-getter" }]);
     expect(deps.normalizePipeTextureMode).toHaveBeenCalledWith("NORMAL");
     expect(deps.writePipeTextureModeCookie).toHaveBeenCalledWith("NORMAL");
     expect(deps.refreshPipeTextureMenu).toHaveBeenCalledWith("pipe-1");

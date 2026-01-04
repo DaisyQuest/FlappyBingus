@@ -36,6 +36,7 @@ const buildDeps = (overrides = {}) => {
     renderBindUI: vi.fn(),
     refreshBootUI: vi.fn(),
     playerIcons: [{ id: "fallback" }],
+    getPlayerIcons: vi.fn(() => [{ id: "from-getter" }]),
     getCurrentIconId: vi.fn(() => "fallback"),
     getCurrentPipeTextureId: vi.fn(() => "pipe-1"),
     getCurrentPipeTextureMode: vi.fn(() => "mode"),
@@ -103,5 +104,48 @@ describe("sessionFlows", () => {
 
     expect(deps.net.trails).toEqual([]);
     expect(deps.syncUnlockablesCatalog).toHaveBeenCalledWith({ trails: [] });
+  });
+
+  it("applies icon selection using the latest icons from the getter", async () => {
+    const deps = buildDeps({
+      apiSync: vi.fn().mockResolvedValue({
+        ok: true,
+        user: { username: "pilot" },
+        trails: [],
+        icons: [{ id: "synced" }],
+        pipeTextures: [],
+        achievements: {},
+        highscores: [],
+        stats: {}
+      })
+    });
+
+    const { refreshProfileAndHighscores } = createSessionFlows(deps);
+    await refreshProfileAndHighscores();
+
+    expect(deps.getPlayerIcons).toHaveBeenCalled();
+    expect(deps.applyIconSelection).toHaveBeenCalledWith("fallback", [{ id: "from-getter" }]);
+  });
+
+  it("falls back to the provided player icons when no getter is supplied", async () => {
+    const deps = buildDeps({
+      apiSync: vi.fn().mockResolvedValue({
+        ok: true,
+        user: { username: "pilot" },
+        trails: [],
+        icons: [{ id: "synced" }],
+        pipeTextures: [],
+        achievements: {},
+        highscores: [],
+        stats: {}
+      }),
+      getPlayerIcons: null,
+      playerIcons: [{ id: "legacy" }]
+    });
+
+    const { refreshProfileAndHighscores } = createSessionFlows(deps);
+    await refreshProfileAndHighscores();
+
+    expect(deps.applyIconSelection).toHaveBeenCalledWith("fallback", [{ id: "legacy" }]);
   });
 });

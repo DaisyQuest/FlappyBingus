@@ -1519,6 +1519,7 @@ const { refreshProfileAndHighscores, recoverSession, registerUser } = createSess
   renderBindUI: renderBindUIWrapper,
   refreshBootUI: refreshBootUIWrapper,
   playerIcons,
+  getPlayerIcons: () => playerIcons,
   getCurrentIconId: () => currentIconId,
   getCurrentPipeTextureId: () => currentPipeTextureId,
   getCurrentPipeTextureMode: () => currentPipeTextureMode,
