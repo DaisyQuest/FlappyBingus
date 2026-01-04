@@ -191,6 +191,10 @@ import {
 } from "./textStyleControls.js";
 import { initSeedControls } from "./seedControls.js";
 import { createRebindController, renderBindUI } from "./rebindControls.js";
+import { createBootState, createNetState } from "./main/state.js";
+import { createIconLookup, makeReplayCosmeticsApplier, resolveActiveCosmetics } from "./main/cosmetics.js";
+import { createGameOverStatsController } from "./main/gameOverStatsController.js";
+import { createReplayBytesMeasurer } from "./main/replayMetrics.js";
 
 
 // ---- DOM ----
@@ -401,29 +405,25 @@ function updatePersonalBestUIWrapper(finalScore, userBestScore) {
   });
 }
 
-let currentStatsView = GAME_OVER_STAT_VIEWS.run;
-let lastRunStats = null;
+const gameOverStatsController = createGameOverStatsController({
+  elements: {
+    overOrbCombo,
+    overPerfectCombo,
+    skillUsageStats,
+    overOrbComboLabel,
+    overPerfectComboLabel,
+    skillUsageTitle,
+    overStatsMode,
+    overStatsToggle
+  },
+  buildGameOverStats,
+  renderSkillUsageStats,
+  statViews: GAME_OVER_STAT_VIEWS
+});
+
 let runAchievementBaseState = null;
 let runAchievementIds = new Set();
 let runAchievementDefs = [];
-
-function applyStatsLabels(labels) {
-  if (overOrbComboLabel) overOrbComboLabel.textContent = labels.orb;
-  if (overPerfectComboLabel) overPerfectComboLabel.textContent = labels.perfect;
-  if (skillUsageTitle) skillUsageTitle.textContent = labels.skillUsage;
-  if (overStatsMode) overStatsMode.textContent = labels.mode;
-  if (overStatsToggle) overStatsToggle.textContent = labels.toggle;
-}
-
-function updateGameOverStats({ view = currentStatsView, runStats = lastRunStats, achievementsState, skillTotals = net.user?.skillTotals } = {}) {
-  if (!overOrbCombo || !overPerfectCombo || !skillUsageStats) return;
-  const resolved = buildGameOverStats({ view, runStats, achievementsState, skillTotals });
-  currentStatsView = resolved.view;
-  overOrbCombo.textContent = String(resolved.combo.orb);
-  overPerfectCombo.textContent = String(resolved.combo.perfect);
-  renderSkillUsageStats(skillUsageStats, resolved.skillUsage);
-  applyStatsLabels(resolved.labels);
-}
 
 let menuParallaxControl = null;
 function setUIMode(isUI) {
@@ -443,23 +443,14 @@ function updateSkillCooldownUI(cfg) {
 }
 
 // ---- Boot + runtime state ----
-const boot = { imgReady: false, imgOk: false, cfgReady: false, cfgOk: false, cfgSrc: "defaults" };
-
-const net = {
-  online: true,
-  user: null,
-  trails: DEFAULT_TRAILS.map((t) => ({ ...t })),
-  icons: DEFAULT_PLAYER_ICONS.map((i) => ({ ...i })),
-  pipeTextures: normalizePipeTextures(null),
-  highscores: [],
-  achievements: { definitions: ACHIEVEMENTS, state: normalizeAchievementState() },
-  trailStyleOverrides: {},
-  unlockables: buildUnlockablesCatalog({
-    trails: DEFAULT_TRAILS,
-    icons: DEFAULT_PLAYER_ICONS,
-    pipeTextures: normalizePipeTextures(null)
-  })
-};
+const boot = createBootState();
+const net = createNetState({
+  defaultTrails: DEFAULT_TRAILS,
+  defaultIcons: DEFAULT_PLAYER_ICONS,
+  normalizePipeTextures,
+  achievements: { definitions: ACHIEVEMENTS, normalizeState: normalizeAchievementState },
+  buildUnlockablesCatalog
+});
 
 // keybinds: start from guest cookie; override from server user when available
 let binds = loadGuestBinds();
@@ -471,6 +462,7 @@ let trailPreview = null;
 let lastTrailHint = { className: "hint", text: DEFAULT_TRAIL_HINT };
 let currentTrailId = "classic";
 let playerIcons = normalizePlayerIcons(DEFAULT_PLAYER_ICONS);
+const iconLookup = createIconLookup(playerIcons);
 let currentIconId = normalizeIconSelection({
   currentId: readIconCookie(),
   unlockedIds: playerIcons.map((i) => i.id),
@@ -481,6 +473,21 @@ let currentPipeTextureMode = normalizePipeTextureMode(readPipeTextureModeCookie(
 let activeShopTab = SHOP_TABS[0]?.type || UNLOCKABLE_TYPES.playerTexture;
 let pendingPurchase = null;
 const highscoreDetailsCache = new Map();
+const cosmeticsDefaults = {
+  trailId: "classic",
+  iconId: DEFAULT_PLAYER_ICON_ID,
+  pipeTextureId: DEFAULT_PIPE_TEXTURE_ID,
+  pipeTextureMode: DEFAULT_PIPE_TEXTURE_MODE
+};
+const resolveCosmetics = () => resolveActiveCosmetics({
+  user: net.user,
+  currentTrailId,
+  currentIconId,
+  currentPipeTextureId,
+  currentPipeTextureMode,
+  defaults: cosmeticsDefaults
+});
+const measureReplayBytes = createReplayBytesMeasurer();
 
 const menuProfileModel = createMenuProfileModel({
   refs: { usernameInput, pbText, trailText, iconText, pipeTextureText, bustercoinText, supportcoinText },
@@ -495,7 +502,7 @@ const menuProfileModel = createMenuProfileModel({
 });
 
 // assets
-let playerImg = getCachedIconSprite(playerIcons.find((i) => i.id === currentIconId));
+let playerImg = getCachedIconSprite(iconLookup.getById(currentIconId) || iconLookup.getFallback());
 boot.imgReady = true; boot.imgOk = true;
 refreshBootUI();
 
@@ -511,49 +518,13 @@ menuParallaxControl = createMenuParallaxController({
   layers: ui.menuParallaxLayers || []
 });
 
-function resolveActiveCosmetics() {
-  return {
-    trailId: net.user?.selectedTrail || currentTrailId || "classic",
-    iconId: net.user?.selectedIcon || currentIconId || DEFAULT_PLAYER_ICON_ID,
-    pipeTextureId: net.user?.selectedPipeTexture || currentPipeTextureId || DEFAULT_PIPE_TEXTURE_ID,
-    pipeTextureMode: net.user?.pipeTextureMode || currentPipeTextureMode || DEFAULT_PIPE_TEXTURE_MODE
-  };
-}
-
-function makeReplayCosmeticsApplier(targetGame) {
-  return function applyReplayCosmetics(cosmetics) {
-    if (!targetGame) return () => {};
-    const fallback = resolveActiveCosmetics();
-    const resolved = {
-      trailId: typeof cosmetics?.trailId === "string" && cosmetics.trailId.trim()
-        ? cosmetics.trailId.trim()
-        : fallback.trailId,
-      iconId: typeof cosmetics?.iconId === "string" && cosmetics.iconId.trim()
-        ? cosmetics.iconId.trim()
-        : fallback.iconId,
-      pipeTextureId: typeof cosmetics?.pipeTextureId === "string" && cosmetics.pipeTextureId.trim()
-        ? cosmetics.pipeTextureId.trim()
-        : fallback.pipeTextureId,
-      pipeTextureMode: normalizePipeTextureMode(cosmetics?.pipeTextureMode || fallback.pipeTextureMode)
-    };
-
-    const prevGetTrailId = targetGame.getTrailId;
-    const prevGetPipeTexture = targetGame.getPipeTexture;
-    const prevPlayerImg = targetGame.playerImg;
-
-    targetGame.getTrailId = () => resolved.trailId;
-    targetGame.getPipeTexture = () => ({ id: resolved.pipeTextureId, mode: resolved.pipeTextureMode });
-
-    const icon = playerIcons.find((entry) => entry.id === resolved.iconId) || playerIcons[0];
-    if (icon) targetGame.setPlayerImage(getCachedIconSprite(icon));
-
-    return () => {
-      targetGame.getTrailId = prevGetTrailId;
-      targetGame.getPipeTexture = prevGetPipeTexture;
-      targetGame.setPlayerImage(prevPlayerImg);
-    };
-  };
-}
+const buildReplayCosmeticsApplier = (targetGame) => makeReplayCosmeticsApplier({
+  targetGame,
+  resolveCosmetics,
+  iconLookup,
+  normalizePipeTextureMode,
+  getCachedIconSprite
+});
 
 // ---- Input + Game ----
 const ctx = canvas.getContext("2d", { alpha: false });
@@ -751,7 +722,7 @@ replayManager = createReplayManager({
     replayStatus.textContent = payload.text || "";
   },
   step: driver ? (dt, actions) => driver.step(dt, actions) : null,
-  applyCosmetics: makeReplayCosmeticsApplier(replayGame)
+  applyCosmetics: buildReplayCosmeticsApplier(replayGame)
 });
 
 window.addEventListener("resize", () => {
@@ -952,12 +923,6 @@ async function handlePlayHighscore(username) {
   }
 }
 
-function measureReplayBytes(replayJson) {
-  if (typeof replayJson !== "string") return 0;
-  if (typeof TextEncoder === "undefined") return replayJson.length;
-  return new TextEncoder().encode(replayJson).byteLength;
-}
-
 async function handleHighscoreDetails(entry) {
   const username = entry?.username;
   if (!username) return;
@@ -1024,9 +989,10 @@ function syncUnlockablesCatalog({
 function syncIconCatalog(nextIcons = null) {
   const normalized = normalizePlayerIcons(nextIcons || playerIcons, { allowEmpty: true });
   playerIcons = normalized;
+  iconLookup.setIcons(playerIcons);
   net.icons = normalized.map((i) => ({ ...i }));
   clearIconSpriteCache();
-  playerImg = getCachedIconSprite(playerIcons.find((i) => i.id === currentIconId) || playerIcons[0]);
+  playerImg = getCachedIconSprite(iconLookup.getById(currentIconId) || iconLookup.getFallback());
   game?.setPlayerImage(playerImg);
   trailPreview?.setPlayerImage(playerImg);
   syncLauncherSwatch(currentIconId, playerIcons, playerImg);
@@ -1573,7 +1539,7 @@ function applyAchievementsPayload(payload) {
   if (net.user) net.user.achievements = state;
   renderAchievements({ definitions, state });
   notifyAchievements(payload.unlocked);
-  updateGameOverStats({ achievementsState: state, skillTotals: net.user?.skillTotals });
+  gameOverStatsController.update({ achievementsState: state, skillTotals: net.user?.skillTotals });
 }
 
 function notifyAchievements(unlockedIds = []) {
@@ -1963,8 +1929,15 @@ extremeLowDetailToggle?.addEventListener("change", () => {
 });
 
 overStatsToggle?.addEventListener("click", () => {
-  const nextView = currentStatsView === GAME_OVER_STAT_VIEWS.lifetime ? GAME_OVER_STAT_VIEWS.run : GAME_OVER_STAT_VIEWS.lifetime;
-  updateGameOverStats({ view: nextView, runStats: lastRunStats, achievementsState: net.user?.achievements, skillTotals: net.user?.skillTotals });
+  const nextView = gameOverStatsController.getCurrentView() === GAME_OVER_STAT_VIEWS.lifetime
+    ? GAME_OVER_STAT_VIEWS.run
+    : GAME_OVER_STAT_VIEWS.lifetime;
+  gameOverStatsController.update({
+    view: nextView,
+    runStats: gameOverStatsController.getLastRunStats(),
+    achievementsState: net.user?.achievements,
+    skillTotals: net.user?.skillTotals
+  });
 });
 
 // ---- Menu/game over buttons ----
@@ -2135,7 +2108,7 @@ async function startGame({ mode = "new" } = {}) {
   // reset replay recording (tick-based) + RNG tape
   const activeRun = replayManager?.startRecording(seed);
   if (activeRun) {
-    activeRun.cosmetics = resolveActiveCosmetics();
+    activeRun.cosmetics = resolveCosmetics();
   }
   if (exportGifBtn) exportGifBtn.disabled = true;
   if (exportMp4Btn) exportMp4Btn.disabled = true;
@@ -2167,11 +2140,16 @@ async function onGameOver(finalScore) {
   finalEl.textContent = String(finalScore | 0);
   const runStats = game?.getRunStats ? game.getRunStats() : null;
   if (overDuration) overDuration.textContent = formatRunDuration(runStats?.runTime);
-  lastRunStats = runStats;
-  currentStatsView = GAME_OVER_STAT_VIEWS.run;
+  gameOverStatsController.setLastRunStats(runStats);
+  gameOverStatsController.setCurrentView(GAME_OVER_STAT_VIEWS.run);
   renderScoreBreakdown(scoreBreakdown, runStats, finalScore);
   updatePersonalBestUIWrapper(finalScore, net.user?.bestScore);
-  updateGameOverStats({ view: currentStatsView, runStats, achievementsState: net.user?.achievements, skillTotals: net.user?.skillTotals });
+  gameOverStatsController.update({
+    view: gameOverStatsController.getCurrentView(),
+    runStats,
+    achievementsState: net.user?.achievements,
+    skillTotals: net.user?.skillTotals
+  });
 
   over.classList.remove("hidden");
 
@@ -2204,7 +2182,11 @@ async function onGameOver(finalScore) {
       renderAchievements();
 
       updatePersonalBestUIWrapper(finalScore, net.user.bestScore);
-      updateGameOverStats({ runStats, achievementsState: net.user.achievements, skillTotals: net.user?.skillTotals });
+      gameOverStatsController.update({
+        runStats,
+        achievementsState: net.user.achievements,
+        skillTotals: net.user?.skillTotals
+      });
     } else {
       if (optimistic.applied && net.user?.bustercoins !== undefined) {
         // Preserve optimistic balance locally so the menu reflects the run's pickups even if the
@@ -2218,7 +2200,11 @@ async function onGameOver(finalScore) {
 
       // Keep PB display meaningful even if the submission failed.
       updatePersonalBestUIWrapper(finalScore, net.user?.bestScore);
-      updateGameOverStats({ runStats, achievementsState: net.user?.achievements, skillTotals: net.user?.skillTotals });
+      gameOverStatsController.update({
+        runStats,
+        achievementsState: net.user?.achievements,
+        skillTotals: net.user?.skillTotals
+      });
     }
   }
 
