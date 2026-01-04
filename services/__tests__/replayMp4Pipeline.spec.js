@@ -1,6 +1,6 @@
 "use strict";
 
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import os from "node:os";
 import path from "node:path";
 import fs from "node:fs/promises";
@@ -139,6 +139,68 @@ describe("replayMp4Pipeline", () => {
     expect(pipeline.__testables.queue.size()).toBe(0);
   });
 
+  it("returns existing entries from getByHash without enqueueing", () => {
+    const existingEntry = {
+      replayId: "PlayerOne",
+      profile: DEFAULT_RENDER_PROFILE,
+      status: "complete",
+      jobId: "job_existing",
+      replayHash: "hash_existing"
+    };
+    const store = {
+      getByHash: vi.fn(() => existingEntry),
+      getByReplay: vi.fn(() => null),
+      upsert: vi.fn()
+    };
+    let queueSize = 0;
+    const queue = {
+      start: () => {},
+      enqueue: () => {
+        queueSize += 1;
+      },
+      size: () => queueSize
+    };
+
+    const pipeline = createReplayMp4Pipeline({ store, queue });
+    const replayJson = makeReplayJson(1);
+    const result = pipeline.requestRender({ replayId: "PlayerOne", replayJson });
+
+    expect(result.ok).toBe(true);
+    expect(result.entry).toEqual(existingEntry);
+    expect(queue.size()).toBe(0);
+  });
+
+  it("returns existing entries from getByReplay without enqueueing", () => {
+    const existingEntry = {
+      replayId: "PlayerTwo",
+      profile: DEFAULT_RENDER_PROFILE,
+      status: "queued",
+      jobId: "job_existing_replay",
+      replayHash: "hash_existing_replay"
+    };
+    const store = {
+      getByHash: vi.fn(() => null),
+      getByReplay: vi.fn(() => existingEntry),
+      upsert: vi.fn()
+    };
+    let queueSize = 0;
+    const queue = {
+      start: () => {},
+      enqueue: () => {
+        queueSize += 1;
+      },
+      size: () => queueSize
+    };
+
+    const pipeline = createReplayMp4Pipeline({ store, queue });
+    const replayJson = makeReplayJson(1);
+    const result = pipeline.requestRender({ replayId: "PlayerTwo", replayJson });
+
+    expect(result.ok).toBe(true);
+    expect(result.entry).toEqual(existingEntry);
+    expect(queue.size()).toBe(0);
+  });
+
   it("marks render jobs as failed when encoding errors occur", async () => {
     const dir = await createTempDir();
     const queue = createInMemoryRenderQueue();
@@ -238,5 +300,50 @@ describe("replayMp4Pipeline", () => {
 
     await queue.drain();
     expect(queue.size()).toBe(0);
+  it("returns errors for getStatus with invalid profiles or missing replays", () => {
+    const queue = createInMemoryRenderQueue();
+    const pipeline = createReplayMp4Pipeline({ queue });
+
+    const invalidProfile = pipeline.getStatus("PlayerOne", { profileId: "nope" });
+    expect(invalidProfile.ok).toBe(false);
+    expect(invalidProfile.error).toBe("invalid_profile");
+
+    const missing = pipeline.getStatus("UnknownReplay");
+    expect(missing.ok).toBe(false);
+    expect(missing.error).toBe("not_found");
+  });
+
+  it("returns not_found for getMp4 when entries are not completed", () => {
+    const queue = createInMemoryRenderQueue();
+    const pipeline = createReplayMp4Pipeline({ queue });
+    const replayJson = makeReplayJson(1);
+
+    const queued = pipeline.requestRender({ replayId: "PlayerOne", replayJson });
+    expect(queued.ok).toBe(true);
+    expect(queued.entry.status).toBe("queued");
+
+    const queuedMp4 = pipeline.getMp4("PlayerOne");
+    expect(queuedMp4.ok).toBe(false);
+    expect(queuedMp4.error).toBe("not_found");
+
+    const runningEntry = pipeline.__testables.store.upsert({
+      ...queued.entry,
+      status: "running"
+    });
+    const runningMp4 = pipeline.getMp4("PlayerOne");
+    expect(runningMp4.ok).toBe(false);
+    expect(runningMp4.error).toBe("not_found");
+    expect(runningEntry.status).toBe("running");
+
+    const failedEntry = pipeline.__testables.store.upsert({
+      ...queued.entry,
+      status: "failed",
+      error: "encode_failed"
+    });
+    const failedMp4 = pipeline.getMp4("PlayerOne");
+    expect(failedMp4.ok).toBe(false);
+    expect(failedMp4.error).toBe("not_found");
+    expect(failedEntry.status).toBe("failed");
+    expect(failedEntry.error).toBe("encode_failed");
   });
 });

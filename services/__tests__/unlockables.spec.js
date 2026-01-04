@@ -50,6 +50,16 @@ describe("unlockables", () => {
     expect(normalizeUnlock({ type: "achievement" })).toEqual({ type: "free", label: "Free" });
   });
 
+  it("defaults invalid unlock inputs to free", () => {
+    expect(normalizeUnlock(null)).toEqual({ type: "free", label: "Free" });
+    expect(normalizeUnlock("nope")).toEqual({ type: "free", label: "Free" });
+    expect(normalizeUnlock(42)).toEqual({ type: "free", label: "Free" });
+  });
+
+  it("falls back to free when achievement id is missing", () => {
+    expect(normalizeUnlock({ type: "achievement", minScore: 5 })).toEqual({ type: "free", label: "Free" });
+  });
+
   it("normalizes purchase unlocks with custom currencies", () => {
     const unlock = normalizeUnlock({ type: "purchase", cost: 12.9, currencyId: "tokens", label: "" });
     expect(unlock).toEqual({
@@ -60,9 +70,28 @@ describe("unlockables", () => {
     });
   });
 
+  it("normalizes purchase unlocks with invalid cost and missing currency", () => {
+    const unlock = normalizeUnlock({ type: "purchase", cost: "invalid", currencyId: "", label: "" });
+    expect(unlock).toEqual({
+      type: "purchase",
+      cost: 0,
+      currencyId: "bustercoin",
+      label: "Cost: 0 BC"
+    });
+  });
+
   it("normalizes record unlocks without scores", () => {
     const unlock = normalizeUnlock({ type: "record", minScore: NaN, label: "" });
     expect(unlock).toEqual({ type: "record", label: "Record holder" });
+  });
+
+  it("normalizes record unlocks with and without minScore", () => {
+    expect(normalizeUnlock({ type: "record" })).toEqual({ type: "record", label: "Record holder" });
+    expect(normalizeUnlock({ type: "record", minScore: 200 })).toEqual({
+      type: "record",
+      minScore: 200,
+      label: "Record holder"
+    });
   });
 
   it("evaluates unlock satisfaction across contexts", () => {
@@ -80,6 +109,20 @@ describe("unlockables", () => {
     expect(isUnlockSatisfied(achievementDef, { achievements: { unlocked: {} }, bestScore: 6 })).toBe(true);
   });
 
+  it("evaluates achievement unlocks with id and minScore fallbacks", () => {
+    const idDef = { id: "ach_id", type: "trail", unlock: { type: "achievement", id: "ach_1", minScore: 10 } };
+    const missingIdDef = { id: "ach_missing", type: "trail", unlock: { type: "achievement", minScore: 7 } };
+    const noFallbackDef = { id: "ach_none", type: "trail", unlock: { type: "achievement" } };
+
+    expect(isUnlockSatisfied(idDef, { achievements: { unlocked: { ach_1: true } }, bestScore: 0 })).toBe(true);
+    expect(isUnlockSatisfied(idDef, { achievements: { unlocked: {} }, bestScore: 9 })).toBe(false);
+    expect(isUnlockSatisfied(idDef, { achievements: { unlocked: {} }, bestScore: 10 })).toBe(true);
+
+    expect(isUnlockSatisfied(missingIdDef, { achievements: { unlocked: {} }, bestScore: 6 })).toBe(false);
+    expect(isUnlockSatisfied(missingIdDef, { achievements: { unlocked: {} }, bestScore: 7 })).toBe(true);
+    expect(isUnlockSatisfied(noFallbackDef, { achievements: { unlocked: {} }, bestScore: 100 })).toBe(false);
+  });
+
   it("defaults to free unlocks when none are supplied", () => {
     const def = { id: "starter", type: "trail" };
     expect(isUnlockSatisfied(def, {})).toBe(true);
@@ -92,10 +135,23 @@ describe("unlockables", () => {
     expect(isUnlockSatisfied(purchaseDef, { ownedIds: [] })).toBe(false);
   });
 
+  it("respects purchase ownership via def.id and unlock.id", () => {
+    const defIdOwned = { id: "trail_gold", type: "trail", unlock: { type: "purchase", id: "trail_pack" } };
+    expect(isUnlockSatisfied(defIdOwned, { ownedIds: ["trail_gold"] })).toBe(true);
+    expect(isUnlockSatisfied(defIdOwned, { ownedIds: ["trail_pack"] })).toBe(true);
+    expect(isUnlockSatisfied(defIdOwned, { ownedIds: [] })).toBe(false);
+  });
+
   it("requires both record holder status and minimum score when configured", () => {
     const def = { id: "record", type: "trail", unlock: { type: "record", minScore: 20 } };
     expect(isUnlockSatisfied(def, { recordHolder: true, bestScore: 10 })).toBe(false);
     expect(isUnlockSatisfied(def, { recordHolder: true, bestScore: 20 })).toBe(true);
+  });
+
+  it("requires record holder status for record unlocks", () => {
+    const def = { id: "record_only", type: "trail", unlock: { type: "record" } };
+    expect(isUnlockSatisfied(def, { recordHolder: false, bestScore: 999 })).toBe(false);
+    expect(isUnlockSatisfied(def, { recordHolder: true, bestScore: 0 })).toBe(true);
   });
 
   it("returns false for achievement unlocks without achievements or score", () => {
@@ -129,11 +185,11 @@ describe("unlockables", () => {
 
   it("skips invalid unlockable definitions during catalog building", () => {
     const { unlockables } = buildUnlockablesCatalog({
-      trails: [null, { id: "", name: "Bad" }, { id: "ok", name: "OK" }],
-      icons: [{ id: "", name: "Bad" }],
-      pipeTextures: [{ id: "p1", name: "Pipe" }]
+      trails: [null, "nope", { id: "", name: "Bad" }, { id: "  ", name: "Blank" }, { id: "ok", name: "OK" }],
+      icons: [undefined, 123, { id: "", name: "Bad" }, { id: "icon_ok", name: "Icon OK" }],
+      pipeTextures: [false, { id: "", name: "Bad" }, { id: "p1", name: "Pipe" }]
     });
-    expect(unlockables.map((u) => u.id)).toEqual(["ok", "p1"]);
+    expect(unlockables.map((u) => u.id)).toEqual(["ok", "icon_ok", "p1"]);
   });
 
   it("defaults trail unlocks to achievement-based when not specified", () => {
@@ -166,6 +222,46 @@ describe("unlockables", () => {
       pipeTextures: []
     });
     expect(unlockables[0].unlock).toEqual({ type: "record", label: "Record holder" });
+  });
+
+  it("prefers record holder unlocks over always unlocked trails", () => {
+    const { unlockables } = buildUnlockablesCatalog({
+      trails: [{ id: "priority", requiresRecordHolder: true, alwaysUnlocked: true }],
+      icons: [],
+      pipeTextures: []
+    });
+    expect(unlockables[0].unlock).toEqual({ type: "record", label: "Record holder" });
+  });
+
+  it("honors explicit trail unlocks before record or always-unlocked flags", () => {
+    const { unlockables } = buildUnlockablesCatalog({
+      trails: [
+        {
+          id: "explicit",
+          requiresRecordHolder: true,
+          alwaysUnlocked: true,
+          unlock: { type: "purchase", cost: 42 }
+        }
+      ],
+      icons: [],
+      pipeTextures: []
+    });
+    expect(unlockables[0].unlock).toEqual({ type: "purchase", cost: 42, currencyId: "bustercoin", label: "Cost: 42 BC" });
+  });
+
+  it("defaults non-numeric trail minScore values to zero", () => {
+    const { unlockables } = buildUnlockablesCatalog({
+      trails: [{ id: "odd_score", minScore: "nope" }],
+      icons: [],
+      pipeTextures: []
+    });
+    expect(unlockables[0].meta.minScore).toBe(0);
+    expect(unlockables[0].unlock).toEqual({
+      type: "achievement",
+      id: "trail_odd_score",
+      minScore: 0,
+      label: "Achievement"
+    });
   });
 
   it("registers icon and pipe texture metadata", () => {
