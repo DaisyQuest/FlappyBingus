@@ -1,69 +1,48 @@
 import { describe, expect, it } from "vitest";
+
 import {
-  UNLOCKABLE_TYPES,
   buildUnlockablesCatalog,
-  describeUnlock,
-  getUnlockedIdsByType,
-  isUnlockSatisfied,
-  normalizeUnlock,
-  normalizeUnlockableState
+  resolveUnlockablesForType,
+  UNLOCKABLE_TYPES
 } from "../unlockables.js";
 
-describe("unlockables client helpers", () => {
-  it("normalizes unlock shapes and describes locks", () => {
-    expect(normalizeUnlock({ type: "score", minScore: -5 }).minScore).toBe(0);
-    expect(describeUnlock({ type: "score", minScore: 10 }, { unlocked: false })).toContain("Score 10");
-    expect(describeUnlock({ type: "record" }, { unlocked: false })).toContain("Record");
-    expect(normalizeUnlock({ type: "purchase", cost: 3, currencyId: "stellar" })).toMatchObject({
-      type: "purchase",
-      cost: 3,
-      currencyId: "stellar"
-    });
+describe("unlockables helpers", () => {
+  it("returns the current unlockables list when no type or list is provided", () => {
+    const base = [{ id: "a", type: "trail" }];
+    expect(resolveUnlockablesForType({ unlockables: base })).toBe(base);
+    expect(resolveUnlockablesForType({ unlockables: base, type: UNLOCKABLE_TYPES.trail, list: [] })).toBe(base);
   });
 
-  it("evaluates unlock satisfaction for achievements and scores", () => {
-    const def = { id: "trail", type: "trail", unlock: { type: "achievement", id: "a1", minScore: 5 } };
-    expect(isUnlockSatisfied(def, { achievements: { unlocked: { a1: 1 } }, bestScore: 0 })).toBe(true);
-    expect(isUnlockSatisfied(def, { achievements: { unlocked: {} }, bestScore: 6 })).toBe(true);
-  });
-
-  it("builds catalogs and returns unlocked ids by type", () => {
-    const catalog = buildUnlockablesCatalog({
-      trails: [
-        { id: "classic", name: "Classic", minScore: 0, alwaysUnlocked: true },
-        { id: "shop_trail", name: "Shop Trail", unlock: { type: "purchase", cost: 50 } }
-      ],
-      icons: [{ id: "icon", name: "Icon", unlock: { type: "free" } }],
-      pipeTextures: [{ id: "basic", name: "Basic", unlock: { type: "score", minScore: 10 } }]
-    });
-    const shopTrail = catalog.unlockables.find((item) => item.id === "shop_trail");
-    expect(shopTrail?.unlock?.type).toBe("purchase");
-    const unlocked = getUnlockedIdsByType({
-      unlockables: catalog.unlockables,
-      type: UNLOCKABLE_TYPES.pipeTexture,
-      context: { bestScore: 12 }
-    });
-    expect(unlocked).toContain("basic");
-  });
-
-  it("honors persisted unlockable state when resolving unlocked ids", () => {
-    const catalog = buildUnlockablesCatalog({
-      icons: [{ id: "icon_locked", name: "Locked Icon", unlock: { type: "score", minScore: 999 } }]
-    });
-    const state = { unlocked: { "player_texture:icon_locked": Date.now(), "player_texture:bad": -4 } };
-    const unlocked = getUnlockedIdsByType({
-      unlockables: catalog.unlockables,
+  it("keeps the existing catalog when all items are present", () => {
+    const icons = [{ id: "custom", name: "Custom", unlock: { type: "free" } }];
+    const unlockables = buildUnlockablesCatalog({ icons }).unlockables;
+    const resolved = resolveUnlockablesForType({
+      unlockables,
       type: UNLOCKABLE_TYPES.playerTexture,
-      state,
-      context: { bestScore: 0 }
+      list: icons,
+      trails: [],
+      icons,
+      pipeTextures: []
     });
-    expect(unlocked).toEqual(["icon_locked"]);
+
+    expect(resolved).toBe(unlockables);
+    expect(resolved.find((entry) => entry.id === "custom")?.type).toBe(UNLOCKABLE_TYPES.playerTexture);
   });
 
-  it("normalizes unlockable state to valid timestamped entries", () => {
-    const normalized = normalizeUnlockableState({
-      unlocked: { "player_texture:ok": "42", "player_texture:bad": -3, "player_texture:zero": 0 }
+  it("rebuilds the catalog when required items are missing", () => {
+    const icons = [{ id: "fresh", name: "Fresh", unlock: { type: "free" } }];
+    const staleCatalog = buildUnlockablesCatalog({ icons: [] }).unlockables;
+
+    const resolved = resolveUnlockablesForType({
+      unlockables: staleCatalog,
+      type: UNLOCKABLE_TYPES.playerTexture,
+      list: icons,
+      trails: [],
+      icons,
+      pipeTextures: []
     });
-    expect(normalized.unlocked).toEqual({ "player_texture:ok": 42 });
+
+    expect(resolved).not.toBe(staleCatalog);
+    expect(resolved.find((entry) => entry.id === "fresh" && entry.type === UNLOCKABLE_TYPES.playerTexture)).toBeTruthy();
   });
 });

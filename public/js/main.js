@@ -80,7 +80,7 @@ import { renderScoreBreakdown } from "./scoreBreakdown.js";
 import { computePersonalBestStatus, updatePersonalBestElements } from "./personalBest.js";
 import { updatePersonalBestUI } from "./personalBestUI.js";
 import { buildGameOverStats, GAME_OVER_STAT_VIEWS } from "./gameOverStats.js";
-import { buildUnlockablesCatalog, UNLOCKABLE_TYPES } from "./unlockables.js";
+import { buildUnlockablesCatalog, getUnlockedIdsByType, resolveUnlockablesForType, UNLOCKABLE_TYPES } from "./unlockables.js";
 import { DEFAULT_CURRENCY_ID, getUserCurrencyBalance } from "./currencySystem.js";
 import {
   DEFAULT_PLAYER_ICON_ID,
@@ -202,7 +202,6 @@ import {
   computeUnlockedPipeTextureSet,
   computeUnlockedTrailSet
 } from "./main/unlockableSets.js";
-
 
 // ---- DOM ----
 const ui = buildGameUI();
@@ -569,7 +568,6 @@ const renderBindUIWrapper = (listeningActionId = null) => {
     humanizeBind
   });
 };
-
 
 // Seed of the most recently finished run (used for "Retry Previous Seed")
 let lastEndedSeed = "";
@@ -1001,6 +999,12 @@ const computeUnlockedPipeTextureSetForMenu = (textures = net.pipeTextures) => co
   achievementsState: resolveAchievementsState(),
   unlockables: net.unlockables?.unlockables
 });
+function getOwnedUnlockables(user = net.user) {
+  if (!user) return [];
+  if (Array.isArray(user.ownedUnlockables)) return user.ownedUnlockables;
+  if (Array.isArray(user.ownedIcons)) return user.ownedIcons;
+  return [];
+}
 
 function syncLauncherSwatch(iconId = currentIconId, icons = playerIcons, image = playerImg) {
   const icon = icons.find((i) => i.id === iconId) || icons[0];
@@ -1398,7 +1402,7 @@ async function confirmPendingPurchase() {
 
   refreshTrailMenu();
   refreshPipeTextureMenu(currentPipeTextureId);
-renderIconOptions(currentIconId, computeUnlockedIconSetForMenu(playerIcons), playerIcons);
+  renderIconOptions(currentIconId, computeUnlockedIconSetForMenu(playerIcons), playerIcons);
   renderShopCategory(activeShopTab);
   setUserHint();
   syncMenuProfileBindingsFromState();

@@ -1,6 +1,9 @@
 "use strict";
 
 import { afterEach, describe, expect, it, vi } from "vitest";
+import fs from "node:fs/promises";
+import os from "node:os";
+import path from "node:path";
 
 const baseUser = () => ({
   username: "PlayerOne",
@@ -108,7 +111,8 @@ async function importServer(overrides = {}) {
   const {
     dataStoreOverrides = ("configStoreOverrides" in overrides || "gameConfigStoreOverrides" in overrides) ? {} : overrides,
     configStoreOverrides = {},
-    gameConfigStoreOverrides = {}
+    gameConfigStoreOverrides = {},
+    replayMp4Pipeline = null
   } = overrides;
   vi.resetModules();
   const server = await import("../server.cjs");
@@ -144,6 +148,9 @@ async function importServer(overrides = {}) {
     ...dataStoreOverrides
   };
   server._setDataStoreForTests(mockDataStore);
+  if (replayMp4Pipeline) {
+    server._setReplayMp4PipelineForTests(replayMp4Pipeline);
+  }
   if (Object.keys(configStoreOverrides).length) {
     server._setConfigStoreForTests({
       getConfig: vi.fn(() => ({
@@ -303,6 +310,139 @@ describe("server routes and helpers", () => {
       })
     );
     expect(mockDataStore.listBestRuns).toHaveBeenCalledWith(5);
+  });
+
+  it("requires authentication before requesting replay MP4 renders", async () => {
+    const { server } = await importServer();
+    const res = createRes();
+
+    await server.route(
+      createReq({ method: "POST", url: "/api/replays/PlayerOne/render-mp4", body: "{}" }),
+      res
+    );
+
+    expect(res.status).toBe(401);
+    expect(readJson(res).error).toBe("unauthorized");
+  });
+
+  it("requests replay MP4 renders and returns queued status", async () => {
+    const replayJson = JSON.stringify({ ticks: [{ move: { dx: 1, dy: 2 }, cursor: { x: 0, y: 0, has: false } }] });
+    const replayEntry = {
+      status: "queued",
+      replayId: "PlayerOne",
+      profile: { id: "720p60" },
+      jobId: "job-1",
+      mp4Bytes: 0,
+      error: null
+    };
+    const replayMp4Pipeline = {
+      requestRender: vi.fn(() => ({ ok: true, entry: replayEntry }))
+    };
+    const { server, mockDataStore } = await importServer({
+      replayMp4Pipeline,
+      getBestRunByUsername: vi.fn(async () => ({ replayJson, replayBytes: replayJson.length, replayHash: "hash" })),
+      getUserByKey: vi.fn(async () => ({ ...baseUser(), key: "playerone" }))
+    });
+    const res = createRes();
+
+    await server.route(
+      createReq({
+        method: "POST",
+        url: "/api/replays/PlayerOne/render-mp4",
+        body: JSON.stringify({ profile: { profileId: "720p60" } }),
+        headers: { authorization: buildAuthHeader(server, "PlayerOne") }
+      }),
+      res
+    );
+
+    expect(res.status).toBe(200);
+    expect(readJson(res)).toEqual(
+      expect.objectContaining({
+        ok: true,
+        status: "queued",
+        replayId: "PlayerOne",
+        jobId: "job-1"
+      })
+    );
+    expect(replayMp4Pipeline.requestRender).toHaveBeenCalledWith(
+      expect.objectContaining({
+        replayId: "PlayerOne",
+        replayJson,
+        requestedBy: "playerone",
+        profileOptions: { profileId: "720p60" }
+      })
+    );
+    expect(mockDataStore.getBestRunByUsername).toHaveBeenCalledWith("PlayerOne");
+  });
+
+  it("returns replay MP4 render status for authorized users", async () => {
+    const replayEntry = {
+      status: "complete",
+      replayId: "PlayerOne",
+      profile: { id: "720p60" },
+      jobId: "job-2",
+      mp4Bytes: 120,
+      error: null
+    };
+    const replayMp4Pipeline = {
+      getStatus: vi.fn(() => ({ ok: true, entry: replayEntry }))
+    };
+    const { server } = await importServer({
+      replayMp4Pipeline,
+      getUserByKey: vi.fn(async () => ({ ...baseUser(), key: "playerone" }))
+    });
+    const res = createRes();
+
+    await server.route(
+      createReq({
+        method: "GET",
+        url: "/api/replays/PlayerOne/render-mp4/status?profile=720p60",
+        headers: { authorization: buildAuthHeader(server, "PlayerOne") }
+      }),
+      res
+    );
+
+    expect(res.status).toBe(200);
+    expect(readJson(res)).toEqual(
+      expect.objectContaining({
+        ok: true,
+        status: "complete",
+        mp4Bytes: 120
+      })
+    );
+    expect(replayMp4Pipeline.getStatus).toHaveBeenCalledWith("PlayerOne", { profileId: "720p60" });
+  });
+
+  it("serves completed replay MP4 assets when available", async () => {
+    const mp4Buffer = Buffer.from([0x00, 0x11, 0x22, 0x33]);
+    const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), "mp4-"));
+    const mp4Path = path.join(tempDir, "render.mp4");
+    await fs.writeFile(mp4Path, mp4Buffer);
+
+    const replayMp4Pipeline = {
+      getMp4: vi.fn(() => ({ ok: true, entry: { mp4Path } }))
+    };
+    const { server } = await importServer({ replayMp4Pipeline });
+    const res = createBinaryRes();
+
+    await server.route(createReq({ method: "GET", url: "/api/replays/PlayerOne/mp4" }), res);
+
+    expect(res.status).toBe(200);
+    expect(res.headers["Content-Type"]).toBe("video/mp4");
+    expect(res.body).toEqual(mp4Buffer);
+  });
+
+  it("returns 404 when replay MP4 assets are missing", async () => {
+    const replayMp4Pipeline = {
+      getMp4: vi.fn(() => ({ ok: false, error: "not_found" }))
+    };
+    const { server } = await importServer({ replayMp4Pipeline });
+    const res = createRes();
+
+    await server.route(createReq({ method: "GET", url: "/api/replays/PlayerOne/mp4" }), res);
+
+    expect(res.status).toBe(404);
+    expect(readJson(res).error).toBe("not_found");
   });
 
   it("serves the replay browser page", async () => {
