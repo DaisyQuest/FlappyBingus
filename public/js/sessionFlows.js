@@ -29,6 +29,7 @@ export function createSessionFlows({
   renderBindUI,
   refreshBootUI,
   playerIcons,
+  getPlayerIcons,
   getCurrentIconId,
   getCurrentPipeTextureId,
   getCurrentPipeTextureMode,
@@ -38,6 +39,8 @@ export function createSessionFlows({
   usernameInput,
   userHint
 }) {
+  const resolvePlayerIcons = () => (typeof getPlayerIcons === "function" ? getPlayerIcons() : playerIcons);
+
   function selectIconCatalog({ userIcons, cachedIcons }) {
     const firstNonEmpty = [userIcons, cachedIcons].find(
       (icons) => Array.isArray(icons) && icons.length
@@ -89,7 +92,10 @@ export function createSessionFlows({
 
     setUserHint();
     const { selected, best } = refreshTrailMenu();
-    const iconId = applyIconSelection(net.user?.selectedIcon || getCurrentIconId(), playerIcons);
+    const iconId = applyIconSelection(
+      net.user?.selectedIcon || getCurrentIconId(),
+      resolvePlayerIcons()
+    );
     const nextPipeTextureMode = normalizePipeTextureMode(net.user?.pipeTextureMode || getCurrentPipeTextureMode());
     setCurrentPipeTextureMode(nextPipeTextureMode);
     writePipeTextureModeCookie(nextPipeTextureMode);
