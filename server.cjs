@@ -70,6 +70,7 @@ const {
   debitCurrency
 } = require("./services/currency.cjs");
 const { renderPlayerCardJpeg } = require("./services/playerCard.cjs");
+const { createReplayMp4Pipeline, normalizeRenderProfile } = require("./services/replayMp4Pipeline.cjs");
 
 // --------- Config (env overrides) ----------
 const PORT = Number(process.env.PORT || 3000);
@@ -87,6 +88,7 @@ const START_TIME = Date.now();
 const mongoConfig = resolveMongoConfig();
 let dataStore = new MongoDataStore(mongoConfig);
 let scoreService = null;
+let replayMp4Pipeline = createReplayMp4Pipeline({ storageDir: process.env.REPLAY_MP4_DIR });
 
 // Test-only: allow swapping the datastore to avoid network calls.
 function _setDataStoreForTests(mock) {
@@ -118,6 +120,10 @@ function _setDataStoreForTests(mock) {
     evaluateAchievements: (payload) => evaluateRunForAchievements({ ...payload, definitions: getAchievementDefinitions() }),
     buildAchievementsPayload: (user, unlocked) => buildAchievementsPayload(user, unlocked, getAchievementDefinitions())
   });
+}
+
+function _setReplayMp4PipelineForTests(mock) {
+  replayMp4Pipeline = mock;
 }
 
 function _setConfigStoreForTests(mock) {
@@ -308,6 +314,21 @@ const ENDPOINT_GROUPS = Object.freeze([
         path: "/api/replays",
         methods: ["GET"],
         summary: "List stored best-run replay metadata."
+      },
+      {
+        path: "/api/replays/:username/render-mp4",
+        methods: ["POST"],
+        summary: "Request a replay render job to generate an MP4."
+      },
+      {
+        path: "/api/replays/:username/render-mp4/status",
+        methods: ["GET"],
+        summary: "Check the status of a replay render job."
+      },
+      {
+        path: "/api/replays/:username/mp4",
+        methods: ["GET"],
+        summary: "Download a completed replay MP4."
       },
       {
         path: "/playerCard",
@@ -2012,6 +2033,120 @@ async function route(req, res) {
     return;
   }
 
+  const replayRenderMatch = pathname.match(/^\/api\/replays\/([^/]+)\/render-mp4$/);
+  if (replayRenderMatch && req.method === "POST") {
+    if (rateLimit(req, res, "/api/replays/render-mp4")) return;
+    if (!(await ensureDatabase(res))) return;
+    const username = normalizeUsername(replayRenderMatch[1]);
+    if (!username) return badRequest(res, "invalid_username");
+
+    const u = await getUserFromReq(req, { withRecordHolder: true, res });
+    if (!u) return unauthorized(res);
+    if (keyForUsername(username) !== u.key) return unauthorized(res);
+
+    let body = {};
+    try {
+      body = await readJsonBody(req, 64 * 1024);
+    } catch {
+      return badRequest(res, "invalid_json");
+    }
+
+    const stored = await dataStore.getBestRunByUsername(username);
+    if (!stored?.replayJson) return sendJson(res, 404, { ok: false, error: "best_run_not_found" });
+
+    const profileOptions = body?.profile && typeof body.profile === "object" ? body.profile : body;
+    const result = replayMp4Pipeline.requestRender({
+      replayId: username,
+      replayJson: stored.replayJson,
+      replayBytes: stored.replayBytes,
+      replayHash: stored.replayHash,
+      requestedBy: u.key,
+      profileOptions
+    });
+    if (!result.ok) {
+      if (result.error === "replay_too_large") {
+        return sendJson(res, 413, { ok: false, error: result.error });
+      }
+      return badRequest(res, result.error || "invalid_request");
+    }
+
+    const entry = result.entry;
+    sendJson(res, 200, {
+      ok: true,
+      status: entry.status,
+      replayId: entry.replayId,
+      profile: entry.profile,
+      jobId: entry.jobId,
+      mp4Bytes: entry.mp4Bytes || 0,
+      error: entry.error || null
+    });
+    return;
+  }
+
+  const replayRenderStatusMatch = pathname.match(/^\/api\/replays\/([^/]+)\/render-mp4\/status$/);
+  if (replayRenderStatusMatch && req.method === "GET") {
+    if (rateLimit(req, res, "/api/replays/render-mp4")) return;
+    if (!(await ensureDatabase(res))) return;
+    const username = normalizeUsername(replayRenderStatusMatch[1]);
+    if (!username) return badRequest(res, "invalid_username");
+
+    const u = await getUserFromReq(req, { withRecordHolder: true, res });
+    if (!u) return unauthorized(res);
+    if (keyForUsername(username) !== u.key) return unauthorized(res);
+
+    const profileOptions = {
+      profileId: url.searchParams.get("profile") || ""
+    };
+    const result = replayMp4Pipeline.getStatus(username, profileOptions);
+    if (!result.ok) {
+      if (result.error === "not_found") return sendJson(res, 404, { ok: false, error: "not_found" });
+      return badRequest(res, result.error || "invalid_request");
+    }
+
+    const entry = result.entry;
+    sendJson(res, 200, {
+      ok: true,
+      status: entry.status,
+      replayId: entry.replayId,
+      profile: entry.profile,
+      jobId: entry.jobId,
+      mp4Bytes: entry.mp4Bytes || 0,
+      error: entry.error || null
+    });
+    return;
+  }
+
+  const replayMp4Match = pathname.match(/^\/api\/replays\/([^/]+)\/mp4$/);
+  if (replayMp4Match && req.method === "GET") {
+    if (rateLimit(req, res, "/api/replays/mp4")) return;
+    if (!(await ensureDatabase(res))) return;
+    const username = normalizeUsername(replayMp4Match[1]);
+    if (!username) return badRequest(res, "invalid_username");
+
+    const profileOptions = {
+      profileId: url.searchParams.get("profile") || ""
+    };
+    const result = replayMp4Pipeline.getMp4(username, profileOptions);
+    if (!result.ok) return sendJson(res, 404, { ok: false, error: "not_found" });
+
+    try {
+      const mp4Buffer = await fs.readFile(result.entry.mp4Path);
+      send(
+        res,
+        200,
+        {
+          "Content-Type": "video/mp4",
+          "Cache-Control": "no-store"
+        },
+        mp4Buffer
+      );
+    } catch (err) {
+      console.error("[bingus] mp4 read failed:", err);
+      sendJson(res, 500, { ok: false, error: "mp4_read_failed" });
+    }
+    return;
+  }
+
   // Render a player card JPEG from replay details
   if (pathname === "/playerCard" && req.method === "GET") {
     if (rateLimit(req, res, "/playerCard")) return;
@@ -2774,6 +2909,7 @@ module.exports = {
   keyForUsername,
   getOrCreateUser,
   _setDataStoreForTests,
+  _setReplayMp4PipelineForTests,
   _setConfigStoreForTests,
   _setGameConfigStoreForTests,
   route,
