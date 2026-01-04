@@ -7,7 +7,7 @@ const MAX_SCORE = 1_000_000_000;
 const DEFAULT_TRAIL = "classic";
 const DEFAULT_ICON = "hi_vis_orange";
 const { DEFAULT_PIPE_TEXTURE_ID, DEFAULT_PIPE_TEXTURE_MODE } = require("../services/pipeTextures.cjs");
-const { DEFAULT_CURRENCY_ID } = require("../services/currency.cjs");
+const { DEFAULT_CURRENCY_ID, SUPPORT_CURRENCY_ID } = require("../services/currency.cjs");
 const DEFAULT_ACHIEVEMENTS_STATE = Object.freeze({
   unlocked: Object.freeze({}),
   progress: Object.freeze({
@@ -158,6 +158,8 @@ class MongoDataStore {
       await db.collection("best_runs").createIndex({ username: 1 });
       await db.collection("best_runs").createIndex({ key: 1 }, { unique: true });
       await db.collection("best_runs").createIndex({ bestScore: -1, updatedAt: -1 });
+      await db.collection("support_offers").createIndex({ transactionId: 1 }, { unique: true });
+      await db.collection("support_offers").createIndex({ key: 1, createdAt: -1 });
       this.client = client;
       this.db = db;
       this.status.connected = true;
@@ -197,6 +199,11 @@ class MongoDataStore {
   bestRunsCollection() {
     if (!this.db) throw new Error("db_not_connected");
     return this.db.collection("best_runs");
+  }
+
+  supportOffersCollection() {
+    if (!this.db) throw new Error("db_not_connected");
+    return this.db.collection("support_offers");
   }
 
   serverConfigCollection() {
@@ -555,6 +562,60 @@ class MongoDataStore {
       { returnDocument: "after" }
     );
     return res.value;
+  }
+
+  async recordSupportOffer({
+    key,
+    username,
+    amount,
+    transactionId,
+    offerId = null,
+    provider = "cpalead",
+    rawPayload = null
+  } = {}) {
+    await this.ensureConnected();
+    if (!key) throw new Error("user_key_required");
+    const safeAmount = normalizeCount(amount);
+    if (!safeAmount) throw new Error("invalid_support_amount");
+    const txn = typeof transactionId === "string" ? transactionId.trim() : "";
+    if (!txn) throw new Error("invalid_support_transaction");
+
+    const now = Date.now();
+    const offers = this.supportOffersCollection();
+    const entry = {
+      transactionId: txn,
+      key,
+      username: username || key,
+      amount: safeAmount,
+      offerId: offerId || null,
+      provider,
+      rawPayload,
+      createdAt: now
+    };
+
+    try {
+      await offers.insertOne(entry);
+    } catch (err) {
+      if (err?.code === 11000) {
+        return { credited: false, reason: "duplicate" };
+      }
+      throw err;
+    }
+
+    const userRes = await this.usersCollection().findOneAndUpdate(
+      { key },
+      {
+        $inc: { [`currencies.${SUPPORT_CURRENCY_ID}`]: safeAmount },
+        $set: { updatedAt: now }
+      },
+      { returnDocument: "after" }
+    );
+    if (!userRes.value) {
+      await offers.deleteOne({ transactionId: txn });
+      return { credited: false, reason: "user_not_found" };
+    }
+
+    return { credited: true, user: userRes.value, entry };
   }
 
   async setKeybinds(key, binds) {
