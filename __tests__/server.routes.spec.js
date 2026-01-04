@@ -1120,6 +1120,31 @@ describe("server routes and helpers", () => {
     expect(payload.meta.generatedAt).toBeTypeOf("string");
   });
 
+  it("merges custom icons into the base catalog", async () => {
+    const { server } = await importServer({
+      gameConfigStoreOverrides: {
+        getConfig: vi.fn(() => ({
+          iconStyles: {
+            icons: [
+              {
+                id: "custom_icon",
+                name: "Custom Icon",
+                unlock: { type: "free" },
+                style: { fill: "#111" }
+              }
+            ]
+          }
+        }))
+      }
+    });
+    const res = createRes();
+    await server.route(createReq({ url: "/api/icon-registry" }), res);
+    const payload = readJson(res);
+    expect(payload.ok).toBe(true);
+    expect(payload.icons.some((icon) => icon.id === "hi_vis_orange")).toBe(true);
+    expect(payload.icons.some((icon) => icon.id === "custom_icon")).toBe(true);
+  });
+
   it("falls back to base icons when the stored registry is invalid", async () => {
     const { server } = await importServer({
       gameConfigStoreOverrides: {
