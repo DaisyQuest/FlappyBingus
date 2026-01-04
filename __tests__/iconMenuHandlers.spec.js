@@ -92,6 +92,10 @@ describe("icon menu handlers", () => {
     );
     expect(apiSetIcon).toHaveBeenCalledWith("spark");
     expect(classifyIconSaveResponse).toHaveBeenCalled();
+    expect(syncIconCatalog).toHaveBeenCalledWith([
+      { id: "spark", name: "Spark" },
+      { id: "glow", name: "Glow" }
+    ]);
     expect(document.getElementById("hint").className).toBe("hint good");
     expect(document.getElementById("hint").textContent).toBe("Saved");
   });
@@ -239,6 +243,193 @@ describe("icon menu handlers", () => {
 
     handlers.handleOptionsMouseOut({ relatedTarget: null });
     expect(resetIconHint).toHaveBeenCalledWith(document.getElementById("hint"));
+  });
+
+  it("avoids swapping catalogs when the save response omits the selection", async () => {
+    const document = buildDom();
+    const button = document.querySelector("button[data-icon-id='spark']");
+    const net = { user: { bestScore: 0 }, trails: [], icons: [] };
+    const applyIconSelection = vi.fn();
+    const syncIconCatalog = vi.fn();
+
+    const { handlers } = createIconMenuHandlers({
+      elements: {
+        iconOptions: document.getElementById("options"),
+        iconHint: document.getElementById("hint"),
+        iconLauncher: null,
+        iconOverlay: null,
+        iconOverlayClose: null
+      },
+      getNet: () => net,
+      getPlayerIcons: () => [{ id: "spark", name: "Spark" }],
+      getCurrentIconId: () => "spark",
+      computeUnlockedIconSet: vi.fn(() => new Set(["spark"])),
+      openPurchaseModal: vi.fn(),
+      applyIconSelection,
+      ensureLoggedInForSave: vi.fn(),
+      apiSetIcon: vi.fn().mockResolvedValue({
+        ok: true,
+        user: { selectedIcon: "spark" },
+        icons: [{ id: "other", name: "Other" }]
+      }),
+      classifyIconSaveResponse: vi.fn().mockReturnValue({
+        outcome: "saved",
+        online: true,
+        needsReauth: false,
+        message: "Saved"
+      }),
+      setNetUser: vi.fn(),
+      normalizeTrails: vi.fn().mockReturnValue([]),
+      syncUnlockablesCatalog: vi.fn(),
+      syncIconCatalog,
+      syncPipeTextureCatalog: vi.fn(),
+      setUserHint: vi.fn(),
+      recoverSession: vi.fn(),
+      renderIconOptions: vi.fn(),
+      toggleIconMenu: vi.fn(),
+      resetIconHint: vi.fn(),
+      describeIconLock: vi.fn(),
+      iconHoverText: vi.fn(),
+      DEFAULT_CURRENCY_ID: "coin",
+      UNLOCKABLE_TYPES: { playerTexture: "playerTexture" }
+    });
+
+    await handlers.handleOptionsClick({ target: button });
+
+    expect(syncIconCatalog).not.toHaveBeenCalled();
+    expect(applyIconSelection).toHaveBeenCalledTimes(2);
+  });
+
+  it("reverts when login updates the catalog and the selection is no longer valid", async () => {
+    const document = buildDom();
+    const button = document.querySelector("button[data-icon-id='spark']");
+    const net = { user: null, trails: [], icons: [] };
+    const applyIconSelection = vi.fn();
+    let icons = [
+      { id: "spark", name: "Spark" },
+      { id: "glow", name: "Glow" }
+    ];
+
+    const { handlers } = createIconMenuHandlers({
+      elements: {
+        iconOptions: document.getElementById("options"),
+        iconHint: document.getElementById("hint"),
+        iconLauncher: null,
+        iconOverlay: null,
+        iconOverlayClose: null
+      },
+      getNet: () => net,
+      getPlayerIcons: () => icons,
+      getCurrentIconId: () => "glow",
+      computeUnlockedIconSet: vi.fn((list) => new Set(list.map((icon) => icon.id))),
+      openPurchaseModal: vi.fn(),
+      applyIconSelection,
+      ensureLoggedInForSave: vi.fn(async () => {
+        net.user = { bestScore: 0 };
+        icons = [{ id: "glow", name: "Glow" }];
+        return true;
+      }),
+      apiSetIcon: vi.fn(),
+      classifyIconSaveResponse: vi.fn(),
+      setNetUser: vi.fn(),
+      normalizeTrails: vi.fn(),
+      syncUnlockablesCatalog: vi.fn(),
+      syncIconCatalog: vi.fn(),
+      syncPipeTextureCatalog: vi.fn(),
+      setUserHint: vi.fn(),
+      recoverSession: vi.fn(),
+      renderIconOptions: vi.fn(),
+      toggleIconMenu: vi.fn(),
+      resetIconHint: vi.fn(),
+      describeIconLock: vi.fn(),
+      iconHoverText: vi.fn(),
+      DEFAULT_CURRENCY_ID: "coin",
+      UNLOCKABLE_TYPES: { playerTexture: "playerTexture" }
+    });
+
+    await handlers.handleOptionsClick({ target: button });
+
+    expect(applyIconSelection).toHaveBeenNthCalledWith(
+      1,
+      "spark",
+      [
+        { id: "spark", name: "Spark" },
+        { id: "glow", name: "Glow" }
+      ],
+      expect.any(Set)
+    );
+    expect(applyIconSelection).toHaveBeenNthCalledWith(
+      2,
+      "glow",
+      [{ id: "glow", name: "Glow" }],
+      expect.any(Set)
+    );
+    expect(document.getElementById("hint").className).toBe("hint bad");
+    expect(document.getElementById("hint").textContent).toBe("That icon is unavailable.");
+  });
+
+  it("uses lock text when the icon remains in the catalog but is no longer unlocked", async () => {
+    const document = buildDom();
+    const button = document.querySelector("button[data-icon-id='spark']");
+    const net = { user: null, trails: [], icons: [] };
+    const applyIconSelection = vi.fn();
+    let afterLogin = false;
+    let icons = [
+      { id: "spark", name: "Spark", unlock: { type: "score", minScore: 10 } },
+      { id: "glow", name: "Glow" }
+    ];
+
+    const { handlers } = createIconMenuHandlers({
+      elements: {
+        iconOptions: document.getElementById("options"),
+        iconHint: document.getElementById("hint"),
+        iconLauncher: null,
+        iconOverlay: null,
+        iconOverlayClose: null
+      },
+      getNet: () => net,
+      getPlayerIcons: () => icons,
+      getCurrentIconId: () => "glow",
+      computeUnlockedIconSet: vi.fn((list) => new Set(
+        list
+          .filter((icon) => (afterLogin ? icon.id !== "spark" : true))
+          .map((icon) => icon.id)
+      )),
+      openPurchaseModal: vi.fn(),
+      applyIconSelection,
+      ensureLoggedInForSave: vi.fn(async () => {
+        net.user = { bestScore: 0 };
+        afterLogin = true;
+        return true;
+      }),
+      apiSetIcon: vi.fn(),
+      classifyIconSaveResponse: vi.fn(),
+      setNetUser: vi.fn(),
+      normalizeTrails: vi.fn(),
+      syncUnlockablesCatalog: vi.fn(),
+      syncIconCatalog: vi.fn(),
+      syncPipeTextureCatalog: vi.fn(),
+      setUserHint: vi.fn(),
+      recoverSession: vi.fn(),
+      renderIconOptions: vi.fn(),
+      toggleIconMenu: vi.fn(),
+      resetIconHint: vi.fn(),
+      describeIconLock: vi.fn().mockReturnValue("Locked by score"),
+      iconHoverText: vi.fn(),
+      DEFAULT_CURRENCY_ID: "coin",
+      UNLOCKABLE_TYPES: { playerTexture: "playerTexture" }
+    });
+
+    await handlers.handleOptionsClick({ target: button });
+
+    expect(applyIconSelection).toHaveBeenNthCalledWith(
+      2,
+      "glow",
+      icons,
+      expect.any(Set)
+    );
+    expect(document.getElementById("hint").className).toBe("hint bad");
+    expect(document.getElementById("hint").textContent).toBe("Locked by score");
   });
 
   it("reverts selection and flags failures", async () => {
