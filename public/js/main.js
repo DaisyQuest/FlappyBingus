@@ -1017,7 +1017,7 @@ function syncUnlockablesCatalog({
 }
 
 function syncIconCatalog(nextIcons = null) {
-  const normalized = normalizePlayerIcons(nextIcons || playerIcons, { allowEmpty: true });
+  const normalized = normalizePlayerIcons(nextIcons ?? playerIcons, { allowEmpty: true });
   playerIcons = normalized;
   iconLookup.setIcons(playerIcons);
   net.icons = normalized.map((i) => ({ ...i }));

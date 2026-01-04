@@ -2,10 +2,9 @@ import { describe, expect, it } from "vitest";
 import { DEFAULT_TRAILS, getUnlockedTrails, mergeTrailCatalog, normalizeTrails, sortTrailsForDisplay } from "../trailProgression.js";
 
 describe("trailProgression helpers", () => {
-  it("normalizes missing lists to defaults", () => {
+  it("normalizes missing lists to an empty catalog", () => {
     const result = normalizeTrails(null);
-    expect(result).toHaveLength(DEFAULT_TRAILS.length);
-    expect(result[0].id).toBe("classic");
+    expect(result).toEqual([]);
   });
 
   it("allows empty trail catalogs when explicitly requested", () => {
@@ -54,10 +53,9 @@ describe("trailProgression helpers", () => {
     expect(result).toEqual([{ id: "classic", unlock: { type: "free" }, name: "Classic" }]);
   });
 
-  it("defaults to base trails when no current catalog exists", () => {
+  it("returns an empty catalog when no current catalog exists", () => {
     const result = mergeTrailCatalog(null, { current: [] });
-    expect(result).toEqual(DEFAULT_TRAILS);
-    expect(result).not.toBe(DEFAULT_TRAILS);
+    expect(result).toEqual([]);
   });
 
   it("unlocks record-holder trails only when eligible", () => {

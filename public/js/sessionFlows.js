@@ -41,6 +41,17 @@ export function createSessionFlows({
   usernameInput,
   userHint
 }) {
+  function selectIconCatalog({ userIcons, registryIcons, cachedIcons, fallbackIcons }) {
+    const firstNonEmpty = [userIcons, registryIcons, cachedIcons].find(
+      (icons) => Array.isArray(icons) && icons.length
+    );
+    if (firstNonEmpty) return firstNonEmpty;
+    if (Array.isArray(registryIcons)) return registryIcons;
+    if (Array.isArray(userIcons)) return userIcons;
+    if (Array.isArray(cachedIcons)) return cachedIcons;
+    return fallbackIcons;
+  }
+
   async function loadIconRegistry() {
     if (typeof apiGetIconRegistry !== "function") return null;
     const registry = await apiGetIconRegistry();
@@ -58,14 +69,29 @@ export function createSessionFlows({
       if (!keepUserOnFailure) {
         setNetUser(null);
       }
-      syncIconCatalog(registryIcons || net.icons || playerIcons);
+      net.trails = [];
+      syncUnlockablesCatalog({ trails: net.trails });
+      syncIconCatalog(
+        selectIconCatalog({
+          registryIcons,
+          cachedIcons: net.icons,
+          fallbackIcons: playerIcons
+        })
+      );
       net.achievements = { definitions: ACHIEVEMENTS, state: normalizeAchievementState() };
     } else {
       net.online = true;
       setNetUser(me.user || null);
       net.trails = mergeTrailCatalog(me.trails, { current: net.trails });
       syncUnlockablesCatalog({ trails: net.trails });
-      syncIconCatalog(me.icons || registryIcons || net.icons);
+      syncIconCatalog(
+        selectIconCatalog({
+          userIcons: me.icons,
+          registryIcons,
+          cachedIcons: net.icons,
+          fallbackIcons: playerIcons
+        })
+      );
       syncPipeTextureCatalog(me.pipeTextures || net.pipeTextures);
       applyAchievementsPayload(me.achievements || { definitions: ACHIEVEMENTS, state: me.user?.achievements });
       if (net.user?.keybinds) setBinds(mergeBinds(DEFAULT_KEYBINDS, net.user.keybinds));

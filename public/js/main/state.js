@@ -21,7 +21,7 @@ export function createNetState({
   achievements,
   buildUnlockablesCatalog
 }) {
-  const trails = defaultTrails.map((trail) => ({ ...trail }));
+  const trails = [];
   const icons = defaultIcons.map((icon) => ({ ...icon }));
   const pipeTextures = normalizePipeTextures(null);
 

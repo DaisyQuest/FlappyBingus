@@ -20,6 +20,12 @@ describe("player icon helpers", () => {
     expect(fallback.map((i) => i.id)).toEqual(DEFAULT_PLAYER_ICONS.map((i) => i.id));
   });
 
+  it("avoids default fallbacks when a larger catalog is supplied", () => {
+    const oversized = Array.from({ length: DEFAULT_PLAYER_ICONS.length + 2 }, () => ({ id: " " }));
+    const normalized = normalizePlayerIcons(oversized);
+    expect(normalized).toEqual([]);
+  });
+
   it("supports empty icon catalogs when explicitly allowed", () => {
     const empty = normalizePlayerIcons([], { allowEmpty: true });
     expect(empty).toEqual([]);

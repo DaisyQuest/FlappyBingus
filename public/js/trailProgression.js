@@ -27,15 +27,13 @@ export const DEFAULT_TRAILS = Object.freeze([
 ]);
 
 export function normalizeTrails(list, { allowEmpty = false } = {}) {
-  if (!Array.isArray(list)) return DEFAULT_TRAILS.map((t) => ({ ...t }));
-  if (!list.length) return allowEmpty ? [] : DEFAULT_TRAILS.map((t) => ({ ...t }));
+  if (!Array.isArray(list)) return allowEmpty ? [] : [];
+  if (!list.length) return allowEmpty ? [] : [];
   return list;
 }
 
 export function mergeTrailCatalog(incoming, { current = null, allowEmpty = false } = {}) {
-  const fallback = Array.isArray(current) && current.length
-    ? current
-    : DEFAULT_TRAILS.map((trail) => ({ ...trail }));
+  const fallback = Array.isArray(current) ? current : [];
 
   if (!Array.isArray(incoming)) return fallback;
   if (!incoming.length) return allowEmpty ? [] : fallback;
@@ -55,7 +53,7 @@ export function mergeTrailCatalog(incoming, { current = null, allowEmpty = false
 }
 
 export function getUnlockedTrails(trails, achievements, { isRecordHolder = false, ownedIds = [], bestScore = 0 } = {}) {
-  const defs = Array.isArray(trails) ? trails : DEFAULT_TRAILS;
+  const defs = Array.isArray(trails) ? trails : [];
   const unlockedAchievements = achievements?.unlocked && typeof achievements.unlocked === "object"
     ? achievements.unlocked
     : {};
@@ -86,7 +84,7 @@ export function getUnlockedTrails(trails, achievements, { isRecordHolder = false
 }
 
 export function sortTrailsForDisplay(trails, { isRecordHolder = false } = {}) {
-  const arr = (Array.isArray(trails) ? trails : DEFAULT_TRAILS).slice();
+  const arr = (Array.isArray(trails) ? trails : []).slice();
   if (!isRecordHolder) return arr;
   const gated = arr.filter((t) => t.requiresRecordHolder);
   const normal = arr.filter((t) => !t.requiresRecordHolder);
