@@ -53,6 +53,10 @@ function applySessionFromResponse(data) {
   }
 }
 
+function isUnauthorized(res) {
+  return res?.status === 401 && res?.error === "unauthorized";
+}
+
 async function requestJsonRaw(url, opts = {}) {
   const sessionToken = readSessionToken();
   const headers = {
@@ -79,13 +83,30 @@ async function requestJsonRaw(url, opts = {}) {
   }
 }
 
+async function refreshSessionFromCookie() {
+  const res = await requestJsonRaw("/api/me", { method: "GET" });
+  applySessionFromResponse(res);
+  return res;
+}
+
 async function requestJson(url, opts = {}) {
   const res = await requestJsonRaw(url, opts);
   applySessionFromResponse(res);
-  if (res?.status === 401 && res?.error === "unauthorized") {
+  if (isUnauthorized(res)) {
+    let refreshed = null;
+    if (url !== "/api/me") {
+      refreshed = await refreshSessionFromCookie();
+      if (refreshed?.ok) {
+        const retry = await requestJsonRaw(url, opts);
+        applySessionFromResponse(retry);
+        return retry;
+      }
+    }
+
     const username = readSessionUsername();
+    let reauth = null;
     if (username) {
-      const reauth = await requestJsonRaw("/api/register", {
+      reauth = await requestJsonRaw("/api/register", {
         method: "POST",
         body: JSON.stringify({ username })
       });
@@ -96,8 +117,12 @@ async function requestJson(url, opts = {}) {
         return retry;
       }
     }
-    clearSessionToken();
-    clearSessionUsername();
+    const shouldClear = (!refreshed && !reauth && url === "/api/me")
+      || [refreshed, reauth].some((attempt) => isUnauthorized(attempt));
+    if (shouldClear) {
+      clearSessionToken();
+      clearSessionUsername();
+    }
   }
   return res;
 }
