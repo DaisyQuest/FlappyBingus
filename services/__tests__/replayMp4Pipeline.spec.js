@@ -28,6 +28,10 @@ describe("replayMp4Pipeline", () => {
     expect(fallback.ok).toBe(true);
     expect(fallback.profile).toEqual(DEFAULT_RENDER_PROFILE);
 
+    const emptyObject = normalizeRenderProfile({});
+    expect(emptyObject.ok).toBe(true);
+    expect(emptyObject.profile).toEqual(DEFAULT_RENDER_PROFILE);
+
     const invalid = normalizeRenderProfile({ profileId: "nope" });
     expect(invalid.ok).toBe(false);
     expect(invalid.error).toBe("invalid_profile");
@@ -39,12 +43,20 @@ describe("replayMp4Pipeline", () => {
     const invalidSize = normalizeRenderProfile({ width: 123, height: 456, fps: 12 });
     expect(invalidSize.ok).toBe(false);
     expect(invalidSize.error).toBe("invalid_profile");
+
+    const invalidType = normalizeRenderProfile("720p60");
+    expect(invalidType.ok).toBe(true);
+    expect(invalidType.profile).toEqual(DEFAULT_RENDER_PROFILE);
   });
 
   it("validates replay payloads for size, structure, and limits", () => {
     const missing = validateReplayForRender(null, 0, { maxReplayBytes: 10, maxTicks: 2, maxDurationMs: 1000 });
     expect(missing.ok).toBe(false);
     expect(missing.error).toBe("missing_replay");
+
+    const missingEmpty = validateReplayForRender("", 0, { maxReplayBytes: 10, maxTicks: 2, maxDurationMs: 1000 });
+    expect(missingEmpty.ok).toBe(false);
+    expect(missingEmpty.error).toBe("missing_replay");
 
     const invalid = validateReplayForRender("{", 2, { maxReplayBytes: 10, maxTicks: 2, maxDurationMs: 1000 });
     expect(invalid.ok).toBe(false);
