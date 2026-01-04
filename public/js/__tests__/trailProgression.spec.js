@@ -109,6 +109,19 @@ describe("trailProgression helpers", () => {
     expect(unlocked).toContain("score_trail");
   });
 
+  it("unlocks achievement trails when the score threshold is met even without the achievement", () => {
+    const trails = [
+      { id: "classic", alwaysUnlocked: true },
+      { id: "achieve_trail", unlock: { type: "achievement", id: "trail_achieve", minScore: 200 } }
+    ];
+
+    const locked = getUnlockedTrails(trails, { unlocked: {} }, { bestScore: 150 });
+    expect(locked).not.toContain("achieve_trail");
+
+    const unlocked = getUnlockedTrails(trails, { unlocked: {} }, { bestScore: 250 });
+    expect(unlocked).toContain("achieve_trail");
+  });
+
   it("keeps classic available even without achievements", () => {
     const unlocked = getUnlockedTrails(DEFAULT_TRAILS, null, { isRecordHolder: false });
     expect(unlocked).toContain("classic");
