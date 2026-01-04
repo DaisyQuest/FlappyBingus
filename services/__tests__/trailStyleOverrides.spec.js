@@ -3,10 +3,63 @@ import { describe, expect, it } from "vitest";
 import { normalizeTrailStyleOverrides } from "../trailStyleOverrides.cjs";
 
 describe("trail style overrides", () => {
-  it("accepts empty payloads", () => {
-    const result = normalizeTrailStyleOverrides();
+  it("accepts null or undefined payloads", () => {
+    [undefined, null].forEach((payload) => {
+      const result = normalizeTrailStyleOverrides(payload);
+      expect(result.ok).toBe(true);
+      expect(result.overrides).toEqual({});
+      expect(result.errors).toEqual([]);
+    });
+  });
+
+  it("uses payload.overrides as the source", () => {
+    const result = normalizeTrailStyleOverrides({
+      overrides: {
+        classic: { rate: "10" }
+      }
+    });
+
     expect(result.ok).toBe(true);
-    expect(result.overrides).toEqual({});
+    expect(Object.keys(result.overrides)).toEqual(["classic"]);
+    expect(result.overrides.classic.rate).toBe(10);
+    expect(result.errors).toEqual([]);
+  });
+
+  it("uses payload.trailStyles.overrides as the source", () => {
+    const result = normalizeTrailStyleOverrides({
+      trailStyles: {
+        overrides: {
+          sparkle: { rate: 6 }
+        }
+      }
+    });
+
+    expect(result.ok).toBe(true);
+    expect(Object.keys(result.overrides)).toEqual(["sparkle"]);
+    expect(result.overrides.sparkle.rate).toBe(6);
+    expect(result.errors).toEqual([]);
+  });
+
+  it("uses the payload as overrides when no wrapper exists", () => {
+    const result = normalizeTrailStyleOverrides({
+      aura: { rate: 4 }
+    });
+
+    expect(result.ok).toBe(true);
+    expect(Object.keys(result.overrides)).toEqual(["aura"]);
+    expect(result.overrides.aura.rate).toBe(4);
+    expect(result.errors).toEqual([]);
+  });
+
+  it("rejects non-object payloads", () => {
+    ["string payload", ["array payload"]].forEach((payload) => {
+      const result = normalizeTrailStyleOverrides(payload);
+      expect(result.ok).toBe(false);
+      expect(result.overrides).toEqual({});
+      expect(result.errors).toEqual([
+        { path: "overrides", message: "overrides_invalid" }
+      ]);
+    });
   });
 
   it("normalizes basic overrides with extras", () => {
