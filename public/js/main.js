@@ -123,6 +123,7 @@ import { setTrailStyleOverrides } from "./trailStyles.js";
 import { buildTrailHint, GUEST_TRAIL_HINT_TEXT } from "./trailHint.js";
 import { DEFAULT_TRAILS, normalizeTrails, sortTrailsForDisplay } from "./trailProgression.js";
 import { createTrailMenuStateProvider } from "./trailMenuState.js";
+import { createIconMenuStateProvider } from "./iconMenuState.js";
 import { computePipeColor } from "./pipeColors.js";
 import { hydrateBestRunPayload, maybeUploadBestRun } from "./bestRunRecorder.js";
 import { renderHighscores } from "./highscores.js";
@@ -199,6 +200,7 @@ import { createPersonalBestUpdater } from "./main/personalBestAdapter.js";
 import { createVolumeController } from "./main/audioControls.js";
 import { refreshBootUI } from "./main/bootUI.js";
 import { createTrailMenuController } from "./main/trailMenuController.js";
+import { createIconMenuController } from "./main/iconMenuController.js";
 import {
   computeUnlockedIconSet,
   computeUnlockedPipeTextureSet,
@@ -523,6 +525,9 @@ const getTrailMenuState = createTrailMenuStateProvider({
   sortTrailsForDisplay,
   computeUnlockedTrailSet
 });
+const getIconMenuState = createIconMenuStateProvider({
+  computeUnlockedIconSet
+});
 const trailMenuController = createTrailMenuController({
   elements: { trailText, trailLauncher, trailHint, trailOptions },
   getNet: () => net,
@@ -544,6 +549,30 @@ const trailMenuController = createTrailMenuController({
   saveUserButton: saveUserBtn,
   DEFAULT_TRAIL_HINT,
   GUEST_TRAIL_HINT_TEXT
+});
+const iconMenuController = createIconMenuController({
+  elements: { iconText, iconLauncher, iconHint, iconOptions },
+  getNet: () => net,
+  getIconMenuState,
+  getCurrentIconId: () => currentIconId,
+  setCurrentIconId: (id) => { currentIconId = id; },
+  getPlayerIcons: () => playerIcons,
+  setPlayerImage: (image) => {
+    playerImg = image;
+    game?.setPlayerImage(playerImg);
+    trailPreview?.setPlayerImage(playerImg);
+  },
+  getIconDisplayName,
+  normalizeIconSelection,
+  applyIconSwatchStyles,
+  renderIconMenuOptions,
+  getCachedIconSprite,
+  paintIconCanvas,
+  syncLauncherSwatch,
+  refreshTrailMenu: () => refreshTrailMenu(currentTrailId),
+  writeIconCookie,
+  DEFAULT_ICON_HINT,
+  fallbackIconId: DEFAULT_PLAYER_ICON_ID
 });
 syncLauncherSwatch(currentIconId, playerIcons, playerImg);
 syncPipeTextureCatalog(net.pipeTextures);
@@ -1008,12 +1037,6 @@ function syncPipeTextureCatalog(nextTextures = null) {
 }
 
 const resolveAchievementsState = () => net.user?.achievements || net.achievements?.state;
-const computeUnlockedIconSetForMenu = (icons = playerIcons) => computeUnlockedIconSet({
-  icons,
-  user: net.user,
-  achievementsState: resolveAchievementsState(),
-  unlockables: net.unlockables?.unlockables
-});
 const computeUnlockedPipeTextureSetForMenu = (textures = net.pipeTextures) => computeUnlockedPipeTextureSet({
   textures,
   user: net.user,
@@ -1040,31 +1063,7 @@ function syncPipeTextureSwatch(textureId = currentPipeTextureId, textures = net.
   paintPipeTextureSwatch(canvas, target?.id || DEFAULT_PIPE_TEXTURE_ID, { mode: currentPipeTextureMode, base });
 }
 
-function renderIconOptions(
-  selectedId = currentIconId,
-  unlocked = computeUnlockedIconSetForMenu(playerIcons),
-  icons = playerIcons,
-  selectedImg = playerImg
-) {
-  const swatches = [];
-  const { rendered } = renderIconMenuOptions({
-    container: iconOptions,
-    icons,
-    selectedId,
-    unlockedIds: unlocked,
-    onRenderSwatch: (data) => swatches.push(data)
-  });
-  swatches.forEach((entry) => {
-    const sprite = entry.icon.id === selectedId ? selectedImg : getCachedIconSprite(entry.icon);
-    paintIconCanvas(entry.canvas, entry.icon, { sprite });
-  });
-  if (iconHint) {
-    const text = rendered ? DEFAULT_ICON_HINT : "No icons available.";
-    iconHint.className = rendered ? "hint" : "hint bad";
-    iconHint.textContent = text;
-  }
-  return rendered;
-}
+const refreshIconMenu = (...args) => iconMenuController.refreshIconMenu(...args);
 
 function renderPipeTextureMenuOptions(
   selectedId = currentPipeTextureId,
@@ -1091,35 +1090,7 @@ function renderPipeTextureMenuOptions(
   return rendered;
 }
 
-function applyIconSelection(
-  id = currentIconId,
-  icons = playerIcons,
-  unlocked = computeUnlockedIconSetForMenu(icons)
-) {
-  const nextId = normalizeIconSelection({
-    currentId: id || currentIconId || DEFAULT_PLAYER_ICON_ID,
-    userSelectedId: net.user?.selectedIcon,
-    unlockedIds: unlocked,
-    fallbackId: DEFAULT_PLAYER_ICON_ID
-  });
-  currentIconId = nextId;
-  if (iconText) iconText.textContent = getIconDisplayName(nextId, icons);
-  if (iconLauncher) {
-    const swatch = iconLauncher.querySelector(".icon-swatch");
-    applyIconSwatchStyles(swatch, icons.find((i) => i.id === nextId));
-    const nameEl = iconLauncher.querySelector(".icon-launcher-name");
-    if (nameEl) nameEl.textContent = getIconDisplayName(nextId, icons);
-  }
-
-  playerImg = getCachedIconSprite(icons.find((i) => i.id === nextId) || icons[0]);
-  game.setPlayerImage(playerImg);
-  trailPreview?.setPlayerImage(playerImg);
-  syncLauncherSwatch(nextId, icons, playerImg);
-  renderIconOptions(nextId, unlocked, icons, playerImg);
-  refreshTrailMenu(currentTrailId);
-  writeIconCookie(nextId);
-  return nextId;
-}
+const applyIconSelection = (...args) => iconMenuController.applyIconSelection(...args);
 
 function applyPipeTextureSelection(
   id = currentPipeTextureId,
@@ -1342,7 +1313,7 @@ async function confirmPendingPurchase() {
 
   refreshTrailMenu();
   refreshPipeTextureMenu(currentPipeTextureId);
-  renderIconOptions(currentIconId, computeUnlockedIconSetForMenu(playerIcons), playerIcons);
+  refreshIconMenu(currentIconId);
   renderShopCategory(activeShopTab);
   setUserHint();
   syncMenuProfileBindingsFromState();
@@ -1676,7 +1647,7 @@ createIconMenuHandlers({
   getNet: () => net,
   getPlayerIcons: () => playerIcons,
   getCurrentIconId: () => currentIconId,
-  computeUnlockedIconSet: computeUnlockedIconSetForMenu,
+  getIconMenuState,
   openPurchaseModal,
   applyIconSelection,
   ensureLoggedInForSave,
@@ -1689,7 +1660,7 @@ createIconMenuHandlers({
   syncPipeTextureCatalog,
   setUserHint,
   recoverSession,
-  renderIconOptions,
+  refreshIconMenu,
   toggleIconMenu,
   resetIconHint,
   describeIconLock,
@@ -2309,7 +2280,7 @@ function frame(ts) {
   });
 
   volumeController.primeVolumeControls();
-  renderIconOptions(currentIconId, computeUnlockedIconSetForMenu(playerIcons), playerIcons);
+  refreshIconMenu(currentIconId);
 
   exportMp4Btn?.addEventListener("click", async () => {
     try {

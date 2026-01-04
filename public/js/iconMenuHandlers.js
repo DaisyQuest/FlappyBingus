@@ -6,6 +6,7 @@ export function createIconMenuHandlers({
   getNet,
   getPlayerIcons,
   getCurrentIconId,
+  getIconMenuState,
   computeUnlockedIconSet,
   openPurchaseModal,
   applyIconSelection,
@@ -19,7 +20,7 @@ export function createIconMenuHandlers({
   syncPipeTextureCatalog,
   setUserHint,
   recoverSession,
-  renderIconOptions,
+  refreshIconMenu,
   toggleIconMenu,
   resetIconHint,
   describeIconLock,
@@ -37,7 +38,21 @@ export function createIconMenuHandlers({
 
   const resolveIconState = () => {
     const icons = getPlayerIcons();
-    return { icons, unlocked: computeUnlockedIconSet(icons) };
+    const net = getNet();
+    const state = typeof getIconMenuState === "function"
+      ? getIconMenuState({
+        icons,
+        user: net.user,
+        achievementsState: net.achievements?.state,
+        unlockables: net.unlockables?.unlockables
+      })
+      : null;
+    const unlocked = state?.unlocked instanceof Set
+      ? state.unlocked
+      : typeof computeUnlockedIconSet === "function"
+        ? computeUnlockedIconSet(icons)
+        : new Set();
+    return { icons, unlocked };
   };
 
   const isIconInCatalog = (icons, id) => icons.some((icon) => icon?.id === id);
@@ -71,7 +86,7 @@ export function createIconMenuHandlers({
           { unlocked: false }
         );
       }
-      renderIconOptions(getCurrentIconId(), unlocked, playerIcons);
+      refreshIconMenu?.(getCurrentIconId());
       return;
     }
 
@@ -98,7 +113,7 @@ export function createIconMenuHandlers({
           ? describeIconLock(lockTarget, { unlocked: false })
           : "That icon is unavailable.";
       }
-      renderIconOptions(getCurrentIconId(), unlocked, playerIcons);
+      refreshIconMenu?.(getCurrentIconId());
       return;
     }
 
@@ -140,12 +155,12 @@ export function createIconMenuHandlers({
     const btn = event.target.closest("button[data-icon-id]");
     if (!btn) return;
     const id = btn.dataset.iconId;
-    const playerIcons = getPlayerIcons();
+    const { icons: playerIcons, unlocked } = resolveIconState();
     const icon = playerIcons.find((i) => i.id === id);
-    const unlocked = computeUnlockedIconSet(playerIcons).has(id);
+    const isUnlocked = unlocked.has(id);
     if (iconHint) {
-      iconHint.className = unlocked ? "hint good" : "hint";
-      iconHint.textContent = iconHoverText(icon, { unlocked, lockText: btn.dataset.statusText });
+      iconHint.className = isUnlocked ? "hint good" : "hint";
+      iconHint.textContent = iconHoverText(icon, { unlocked: isUnlocked, lockText: btn.dataset.statusText });
     }
   };
 
@@ -156,7 +171,7 @@ export function createIconMenuHandlers({
   };
 
   const handleLauncherClick = () => {
-    renderIconOptions(getCurrentIconId(), computeUnlockedIconSet(getPlayerIcons()), getPlayerIcons());
+    refreshIconMenu?.(getCurrentIconId());
     toggleIconMenu(iconOverlay, true);
   };
 
