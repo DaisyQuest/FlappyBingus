@@ -64,17 +64,46 @@ describe("trail style overrides", () => {
     expect(result.errors.length).toBeGreaterThan(0);
   });
 
-  it("rejects invalid shapes and extra modes", () => {
+  it("rejects invalid shapes, ranges, colors, extras, and names with detailed errors", () => {
     const result = normalizeTrailStyleOverrides({
       overrides: {
-        classic: {
-          particleShape: "blob",
+        badPaletteEmpty: {
+          color: [" ", ""]
+        },
+        badPaletteEntry: {
+          color: ["#fff", "  "]
+        },
+        badShape: {
+          particleShape: "blob"
+        },
+        badRangeLength: {
+          life: [1]
+        },
+        badRangeNumber: {
+          size: ["nope", 2]
+        },
+        badExtrasType: {
+          extras: "not-an-array"
+        },
+        badExtrasMode: {
           extras: [{ mode: "unknown", rate: 3 }]
+        },
+        badName: {
+          name: "   "
         }
       }
     });
 
     expect(result.ok).toBe(false);
-    expect(result.errors.length).toBeGreaterThan(0);
+    expect(result.errors).toEqual(expect.arrayContaining([
+      { path: "overrides.badPaletteEmpty.color", message: "color_palette_empty" },
+      { path: "overrides.badPaletteEntry.color", message: "color_palette_invalid_entries" },
+      { path: "overrides.badShape.particleShape", message: "shape_invalid" },
+      { path: "overrides.badRangeLength.life", message: "range_invalid" },
+      { path: "overrides.badRangeNumber.size", message: "range_invalid" },
+      { path: "overrides.badExtrasType.extras", message: "extras_invalid" },
+      { path: "overrides.badExtrasMode.extras[0].mode", message: "mode_invalid" },
+      { path: "overrides.badName.name", message: "name_invalid" }
+    ]));
   });
 });
