@@ -42,7 +42,7 @@ const {
   normalizePlayerIcons,
   unlockedIcons
 } = require("./services/playerIcons.cjs");
-const { normalizeIconCatalog } = require("./services/iconCatalog.cjs");
+const { getBaseIconCatalog, normalizeIconCatalog, resolveIconCatalog } = require("./services/iconCatalog.cjs");
 const {
   DEFAULT_PIPE_TEXTURE_ID,
   DEFAULT_PIPE_TEXTURE_MODE,
@@ -477,9 +477,7 @@ const TRAILS = Object.freeze([
   { id: "world_record", name: "World Record Cherry Blossom", minScore: 3000, achievementId: "trail_world_record_3000", requiresRecordHolder: true }
 ]);
 
-const ICONS_BASE = normalizePlayerIcons(PLAYER_ICONS);
 const PIPE_TEXTURES = normalizePipeTextures(PIPE_TEXTURE_DEFS);
-const UNLOCKABLES = buildUnlockablesCatalog({ trails: TRAILS, icons: ICONS_BASE, pipeTextures: PIPE_TEXTURES });
 
 const SERVER_CONFIG_PATH = process.env.SERVER_CONFIG_PATH;
 const SERVER_CONFIG_RELOAD_MS = Number(process.env.SERVER_CONFIG_RELOAD_MS || 15_000);
@@ -590,11 +588,7 @@ function getTrailDefinitions(overrides = getTrailStyleOverrides()) {
 function getIconDefinitions() {
   const cfg = gameConfigStore?.getConfig?.() || {};
   const storedIcons = Array.isArray(cfg?.iconStyles?.icons) ? cfg.iconStyles.icons : null;
-  if (storedIcons && storedIcons.length) {
-    const normalized = normalizeIconCatalog({ icons: storedIcons });
-    if (normalized.icons.length) return normalized.icons;
-  }
-  return normalizePlayerIcons(ICONS_BASE);
+  return resolveIconCatalog({ storedIcons });
 }
 
 function getResolvedUnlockables() {
@@ -634,7 +628,7 @@ function getVisibleCatalog() {
   const config = getServerConfig();
   const menus = config?.unlockableMenus || DEFAULT_SERVER_CONFIG.unlockableMenus;
   const playerMenu = menus?.player_texture || DEFAULT_SERVER_CONFIG.unlockableMenus.player_texture;
-  const baseIconIds = new Set(ICONS_BASE.map((icon) => icon.id));
+  const baseIconIds = new Set(getBaseIconCatalog().map((icon) => icon.id));
   const customIconIds = resolved.icons
     .map((icon) => icon?.id)
     .filter((id) => id && !baseIconIds.has(id));
@@ -3133,7 +3127,7 @@ if (require.main === module) {
 
 module.exports = {
   TRAILS,
-  ICONS: ICONS_BASE,
+  ICONS: getBaseIconCatalog(),
   unlockedTrails,
   unlockedIcons,
   ensureUserSchema,
