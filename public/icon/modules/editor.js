@@ -530,21 +530,19 @@ function readIconDefinition(card) {
   return icon;
 }
 
-function collectIconOverrides(root) {
-  const overrides = {};
+function collectIconDefinitions(root) {
+  const icons = [];
   const cards = root.querySelectorAll("[data-icon-card]");
   cards.forEach((card) => {
     const icon = readIconDefinition(card);
     if (!icon?.id) return;
-    const override = { ...icon };
-    delete override.id;
-    overrides[icon.id] = override;
+    icons.push(icon);
   });
-  return overrides;
+  return icons;
 }
 
 export {
   createIconCard,
-  collectIconOverrides,
+  collectIconDefinitions,
   readIconDefinition
 };

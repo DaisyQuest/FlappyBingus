@@ -42,10 +42,7 @@ const {
   normalizePlayerIcons,
   unlockedIcons
 } = require("./services/playerIcons.cjs");
-const {
-  applyIconStyleOverrides,
-  normalizeIconStyleOverrides
-} = require("./services/iconStyleOverrides.cjs");
+const { normalizeIconCatalog } = require("./services/iconCatalog.cjs");
 const {
   DEFAULT_PIPE_TEXTURE_ID,
   DEFAULT_PIPE_TEXTURE_MODE,
@@ -397,11 +394,6 @@ const ENDPOINT_GROUPS = Object.freeze([
         summary: "Fetch runtime trail style overrides."
       },
       {
-        path: "/api/icon-styles",
-        methods: ["GET"],
-        summary: "Fetch runtime icon style overrides."
-      },
-      {
         path: "/api/icon-registry",
         methods: ["GET"],
         summary: "Fetch the player icon registry for menu rendering."
@@ -439,9 +431,9 @@ const ENDPOINT_GROUPS = Object.freeze([
         summary: "Read or update trail styles and unlock rules."
       },
       {
-        path: "/api/admin/icon-styles",
+        path: "/api/admin/icon-registry",
         methods: ["GET", "PUT"],
-        summary: "Read or update icon style overrides."
+        summary: "Read or update the player icon registry."
       },
       {
         path: "/api/admin/collections",
@@ -542,12 +534,6 @@ function getTrailStyleOverrides() {
   return result.ok ? result.overrides : {};
 }
 
-function getIconStyleOverrides() {
-  const cfg = gameConfigStore?.getConfig?.() || {};
-  const overrides = cfg?.iconStyles?.overrides;
-  return overrides && typeof overrides === "object" ? overrides : {};
-}
-
 function formatTrailName(id) {
   return String(id || "")
     .trim()
@@ -604,10 +590,11 @@ function getTrailDefinitions(overrides = getTrailStyleOverrides()) {
 function getIconDefinitions() {
   const cfg = gameConfigStore?.getConfig?.() || {};
   const storedIcons = Array.isArray(cfg?.iconStyles?.icons) ? cfg.iconStyles.icons : null;
-  const baseIcons = storedIcons && storedIcons.length ? storedIcons : ICONS_BASE;
-  const overrides = getIconStyleOverrides();
-  const normalized = normalizeIconStyleOverrides({ overrides });
-  return applyIconStyleOverrides({ icons: baseIcons, overrides: normalized.overrides });
+  if (storedIcons && storedIcons.length) {
+    const normalized = normalizeIconCatalog({ icons: storedIcons });
+    if (normalized.icons.length) return normalized.icons;
+  }
+  return normalizePlayerIcons(ICONS_BASE);
 }
 
 function getResolvedUnlockables() {
@@ -2684,11 +2671,6 @@ async function route(req, res) {
     return;
   }
 
-  if (pathname === "/api/icon-styles" && req.method === "GET") {
-    sendJson(res, 200, { ok: true, overrides: getIconStyleOverrides() });
-    return;
-  }
-
   if (pathname === "/api/admin/config") {
     if (req.method === "GET") {
       const config = getServerConfig();
@@ -2779,12 +2761,10 @@ async function route(req, res) {
     }
   }
 
-  if (pathname === "/api/admin/icon-styles") {
+  if (pathname === "/api/admin/icon-registry") {
     if (req.method === "GET") {
-      const overrides = getIconStyleOverrides();
       sendJson(res, 200, {
         ok: true,
-        overrides,
         icons: getIconDefinitions(),
         meta: gameConfigStore.getMeta()
       });
@@ -2797,31 +2777,31 @@ async function route(req, res) {
       } catch {
         return badRequest(res, "invalid_json");
       }
-      const overridesPayload = body?.overrides ?? body?.iconStyles?.overrides ?? body;
-      const result = normalizeIconStyleOverrides({ overrides: overridesPayload });
+      const iconsPayload = Array.isArray(body) ? body : body?.icons ?? body?.iconStyles?.icons;
+      if (iconsPayload === undefined) {
+        return sendJson(res, 400, { ok: false, error: "invalid_icon_catalog", details: [{ path: "icons", message: "icons_missing" }] });
+      }
+      const result = normalizeIconCatalog({ icons: iconsPayload });
       if (!result.ok) {
-        return sendJson(res, 400, { ok: false, error: "invalid_icon_style_overrides", details: result.errors });
+        return sendJson(res, 400, { ok: false, error: "invalid_icon_catalog", details: result.errors });
       }
       const current = gameConfigStore.getConfig();
-      const computedIcons = applyIconStyleOverrides({ icons: ICONS_BASE, overrides: result.overrides });
       const nextConfig = {
         ...(current || {}),
         iconStyles: {
           ...(current?.iconStyles || {}),
-          overrides: result.overrides,
-          icons: computedIcons
+          icons: result.icons
         }
       };
       try {
-        const saved = await gameConfigStore.save(nextConfig);
+        await gameConfigStore.save(nextConfig);
         sendJson(res, 200, {
           ok: true,
-          overrides: saved?.iconStyles?.overrides || {},
           icons: getIconDefinitions(),
           meta: gameConfigStore.getMeta()
         });
       } catch (err) {
-        sendJson(res, 500, { ok: false, error: "icon_style_write_failed", detail: err?.message || String(err) });
+        sendJson(res, 500, { ok: false, error: "icon_catalog_write_failed", detail: err?.message || String(err) });
       }
       return;
     }
