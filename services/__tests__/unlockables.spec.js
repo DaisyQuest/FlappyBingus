@@ -6,10 +6,7 @@ import {
   buildUnlockablesCatalog,
   getUnlockedIdsByType,
   isUnlockSatisfied,
-  normalizeUnlock,
-  normalizeUnlockableState,
-  syncUnlockablesState,
-  unlockKey
+  normalizeUnlock
 } from "../unlockables.cjs";
 
 const sampleTrails = [
@@ -68,22 +65,6 @@ describe("unlockables", () => {
     expect(unlock).toEqual({ type: "record", label: "Record holder" });
   });
 
-  it("normalizes unlockable state by dropping invalid timestamps", () => {
-    const result = normalizeUnlockableState({
-      unlocked: { "trail:alpha": 0, "trail:beta": "bad", "trail:gamma": 2.7, "trail:delta": 10 }
-    });
-    expect(result).toEqual({ unlocked: { "trail:gamma": 2, "trail:delta": 10 } });
-  });
-
-  it("normalizes unlockable state with missing payloads", () => {
-    expect(normalizeUnlockableState()).toEqual({ unlocked: {} });
-    expect(normalizeUnlockableState({ unlocked: "nope" })).toEqual({ unlocked: {} });
-  });
-
-  it("builds unlock keys from definitions", () => {
-    expect(unlockKey({ id: "classic", type: "trail" })).toBe("trail:classic");
-  });
-
   it("evaluates unlock satisfaction across contexts", () => {
     const recordDef = { id: "record", type: "trail", unlock: { type: "record" } };
     const recordScoreDef = { id: "record_score", type: "trail", unlock: { type: "record", minScore: 50 } };
@@ -127,7 +108,7 @@ describe("unlockables", () => {
     expect(isUnlockSatisfied(def, {})).toBe(true);
   });
 
-  it("builds unlockables and syncs unlocked state", () => {
+  it("builds unlockables and resolves unlockable ids from context", () => {
     const { unlockables } = buildUnlockablesCatalog({
       trails: sampleTrails,
       icons: sampleIcons,
@@ -137,13 +118,6 @@ describe("unlockables", () => {
     expect(unlockables.some((u) => u.type === UNLOCKABLE_TYPES.playerTexture)).toBe(true);
     expect(unlockables.some((u) => u.type === UNLOCKABLE_TYPES.pipeTexture)).toBe(true);
     expect(unlockables.find((item) => item.id === "shop_trail")?.unlock?.type).toBe("purchase");
-
-    const result = syncUnlockablesState(
-      { unlocked: {} },
-      unlockables,
-      { achievements: { unlocked: { trail_classic_1: Date.now() } }, bestScore: 200 }
-    );
-    expect(Object.keys(result.state.unlocked).length).toBeGreaterThan(0);
 
     const unlockedPipe = getUnlockedIdsByType({
       unlockables,
@@ -204,60 +178,7 @@ describe("unlockables", () => {
     expect(unlockables.find((u) => u.id === "pipe")?.meta).toEqual({ texture: { id: "pipe", name: "Pipe", unlock: { type: "free" } } });
   });
 
-  it("revokes unlockables when conditions change", () => {
-    const { unlockables } = buildUnlockablesCatalog({
-      trails: sampleTrails,
-      icons: sampleIcons,
-      pipeTextures: sampleTextures
-    });
-    const initial = syncUnlockablesState(
-      { unlocked: {} },
-      unlockables,
-      { achievements: { unlocked: { achv: Date.now() } } },
-      { now: 111 }
-    );
-    expect(initial.state.unlocked["player_texture:badge"]).toBe(111);
-
-    const changedIcons = [{ id: "badge", name: "Badge", unlock: { type: "achievement", id: "new_ach" } }];
-    const { unlockables: updatedUnlockables } = buildUnlockablesCatalog({
-      trails: sampleTrails,
-      icons: changedIcons,
-      pipeTextures: sampleTextures
-    });
-    const updated = syncUnlockablesState(
-      initial.state,
-      updatedUnlockables,
-      { achievements: { unlocked: {} } },
-      { now: 222 }
-    );
-    expect(updated.state.unlocked["player_texture:badge"]).toBeUndefined();
-    const unlockedIcons = getUnlockedIdsByType({
-      unlockables: updatedUnlockables,
-      type: UNLOCKABLE_TYPES.playerTexture,
-      state: updated.state,
-      context: { achievements: { unlocked: {} } }
-    });
-    expect(unlockedIcons).not.toContain("badge");
-  });
-
-  it("drops unlocked entries that no longer exist in the catalog", () => {
-    const { unlockables } = buildUnlockablesCatalog({ trails: [], icons: [], pipeTextures: [] });
-    const result = syncUnlockablesState({ unlocked: { "trail:missing": 123 } }, unlockables, {});
-    expect(result.state.unlocked).toEqual({});
-  });
-
-  it("returns newly unlocked ids when unlocks are satisfied", () => {
-    const { unlockables } = buildUnlockablesCatalog({
-      trails: [{ id: "starter", alwaysUnlocked: true }],
-      icons: [],
-      pipeTextures: []
-    });
-    const result = syncUnlockablesState({ unlocked: {} }, unlockables, {}, { now: 456 });
-    expect(result.unlocked).toEqual(["trail:starter"]);
-    expect(result.state.unlocked).toEqual({ "trail:starter": 456 });
-  });
-
-  it("uses state to return unlocked ids even if context changes", () => {
+  it("does not rely on prior state when evaluating unlocks", () => {
     const { unlockables } = buildUnlockablesCatalog({
       trails: [],
       icons: [{ id: "badge", name: "Badge", unlock: { type: "achievement", id: "ach" } }],
@@ -270,7 +191,7 @@ describe("unlockables", () => {
       state,
       context: { achievements: { unlocked: {} } }
     });
-    expect(unlocked).toEqual(["badge"]);
+    expect(unlocked).toEqual([]);
   });
 
   it("unlocks player textures based on record holder and ownership context", () => {

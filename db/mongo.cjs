@@ -216,6 +216,11 @@ class MongoDataStore {
     return this.db.collection("game_config");
   }
 
+  iconRegistryCollection() {
+    if (!this.db) throw new Error("db_not_connected");
+    return this.db.collection("icon_registry");
+  }
+
   async listCollections() {
     await this.ensureConnected();
     const collections = await this.db.listCollections().toArray();
@@ -257,6 +262,45 @@ class MongoDataStore {
     const payload = { _id: "active", config, updatedAt: Date.now() };
     await this.gameConfigCollection().replaceOne({ _id: "active" }, payload, { upsert: true });
     return payload;
+  }
+
+  async getIconRegistry() {
+    await this.ensureConnected();
+    const icons = await this.iconRegistryCollection()
+      .find({})
+      .sort({ _id: 1 })
+      .toArray();
+    return icons.map((doc) => {
+      const { _id, id, updatedAt, ...rest } = doc || {};
+      const resolvedId = typeof id === "string" && id.trim() ? id : typeof _id === "string" ? _id : String(_id || "");
+      return { id: resolvedId, ...rest };
+    }).filter((icon) => icon.id);
+  }
+
+  async saveIconRegistry(icons = []) {
+    await this.ensureConnected();
+    const collection = this.iconRegistryCollection();
+    const now = Date.now();
+    const list = Array.isArray(icons) ? icons : [];
+    const ids = list.map((icon) => icon.id).filter((id) => typeof id === "string" && id.trim());
+
+    if (list.length) {
+      const ops = list.map((icon) => ({
+        replaceOne: {
+          filter: { _id: icon.id },
+          replacement: { _id: icon.id, ...icon, id: icon.id, updatedAt: now },
+          upsert: true
+        }
+      }));
+      await collection.bulkWrite(ops, { ordered: false });
+    }
+
+    if (ids.length) {
+      await collection.deleteMany({ _id: { $nin: ids } });
+    } else {
+      await collection.deleteMany({});
+    }
+    return list;
   }
 
   async replaceDocument(collectionName, id, doc) {
@@ -553,9 +597,11 @@ class MongoDataStore {
       ownedIcons: Array.isArray(ownedIcons) ? ownedIcons : [],
       currencies: currencies && typeof currencies === "object" ? currencies : { [DEFAULT_CURRENCY_ID]: 0 },
       bustercoins: normalizeCount(bustercoins),
-      unlockables: unlockables && typeof unlockables === "object" ? unlockables : { unlocked: {} },
       updatedAt: now
     };
+    if (unlockables && typeof unlockables === "object") {
+      payload.unlockables = unlockables;
+    }
     const res = await this.usersCollection().findOneAndUpdate(
       { key },
       { $set: payload },

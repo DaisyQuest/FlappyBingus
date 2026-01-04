@@ -4,7 +4,6 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
-import { buildBaseIcons } from "../services/iconRegistry.cjs";
 
 const baseUser = () => ({
   username: "PlayerOne",
@@ -110,9 +109,12 @@ function createReq({ method = "GET", url = "/", body, headers = {}, socket } = {
 
 async function importServer(overrides = {}) {
   const {
-    dataStoreOverrides = ("configStoreOverrides" in overrides || "gameConfigStoreOverrides" in overrides) ? {} : overrides,
+    dataStoreOverrides = ("configStoreOverrides" in overrides || "gameConfigStoreOverrides" in overrides || "iconRegistryStoreOverrides" in overrides)
+      ? {}
+      : overrides,
     configStoreOverrides = {},
     gameConfigStoreOverrides = {},
+    iconRegistryStoreOverrides = {},
     replayMp4Pipeline = null
   } = overrides;
   vi.resetModules();
@@ -172,6 +174,14 @@ async function importServer(overrides = {}) {
       getMeta: vi.fn(() => ({ lastLoadedAt: 456 })),
       save: vi.fn(async (config) => config),
       ...gameConfigStoreOverrides
+    });
+  }
+  if (Object.keys(iconRegistryStoreOverrides).length) {
+    server._setIconRegistryStoreForTests({
+      getIcons: vi.fn(() => []),
+      getMeta: vi.fn(() => ({ lastLoadedAt: 789 })),
+      save: vi.fn(async (icons) => icons),
+      ...iconRegistryStoreOverrides
     });
   }
   return { server, mockDataStore };
@@ -919,7 +929,6 @@ describe("server routes and helpers", () => {
   it("equips custom trails and icons defined in admin editors", async () => {
     const customTrailId = "custom_trail";
     const customIconId = "custom_icon";
-    const baseIcons = buildBaseIcons();
     const { server, mockDataStore } = await importServer({
       configStoreOverrides: {
         getConfig: vi.fn(() => ({
@@ -935,19 +944,18 @@ describe("server routes and helpers", () => {
       },
       gameConfigStoreOverrides: {
         getConfig: vi.fn(() => ({
-          trailStyles: { overrides: { [customTrailId]: { unlock: { type: "free" } } } },
-          iconStyles: {
-            icons: [
-              ...baseIcons,
-              {
-                id: customIconId,
-                name: "Custom Icon",
-                unlock: { type: "free" },
-                style: { fill: "#fff" }
-              }
-            ]
-          }
+          trailStyles: { overrides: { [customTrailId]: { unlock: { type: "free" } } } }
         }))
+      },
+      iconRegistryStoreOverrides: {
+        getIcons: vi.fn(() => ([
+          {
+            id: customIconId,
+            name: "Custom Icon",
+            unlock: { type: "free" },
+            style: { fill: "#fff" }
+          }
+        ]))
       },
       dataStoreOverrides: {
         getUserByKey: vi.fn(async () => ({ ...baseUser(), bestScore: 0 })),
@@ -1094,22 +1102,16 @@ describe("server routes and helpers", () => {
   });
 
   it("serves the icon registry for player menus", async () => {
-    const baseIcons = buildBaseIcons();
     const { server } = await importServer({
-      gameConfigStoreOverrides: {
-        getConfig: vi.fn(() => ({
-          iconStyles: {
-            icons: [
-              ...baseIcons,
-              {
-                id: "custom_icon",
-                name: "Custom Icon",
-                unlock: { type: "free" },
-                style: { fill: "#111" }
-              }
-            ]
+      iconRegistryStoreOverrides: {
+        getIcons: vi.fn(() => ([
+          {
+            id: "custom_icon",
+            name: "Custom Icon",
+            unlock: { type: "free" },
+            style: { fill: "#111" }
           }
-        }))
+        ]))
       }
     });
     const res = createRes();
@@ -1122,19 +1124,15 @@ describe("server routes and helpers", () => {
 
   it("merges custom icons into the base catalog", async () => {
     const { server } = await importServer({
-      gameConfigStoreOverrides: {
-        getConfig: vi.fn(() => ({
-          iconStyles: {
-            icons: [
-              {
-                id: "custom_icon",
-                name: "Custom Icon",
-                unlock: { type: "free" },
-                style: { fill: "#111" }
-              }
-            ]
+      iconRegistryStoreOverrides: {
+        getIcons: vi.fn(() => ([
+          {
+            id: "custom_icon",
+            name: "Custom Icon",
+            unlock: { type: "free" },
+            style: { fill: "#111" }
           }
-        }))
+        ]))
       }
     });
     const res = createRes();
@@ -1147,12 +1145,8 @@ describe("server routes and helpers", () => {
 
   it("falls back to base icons when the stored registry is invalid", async () => {
     const { server } = await importServer({
-      gameConfigStoreOverrides: {
-        getConfig: vi.fn(() => ({
-          iconStyles: {
-            icons: [null]
-          }
-        }))
+      iconRegistryStoreOverrides: {
+        getIcons: vi.fn(() => ([null]))
       }
     });
     const res = createRes();
@@ -1163,22 +1157,16 @@ describe("server routes and helpers", () => {
   });
 
   it("serves the admin icon registry with stored icons", async () => {
-    const baseIcons = buildBaseIcons();
     const { server } = await importServer({
-      gameConfigStoreOverrides: {
-        getConfig: vi.fn(() => ({
-          iconStyles: {
-            icons: [
-              ...baseIcons,
-              {
-                id: "custom_icon",
-                name: "Custom Icon",
-                unlock: { type: "free" },
-                style: { fill: "#111" }
-              }
-            ]
+      iconRegistryStoreOverrides: {
+        getIcons: vi.fn(() => ([
+          {
+            id: "custom_icon",
+            name: "Custom Icon",
+            unlock: { type: "free" },
+            style: { fill: "#111" }
           }
-        })),
+        ])),
         getMeta: vi.fn(() => ({ lastLoadedAt: 999 }))
       }
     });
@@ -1191,16 +1179,12 @@ describe("server routes and helpers", () => {
 
   it("keeps valid icons even when some entries are invalid", async () => {
     const { server } = await importServer({
-      gameConfigStoreOverrides: {
-        getConfig: vi.fn(() => ({
-          iconStyles: {
-            icons: [
-              { id: "good_icon", name: "Good Icon", unlock: { type: "free" }, style: { fill: "#123456" } },
-              null,
-              { id: "" }
-            ]
-          }
-        }))
+      iconRegistryStoreOverrides: {
+        getIcons: vi.fn(() => ([
+          { id: "good_icon", name: "Good Icon", unlock: { type: "free" }, style: { fill: "#123456" } },
+          null,
+          { id: "" }
+        ]))
       }
     });
     const res = createRes();
@@ -1215,8 +1199,8 @@ describe("server routes and helpers", () => {
 
   it("rejects invalid admin icon registry payloads", async () => {
     const { server } = await importServer({
-      gameConfigStoreOverrides: {
-        save: vi.fn(async (config) => config)
+      iconRegistryStoreOverrides: {
+        save: vi.fn(async (icons) => icons)
       }
     });
     const res = createRes();
@@ -1235,8 +1219,8 @@ describe("server routes and helpers", () => {
 
   it("rejects admin icon registry requests that omit icons", async () => {
     const { server } = await importServer({
-      gameConfigStoreOverrides: {
-        save: vi.fn(async (config) => config)
+      iconRegistryStoreOverrides: {
+        save: vi.fn(async (icons) => icons)
       }
     });
     const res = createRes();
@@ -1256,7 +1240,7 @@ describe("server routes and helpers", () => {
 
   it("reports icon registry write failures", async () => {
     const { server } = await importServer({
-      gameConfigStoreOverrides: {
+      iconRegistryStoreOverrides: {
         save: vi.fn(async () => {
           throw new Error("nope");
         })

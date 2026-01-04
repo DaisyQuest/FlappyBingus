@@ -49,7 +49,7 @@ function createReq({ url = "/api/sync", headers = {} } = {}) {
   };
 }
 
-async function importServer({ dataStoreOverrides = {}, gameConfig = null } = {}) {
+async function importServer({ dataStoreOverrides = {}, gameConfig = null, iconRegistry = null } = {}) {
   vi.resetModules();
   const server = await import("../server.cjs");
   const mockDataStore = {
@@ -64,6 +64,13 @@ async function importServer({ dataStoreOverrides = {}, gameConfig = null } = {})
     server._setGameConfigStoreForTests({
       getConfig: () => gameConfig,
       getMeta: () => ({ lastLoadedAt: Date.now() })
+    });
+  }
+  if (iconRegistry) {
+    server._setIconRegistryStoreForTests({
+      getIcons: () => iconRegistry,
+      getMeta: () => ({ lastLoadedAt: Date.now() }),
+      save: vi.fn(async (icons) => icons)
     });
   }
   return { server, mockDataStore };
@@ -92,19 +99,15 @@ describe("/api/sync", () => {
   });
 
   it("returns user data and includes icon editor entries", async () => {
-    const gameConfig = {
-      iconStyles: {
-        icons: [
-          { id: "hi_vis_orange", name: "High-Vis Orange", unlock: { type: "free" } },
-          { id: "editor_icon", name: "Editor Icon", unlock: { type: "free" }, style: { fill: "#ffffff" } }
-        ]
-      }
-    };
+    const iconRegistry = [
+      { id: "hi_vis_orange", name: "High-Vis Orange", unlock: { type: "free" } },
+      { id: "editor_icon", name: "Editor Icon", unlock: { type: "free" }, style: { fill: "#ffffff" } }
+    ];
     const { server } = await importServer({
       dataStoreOverrides: {
         getUserByKey: vi.fn(async () => baseUser())
       },
-      gameConfig
+      iconRegistry
     });
 
     const req = createReq({ headers: { cookie: buildSessionCookie(server, "Syncer") } });
