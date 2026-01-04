@@ -129,11 +129,11 @@ describe("unlockables", () => {
 
   it("skips invalid unlockable definitions during catalog building", () => {
     const { unlockables } = buildUnlockablesCatalog({
-      trails: [null, { id: "", name: "Bad" }, { id: "ok", name: "OK" }],
-      icons: [{ id: "", name: "Bad" }],
-      pipeTextures: [{ id: "p1", name: "Pipe" }]
+      trails: [null, "nope", { id: "", name: "Bad" }, { id: "  ", name: "Blank" }, { id: "ok", name: "OK" }],
+      icons: [undefined, 123, { id: "", name: "Bad" }, { id: "icon_ok", name: "Icon OK" }],
+      pipeTextures: [false, { id: "", name: "Bad" }, { id: "p1", name: "Pipe" }]
     });
-    expect(unlockables.map((u) => u.id)).toEqual(["ok", "p1"]);
+    expect(unlockables.map((u) => u.id)).toEqual(["ok", "icon_ok", "p1"]);
   });
 
   it("defaults trail unlocks to achievement-based when not specified", () => {
@@ -166,6 +166,46 @@ describe("unlockables", () => {
       pipeTextures: []
     });
     expect(unlockables[0].unlock).toEqual({ type: "record", label: "Record holder" });
+  });
+
+  it("prefers record holder unlocks over always unlocked trails", () => {
+    const { unlockables } = buildUnlockablesCatalog({
+      trails: [{ id: "priority", requiresRecordHolder: true, alwaysUnlocked: true }],
+      icons: [],
+      pipeTextures: []
+    });
+    expect(unlockables[0].unlock).toEqual({ type: "record", label: "Record holder" });
+  });
+
+  it("honors explicit trail unlocks before record or always-unlocked flags", () => {
+    const { unlockables } = buildUnlockablesCatalog({
+      trails: [
+        {
+          id: "explicit",
+          requiresRecordHolder: true,
+          alwaysUnlocked: true,
+          unlock: { type: "purchase", cost: 42 }
+        }
+      ],
+      icons: [],
+      pipeTextures: []
+    });
+    expect(unlockables[0].unlock).toEqual({ type: "purchase", cost: 42, currencyId: "bustercoin", label: "Cost: 42 BC" });
+  });
+
+  it("defaults non-numeric trail minScore values to zero", () => {
+    const { unlockables } = buildUnlockablesCatalog({
+      trails: [{ id: "odd_score", minScore: "nope" }],
+      icons: [],
+      pipeTextures: []
+    });
+    expect(unlockables[0].meta.minScore).toBe(0);
+    expect(unlockables[0].unlock).toEqual({
+      type: "achievement",
+      id: "trail_odd_score",
+      minScore: 0,
+      label: "Achievement"
+    });
   });
 
   it("registers icon and pipe texture metadata", () => {
