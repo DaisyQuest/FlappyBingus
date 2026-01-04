@@ -13,7 +13,7 @@ export async function handleTrailSaveResponse({
   setUserHint,
   setTrailHint,
   buildTrailHint,
-  normalizeTrails,
+  mergeTrailCatalog,
   syncUnlockablesCatalog,
   syncIconCatalog,
   syncPipeTextureCatalog,
@@ -49,7 +49,7 @@ export async function handleTrailSaveResponse({
 
   net.online = true;
   setNetUser(res.user);
-  net.trails = normalizeTrails(res.trails || net.trails);
+  net.trails = mergeTrailCatalog(res.trails, { current: net.trails });
   syncUnlockablesCatalog({ trails: net.trails });
   syncIconCatalog(res.icons || net.icons);
   syncPipeTextureCatalog(res.pipeTextures || net.pipeTextures);

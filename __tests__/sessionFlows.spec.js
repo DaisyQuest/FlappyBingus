@@ -33,7 +33,7 @@ function createDeps(overrides = {}) {
     formatWorldwideRuns: vi.fn((count) => `Runs:${count}`),
     net,
     setNetUser: vi.fn((user) => { net.user = user; }),
-    normalizeTrails: vi.fn((trails) => trails || []),
+    mergeTrailCatalog: vi.fn((trails) => trails || []),
     syncUnlockablesCatalog: vi.fn(),
     syncIconCatalog: vi.fn(),
     syncPipeTextureCatalog: vi.fn(),
@@ -74,12 +74,14 @@ describe("session flows", () => {
   it("refreshProfileAndHighscores populates data when online", async () => {
     const { deps, net } = createDeps();
     const flows = createSessionFlows(deps);
+    const initialTrails = net.trails;
 
     await flows.refreshProfileAndHighscores();
 
     expect(deps.apiGetMe).toHaveBeenCalled();
     expect(net.online).toBe(true);
     expect(deps.setNetUser).toHaveBeenCalledWith(expect.objectContaining({ username: "bee" }));
+    expect(deps.mergeTrailCatalog).toHaveBeenCalledWith([{ id: "classic" }], { current: initialTrails });
     expect(deps.syncUnlockablesCatalog).toHaveBeenCalledWith({ trails: [{ id: "classic" }] });
     expect(deps.syncIconCatalog).toHaveBeenCalledWith([{ id: "icon-1" }]);
     expect(deps.syncPipeTextureCatalog).toHaveBeenCalledWith([{ id: "pipe-1" }]);
@@ -220,11 +222,13 @@ describe("session flows", () => {
     });
     const flows = createSessionFlows(deps);
     usernameInput.value = "bee";
+    const initialTrails = net.trails;
 
     await flows.registerUser();
 
     expect(net.online).toBe(true);
     expect(deps.setNetUser).toHaveBeenCalledWith(expect.objectContaining({ username: "bee" }));
+    expect(deps.mergeTrailCatalog).toHaveBeenCalledWith([{ id: "classic" }], { current: initialTrails });
     expect(deps.syncUnlockablesCatalog).toHaveBeenCalledTimes(3);
     expect(deps.syncIconCatalog).toHaveBeenCalledWith([{ id: "icon-1" }]);
     expect(deps.syncPipeTextureCatalog).toHaveBeenCalledWith([{ id: "pipe-1" }]);

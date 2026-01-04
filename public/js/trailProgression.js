@@ -32,6 +32,28 @@ export function normalizeTrails(list, { allowEmpty = false } = {}) {
   return list;
 }
 
+export function mergeTrailCatalog(incoming, { current = null, allowEmpty = false } = {}) {
+  const fallback = Array.isArray(current) && current.length
+    ? current
+    : DEFAULT_TRAILS.map((trail) => ({ ...trail }));
+
+  if (!Array.isArray(incoming)) return fallback;
+  if (!incoming.length) return allowEmpty ? [] : fallback;
+  if (!Array.isArray(current) || !current.length) return incoming;
+
+  const currentById = new Map(current.map((trail) => [trail?.id, trail]));
+  const merged = incoming.map((trail) => {
+    const existing = currentById.get(trail?.id);
+    return existing ? { ...existing, ...trail } : trail;
+  });
+  const mergedIds = new Set(merged.map((trail) => trail?.id).filter(Boolean));
+  current.forEach((trail) => {
+    if (!trail?.id || mergedIds.has(trail.id)) return;
+    merged.push(trail);
+  });
+  return merged;
+}
+
 export function getUnlockedTrails(trails, achievements, { isRecordHolder = false, ownedIds = [], bestScore = 0 } = {}) {
   const defs = Array.isArray(trails) ? trails : DEFAULT_TRAILS;
   const unlockedAchievements = achievements?.unlocked && typeof achievements.unlocked === "object"

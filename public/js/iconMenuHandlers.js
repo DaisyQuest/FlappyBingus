@@ -14,7 +14,7 @@ export function createIconMenuHandlers({
   apiSetIcon,
   classifyIconSaveResponse,
   setNetUser,
-  normalizeTrails,
+  mergeTrailCatalog,
   syncUnlockablesCatalog,
   syncIconCatalog,
   syncPipeTextureCatalog,
@@ -127,7 +127,7 @@ export function createIconMenuHandlers({
 
     if (outcome.outcome === "saved" && res) {
       setNetUser(res.user);
-      net.trails = normalizeTrails(res.trails ?? net.trails, { allowEmpty: true });
+      net.trails = mergeTrailCatalog(res.trails, { current: net.trails });
       syncUnlockablesCatalog({ trails: net.trails });
       if (Array.isArray(res.icons) && res.icons.length) {
         const selected = res.user?.selectedIcon || id;
