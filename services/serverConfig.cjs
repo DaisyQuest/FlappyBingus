@@ -8,6 +8,7 @@ const { normalizeAchievementDefinitions } = require("./achievementDefinitions.cj
 const DEFAULT_RATE_LIMIT_CONFIG = Object.freeze({
   default: { limit: 120, windowMs: 60_000 },
   "/api/me": { limit: 60, windowMs: 60_000 },
+  "/api/sync": { limit: 60, windowMs: 60_000 },
   "/api/register": { limit: 20, windowMs: 60_000 },
   "/api/score": { limit: 30, windowMs: 60_000 },
   "/api/cosmetics/trail": { limit: 30, windowMs: 60_000 },

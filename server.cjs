@@ -293,6 +293,11 @@ const ENDPOINT_GROUPS = Object.freeze([
         summary: "Returns the current player session payload."
       },
       {
+        path: "/api/sync",
+        methods: ["GET"],
+        summary: "Fetches player state, catalogs, highscores, and stats in one payload."
+      },
+      {
         path: "/api/register",
         methods: ["POST"],
         summary: "Register or log in with a username."
@@ -597,9 +602,12 @@ function getTrailDefinitions(overrides = getTrailStyleOverrides()) {
 }
 
 function getIconDefinitions() {
+  const cfg = gameConfigStore?.getConfig?.() || {};
+  const storedIcons = Array.isArray(cfg?.iconStyles?.icons) ? cfg.iconStyles.icons : null;
+  const baseIcons = storedIcons && storedIcons.length ? storedIcons : ICONS_BASE;
   const overrides = getIconStyleOverrides();
   const normalized = normalizeIconStyleOverrides({ overrides });
-  return applyIconStyleOverrides({ icons: ICONS_BASE, overrides: normalized.overrides });
+  return applyIconStyleOverrides({ icons: baseIcons, overrides: normalized.overrides });
 }
 
 function getResolvedUnlockables() {
@@ -2031,6 +2039,30 @@ async function route(req, res) {
     return;
   }
 
+  if (pathname === "/api/sync" && req.method === "GET") {
+    if (rateLimit(req, res, "/api/sync")) return;
+    if (!(await ensureDatabase(res))) return;
+    const u = await getUserFromReq(req, { withRecordHolder: true, res });
+    const recordHolder = Boolean(u?.isRecordHolder);
+    const catalog = getVisibleCatalog();
+    const rawLimit = Number(url.searchParams.get("limit") || 20);
+    const limit = Number.isFinite(rawLimit) ? Math.max(1, Math.floor(rawLimit)) : 20;
+    const highscores = await topHighscores(limit);
+    const totalRuns = await dataStore.totalRuns();
+    sendJson(res, 200, {
+      ok: true,
+      user: u ? publicUser(u, { recordHolder }) : null,
+      icons: catalog.icons,
+      trails: catalog.trails,
+      pipeTextures: catalog.pipeTextures,
+      achievements: buildAchievementsPayload(u, [], getAchievementDefinitions()),
+      highscores,
+      stats: { totalRuns },
+      ...(u ? buildSessionPayload(u.username) : {})
+    });
+    return;
+  }
+
   // Register/login by username
   if (pathname === "/api/register" && req.method === "POST") {
     if (rateLimit(req, res, "/api/register")) return;
@@ -2771,11 +2803,13 @@ async function route(req, res) {
         return sendJson(res, 400, { ok: false, error: "invalid_icon_style_overrides", details: result.errors });
       }
       const current = gameConfigStore.getConfig();
+      const computedIcons = applyIconStyleOverrides({ icons: ICONS_BASE, overrides: result.overrides });
       const nextConfig = {
         ...(current || {}),
         iconStyles: {
           ...(current?.iconStyles || {}),
-          overrides: result.overrides
+          overrides: result.overrides,
+          icons: computedIcons
         }
       };
       try {
