@@ -621,10 +621,31 @@ function getRateLimitConfig(pathname) {
 }
 
 function getVisibleCatalog() {
-  return applyUnlockableMenuConfig(
-    getResolvedUnlockables(),
-    getServerConfig()
-  );
+  const resolved = getResolvedUnlockables();
+  const config = getServerConfig();
+  const menus = config?.unlockableMenus || DEFAULT_SERVER_CONFIG.unlockableMenus;
+  const playerMenu = menus?.player_texture || DEFAULT_SERVER_CONFIG.unlockableMenus.player_texture;
+  const baseIconIds = new Set(ICONS_BASE.map((icon) => icon.id));
+  const customIconIds = resolved.icons
+    .map((icon) => icon?.id)
+    .filter((id) => id && !baseIconIds.has(id));
+  const shouldMergeCustomIcons = playerMenu?.mode === "allowlist" && customIconIds.length > 0;
+  const adjustedConfig = shouldMergeCustomIcons
+    ? {
+      ...config,
+      unlockableMenus: {
+        ...menus,
+        player_texture: {
+          ...playerMenu,
+          ids: [
+            ...(Array.isArray(playerMenu.ids) ? playerMenu.ids : []),
+            ...customIconIds.filter((id) => !playerMenu.ids?.includes(id))
+          ]
+        }
+      }
+    }
+    : config;
+  return applyUnlockableMenuConfig(resolved, adjustedConfig);
 }
 
 function serializeAdminDoc(doc) {

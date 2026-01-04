@@ -919,6 +919,18 @@ describe("server routes and helpers", () => {
     const customTrailId = "custom_trail";
     const customIconId = "custom_icon";
     const { server, mockDataStore } = await importServer({
+      configStoreOverrides: {
+        getConfig: vi.fn(() => ({
+          session: { ttlSeconds: 10, refreshWindowSeconds: 5 },
+          rateLimits: {},
+          unlockableMenus: {
+            trail: { mode: "all", ids: [] },
+            player_texture: { mode: "allowlist", ids: ["hi_vis_orange"] },
+            pipe_texture: { mode: "all", ids: [] }
+          },
+          achievements: { definitions: null }
+        }))
+      },
       gameConfigStoreOverrides: {
         getConfig: vi.fn(() => ({
           trailStyles: { overrides: { [customTrailId]: { unlock: { type: "free" } } } },
@@ -964,7 +976,35 @@ describe("server routes and helpers", () => {
       iconRes
     );
     expect(iconRes.status).toBe(200);
-    expect(readJson(iconRes).user.selectedIcon).toBe(customIconId);
+    const iconPayload = readJson(iconRes);
+    expect(iconPayload.user.selectedIcon).toBe(customIconId);
+    expect(iconPayload.icons.some((icon) => icon.id === customIconId)).toBe(true);
+  });
+
+  it("respects icon allowlists when no custom icon overrides exist", async () => {
+    const { server } = await importServer({
+      configStoreOverrides: {
+        getConfig: vi.fn(() => ({
+          session: { ttlSeconds: 10, refreshWindowSeconds: 5 },
+          rateLimits: {},
+          unlockableMenus: {
+            trail: { mode: "all", ids: [] },
+            player_texture: { mode: "allowlist", ids: ["hi_vis_orange"] },
+            pipe_texture: { mode: "all", ids: [] }
+          },
+          achievements: { definitions: null }
+        }))
+      }
+    });
+
+    const res = createRes();
+    await server.route(
+      createReq({ url: "/api/me", headers: { cookie: buildSessionCookie(server, "PlayerOne") } }),
+      res
+    );
+    const payload = readJson(res);
+    expect(res.status).toBe(200);
+    expect(payload.icons.map((icon) => icon.id)).toEqual(["hi_vis_orange"]);
   });
 
   it("requires authentication for trail selection requests", async () => {
