@@ -103,6 +103,26 @@ export function buildUnlockablesCatalog({ trails = [], icons = [], pipeTextures 
   return { unlockables };
 }
 
+export function resolveUnlockablesForType({
+  unlockables = [],
+  type,
+  list = [],
+  trails = [],
+  icons = [],
+  pipeTextures = []
+} = {}) {
+  const normalizedUnlockables = Array.isArray(unlockables) ? unlockables : [];
+  const items = Array.isArray(list) ? list : [];
+  if (!type || !items.length) return normalizedUnlockables;
+  const ids = items.map((item) => item?.id).filter(Boolean);
+  if (!ids.length) return normalizedUnlockables;
+  const hasAll = ids.every((id) =>
+    normalizedUnlockables.some((entry) => entry?.type === type && entry?.id === id)
+  );
+  if (hasAll) return normalizedUnlockables;
+  return buildUnlockablesCatalog({ trails, icons, pipeTextures }).unlockables;
+}
+
 export function normalizeUnlockableState(raw = null) {
   const unlocked = {};
   if (raw?.unlocked && typeof raw.unlocked === "object") {
