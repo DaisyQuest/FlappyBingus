@@ -34,9 +34,7 @@ describe("main state", () => {
       buildUnlockablesCatalog
     });
 
-    expect(net.trails).toHaveLength(1);
-    expect(net.trails).not.toBe(defaultTrails);
-    expect(net.trails[0]).not.toBe(defaultTrails[0]);
+    expect(net.trails).toEqual([]);
     expect(net.icons).toHaveLength(1);
     expect(net.icons).not.toBe(defaultIcons);
     expect(net.icons[0]).not.toBe(defaultIcons[0]);

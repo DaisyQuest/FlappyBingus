@@ -33,6 +33,7 @@ export function normalizeIconUnlock(unlock) {
 export function normalizePlayerIcons(list, { allowEmpty = false } = {}) {
   const hasList = Array.isArray(list);
   const src = hasList ? list : [];
+  const prefersExplicitCatalog = hasList && src.length > DEFAULT_PLAYER_ICONS.length;
   const seen = new Set();
   const out = [];
 
@@ -53,7 +54,7 @@ export function normalizePlayerIcons(list, { allowEmpty = false } = {}) {
   }
 
   if (out.length) return out;
-  if (allowEmpty && hasList) return [];
+  if ((allowEmpty && hasList) || prefersExplicitCatalog) return [];
   return DEFAULT_PLAYER_ICONS.map((i) => ({ ...i, unlock: normalizeIconUnlock(i.unlock) }));
 }
 
