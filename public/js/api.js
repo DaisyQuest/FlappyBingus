@@ -2,6 +2,7 @@
 const CLIENT_RATE_LIMITS = Object.freeze({
   default: { limit: 30, windowMs: 10_000 },
   "/api/me": { limit: 8, windowMs: 5_000 },
+  "/api/sync": { limit: 8, windowMs: 5_000 },
   "/api/register": { limit: 3, windowMs: 10_000 },
   "/api/score": { limit: 5, windowMs: 10_000 },
   "/api/run/best": { limit: 3, windowMs: 20_000 },
@@ -104,6 +105,12 @@ async function requestJson(url, opts = {}) {
 export async function apiGetMe() {
   if (hitClientRateLimit("/api/me")) return null;
   return requestJson("/api/me", { method: "GET" });
+}
+
+export async function apiSync(limit = 20) {
+  if (hitClientRateLimit("/api/sync")) return null;
+  const cap = Number.isFinite(limit) ? Math.max(1, Math.floor(limit)) : 20;
+  return requestJson(`/api/sync?limit=${encodeURIComponent(String(cap))}`, { method: "GET" });
 }
 
 export async function apiGetIconRegistry() {

@@ -8,11 +8,8 @@ import {
   skillSettingsEqual
 } from "./settings.js";
 import {
-  apiGetMe,
-  apiGetIconRegistry,
+  apiSync,
   apiRegister,
-  apiGetHighscores,
-  apiGetStats,
   apiGetTrailStyles,
   apiSetTrail,
   apiSetIcon,
@@ -1492,10 +1489,7 @@ async function updateSkillSettings(next, { persist = true } = {}) {
 
 // ---- Server refresh ----
 const { refreshProfileAndHighscores, recoverSession, registerUser } = createSessionFlows({
-  apiGetMe,
-  apiGetIconRegistry,
-  apiGetHighscores,
-  apiGetStats,
+  apiSync,
   apiRegister,
   apiSetKeybinds,
   setMenuSubtitle,

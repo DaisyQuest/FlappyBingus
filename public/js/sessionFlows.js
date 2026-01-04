@@ -1,8 +1,5 @@
 export function createSessionFlows({
-  apiGetMe,
-  apiGetIconRegistry,
-  apiGetHighscores,
-  apiGetStats,
+  apiSync,
   apiRegister,
   apiSetKeybinds,
   setMenuSubtitle,
@@ -41,30 +38,19 @@ export function createSessionFlows({
   usernameInput,
   userHint
 }) {
-  function selectIconCatalog({ userIcons, registryIcons, cachedIcons }) {
-    const firstNonEmpty = [userIcons, registryIcons, cachedIcons].find(
+  function selectIconCatalog({ userIcons, cachedIcons }) {
+    const firstNonEmpty = [userIcons, cachedIcons].find(
       (icons) => Array.isArray(icons) && icons.length
     );
     if (firstNonEmpty) return firstNonEmpty;
-    if (Array.isArray(registryIcons)) return registryIcons;
     if (Array.isArray(userIcons)) return userIcons;
     if (Array.isArray(cachedIcons)) return cachedIcons;
     return [];
   }
 
-  async function loadIconRegistry() {
-    if (typeof apiGetIconRegistry !== "function") return null;
-    const registry = await apiGetIconRegistry();
-    if (registry?.ok && Array.isArray(registry.icons)) {
-      return registry.icons;
-    }
-    return null;
-  }
-
   async function refreshProfileAndHighscores({ keepUserOnFailure = false } = {}) {
-    const registryIcons = await loadIconRegistry();
-    const me = await apiGetMe();
-    if (!me?.ok) {
+    const sync = await apiSync?.(20);
+    if (!sync?.ok) {
       net.online = false;
       if (!keepUserOnFailure) {
         setNetUser(null);
@@ -73,41 +59,32 @@ export function createSessionFlows({
       syncUnlockablesCatalog({ trails: net.trails });
       syncIconCatalog(
         selectIconCatalog({
-          registryIcons,
           cachedIcons: net.icons
         })
       );
       net.achievements = { definitions: ACHIEVEMENTS, state: normalizeAchievementState() };
-    } else {
-      net.online = true;
-      setNetUser(me.user || null);
-      net.trails = mergeTrailCatalog(me.trails, { current: net.trails });
-      syncUnlockablesCatalog({ trails: net.trails });
-      syncIconCatalog(
-        selectIconCatalog({
-          userIcons: me.icons,
-          registryIcons,
-          cachedIcons: net.icons
-        })
-      );
-      syncPipeTextureCatalog(me.pipeTextures || net.pipeTextures);
-      applyAchievementsPayload(me.achievements || { definitions: ACHIEVEMENTS, state: me.user?.achievements });
-      if (net.user?.keybinds) setBinds(mergeBinds(DEFAULT_KEYBINDS, net.user.keybinds));
-      if (net.user?.settings) await updateSkillSettings(net.user.settings, { persist: false });
-    }
-
-    const hs = await apiGetHighscores(20);
-    if (!hs?.ok) {
-      net.online = false;
       net.highscores = [];
     } else {
       net.online = true;
-      net.highscores = hs.highscores || [];
+      setNetUser(sync.user || null);
+      net.trails = mergeTrailCatalog(sync.trails, { current: net.trails });
+      syncUnlockablesCatalog({ trails: net.trails });
+      syncIconCatalog(
+        selectIconCatalog({
+          userIcons: sync.icons,
+          cachedIcons: net.icons
+        })
+      );
+      syncPipeTextureCatalog(sync.pipeTextures || net.pipeTextures);
+      applyAchievementsPayload(sync.achievements || { definitions: ACHIEVEMENTS, state: sync.user?.achievements });
+      if (net.user?.keybinds) setBinds(mergeBinds(DEFAULT_KEYBINDS, net.user.keybinds));
+      if (net.user?.settings) await updateSkillSettings(net.user.settings, { persist: false });
+      net.highscores = sync.highscores || [];
     }
 
-    const stats = await apiGetStats();
-    if (stats?.ok && setMenuSubtitle) {
-      setMenuSubtitle(formatWorldwideRuns(stats.totalRuns));
+    const statsTotal = sync?.stats?.totalRuns;
+    if (Number.isFinite(statsTotal) && setMenuSubtitle) {
+      setMenuSubtitle(formatWorldwideRuns(statsTotal));
     }
 
     setUserHint();

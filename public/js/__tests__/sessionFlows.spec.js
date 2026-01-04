@@ -4,10 +4,7 @@ import { createSessionFlows } from "../sessionFlows.js";
 const buildDeps = (overrides = {}) => {
   const net = overrides.net || { user: null, online: true, trails: [{ id: "classic" }], icons: [{ id: "cached" }], pipeTextures: [] };
   const deps = {
-    apiGetMe: vi.fn(),
-    apiGetIconRegistry: vi.fn(),
-    apiGetHighscores: vi.fn().mockResolvedValue({ ok: true, highscores: [] }),
-    apiGetStats: vi.fn().mockResolvedValue({ ok: false }),
+    apiSync: vi.fn(),
     apiRegister: vi.fn(),
     apiSetKeybinds: vi.fn(),
     setMenuSubtitle: vi.fn(),
@@ -53,23 +50,52 @@ const buildDeps = (overrides = {}) => {
 };
 
 describe("sessionFlows", () => {
-  it("prefers the icon registry when user icons are empty", async () => {
-    const registryIcons = [{ id: "registry" }];
+  it("syncs the icon catalog from the sync payload", async () => {
+    const syncIcons = [{ id: "synced" }];
     const deps = buildDeps({
-      apiGetMe: vi.fn().mockResolvedValue({ ok: true, user: { username: "pilot" }, icons: [] }),
-      apiGetIconRegistry: vi.fn().mockResolvedValue({ ok: true, icons: registryIcons })
+      apiSync: vi.fn().mockResolvedValue({
+        ok: true,
+        user: { username: "pilot" },
+        trails: [],
+        icons: syncIcons,
+        pipeTextures: [],
+        achievements: {},
+        highscores: [],
+        stats: { totalRuns: 10 }
+      })
     });
 
     const { refreshProfileAndHighscores } = createSessionFlows(deps);
     await refreshProfileAndHighscores();
 
-    expect(deps.syncIconCatalog).toHaveBeenCalledWith(registryIcons);
+    expect(deps.syncIconCatalog).toHaveBeenCalledWith(syncIcons);
+    expect(deps.formatWorldwideRuns).toHaveBeenCalledWith(10);
+    expect(deps.setMenuSubtitle).toHaveBeenCalledWith("10");
   });
 
-  it("clears trails and syncs unlockables when the profile fetch fails", async () => {
+  it("falls back to cached icons when sync returns an empty list", async () => {
     const deps = buildDeps({
-      apiGetMe: vi.fn().mockResolvedValue({ ok: false }),
-      apiGetIconRegistry: vi.fn().mockResolvedValue({ ok: true, icons: [] })
+      apiSync: vi.fn().mockResolvedValue({
+        ok: true,
+        user: { username: "pilot" },
+        trails: [],
+        icons: [],
+        pipeTextures: [],
+        achievements: {},
+        highscores: [],
+        stats: {}
+      })
+    });
+
+    const { refreshProfileAndHighscores } = createSessionFlows(deps);
+    await refreshProfileAndHighscores();
+
+    expect(deps.syncIconCatalog).toHaveBeenCalledWith([{ id: "cached" }]);
+  });
+
+  it("clears trails and syncs unlockables when the sync fetch fails", async () => {
+    const deps = buildDeps({
+      apiSync: vi.fn().mockResolvedValue({ ok: false })
     });
 
     const { refreshProfileAndHighscores } = createSessionFlows(deps);
@@ -77,18 +103,5 @@ describe("sessionFlows", () => {
 
     expect(deps.net.trails).toEqual([]);
     expect(deps.syncUnlockablesCatalog).toHaveBeenCalledWith({ trails: [] });
-  });
-
-  it("syncs an empty icon catalog when no sources return icons", async () => {
-    const deps = buildDeps({
-      net: { user: null, online: true, trails: [], icons: [], pipeTextures: [] },
-      apiGetMe: vi.fn().mockResolvedValue({ ok: true, user: { username: "pilot" }, icons: [] }),
-      apiGetIconRegistry: vi.fn().mockResolvedValue({ ok: true, icons: [] })
-    });
-
-    const { refreshProfileAndHighscores } = createSessionFlows(deps);
-    await refreshProfileAndHighscores();
-
-    expect(deps.syncIconCatalog).toHaveBeenCalledWith([]);
   });
 });

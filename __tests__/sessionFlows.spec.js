@@ -17,20 +17,16 @@ function createDeps(overrides = {}) {
   const userHint = { className: "hint", textContent: "" };
 
   const deps = {
-    apiGetMe: vi.fn(async () => ({
+    apiSync: vi.fn(async () => ({
       ok: true,
       user: { username: "bee", keybinds: { jump: "space" }, settings: { dashBehavior: "tap" } },
       trails: [{ id: "classic" }],
       icons: [{ id: "icon-1" }],
       pipeTextures: [{ id: "pipe-1" }],
-      achievements: { state: { foo: true } }
+      achievements: { state: { foo: true } },
+      highscores: [{ username: "bee", score: 5 }],
+      stats: { totalRuns: 12 }
     })),
-    apiGetIconRegistry: vi.fn(async () => ({
-      ok: true,
-      icons: [{ id: "registry-icon" }]
-    })),
-    apiGetHighscores: vi.fn(async () => ({ ok: true, highscores: [{ username: "bee", score: 5 }] })),
-    apiGetStats: vi.fn(async () => ({ ok: true, totalRuns: 12 })),
     apiRegister: vi.fn(),
     apiSetKeybinds: vi.fn(async () => ({ ok: true })),
     setMenuSubtitle: vi.fn(),
@@ -82,8 +78,7 @@ describe("session flows", () => {
 
     await flows.refreshProfileAndHighscores();
 
-    expect(deps.apiGetMe).toHaveBeenCalled();
-    expect(deps.apiGetIconRegistry).toHaveBeenCalled();
+    expect(deps.apiSync).toHaveBeenCalledWith(20);
     expect(net.online).toBe(true);
     expect(deps.setNetUser).toHaveBeenCalledWith(expect.objectContaining({ username: "bee" }));
     expect(deps.mergeTrailCatalog).toHaveBeenCalledWith([{ id: "classic" }], { current: initialTrails });
@@ -93,7 +88,6 @@ describe("session flows", () => {
     expect(deps.applyAchievementsPayload).toHaveBeenCalledWith({ state: { foo: true } });
     expect(deps.mergeBinds).toHaveBeenCalledWith(deps.DEFAULT_KEYBINDS, { jump: "space" });
     expect(deps.updateSkillSettings).toHaveBeenCalledWith({ dashBehavior: "tap" }, { persist: false });
-    expect(deps.apiGetHighscores).toHaveBeenCalledWith(20);
     expect(net.highscores).toEqual([{ username: "bee", score: 5 }]);
     expect(deps.setMenuSubtitle).toHaveBeenCalledWith("Runs:12");
     expect(deps.refreshTrailMenu).toHaveBeenCalled();
@@ -116,9 +110,7 @@ describe("session flows", () => {
 
   it("refreshProfileAndHighscores handles offline responses", async () => {
     const { deps, net } = createDeps({
-      apiGetMe: vi.fn(async () => ({ ok: false })),
-      apiGetIconRegistry: vi.fn(async () => ({ ok: true, icons: [{ id: "registry-icon" }] })),
-      apiGetHighscores: vi.fn(async () => ({ ok: false })),
+      apiSync: vi.fn(async () => ({ ok: false })),
       net: {
         online: true,
         user: { username: "keep" },
@@ -135,15 +127,14 @@ describe("session flows", () => {
 
     expect(net.online).toBe(false);
     expect(deps.setNetUser).toHaveBeenCalledWith(null);
-    expect(deps.syncIconCatalog).toHaveBeenCalledWith([{ id: "registry-icon" }]);
+    expect(deps.syncIconCatalog).toHaveBeenCalledWith([]);
     expect(net.achievements).toEqual({ definitions: deps.ACHIEVEMENTS, state: { normalized: true } });
     expect(net.highscores).toEqual([]);
   });
 
   it("refreshProfileAndHighscores preserves user when keepUserOnFailure is true", async () => {
     const { deps, net } = createDeps({
-      apiGetMe: vi.fn(async () => ({ ok: false })),
-      apiGetIconRegistry: vi.fn(async () => ({ ok: true, icons: [{ id: "registry-icon" }] })),
+      apiSync: vi.fn(async () => ({ ok: false })),
       net: {
         online: true,
         user: { username: "keep" },
@@ -225,6 +216,16 @@ describe("session flows", () => {
         icons: [{ id: "icon-1" }],
         pipeTextures: [{ id: "pipe-1" }],
         achievements: { state: { foo: true } }
+      })),
+      apiSync: vi.fn(async () => ({
+        ok: true,
+        user: { username: "bee", keybinds: { jump: "space" }, settings: { dashBehavior: "tap" } },
+        trails: [{ id: "classic" }],
+        icons: [{ id: "icon-1" }],
+        pipeTextures: [{ id: "pipe-1" }],
+        achievements: { state: { foo: true } },
+        highscores: [{ username: "bee", score: 5 }],
+        stats: { totalRuns: 12 }
       }))
     });
     const flows = createSessionFlows(deps);
@@ -244,7 +245,6 @@ describe("session flows", () => {
     expect(usernameInput.value).toBe("bee");
     expect(deps.updateSkillSettings).toHaveBeenCalledWith({ dashBehavior: "tap" }, { persist: false });
     expect(deps.apiSetKeybinds).toHaveBeenCalledWith({ jump: "space", shoot: "enter" });
-    expect(deps.apiGetMe).toHaveBeenCalled();
-    expect(deps.apiGetHighscores).toHaveBeenCalledWith(20);
+    expect(deps.apiSync).toHaveBeenCalledWith(20);
   });
 });
