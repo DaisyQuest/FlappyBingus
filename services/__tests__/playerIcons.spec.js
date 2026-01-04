@@ -1,14 +1,8 @@
 import { describe, expect, it } from "vitest";
-import {
-  DEFAULT_PLAYER_ICON_ID,
-  PLAYER_ICONS,
-  normalizePlayerIcons,
-  normalizeUnlock,
-  unlockedIcons
-} from "../playerIcons.cjs";
+import { PLAYER_ICONS, normalizePlayerIcons, normalizeUnlock, unlockedIcons } from "../playerIcons.cjs";
 
 describe("server player icon catalog", () => {
-  it("normalizes icon data and preserves defaults", () => {
+  it("normalizes icon data and falls back to the registry when list is missing", () => {
     const normalized = normalizePlayerIcons([{ id: "x", name: "X" }, { id: "" }]);
     expect(normalized.find((i) => i.id === "x")?.name).toBe("X");
     const fallback = normalizePlayerIcons(null);
@@ -28,6 +22,11 @@ describe("server player icon catalog", () => {
       { icons, recordHolder: true }
     );
     expect(unlocked).toEqual(expect.arrayContaining(["free", "score", "ach", "paid", "record"]));
+  });
+
+  it("returns an empty catalog when explicitly given an empty list", () => {
+    const normalized = normalizePlayerIcons([]);
+    expect(normalized).toEqual([]);
   });
 
   it("accepts owned unlockables as a fallback for purchased icons", () => {
@@ -103,11 +102,11 @@ describe("server player icon catalog", () => {
     );
   });
 
-  it("falls back to default icon when none are unlocked", () => {
+  it("leaves locked icon lists empty when no requirements are met", () => {
     const icons = [{ id: "locked", unlock: { type: "score", minScore: 99999 } }];
     const unlocked = unlockedIcons({ bestScore: 0 }, { icons, recordHolder: false });
     expect(unlocked).not.toContain("locked");
-    expect(PLAYER_ICONS.map((i) => i.id)).toContain(DEFAULT_PLAYER_ICON_ID);
+    expect(unlocked).toEqual([]);
   });
 
   it("locks fire and inferno capes behind their score achievements", () => {

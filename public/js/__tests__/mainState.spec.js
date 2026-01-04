@@ -16,7 +16,7 @@ describe("main state", () => {
 
   it("builds net state with normalized assets and cloned arrays", () => {
     const defaultTrails = [{ id: "trail-1" }];
-    const defaultIcons = [{ id: "icon-1" }];
+    const icons = [{ id: "icon-1" }];
     const normalizePipeTextures = vi.fn(() => [{ id: "pipe-1" }]);
     const achievements = {
       definitions: [{ id: "ach-1" }],
@@ -28,7 +28,7 @@ describe("main state", () => {
 
     const net = createNetState({
       defaultTrails,
-      defaultIcons,
+      icons,
       normalizePipeTextures,
       achievements,
       buildUnlockablesCatalog
@@ -36,8 +36,8 @@ describe("main state", () => {
 
     expect(net.trails).toEqual([]);
     expect(net.icons).toHaveLength(1);
-    expect(net.icons).not.toBe(defaultIcons);
-    expect(net.icons[0]).not.toBe(defaultIcons[0]);
+    expect(net.icons).not.toBe(icons);
+    expect(net.icons[0]).not.toBe(icons[0]);
     expect(net.pipeTextures).toEqual([{ id: "pipe-1" }]);
     expect(net.achievements.definitions).toEqual([{ id: "ach-1" }]);
     expect(net.achievements.state).toEqual({ done: true });

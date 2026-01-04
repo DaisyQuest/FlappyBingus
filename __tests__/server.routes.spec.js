@@ -1126,7 +1126,6 @@ describe("server routes and helpers", () => {
     const payload = readJson(res);
     expect(payload.ok).toBe(true);
     expect(payload.icons.some((icon) => icon.id === "custom_icon")).toBe(true);
-    expect(payload.defaults.length).toBeGreaterThan(0);
     expect(payload.meta.generatedAt).toBeTypeOf("string");
   });
 
@@ -1152,7 +1151,6 @@ describe("server routes and helpers", () => {
     expect(payload.ok).toBe(true);
     expect(payload.overrides.custom_icon.name).toBe("Custom Icon");
     expect(payload.icons.some((icon) => icon.id === "custom_icon")).toBe(true);
-    expect(payload.defaults.length).toBeGreaterThan(0);
   });
 
   it("keeps valid icon overrides even when some overrides are invalid", async () => {

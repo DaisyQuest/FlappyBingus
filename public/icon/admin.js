@@ -11,7 +11,6 @@ const loadingPanel = document.getElementById("iconLoading");
 
 const state = {
   icons: [],
-  defaults: [],
   overrides: {},
   previews: new Map()
 };
@@ -53,31 +52,20 @@ function createPanel(title, subtitle) {
   return { panel, actions };
 }
 
-function buildDefaultsMap() {
-  const map = new Map();
-  (state.defaults || []).forEach((icon) => {
-    if (icon?.id) map.set(icon.id, icon);
-  });
-  return map;
-}
-
 function stopPreview(canvas) {
   if (canvas?.__animation?.stop) canvas.__animation.stop();
 }
 
-function updatePreview(card, defaultsMap) {
+function updatePreview(card) {
   const previewWrap = card.querySelector("[data-icon-preview]");
   if (!previewWrap) return;
   const icon = readIconDefinition(card);
-  const fallbackId = card.querySelector("[data-field='id']")?.value?.trim();
-  const fallback = defaultsMap.get(fallbackId);
-  const resolved = icon || fallback;
-  if (!resolved) return;
+  if (!icon) return;
 
   const previous = previewWrap.querySelector("canvas");
   if (previous) stopPreview(previous);
   previewWrap.innerHTML = "";
-  const canvas = createPlayerIconSprite(resolved, { size: 96 });
+  const canvas = createPlayerIconSprite(icon, { size: 96 });
   canvas.classList.add("icon-preview-canvas");
   previewWrap.appendChild(canvas);
 }
@@ -110,14 +98,12 @@ function renderIconEditor() {
   panel.appendChild(grid);
   main.appendChild(panel);
 
-  const defaultsMap = buildDefaultsMap();
-
   function attachCard(card) {
     grid.appendChild(card);
-    updatePreview(card, defaultsMap);
+    updatePreview(card);
     card.addEventListener("input", () => {
       updateHeading(card);
-      updatePreview(card, defaultsMap);
+      updatePreview(card);
     });
   }
 
@@ -127,12 +113,7 @@ function renderIconEditor() {
     state.previews.clear();
     state.icons.forEach((icon) => {
       if (!icon?.id) return;
-      const defaults = defaultsMap.get(icon.id);
-      const card = createIconCard({
-        icon,
-        defaults,
-        allowRemove: Boolean(defaults)
-      });
+      const card = createIconCard({ icon, allowRemove: true });
       attachCard(card);
     });
   }
@@ -141,14 +122,13 @@ function renderIconEditor() {
   addBtn.addEventListener("click", () => {
     const card = createIconCard({
       icon: { id: "", name: "", unlock: { type: "free" }, style: {} },
-      defaults: {},
       allowRemove: false
     });
     grid.prepend(card);
-    updatePreview(card, defaultsMap);
+    updatePreview(card);
     card.addEventListener("input", () => {
       updateHeading(card);
-      updatePreview(card, defaultsMap);
+      updatePreview(card);
     });
   });
   saveBtn.addEventListener("click", async () => {
@@ -172,7 +152,6 @@ async function loadConfig() {
   try {
     const data = await getIconStyleOverrides();
     state.icons = Array.isArray(data?.icons) ? data.icons : [];
-    state.defaults = Array.isArray(data?.defaults) ? data.defaults : [];
     state.overrides = data?.overrides && typeof data.overrides === "object" ? data.overrides : {};
     renderIconEditor();
     setMeta(`Last updated: ${new Date(data.meta?.lastLoadedAt || Date.now()).toLocaleString()}`);

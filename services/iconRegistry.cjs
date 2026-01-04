@@ -1,6 +1,6 @@
 "use strict";
 
-const DEFAULT_PLAYER_ICON_ID = "hi_vis_orange";
+const HIGH_VIS_ORANGE_ID = "hi_vis_orange";
 
 class PlayerIconDefinition {
   constructor({ id, name, unlock, style, imageSrc }) {
@@ -26,7 +26,7 @@ class PlayerIconDefinition {
 class HighVisOrangeIcon extends PlayerIconDefinition {
   constructor() {
     super({
-      id: DEFAULT_PLAYER_ICON_ID,
+      id: HIGH_VIS_ORANGE_ID,
       name: "High-Vis Orange",
       unlock: { type: "free", label: "Free" },
       style: {
@@ -306,7 +306,6 @@ function buildBaseIcons() {
 }
 
 module.exports = {
-  DEFAULT_PLAYER_ICON_ID,
   PlayerIconDefinition,
   ICON_CLASSES,
   buildBaseIcons

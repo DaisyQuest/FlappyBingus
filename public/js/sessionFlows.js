@@ -41,7 +41,7 @@ export function createSessionFlows({
   usernameInput,
   userHint
 }) {
-  function selectIconCatalog({ userIcons, registryIcons, cachedIcons, fallbackIcons }) {
+  function selectIconCatalog({ userIcons, registryIcons, cachedIcons }) {
     const firstNonEmpty = [userIcons, registryIcons, cachedIcons].find(
       (icons) => Array.isArray(icons) && icons.length
     );
@@ -49,7 +49,7 @@ export function createSessionFlows({
     if (Array.isArray(registryIcons)) return registryIcons;
     if (Array.isArray(userIcons)) return userIcons;
     if (Array.isArray(cachedIcons)) return cachedIcons;
-    return fallbackIcons;
+    return [];
   }
 
   async function loadIconRegistry() {
@@ -74,8 +74,7 @@ export function createSessionFlows({
       syncIconCatalog(
         selectIconCatalog({
           registryIcons,
-          cachedIcons: net.icons,
-          fallbackIcons: playerIcons
+          cachedIcons: net.icons
         })
       );
       net.achievements = { definitions: ACHIEVEMENTS, state: normalizeAchievementState() };
@@ -88,8 +87,7 @@ export function createSessionFlows({
         selectIconCatalog({
           userIcons: me.icons,
           registryIcons,
-          cachedIcons: net.icons,
-          fallbackIcons: playerIcons
+          cachedIcons: net.icons
         })
       );
       syncPipeTextureCatalog(me.pipeTextures || net.pipeTextures);

@@ -1,16 +1,11 @@
 import { describe, expect, it } from "vitest";
-import {
-  DEFAULT_PLAYER_ICON_ID,
-  ICON_CLASSES,
-  PlayerIconDefinition,
-  buildBaseIcons
-} from "../iconRegistry.js";
+import { ICON_CLASSES, PlayerIconDefinition, buildBaseIcons } from "../iconRegistry.js";
 
 describe("client icon registry", () => {
   it("builds icon definitions from icon classes", () => {
     const icons = buildBaseIcons();
     expect(icons).toHaveLength(ICON_CLASSES.length);
-    expect(icons.map((icon) => icon.id)).toContain(DEFAULT_PLAYER_ICON_ID);
+    expect(icons.map((icon) => icon.id)).toContain("hi_vis_orange");
   });
 
   it("omits empty image sources on base definitions", () => {

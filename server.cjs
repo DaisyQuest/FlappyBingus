@@ -38,7 +38,6 @@ const {
 const { MAX_MEDIA_BYTES, MAX_REPLAY_BYTES, normalizeBestRunRequest, hydrateReplayFromJson } = require("./services/bestRuns.cjs");
 const { DEFAULT_SKILL_TOTALS, normalizeSkillTotals } = require("./services/skillConsts.cjs");
 const {
-  DEFAULT_PLAYER_ICON_ID,
   PLAYER_ICONS,
   normalizePlayerIcons,
   unlockedIcons
@@ -552,6 +551,11 @@ function formatTrailName(id) {
     .replace(/\b\w/g, (char) => char.toUpperCase());
 }
 
+function getFirstIconId(icons = []) {
+  if (!Array.isArray(icons) || icons.length === 0) return "";
+  return icons[0]?.id || "";
+}
+
 function getTrailDefinitions(overrides = getTrailStyleOverrides()) {
   const overrideIds = Object.keys(overrides || {}).map((id) => String(id || "").trim()).filter(Boolean);
   const known = new Set(TRAILS.map((trail) => trail.id));
@@ -899,6 +903,7 @@ function syncTrailAchievementsState(state, { bestScore = 0, totalRuns = 0, recor
 function ensureUserSchema(u, { recordHolder = false } = {}) {
   if (!u || typeof u !== "object") return;
   const resolvedUnlockables = getResolvedUnlockables();
+  const fallbackIconId = getFirstIconId(resolvedUnlockables.icons);
   u.bestScore = normalizeScore(u.bestScore);
   u.runs = normalizeCount(u.runs);
   u.totalScore = normalizeTotal(u.totalScore);
@@ -913,7 +918,7 @@ function ensureUserSchema(u, { recordHolder = false } = {}) {
   }
   u.skillTotals = normalizeSkillTotals(u.skillTotals || DEFAULT_SKILL_TOTALS);
   if (typeof u.selectedTrail !== "string") u.selectedTrail = "classic";
-  if (typeof u.selectedIcon !== "string") u.selectedIcon = DEFAULT_PLAYER_ICON_ID;
+  if (typeof u.selectedIcon !== "string") u.selectedIcon = fallbackIconId;
   const legacyOwnedIcons = Array.isArray(u.ownedIcons) ? u.ownedIcons : [];
   const ownedUnlockables = Array.isArray(u.ownedUnlockables) ? u.ownedUnlockables : [];
   const mergedOwned = Array.from(new Set(
@@ -951,7 +956,7 @@ function ensureUserSchema(u, { recordHolder = false } = {}) {
 
   const availableIconIds = getUnlockedIconIds(u, { resolvedUnlockables, recordHolder });
   if (!availableIconIds.includes(u.selectedIcon)) {
-    u.selectedIcon = availableIconIds[0] || DEFAULT_PLAYER_ICON_ID;
+    u.selectedIcon = availableIconIds[0] || fallbackIconId;
   }
 
   const availablePipeTextures = getUnlockedIdsByType({
@@ -1158,11 +1163,12 @@ function validateKeybindsPayload(binds) {
 function publicUser(u, { recordHolder = false } = {}) {
   if (!u) return null;
   const resolvedUnlockables = getResolvedUnlockables();
+  const fallbackIconId = getFirstIconId(resolvedUnlockables.icons);
   return {
     username: u.username,
     bestScore: u.bestScore | 0,
     selectedTrail: u.selectedTrail || "classic",
-    selectedIcon: u.selectedIcon || DEFAULT_PLAYER_ICON_ID,
+    selectedIcon: u.selectedIcon || fallbackIconId,
     selectedPipeTexture: u.selectedPipeTexture || DEFAULT_PIPE_TEXTURE_ID,
     pipeTextureMode: normalizePipeTextureMode(u.pipeTextureMode || DEFAULT_PIPE_TEXTURE_MODE),
     ownedIcons: Array.isArray(u.ownedIcons) ? u.ownedIcons : [],
@@ -1343,12 +1349,13 @@ function buildSessionPayload(username) {
 
 function buildUserDefaults(username, key) {
   const now = nowMs();
+  const fallbackIconId = getFirstIconId(getIconDefinitions());
   return {
     username,
     key,
     bestScore: 0,
     selectedTrail: "classic",
-    selectedIcon: DEFAULT_PLAYER_ICON_ID,
+    selectedIcon: fallbackIconId,
     selectedPipeTexture: DEFAULT_PIPE_TEXTURE_ID,
     pipeTextureMode: DEFAULT_PIPE_TEXTURE_MODE,
     ownedIcons: [],
@@ -2635,7 +2642,6 @@ async function route(req, res) {
     sendJson(res, 200, {
       ok: true,
       icons: catalog.icons,
-      defaults: ICONS_BASE,
       meta: { generatedAt: new Date().toISOString() }
     });
     return;
@@ -2748,7 +2754,6 @@ async function route(req, res) {
         ok: true,
         overrides,
         icons: getIconDefinitions(),
-        defaults: ICONS_BASE,
         meta: gameConfigStore.getMeta()
       });
       return;
@@ -2779,7 +2784,6 @@ async function route(req, res) {
           ok: true,
           overrides: saved?.iconStyles?.overrides || {},
           icons: getIconDefinitions(),
-          defaults: ICONS_BASE,
           meta: gameConfigStore.getMeta()
         });
       } catch (err) {

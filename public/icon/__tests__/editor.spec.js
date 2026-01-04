@@ -16,7 +16,7 @@ describe("icon editor helpers", () => {
         animation: { type: "lava", speed: 0.2, palette: { base: "#000" } }
       }
     };
-    const card = createIconCard({ icon, defaults: icon, allowRemove: true });
+    const card = createIconCard({ icon, allowRemove: true });
     const root = document.createElement("div");
     root.appendChild(card);
 
@@ -35,7 +35,7 @@ describe("icon editor helpers", () => {
       unlock: { type: "free" },
       style: { pattern: { type: "stripes", colors: ["#111", "#222"] } }
     };
-    const card = createIconCard({ icon, defaults: icon, allowRemove: false });
+    const card = createIconCard({ icon, allowRemove: false });
     card.querySelector("[data-field='pattern.colors']").value = "#111, #222, #333";
     const read = readIconDefinition(card);
     expect(read.style.pattern.colors).toEqual(["#111", "#222", "#333"]);
@@ -48,7 +48,7 @@ describe("icon editor helpers", () => {
       unlock: { type: "free" },
       style: { fill: "", pattern: { type: "stripes", colors: ["#111"] } }
     };
-    const card = createIconCard({ icon, defaults: icon, allowRemove: true });
+    const card = createIconCard({ icon, allowRemove: true });
     const fillInput = card.querySelector("[data-field='fill']");
     const fillSwatch = fillInput.closest(".field-row").querySelector(".color-swatch");
     fillSwatch.click();

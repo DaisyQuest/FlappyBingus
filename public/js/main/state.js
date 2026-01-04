@@ -16,27 +16,28 @@ export function createBootState() {
 
 export function createNetState({
   defaultTrails,
-  defaultIcons,
+  icons,
   normalizePipeTextures,
   achievements,
   buildUnlockablesCatalog
 }) {
   const trails = [];
-  const icons = defaultIcons.map((icon) => ({ ...icon }));
+  const iconCatalog = Array.isArray(icons) ? icons : [];
+  const resolvedIcons = iconCatalog.map((icon) => ({ ...icon }));
   const pipeTextures = normalizePipeTextures(null);
 
   return {
     online: true,
     user: null,
     trails,
-    icons,
+    icons: resolvedIcons,
     pipeTextures,
     highscores: [],
     achievements: { definitions: achievements.definitions, state: achievements.normalizeState() },
     trailStyleOverrides: {},
     unlockables: buildUnlockablesCatalog({
       trails,
-      icons,
+      icons: resolvedIcons,
       pipeTextures
     })
   };
