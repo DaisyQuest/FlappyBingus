@@ -1,10 +1,10 @@
 // @vitest-environment jsdom
 import { describe, expect, it } from "vitest";
 
-import { collectIconOverrides, createIconCard, readIconDefinition } from "../modules/editor.js";
+import { collectIconDefinitions, createIconCard, readIconDefinition } from "../modules/editor.js";
 
 describe("icon editor helpers", () => {
-  it("serializes icon overrides from form fields", () => {
+  it("serializes icon definitions from form fields", () => {
     const icon = {
       id: "spark",
       name: "Spark",
@@ -20,12 +20,14 @@ describe("icon editor helpers", () => {
     const root = document.createElement("div");
     root.appendChild(card);
 
-    const overrides = collectIconOverrides(root);
-    expect(overrides.spark.name).toBe("Spark");
-    expect(overrides.spark.imageSrc).toBe("/spark.png");
-    expect(overrides.spark.unlock.type).toBe("score");
-    expect(overrides.spark.style.pattern.type).toBe("stripes");
-    expect(overrides.spark.style.animation.type).toBe("lava");
+    const icons = collectIconDefinitions(root);
+    const [first] = icons;
+    expect(first.id).toBe("spark");
+    expect(first.name).toBe("Spark");
+    expect(first.imageSrc).toBe("/spark.png");
+    expect(first.unlock.type).toBe("score");
+    expect(first.style.pattern.type).toBe("stripes");
+    expect(first.style.animation.type).toBe("lava");
   });
 
   it("reads color lists into arrays", () => {

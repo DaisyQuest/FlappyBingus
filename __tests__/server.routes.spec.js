@@ -4,6 +4,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
+import { buildBaseIcons } from "../services/iconRegistry.cjs";
 
 const baseUser = () => ({
   username: "PlayerOne",
@@ -918,6 +919,7 @@ describe("server routes and helpers", () => {
   it("equips custom trails and icons defined in admin editors", async () => {
     const customTrailId = "custom_trail";
     const customIconId = "custom_icon";
+    const baseIcons = buildBaseIcons();
     const { server, mockDataStore } = await importServer({
       configStoreOverrides: {
         getConfig: vi.fn(() => ({
@@ -935,13 +937,15 @@ describe("server routes and helpers", () => {
         getConfig: vi.fn(() => ({
           trailStyles: { overrides: { [customTrailId]: { unlock: { type: "free" } } } },
           iconStyles: {
-            overrides: {
-              [customIconId]: {
+            icons: [
+              ...baseIcons,
+              {
+                id: customIconId,
                 name: "Custom Icon",
                 unlock: { type: "free" },
                 style: { fill: "#fff" }
               }
-            }
+            ]
           }
         }))
       },
@@ -1089,34 +1093,21 @@ describe("server routes and helpers", () => {
     expect(payload.icons?.length).toBeGreaterThan(0);
   });
 
-  it("returns icon style overrides for the public endpoint", async () => {
-    const { server } = await importServer({
-      gameConfigStoreOverrides: {
-        getConfig: vi.fn(() => ({
-          iconStyles: {
-            overrides: { spark: { name: "Spark", style: { fill: "#fff" } } }
-          }
-        }))
-      }
-    });
-    const res = createRes();
-    await server.route(createReq({ url: "/api/icon-styles" }), res);
-    const payload = readJson(res);
-    expect(payload.ok).toBe(true);
-    expect(payload.overrides.spark.name).toBe("Spark");
-  });
-
   it("serves the icon registry for player menus", async () => {
+    const baseIcons = buildBaseIcons();
     const { server } = await importServer({
       gameConfigStoreOverrides: {
         getConfig: vi.fn(() => ({
           iconStyles: {
-            overrides: {
-              custom_icon: {
+            icons: [
+              ...baseIcons,
+              {
+                id: "custom_icon",
                 name: "Custom Icon",
+                unlock: { type: "free" },
                 style: { fill: "#111" }
               }
-            }
+            ]
           }
         }))
       }
@@ -1129,39 +1120,60 @@ describe("server routes and helpers", () => {
     expect(payload.meta.generatedAt).toBeTypeOf("string");
   });
 
-  it("serves admin icon styles with merged icons", async () => {
+  it("falls back to base icons when the stored registry is invalid", async () => {
     const { server } = await importServer({
       gameConfigStoreOverrides: {
         getConfig: vi.fn(() => ({
           iconStyles: {
-            overrides: {
-              custom_icon: {
+            icons: [null]
+          }
+        }))
+      }
+    });
+    const res = createRes();
+    await server.route(createReq({ url: "/api/icon-registry" }), res);
+    const payload = readJson(res);
+    expect(payload.ok).toBe(true);
+    expect(payload.icons.some((icon) => icon.id === "hi_vis_orange")).toBe(true);
+  });
+
+  it("serves the admin icon registry with stored icons", async () => {
+    const baseIcons = buildBaseIcons();
+    const { server } = await importServer({
+      gameConfigStoreOverrides: {
+        getConfig: vi.fn(() => ({
+          iconStyles: {
+            icons: [
+              ...baseIcons,
+              {
+                id: "custom_icon",
                 name: "Custom Icon",
+                unlock: { type: "free" },
                 style: { fill: "#111" }
               }
-            }
+            ]
           }
         })),
         getMeta: vi.fn(() => ({ lastLoadedAt: 999 }))
       }
     });
     const res = createRes();
-    await server.route(createReq({ url: "/api/admin/icon-styles" }), res);
+    await server.route(createReq({ url: "/api/admin/icon-registry" }), res);
     const payload = readJson(res);
     expect(payload.ok).toBe(true);
-    expect(payload.overrides.custom_icon.name).toBe("Custom Icon");
     expect(payload.icons.some((icon) => icon.id === "custom_icon")).toBe(true);
   });
 
-  it("keeps valid icon overrides even when some overrides are invalid", async () => {
+  it("keeps valid icons even when some entries are invalid", async () => {
     const { server } = await importServer({
       gameConfigStoreOverrides: {
         getConfig: vi.fn(() => ({
           iconStyles: {
-            overrides: {
-              good_icon: { name: "Good Icon", style: { fill: "#123456" } },
-              bad_icon: { style: { pattern: { type: "unknown" } } }
-            }
+            icons: [
+              { id: "good_icon", name: "Good Icon", unlock: { type: "free" }, style: { fill: "#123456" } },
+              null,
+              { id: "" }
+            ]
           }
         }))
       }
@@ -1176,7 +1188,7 @@ describe("server routes and helpers", () => {
     expect(payload.icons.some((icon) => icon.id === "good_icon")).toBe(true);
   });
 
-  it("rejects invalid admin icon style payloads", async () => {
+  it("rejects invalid admin icon registry payloads", async () => {
     const { server } = await importServer({
       gameConfigStoreOverrides: {
         save: vi.fn(async (config) => config)
@@ -1186,14 +1198,57 @@ describe("server routes and helpers", () => {
     await server.route(
       createReq({
         method: "PUT",
-        url: "/api/admin/icon-styles",
-        body: JSON.stringify({ overrides: { bad: { style: { pattern: { type: "unknown" } } } } })
+        url: "/api/admin/icon-registry",
+        body: JSON.stringify({ icons: "bad" })
       }),
       res
     );
     const payload = readJson(res);
     expect(res.status).toBe(400);
-    expect(payload.error).toBe("invalid_icon_style_overrides");
+    expect(payload.error).toBe("invalid_icon_catalog");
+  });
+
+  it("rejects admin icon registry requests that omit icons", async () => {
+    const { server } = await importServer({
+      gameConfigStoreOverrides: {
+        save: vi.fn(async (config) => config)
+      }
+    });
+    const res = createRes();
+    await server.route(
+      createReq({
+        method: "PUT",
+        url: "/api/admin/icon-registry",
+        body: JSON.stringify({})
+      }),
+      res
+    );
+    const payload = readJson(res);
+    expect(res.status).toBe(400);
+    expect(payload.error).toBe("invalid_icon_catalog");
+    expect(payload.details[0].message).toBe("icons_missing");
+  });
+
+  it("reports icon registry write failures", async () => {
+    const { server } = await importServer({
+      gameConfigStoreOverrides: {
+        save: vi.fn(async () => {
+          throw new Error("nope");
+        })
+      }
+    });
+    const res = createRes();
+    await server.route(
+      createReq({
+        method: "PUT",
+        url: "/api/admin/icon-registry",
+        body: JSON.stringify({ icons: [{ id: "spark", unlock: { type: "free" } }] })
+      }),
+      res
+    );
+    const payload = readJson(res);
+    expect(res.status).toBe(500);
+    expect(payload.error).toBe("icon_catalog_write_failed");
   });
 
   it("validates and persists pipe texture selections", async () => {

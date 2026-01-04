@@ -1,5 +1,5 @@
-import { getIconStyleOverrides, saveIconStyleOverrides } from "./modules/api.js";
-import { collectIconOverrides, createIconCard, readIconDefinition } from "./modules/editor.js";
+import { getIconRegistry, saveIconRegistry } from "./modules/api.js";
+import { collectIconDefinitions, createIconCard, readIconDefinition } from "./modules/editor.js";
 import { createPlayerIconSprite } from "/js/playerIconSprites.js";
 
 const statusChip = document.getElementById("adminStatus");
@@ -11,7 +11,6 @@ const loadingPanel = document.getElementById("iconLoading");
 
 const state = {
   icons: [],
-  overrides: {},
   previews: new Map()
 };
 
@@ -82,7 +81,7 @@ function renderIconEditor() {
   clearMain();
   const { panel, actions } = createPanel(
     "Player Icons",
-    "Modify icon styles, combine animations with PNGs, and publish new icons instantly."
+    "Edit the player icon registry, including each icon variant and its style."
   );
   const reloadBtn = document.createElement("button");
   reloadBtn.textContent = "Reload";
@@ -133,14 +132,14 @@ function renderIconEditor() {
   });
   saveBtn.addEventListener("click", async () => {
     try {
-      setStatus("Saving icon styles…");
-      const overrides = collectIconOverrides(grid);
-      await saveIconStyleOverrides({ overrides });
-      state.overrides = overrides;
-      setStatus("Icon styles saved", "ok");
+      setStatus("Saving icons…");
+      const icons = collectIconDefinitions(grid);
+      const saved = await saveIconRegistry({ icons });
+      state.icons = Array.isArray(saved?.icons) ? saved.icons : icons;
+      setStatus("Icons saved", "ok");
     } catch (err) {
       console.error(err);
-      setStatus("Failed to save icon styles", "error");
+      setStatus("Failed to save icons", "error");
     }
   });
 
@@ -148,17 +147,16 @@ function renderIconEditor() {
 }
 
 async function loadConfig() {
-  setStatus("Loading icon styles…");
+  setStatus("Loading icons…");
   try {
-    const data = await getIconStyleOverrides();
+    const data = await getIconRegistry();
     state.icons = Array.isArray(data?.icons) ? data.icons : [];
-    state.overrides = data?.overrides && typeof data.overrides === "object" ? data.overrides : {};
     renderIconEditor();
     setMeta(`Last updated: ${new Date(data.meta?.lastLoadedAt || Date.now()).toLocaleString()}`);
-    setStatus("Icon editor ready", "ok");
+    setStatus("Icon registry ready", "ok");
   } catch (err) {
     console.error(err);
-    setStatus("Failed to load icon styles", "error");
+    setStatus("Failed to load icons", "error");
   }
 }
 

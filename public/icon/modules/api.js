@@ -19,13 +19,13 @@ async function requestJson(url, options = {}) {
   return data;
 }
 
-export async function getIconStyleOverrides() {
-  return requestJson("/api/admin/icon-styles", { method: "GET" });
+export async function getIconRegistry() {
+  return requestJson("/api/admin/icon-registry", { method: "GET" });
 }
 
-export async function saveIconStyleOverrides({ overrides }) {
-  return requestJson("/api/admin/icon-styles", {
+export async function saveIconRegistry({ icons }) {
+  return requestJson("/api/admin/icon-registry", {
     method: "PUT",
-    body: JSON.stringify({ overrides })
+    body: JSON.stringify({ icons })
   });
 }
