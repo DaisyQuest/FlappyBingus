@@ -30,7 +30,7 @@ describe("handleTrailSaveResponse", () => {
       setUserHint,
       setTrailHint,
       buildTrailHint,
-      normalizeTrails: vi.fn(),
+      mergeTrailCatalog: vi.fn(),
       syncUnlockablesCatalog: vi.fn(),
       syncIconCatalog: vi.fn(),
       syncPipeTextureCatalog: vi.fn(),
@@ -69,16 +69,17 @@ describe("handleTrailSaveResponse", () => {
     const setUserHint = vi.fn();
     const setTrailHint = vi.fn();
     const buildTrailHint = vi.fn();
-    const normalizeTrails = vi.fn((trails) => trails);
+    const mergeTrailCatalog = vi.fn((trails) => trails);
     const syncUnlockablesCatalog = vi.fn();
     const syncIconCatalog = vi.fn();
     const syncPipeTextureCatalog = vi.fn();
     const refreshTrailMenu = vi.fn();
     const applyIconSelection = vi.fn();
+    const initialTrails = net.trails;
     const res = {
       ok: true,
       user: { username: "PlayerOne", bestScore: 600, bustercoins: 20, selectedTrail: "aurora", selectedIcon: "new" },
-      trails: [{ id: "aurora" }],
+      trails: [{ id: "classic" }, { id: "aurora" }],
       icons: [{ id: "new" }],
       pipeTextures: [{ id: "basic" }]
     };
@@ -95,7 +96,7 @@ describe("handleTrailSaveResponse", () => {
       setUserHint,
       setTrailHint,
       buildTrailHint,
-      normalizeTrails,
+      mergeTrailCatalog,
       syncUnlockablesCatalog,
       syncIconCatalog,
       syncPipeTextureCatalog,
@@ -108,6 +109,7 @@ describe("handleTrailSaveResponse", () => {
     expect(setNetUser).toHaveBeenCalledWith(res.user);
     expect(net.user?.bustercoins).toBe(20);
     expect(net.trails).toEqual(res.trails);
+    expect(mergeTrailCatalog).toHaveBeenCalledWith(res.trails, { current: initialTrails });
     expect(syncUnlockablesCatalog).toHaveBeenCalledWith({ trails: res.trails });
     expect(syncIconCatalog).toHaveBeenCalledWith(res.icons);
     expect(syncPipeTextureCatalog).toHaveBeenCalledWith(res.pipeTextures);
@@ -144,7 +146,7 @@ describe("handleTrailSaveResponse", () => {
       setUserHint,
       setTrailHint,
       buildTrailHint,
-      normalizeTrails: vi.fn(),
+      mergeTrailCatalog: vi.fn(),
       syncUnlockablesCatalog: vi.fn(),
       syncIconCatalog: vi.fn(),
       syncPipeTextureCatalog: vi.fn(),
@@ -189,7 +191,7 @@ describe("handleTrailSaveResponse", () => {
       setUserHint,
       setTrailHint,
       buildTrailHint,
-      normalizeTrails: vi.fn(),
+      mergeTrailCatalog: vi.fn(),
       syncUnlockablesCatalog: vi.fn(),
       syncIconCatalog: vi.fn(),
       syncPipeTextureCatalog: vi.fn(),

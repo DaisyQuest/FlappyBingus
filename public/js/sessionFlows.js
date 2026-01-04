@@ -8,7 +8,7 @@ export function createSessionFlows({
   formatWorldwideRuns,
   net,
   setNetUser,
-  normalizeTrails,
+  mergeTrailCatalog,
   syncUnlockablesCatalog,
   syncIconCatalog,
   syncPipeTextureCatalog,
@@ -52,7 +52,7 @@ export function createSessionFlows({
     } else {
       net.online = true;
       setNetUser(me.user || null);
-      net.trails = normalizeTrails(me.trails ?? net.trails, { allowEmpty: true });
+      net.trails = mergeTrailCatalog(me.trails, { current: net.trails });
       syncUnlockablesCatalog({ trails: net.trails });
       syncIconCatalog(me.icons || net.icons);
       syncPipeTextureCatalog(me.pipeTextures || net.pipeTextures);
@@ -123,7 +123,7 @@ export function createSessionFlows({
     if (res.ok) {
       net.online = true;
       setNetUser(res.user);
-      net.trails = normalizeTrails(res.trails ?? net.trails, { allowEmpty: true });
+      net.trails = mergeTrailCatalog(res.trails, { current: net.trails });
       syncUnlockablesCatalog({ trails: net.trails });
       syncUnlockablesCatalog({ trails: net.trails });
       syncIconCatalog(res.icons || net.icons);

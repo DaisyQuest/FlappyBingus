@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { DEFAULT_TRAILS, getUnlockedTrails, normalizeTrails, sortTrailsForDisplay } from "../trailProgression.js";
+import { DEFAULT_TRAILS, getUnlockedTrails, mergeTrailCatalog, normalizeTrails, sortTrailsForDisplay } from "../trailProgression.js";
 
 describe("trailProgression helpers", () => {
   it("normalizes missing lists to defaults", () => {
@@ -11,6 +11,53 @@ describe("trailProgression helpers", () => {
   it("allows empty trail catalogs when explicitly requested", () => {
     const result = normalizeTrails([], { allowEmpty: true });
     expect(result).toEqual([]);
+  });
+
+  it("keeps the current catalog when incoming trails are missing", () => {
+    const current = [{ id: "classic" }, { id: "custom" }];
+    const result = mergeTrailCatalog(null, { current });
+    expect(result).toBe(current);
+  });
+
+  it("returns an empty catalog when allowed and the incoming list is empty", () => {
+    const current = [{ id: "classic" }];
+    const result = mergeTrailCatalog([], { current, allowEmpty: true });
+    expect(result).toEqual([]);
+  });
+
+  it("falls back to the cached catalog when the incoming list is empty", () => {
+    const current = [{ id: "classic" }];
+    const result = mergeTrailCatalog([], { current });
+    expect(result).toBe(current);
+  });
+
+  it("preserves cached trails that are missing from incoming updates", () => {
+    const current = [{ id: "classic", name: "Classic" }, { id: "custom", name: "Custom" }];
+    const incoming = [{ id: "classic", name: "Updated Classic" }];
+    const result = mergeTrailCatalog(incoming, { current });
+    expect(result).toEqual([
+      { id: "classic", name: "Updated Classic" },
+      { id: "custom", name: "Custom" }
+    ]);
+  });
+
+  it("returns incoming trails when no cached catalog exists", () => {
+    const incoming = [{ id: "classic" }];
+    const result = mergeTrailCatalog(incoming, { current: [] });
+    expect(result).toEqual(incoming);
+  });
+
+  it("keeps cached fields when incoming trails omit them", () => {
+    const current = [{ id: "classic", unlock: { type: "free" } }];
+    const incoming = [{ id: "classic", name: "Classic" }];
+    const result = mergeTrailCatalog(incoming, { current });
+    expect(result).toEqual([{ id: "classic", unlock: { type: "free" }, name: "Classic" }]);
+  });
+
+  it("defaults to base trails when no current catalog exists", () => {
+    const result = mergeTrailCatalog(null, { current: [] });
+    expect(result).toEqual(DEFAULT_TRAILS);
+    expect(result).not.toBe(DEFAULT_TRAILS);
   });
 
   it("unlocks record-holder trails only when eligible", () => {

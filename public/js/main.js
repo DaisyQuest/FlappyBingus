@@ -121,7 +121,7 @@ import { TrailPreview } from "./trailPreview.js";
 import { normalizeTrailSelection } from "./trailSelectUtils.js";
 import { setTrailStyleOverrides } from "./trailStyles.js";
 import { buildTrailHint, GUEST_TRAIL_HINT_TEXT } from "./trailHint.js";
-import { DEFAULT_TRAILS, normalizeTrails, sortTrailsForDisplay } from "./trailProgression.js";
+import { DEFAULT_TRAILS, mergeTrailCatalog, sortTrailsForDisplay } from "./trailProgression.js";
 import { createTrailMenuStateProvider } from "./trailMenuState.js";
 import { createIconMenuStateProvider } from "./iconMenuState.js";
 import { computePipeColor } from "./pipeColors.js";
@@ -1306,7 +1306,7 @@ async function confirmPendingPurchase() {
 
   net.online = true;
   if (res.user) setNetUser(res.user);
-  if (res.trails) net.trails = normalizeTrails(res.trails, { allowEmpty: true });
+  if (res.trails) net.trails = mergeTrailCatalog(res.trails, { current: net.trails });
   if (res.icons) syncIconCatalog(res.icons);
   if (res.pipeTextures) syncPipeTextureCatalog(res.pipeTextures);
   syncUnlockablesCatalog({ trails: net.trails });
@@ -1496,7 +1496,7 @@ const { refreshProfileAndHighscores, recoverSession, registerUser } = createSess
   formatWorldwideRuns,
   net,
   setNetUser,
-  normalizeTrails,
+  mergeTrailCatalog,
   syncUnlockablesCatalog,
   syncIconCatalog,
   syncPipeTextureCatalog,
@@ -1542,7 +1542,7 @@ async function ensureLoggedInForSave() {
     onSuccess: (res) => {
       net.online = true;
       setNetUser(res.user);
-      net.trails = normalizeTrails(res.trails ?? net.trails, { allowEmpty: true });
+      net.trails = mergeTrailCatalog(res.trails, { current: net.trails });
       syncUnlockablesCatalog({ trails: net.trails });
       syncIconCatalog(res.icons || net.icons);
       syncPipeTextureCatalog(res.pipeTextures || net.pipeTextures);
@@ -1581,7 +1581,7 @@ createTrailMenuHandlers({
   setNetUser,
   setUserHint,
   buildTrailHint,
-  normalizeTrails,
+  mergeTrailCatalog,
   syncUnlockablesCatalog,
   syncIconCatalog,
   syncPipeTextureCatalog,
@@ -1654,7 +1654,7 @@ createIconMenuHandlers({
   apiSetIcon,
   classifyIconSaveResponse,
   setNetUser,
-  normalizeTrails,
+  mergeTrailCatalog,
   syncUnlockablesCatalog,
   syncIconCatalog,
   syncPipeTextureCatalog,
@@ -2032,7 +2032,7 @@ async function onGameOver(finalScore) {
     if (res && res.ok && res.user) {
       net.online = true;
       setNetUser(res.user);
-      net.trails = normalizeTrails(res.trails ?? net.trails, { allowEmpty: true });
+      net.trails = mergeTrailCatalog(res.trails, { current: net.trails });
       syncUnlockablesCatalog({ trails: net.trails });
       syncIconCatalog(res.icons || net.icons);
       syncPipeTextureCatalog(res.pipeTextures || net.pipeTextures);
