@@ -15,6 +15,11 @@ describe("unlockables page helpers", () => {
     expect(wantsUnlockablesHtml({ acceptHeader: "text/html,application/xhtml+xml" })).toBe(true);
   });
 
+  it("treats format parameters case-insensitively", () => {
+    expect(wantsUnlockablesHtml({ formatParam: "HTML" })).toBe(true);
+    expect(wantsUnlockablesHtml({ formatParam: "Json" })).toBe(false);
+  });
+
   it("renders sorted, escaped unlockables cards", () => {
     const html = renderUnlockablesPage({
       unlockables: [...baseUnlockables, { id: "<weird>", name: "<Script>", type: "trail", unlock: { label: "<Unlock>" } }],
@@ -32,6 +37,35 @@ describe("unlockables page helpers", () => {
     expect(html).toContain("&lt;Script&gt;");
     expect(html).toContain("data-unlockable-id=\"&lt;weird&gt;\"");
     expect(html).toContain("\\u003c");
+  });
+
+  it("uses default values when fields are missing", () => {
+    const html = renderUnlockablesPage({
+      unlockables: [{ id: "", name: "", type: "", unlock: {} }],
+      generatedAt: "2024-01-02T00:00:00.000Z"
+    });
+
+    expect(html).toContain("Generated at 2024-01-02T00:00:00.000Z");
+    expect(html).toContain("Unlockable");
+    expect(html).toContain("unknown");
+  });
+
+  it("serializes icons and pipe textures for the client script", () => {
+    const html = renderUnlockablesPage({
+      unlockables: baseUnlockables,
+      icons: [{ id: "<icon>" }],
+      pipeTextures: [{ id: "<pipe>" }]
+    });
+
+    expect(html).toContain("const icons =");
+    expect(html).toContain("const pipeTextures =");
+    expect(html).toContain("\\u003cicon\\u003e");
+    expect(html).toContain("\\u003cpipe\\u003e");
+  });
+
+  it("handles non-array unlockable inputs safely", () => {
+    const html = renderUnlockablesPage({ unlockables: "bad" });
+    expect(html).toContain("No unlockables are available");
   });
 
   it("renders an empty state when no unlockables are available", () => {

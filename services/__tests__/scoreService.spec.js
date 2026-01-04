@@ -93,6 +93,46 @@ describe("scoreService", () => {
     expect(deps.dataStore.recordScore).not.toHaveBeenCalled();
   });
 
+  it("accepts numeric score strings and clamps them", async () => {
+    const user = { key: "u", username: "Clamp" };
+    const updated = { ...user, bestScore: 7, achievements: { unlocked: {}, progress: {} } };
+    const clampScore = vi.fn(() => 7);
+    deps.dataStore.recordScore.mockResolvedValue(updated);
+
+    const svc = createScoreService({ ...deps, clampScore });
+    const res = await svc.submitScore(user, "12");
+
+    expect(clampScore).toHaveBeenCalledWith(12);
+    expect(deps.dataStore.recordScore).toHaveBeenCalledWith(
+      user,
+      7,
+      expect.objectContaining({ bustercoinsEarned: 0 })
+    );
+    expect(res.ok).toBe(true);
+  });
+
+  it("rejects non-finite bustercoin payloads", async () => {
+    const svc = createScoreService(deps);
+    const res = await svc.submitScore({ key: "u" }, 10, "bad");
+    expect(res).toEqual({ ok: false, status: 400, error: "invalid_bustercoins" });
+  });
+
+  it("treats null bustercoin payloads as zero", async () => {
+    const user = { key: "u", username: "Coinless" };
+    const updated = { ...user, bestScore: 10, achievements: { unlocked: {}, progress: {} } };
+    deps.dataStore.recordScore.mockResolvedValue(updated);
+
+    const svc = createScoreService(deps);
+    const res = await svc.submitScore(user, 10, null);
+
+    expect(res.ok).toBe(true);
+    expect(deps.dataStore.recordScore).toHaveBeenCalledWith(
+      user,
+      10,
+      expect.objectContaining({ bustercoinsEarned: 0 })
+    );
+  });
+
   it("clamps, persists, and returns user + highscores", async () => {
     const user = { key: "u", username: "User" };
     const updated = { ...user, bestScore: 123, totalScore: 200, achievements: { unlocked: {}, progress: {} } };
@@ -141,6 +181,26 @@ describe("scoreService", () => {
     );
   });
 
+  it("accepts unlockable providers as functions", async () => {
+    const user = { key: "u", username: "Dyn" };
+    const updated = { ...user, bestScore: 2, achievements: { unlocked: {}, progress: {} } };
+    const unlockables = vi.fn(() => [{ id: "basic", type: "pipe_texture", unlock: { type: "free" } }]);
+    const syncUnlockablesState = vi.fn(() => ({ state: { unlocked: {} }, unlocked: [] }));
+    const localDeps = buildDeps({ unlockables, syncUnlockablesState });
+    localDeps.dataStore.recordScore.mockResolvedValue(updated);
+
+    const svc = createScoreService(localDeps);
+    const res = await svc.submitScore(user, 2);
+
+    expect(res.ok).toBe(true);
+    expect(unlockables).toHaveBeenCalled();
+    expect(syncUnlockablesState).toHaveBeenCalledWith(
+      undefined,
+      expect.any(Array),
+      expect.objectContaining({ bestScore: 2 })
+    );
+  });
+
   it("marks the submitting user as the record holder when appropriate", async () => {
     const user = { key: "u", username: "champ" };
     const updated = { ...user, bestScore: 9000, achievements: { unlocked: {}, progress: {} } };
@@ -179,6 +239,27 @@ describe("scoreService", () => {
     expect(negative.ok).toBe(false);
     expect(negative.status).toBe(400);
     expect(negative.error).toBe("invalid_bustercoins");
+  });
+
+  it("returns dynamic trail and icon catalogs when provided as functions", async () => {
+    const user = { key: "u", username: "DynCatalog" };
+    const updated = { ...user, bestScore: 10, achievements: { unlocked: {}, progress: {} } };
+    const trails = vi.fn(() => [{ id: "t1" }]);
+    const icons = vi.fn(() => [{ id: "i1" }]);
+    const pipeTextures = vi.fn(() => [{ id: "p1" }]);
+    const localDeps = buildDeps({ trails, icons, pipeTextures });
+    localDeps.dataStore.recordScore.mockResolvedValue(updated);
+
+    const svc = createScoreService(localDeps);
+    const res = await svc.submitScore(user, 10);
+
+    expect(res.ok).toBe(true);
+    expect(trails).toHaveBeenCalled();
+    expect(icons).toHaveBeenCalled();
+    expect(pipeTextures).toHaveBeenCalled();
+    expect(res.body.trails).toEqual([{ id: "t1" }]);
+    expect(res.body.icons).toEqual([{ id: "i1" }]);
+    expect(res.body.pipeTextures).toEqual([{ id: "p1" }]);
   });
 
   it("rejects invalid run metadata payloads", async () => {
@@ -234,6 +315,40 @@ describe("scoreService", () => {
     expect(res.body.achievements).toEqual({ unlocked: ["b"], definitions: ["defs"], state: updated.achievements });
   });
 
+  it("normalizes missing achievements before evaluation", async () => {
+    const user = { key: "u", username: "norm" };
+    const updated = { ...user, bestScore: 10, achievements: { unlocked: {}, progress: {} } };
+    const normalizeAchievements = vi.fn(() => ({ unlocked: { a: 1 }, progress: {} }));
+    const evaluateAchievements = vi.fn(() => ({ state: { unlocked: { a: 1 }, progress: {} }, unlocked: [] }));
+    const localDeps = buildDeps({ normalizeAchievements, evaluateAchievements });
+    localDeps.dataStore.recordScore.mockResolvedValue(updated);
+
+    const svc = createScoreService(localDeps);
+    const res = await svc.submitScore(user, 10);
+
+    expect(res.ok).toBe(true);
+    expect(normalizeAchievements).toHaveBeenCalledWith(undefined);
+    expect(evaluateAchievements).toHaveBeenCalledWith(expect.objectContaining({ previous: { unlocked: { a: 1 }, progress: {} } }));
+  });
+
+  it("passes unlockable state through to recordScore", async () => {
+    const user = { key: "u", username: "unlock" };
+    const updated = { ...user, bestScore: 10, achievements: { unlocked: {}, progress: {} } };
+    const syncUnlockablesState = vi.fn(() => ({ state: null, unlocked: [] }));
+    const localDeps = buildDeps({ syncUnlockablesState });
+    localDeps.dataStore.recordScore.mockResolvedValue(updated);
+
+    const svc = createScoreService(localDeps);
+    const res = await svc.submitScore(user, 10);
+
+    expect(res.ok).toBe(true);
+    expect(localDeps.dataStore.recordScore).toHaveBeenCalledWith(
+      user,
+      10,
+      expect.objectContaining({ unlockables: null })
+    );
+  });
+
   it("maps recordScore failures to service errors", async () => {
     const user = { key: "u", username: "User" };
     const error = new Error("boom");
@@ -245,6 +360,30 @@ describe("scoreService", () => {
     expect(res.ok).toBe(false);
     expect(res.status).toBe(503);
     expect(res.error).toBe("score_persist_failed");
+  });
+
+  it("returns unauthorized when recordScore reports missing user keys", async () => {
+    const user = { key: "u", username: "nope" };
+    deps.dataStore.recordScore.mockRejectedValue({ code: "user_key_required" });
+
+    const svc = createScoreService(deps);
+    const res = await svc.submitScore(user, 5);
+
+    expect(res).toEqual({ ok: false, status: 401, error: "unauthorized" });
+  });
+
+  it("treats empty highscores as non-record holder", async () => {
+    const user = { key: "u", username: "none" };
+    const updated = { ...user, bestScore: 5, achievements: { unlocked: {}, progress: {} } };
+    deps.dataStore.recordScore.mockResolvedValue(updated);
+    deps.listHighscores = vi.fn(async () => []);
+
+    const svc = createScoreService(deps);
+    const res = await svc.submitScore(user, 5);
+
+    expect(res.ok).toBe(true);
+    expect(res.body.user.recordHolder).toBe(false);
+    expect(deps.ensureUserSchema).toHaveBeenCalledWith(updated, { recordHolder: false });
   });
 });
 
