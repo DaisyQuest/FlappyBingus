@@ -53,8 +53,12 @@ describe("trail menu handlers", () => {
       applyIconSelection: vi.fn(),
       getAuthStatusFromResponse: vi.fn(),
       recoverSession: vi.fn(),
-      sortTrailsForDisplay: vi.fn().mockReturnValue([]),
-      computeUnlockedTrailSet: vi.fn().mockReturnValue(new Set()),
+      getTrailMenuState: vi.fn().mockReturnValue({
+        orderedTrails: [],
+        unlocked: new Set(),
+        bestScore: 0,
+        isRecordHolder: false
+      }),
       describeTrailLock: vi.fn(),
       trailHoverText: vi.fn(),
       DEFAULT_TRAIL_HINT: "Pick a trail",
@@ -107,8 +111,12 @@ describe("trail menu handlers", () => {
       applyIconSelection: vi.fn(),
       getAuthStatusFromResponse: vi.fn(),
       recoverSession: vi.fn(),
-      sortTrailsForDisplay: vi.fn().mockReturnValue([]),
-      computeUnlockedTrailSet: vi.fn().mockReturnValue(new Set()),
+      getTrailMenuState: vi.fn().mockReturnValue({
+        orderedTrails: [],
+        unlocked: new Set(),
+        bestScore: 0,
+        isRecordHolder: false
+      }),
       describeTrailLock: vi.fn(),
       trailHoverText: vi.fn(),
       DEFAULT_TRAIL_HINT: "Pick a trail",
@@ -158,8 +166,12 @@ describe("trail menu handlers", () => {
       applyIconSelection: vi.fn(),
       getAuthStatusFromResponse: vi.fn(),
       recoverSession: vi.fn(),
-      sortTrailsForDisplay: vi.fn().mockReturnValue([{ id: "locked", name: "Locked" }]),
-      computeUnlockedTrailSet: vi.fn().mockReturnValue(new Set()),
+      getTrailMenuState: vi.fn().mockReturnValue({
+        orderedTrails: [{ id: "locked", name: "Locked" }],
+        unlocked: new Set(),
+        bestScore: 0,
+        isRecordHolder: false
+      }),
       describeTrailLock,
       trailHoverText: vi.fn(),
       DEFAULT_TRAIL_HINT: "Pick a trail",
@@ -213,8 +225,12 @@ describe("trail menu handlers", () => {
       applyIconSelection: vi.fn(),
       getAuthStatusFromResponse: vi.fn(),
       recoverSession: vi.fn(),
-      sortTrailsForDisplay: vi.fn().mockReturnValue([]),
-      computeUnlockedTrailSet: vi.fn().mockReturnValue(new Set()),
+      getTrailMenuState: vi.fn().mockReturnValue({
+        orderedTrails: [],
+        unlocked: new Set(),
+        bestScore: 0,
+        isRecordHolder: false
+      }),
       describeTrailLock: vi.fn(),
       trailHoverText: vi.fn(),
       DEFAULT_TRAIL_HINT: "Pick a trail",
@@ -271,8 +287,12 @@ describe("trail menu handlers", () => {
       applyIconSelection: vi.fn(),
       getAuthStatusFromResponse: vi.fn(),
       recoverSession: vi.fn(),
-      sortTrailsForDisplay: vi.fn().mockReturnValue(net.trails),
-      computeUnlockedTrailSet: vi.fn().mockReturnValue(new Set(["spark"])),
+      getTrailMenuState: vi.fn().mockReturnValue({
+        orderedTrails: net.trails,
+        unlocked: new Set(["spark"]),
+        bestScore: 10,
+        isRecordHolder: false
+      }),
       describeTrailLock: vi.fn(),
       trailHoverText: vi.fn(),
       DEFAULT_TRAIL_HINT: "Pick a trail",
@@ -337,8 +357,12 @@ describe("trail menu handlers", () => {
       applyIconSelection: vi.fn(),
       getAuthStatusFromResponse: vi.fn(),
       recoverSession: vi.fn(),
-      sortTrailsForDisplay: vi.fn().mockReturnValue(net.trails),
-      computeUnlockedTrailSet: vi.fn().mockReturnValue(new Set()),
+      getTrailMenuState: vi.fn().mockReturnValue({
+        orderedTrails: net.trails,
+        unlocked: new Set(),
+        bestScore: 1,
+        isRecordHolder: false
+      }),
       describeTrailLock: vi.fn(),
       trailHoverText: vi.fn(),
       DEFAULT_TRAIL_HINT: "Pick a trail",
@@ -400,8 +424,12 @@ describe("trail menu handlers", () => {
       applyIconSelection: vi.fn(),
       getAuthStatusFromResponse: vi.fn(),
       recoverSession: vi.fn(),
-      sortTrailsForDisplay: vi.fn().mockReturnValue(net.trails),
-      computeUnlockedTrailSet: vi.fn().mockReturnValue(new Set()),
+      getTrailMenuState: vi.fn().mockReturnValue({
+        orderedTrails: net.trails,
+        unlocked: new Set(),
+        bestScore: 0,
+        isRecordHolder: false
+      }),
       describeTrailLock,
       trailHoverText: vi.fn(),
       DEFAULT_TRAIL_HINT: "Pick a trail",
@@ -458,8 +486,12 @@ describe("trail menu handlers", () => {
       applyIconSelection: vi.fn(),
       getAuthStatusFromResponse: vi.fn(),
       recoverSession: vi.fn(),
-      sortTrailsForDisplay: vi.fn().mockReturnValue(net.trails),
-      computeUnlockedTrailSet: vi.fn().mockReturnValue(new Set(["spark"])),
+      getTrailMenuState: vi.fn().mockReturnValue({
+        orderedTrails: net.trails,
+        unlocked: new Set(["spark"]),
+        bestScore: 0,
+        isRecordHolder: false
+      }),
       describeTrailLock: vi.fn().mockReturnValue("Locked"),
       trailHoverText,
       DEFAULT_TRAIL_HINT: "Pick a trail",
@@ -518,8 +550,12 @@ describe("trail menu handlers", () => {
       applyIconSelection: vi.fn(),
       getAuthStatusFromResponse: vi.fn(),
       recoverSession: vi.fn(),
-      sortTrailsForDisplay: vi.fn().mockReturnValue(net.trails),
-      computeUnlockedTrailSet: vi.fn().mockReturnValue(new Set(["spark"])),
+      getTrailMenuState: vi.fn().mockReturnValue({
+        orderedTrails: net.trails,
+        unlocked: new Set(["spark"]),
+        bestScore: 0,
+        isRecordHolder: false
+      }),
       describeTrailLock: vi.fn(),
       trailHoverText: vi.fn(),
       DEFAULT_TRAIL_HINT: "Pick a trail",
