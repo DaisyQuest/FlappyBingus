@@ -164,4 +164,79 @@ describe("replayMp4Pipeline", () => {
     expect(status.entry.status).toBe("failed");
     expect(status.entry.error).toBe("encode_failed");
   });
+
+  it("executes jobs enqueued before start and schedules with setImmediate", async () => {
+    const queue = createInMemoryRenderQueue();
+    const calls = [];
+    const handler = async (job) => {
+      calls.push(job.id);
+    };
+
+    queue.enqueue({ id: "first" });
+    queue.enqueue({ id: "second" });
+    expect(queue.size()).toBe(2);
+
+    queue.start(handler);
+    expect(calls).toEqual([]);
+
+    await new Promise((resolve) => setImmediate(resolve));
+    expect(calls).toEqual(["first"]);
+    expect(queue.size()).toBe(1);
+
+    await new Promise((resolve) => setImmediate(resolve));
+    await queue.drain();
+
+    expect(calls).toEqual(["first", "second"]);
+    expect(queue.size()).toBe(0);
+  });
+
+  it("clears handler and drops queued jobs on stop", async () => {
+    const queue = createInMemoryRenderQueue();
+    const calls = [];
+    const handler = async (job) => {
+      calls.push(job.id);
+    };
+
+    queue.start(handler);
+    queue.enqueue({ id: "job" });
+    queue.stop();
+
+    await new Promise((resolve) => setImmediate(resolve));
+
+    expect(calls).toEqual([]);
+    expect(queue.size()).toBe(0);
+  });
+
+  it("waits to drain while running and resolves immediately when empty", async () => {
+    const queue = createInMemoryRenderQueue();
+    const calls = [];
+    let releaseJob;
+    const handler = async (job) => {
+      calls.push(job.id);
+      await new Promise((resolve) => {
+        releaseJob = resolve;
+      });
+    };
+
+    queue.start(handler);
+    queue.enqueue({ id: "delayed" });
+
+    await new Promise((resolve) => setImmediate(resolve));
+
+    let drained = false;
+    const draining = queue.drain().then(() => {
+      drained = true;
+    });
+
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(drained).toBe(false);
+
+    releaseJob();
+    await draining;
+    expect(drained).toBe(true);
+    expect(calls).toEqual(["delayed"]);
+
+    await queue.drain();
+    expect(queue.size()).toBe(0);
+  });
 });
