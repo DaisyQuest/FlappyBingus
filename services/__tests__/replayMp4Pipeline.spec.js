@@ -164,4 +164,51 @@ describe("replayMp4Pipeline", () => {
     expect(status.entry.status).toBe("failed");
     expect(status.entry.error).toBe("encode_failed");
   });
+
+  it("returns errors for getStatus with invalid profiles or missing replays", () => {
+    const queue = createInMemoryRenderQueue();
+    const pipeline = createReplayMp4Pipeline({ queue });
+
+    const invalidProfile = pipeline.getStatus("PlayerOne", { profileId: "nope" });
+    expect(invalidProfile.ok).toBe(false);
+    expect(invalidProfile.error).toBe("invalid_profile");
+
+    const missing = pipeline.getStatus("UnknownReplay");
+    expect(missing.ok).toBe(false);
+    expect(missing.error).toBe("not_found");
+  });
+
+  it("returns not_found for getMp4 when entries are not completed", () => {
+    const queue = createInMemoryRenderQueue();
+    const pipeline = createReplayMp4Pipeline({ queue });
+    const replayJson = makeReplayJson(1);
+
+    const queued = pipeline.requestRender({ replayId: "PlayerOne", replayJson });
+    expect(queued.ok).toBe(true);
+    expect(queued.entry.status).toBe("queued");
+
+    const queuedMp4 = pipeline.getMp4("PlayerOne");
+    expect(queuedMp4.ok).toBe(false);
+    expect(queuedMp4.error).toBe("not_found");
+
+    const runningEntry = pipeline.__testables.store.upsert({
+      ...queued.entry,
+      status: "running"
+    });
+    const runningMp4 = pipeline.getMp4("PlayerOne");
+    expect(runningMp4.ok).toBe(false);
+    expect(runningMp4.error).toBe("not_found");
+    expect(runningEntry.status).toBe("running");
+
+    const failedEntry = pipeline.__testables.store.upsert({
+      ...queued.entry,
+      status: "failed",
+      error: "encode_failed"
+    });
+    const failedMp4 = pipeline.getMp4("PlayerOne");
+    expect(failedMp4.ok).toBe(false);
+    expect(failedMp4.error).toBe("not_found");
+    expect(failedEntry.status).toBe("failed");
+    expect(failedEntry.error).toBe("encode_failed");
+  });
 });
