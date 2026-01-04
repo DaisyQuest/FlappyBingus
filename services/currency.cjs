@@ -1,6 +1,7 @@
 "use strict";
 
 const DEFAULT_CURRENCY_ID = "bustercoin";
+const SUPPORT_CURRENCY_ID = "supportcoin";
 
 const CURRENCY_DEFINITIONS = Object.freeze({
   [DEFAULT_CURRENCY_ID]: {
@@ -8,6 +9,12 @@ const CURRENCY_DEFINITIONS = Object.freeze({
     name: "Bustercoin",
     pluralName: "Bustercoins",
     shortLabel: "BC"
+  },
+  [SUPPORT_CURRENCY_ID]: {
+    id: SUPPORT_CURRENCY_ID,
+    name: "Supportcoin",
+    pluralName: "Supportcoins",
+    shortLabel: "SC"
   }
 });
 
@@ -76,13 +83,24 @@ function debitCurrency(wallet, { currencyId = DEFAULT_CURRENCY_ID, cost = 0 } = 
   return { ok: true, wallet: next, balance: balance - amount };
 }
 
+function creditCurrency(wallet, { currencyId = DEFAULT_CURRENCY_ID, amount = 0 } = {}) {
+  const credit = normalizeCurrencyAmount(amount);
+  const id = normalizeCurrencyId(currencyId);
+  const normalized = normalizeCurrencyWallet(wallet);
+  const balance = getCurrencyBalance(normalized, id);
+  const next = { ...normalized, [id]: balance + credit };
+  return { wallet: next, balance: balance + credit };
+}
+
 module.exports = {
   DEFAULT_CURRENCY_ID,
+  SUPPORT_CURRENCY_ID,
   CURRENCY_DEFINITIONS,
   normalizeCurrencyId,
   normalizeCurrencyAmount,
   normalizeCurrencyWallet,
   getCurrencyDefinition,
   getCurrencyBalance,
-  debitCurrency
+  debitCurrency,
+  creditCurrency
 };

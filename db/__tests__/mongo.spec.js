@@ -42,6 +42,7 @@ const makeCollection = (overrides = {}) => ({
   findOne: vi.fn(),
   findOneAndUpdate: vi.fn(),
   countDocuments: vi.fn(),
+  deleteOne: vi.fn(async () => ({})),
   aggregate: vi.fn(() => ({ toArray: vi.fn(async () => []) })),
   find: vi.fn(() => ({
     sort: vi.fn().mockReturnThis(),
@@ -619,6 +620,93 @@ describe("MongoDataStore mutations and reads", () => {
       { returnDocument: "after" }
     );
     expect(updated).toEqual({ key: "k", ownedUnlockables: ["u1"], currencies: { bustercoin: 5 } });
+  });
+
+  it("records support offers and credits supportcoins", async () => {
+    const { MongoDataStore } = await loadModule();
+    const offers = makeCollection({
+      insertOne: vi.fn(async () => ({ insertedId: "offer-id" }))
+    });
+    const users = makeCollection({
+      findOneAndUpdate: vi.fn(async () => ({ value: { key: "k", currencies: { supportcoin: 3 } } }))
+    });
+    const store = new MongoDataStore({ uri: "mongodb://ok", dbName: "db" });
+    store.ensureConnected = vi.fn();
+    store.supportOffersCollection = () => offers;
+    store.usersCollection = () => users;
+
+    const result = await store.recordSupportOffer({
+      key: "k",
+      username: "User",
+      amount: 3,
+      transactionId: "txn-1",
+      offerId: "offer-1",
+      provider: "cpalead"
+    });
+
+    expect(offers.insertOne).toHaveBeenCalledWith(expect.objectContaining({ transactionId: "txn-1", amount: 3 }));
+    expect(users.findOneAndUpdate).toHaveBeenCalledWith(
+      { key: "k" },
+      {
+        $inc: { "currencies.supportcoin": 3 },
+        $set: expect.objectContaining({ updatedAt: expect.any(Number) })
+      },
+      { returnDocument: "after" }
+    );
+    expect(result.credited).toBe(true);
+    expect(result.user).toEqual({ key: "k", currencies: { supportcoin: 3 } });
+  });
+
+  it("returns duplicate status for repeated support transactions", async () => {
+    const { MongoDataStore } = await loadModule();
+    const offers = makeCollection({
+      insertOne: vi.fn(async () => {
+        const err = new Error("dup");
+        err.code = 11000;
+        throw err;
+      })
+    });
+    const users = makeCollection();
+    const store = new MongoDataStore({ uri: "mongodb://ok", dbName: "db" });
+    store.ensureConnected = vi.fn();
+    store.supportOffersCollection = () => offers;
+    store.usersCollection = () => users;
+
+    const result = await store.recordSupportOffer({ key: "k", amount: 2, transactionId: "dup" });
+
+    expect(result).toEqual({ credited: false, reason: "duplicate" });
+    expect(users.findOneAndUpdate).not.toHaveBeenCalled();
+  });
+
+  it("removes support offers when the user no longer exists", async () => {
+    const { MongoDataStore } = await loadModule();
+    const offers = makeCollection({
+      insertOne: vi.fn(async () => ({ insertedId: "offer-id" })),
+      deleteOne: vi.fn(async () => ({}))
+    });
+    const users = makeCollection({
+      findOneAndUpdate: vi.fn(async () => ({ value: null }))
+    });
+    const store = new MongoDataStore({ uri: "mongodb://ok", dbName: "db" });
+    store.ensureConnected = vi.fn();
+    store.supportOffersCollection = () => offers;
+    store.usersCollection = () => users;
+
+    const result = await store.recordSupportOffer({ key: "k", amount: 1, transactionId: "lost" });
+
+    expect(offers.deleteOne).toHaveBeenCalledWith({ transactionId: "lost" });
+    expect(result).toEqual({ credited: false, reason: "user_not_found" });
+  });
+
+  it("throws when recordSupportOffer is missing required data", async () => {
+    const { MongoDataStore } = await loadModule();
+    const store = new MongoDataStore({ uri: "mongodb://ok", dbName: "db" });
+    await expect(store.recordSupportOffer({ amount: 1, transactionId: "t" })).rejects.toThrow("user_key_required");
+    store.ensureConnected = vi.fn();
+    await expect(store.recordSupportOffer({ key: "k", amount: 0, transactionId: "t" }))
+      .rejects.toThrow("invalid_support_amount");
+    await expect(store.recordSupportOffer({ key: "k", amount: 1, transactionId: "" }))
+      .rejects.toThrow("invalid_support_transaction");
   });
 
   it("throws when recordScore is called without a user key or when the update yields no document", async () => {

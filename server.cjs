@@ -65,6 +65,7 @@ const {
 const { normalizeTrailStyleOverrides } = require("./services/trailStyleOverrides.cjs");
 const {
   DEFAULT_CURRENCY_ID,
+  SUPPORT_CURRENCY_ID,
   normalizeCurrencyWallet,
   getCurrencyBalance,
   debitCurrency
@@ -99,8 +100,12 @@ function _setDataStoreForTests(mock) {
     recordBestRun: async () => {
       throw new Error("recordBestRun_not_mocked");
     },
+    recordSupportOffer: async () => {
+      throw new Error("recordSupportOffer_not_mocked");
+    },
     getBestRunByUsername: async () => null,
     listBestRuns: async () => [],
+    getUserByKey: async () => null,
     ...mock
   };
   dataStore = safeStore;
@@ -1361,6 +1366,100 @@ async function readJsonBody(req, limitBytes = 64 * 1024) {
   return JSON.parse(text);
 }
 
+async function readSupportOfferBody(req, limitBytes = 32 * 1024) {
+  let total = 0;
+  const chunks = [];
+  for await (const chunk of req) {
+    total += chunk.length;
+    if (total > limitBytes) throw new Error("body_too_large");
+    chunks.push(chunk);
+  }
+  const text = Buffer.concat(chunks).toString("utf8").trim();
+  if (!text) return {};
+  try {
+    return JSON.parse(text);
+  } catch {
+    return Object.fromEntries(new URLSearchParams(text));
+  }
+}
+
+function normalizeSupportOfferPayload(payload = {}) {
+  const src = payload && typeof payload === "object" ? payload : {};
+  const username = normalizeUsername(
+    src.username ??
+      src.user ??
+      src.subid ??
+      src.sub_id ??
+      src.userid ??
+      src.uid ??
+      src.player
+  );
+  const key = String(
+    src.key ??
+      src.user_key ??
+      src.userKey ??
+      ""
+  ).trim();
+  const transactionId = String(
+    src.transactionId ??
+      src.transaction_id ??
+      src.txid ??
+      src.transid ??
+      src.leadid ??
+      src.lead_id ??
+      src.clickid ??
+      src.click_id ??
+      ""
+  ).trim();
+  const offerId = String(
+    src.offerId ??
+      src.offer_id ??
+      src.campaign_id ??
+      src.campaignid ??
+      src.offer ??
+      ""
+  ).trim();
+  const amount = Number(
+    src.amount ??
+      src.reward ??
+      src.credits ??
+      src.coins ??
+      src.payout ??
+      src.supportcoins ??
+      0
+  );
+  const status =
+    src.status ??
+    src.approved ??
+    src.completed ??
+    src.complete ??
+    src.success ??
+    src.state ??
+    src.event ??
+    null;
+  return { username, key, transactionId, offerId, amount, status };
+}
+
+function isSupportOfferApproved(status) {
+  if (status === undefined || status === null || status === "") return true;
+  if (typeof status === "boolean") return status;
+  const normalized = String(status).trim().toLowerCase();
+  if (!normalized) return true;
+  if (normalized === "1") return true;
+  if (normalized === "true") return true;
+  if (normalized === "yes") return true;
+  if (["approved", "complete", "completed", "credited", "success", "ok"].includes(normalized)) return true;
+  return false;
+}
+
+function readSupportOfferToken(req, payload) {
+  if (!req || !req.headers) return "";
+  const headerToken = String(req.headers["x-support-token"] || "").trim();
+  if (headerToken) return headerToken;
+  const payloadToken = String(payload?.token ?? payload?.secret ?? payload?.auth ?? "").trim();
+  return payloadToken;
+}
+
 function escapeHtml(s) {
   return String(s)
     .replaceAll("&", "&amp;")
@@ -1929,6 +2028,70 @@ async function route(req, res) {
       pipeTextures: catalog.pipeTextures,
       achievements: buildAchievementsPayload(u, [], getAchievementDefinitions()),
       ...buildSessionPayload(u.username)
+    });
+    return;
+  }
+
+  // Support offer completion (CPAlead postback)
+  if (pathname === "/api/support/offer-complete" && (req.method === "GET" || req.method === "POST")) {
+    if (rateLimit(req, res, "/api/support/offer-complete")) return;
+    if (!(await ensureDatabase(res))) return;
+
+    const queryPayload = Object.fromEntries(url.searchParams.entries());
+    let bodyPayload = {};
+    if (req.method === "POST") {
+      try {
+        bodyPayload = await readSupportOfferBody(req);
+      } catch (err) {
+        if (err?.message === "body_too_large") {
+          return sendJson(res, 413, { ok: false, error: "payload_too_large" });
+        }
+        return badRequest(res, "invalid_payload");
+      }
+    }
+
+    const payload = { ...queryPayload, ...bodyPayload };
+    const expectedToken = process.env.SUPPORT_REWARD_TOKEN;
+    if (expectedToken) {
+      const provided = readSupportOfferToken(req, payload);
+      if (!provided || provided !== expectedToken) return unauthorized(res);
+    }
+
+    const normalized = normalizeSupportOfferPayload(payload);
+    const resolvedKey = normalized.key || keyForUsername(normalized.username);
+    if (!resolvedKey) return badRequest(res, "invalid_username");
+    if (!normalized.transactionId) return badRequest(res, "invalid_transaction");
+    const amount = Number.isFinite(normalized.amount) ? Math.max(0, Math.floor(normalized.amount)) : 0;
+    if (!amount) return badRequest(res, "invalid_reward");
+    if (!isSupportOfferApproved(normalized.status)) {
+      return sendJson(res, 200, { ok: true, credited: false, skipped: "not_approved" });
+    }
+
+    const user = await dataStore.getUserByKey(resolvedKey);
+    if (!user) return sendJson(res, 404, { ok: false, error: "unknown_user" });
+
+    const result = await dataStore.recordSupportOffer({
+      key: user.key,
+      username: user.username,
+      amount,
+      transactionId: normalized.transactionId,
+      offerId: normalized.offerId,
+      provider: "cpalead",
+      rawPayload: payload
+    });
+
+    if (result?.user) {
+      ensureUserSchema(result.user, { recordHolder: false });
+    }
+    const supportcoins = result?.user
+      ? getCurrencyBalance(result.user.currencies, SUPPORT_CURRENCY_ID)
+      : null;
+
+    sendJson(res, 200, {
+      ok: true,
+      credited: Boolean(result?.credited),
+      supportcoins,
+      reason: result?.reason || null
     });
     return;
   }
@@ -2935,6 +3098,9 @@ module.exports = {
     base64UrlEncode,
     base64UrlDecode,
     buildSessionPayload,
+    normalizeSupportOfferPayload,
+    isSupportOfferApproved,
+    readSupportOfferToken,
     _setSessionSecretForTests(secret) {
       SESSION_SECRET = secret;
     }

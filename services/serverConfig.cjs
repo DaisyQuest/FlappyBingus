@@ -14,6 +14,7 @@ const DEFAULT_RATE_LIMIT_CONFIG = Object.freeze({
   "/api/cosmetics/icon": { limit: 30, windowMs: 60_000 },
   "/api/cosmetics/pipe_texture": { limit: 30, windowMs: 60_000 },
   "/api/shop/purchase": { limit: 30, windowMs: 60_000 },
+  "/api/support/offer-complete": { limit: 60, windowMs: 60_000 },
   "/api/binds": { limit: 30, windowMs: 60_000 },
   "/api/settings": { limit: 30, windowMs: 60_000 },
   "/api/highscores": { limit: 90, windowMs: 60_000 },

@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
   DEFAULT_CURRENCY_ID,
+  SUPPORT_CURRENCY_ID,
+  creditCurrency,
   debitCurrency,
   getCurrencyBalance,
   getCurrencyDefinition,
@@ -23,6 +25,12 @@ describe("currency helpers", () => {
     expect(meta.shortLabel).toBe("NEBULA");
   });
 
+  it("exposes the supportcoin currency metadata", () => {
+    const support = getCurrencyDefinition(SUPPORT_CURRENCY_ID);
+    expect(support.id).toBe(SUPPORT_CURRENCY_ID);
+    expect(support.shortLabel).toBe("SC");
+  });
+
   it("normalizes wallets with fallbacks", () => {
     const wallet = normalizeCurrencyWallet({ bustercoin: 3 }, { bustercoin: 2, tokens: 5 });
     expect(wallet).toEqual({ bustercoin: 3, tokens: 5 });
@@ -36,5 +44,11 @@ describe("currency helpers", () => {
     const ok = debitCurrency({ bustercoin: 5 }, { currencyId: "bustercoin", cost: 2 });
     expect(ok.ok).toBe(true);
     expect(ok.wallet.bustercoin).toBe(3);
+  });
+
+  it("credits currencies by id", () => {
+    const credit = creditCurrency({ supportcoin: 2 }, { currencyId: SUPPORT_CURRENCY_ID, amount: 3.7 });
+    expect(credit.wallet.supportcoin).toBe(5);
+    expect(credit.balance).toBe(5);
   });
 });
