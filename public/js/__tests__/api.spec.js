@@ -64,18 +64,13 @@ describe("api helpers", () => {
     });
   });
 
-  it("persists and clears session tokens from responses", async () => {
+  it("persists session tokens and usernames from responses", async () => {
     const fetchMock = vi
       .fn()
       .mockResolvedValueOnce({
         ok: true,
         status: 200,
         json: () => Promise.resolve({ ok: true, sessionToken: "fresh-token", user: { username: "bingus" } })
-      })
-      .mockResolvedValueOnce({
-        ok: false,
-        status: 401,
-        json: () => Promise.resolve({ ok: false, error: "unauthorized" })
       });
     // eslint-disable-next-line no-undef
     global.fetch = fetchMock;
@@ -101,10 +96,6 @@ describe("api helpers", () => {
     await apiGetMe();
     expect(store.token).toBe("fresh-token");
     expect(store.username).toBe("bingus");
-
-    await apiGetMe();
-    expect(store.token).toBeNull();
-    expect(store.username).toBeNull();
   });
 
   it("stops calling fetch when the client limit is exceeded", async () => {
@@ -305,5 +296,180 @@ describe("api helpers", () => {
       body: JSON.stringify({ username: "bingus" })
     });
     expect(fetchMock).toHaveBeenNthCalledWith(3, "/api/me", expect.any(Object));
+  });
+
+  it("clears stale sessions when /api/me is unauthorized without recovery options", async () => {
+    const fetchMock = vi.fn(() =>
+      Promise.resolve({
+        ok: false,
+        status: 401,
+        json: () => Promise.resolve({ ok: false, error: "unauthorized" })
+      })
+    );
+    // eslint-disable-next-line no-undef
+    global.fetch = fetchMock;
+    const store = { token: "stale-token", username: null };
+    // eslint-disable-next-line no-undef
+    global.localStorage = {
+      getItem: vi.fn((key) => {
+        if (key === "bingus_session_token") return store.token;
+        if (key === "bingus_username") return store.username;
+        return null;
+      }),
+      setItem: vi.fn(),
+      removeItem: vi.fn((key) => {
+        if (key === "bingus_session_token") store.token = null;
+        if (key === "bingus_username") store.username = null;
+      })
+    };
+
+    const { apiGetMe } = await import("../api.js");
+    const res = await apiGetMe();
+
+    expect(res).toEqual({ ok: false, status: 401, error: "unauthorized" });
+    expect(store.token).toBeNull();
+    expect(store.username).toBeNull();
+  });
+
+  it("refreshes sessions from cookies before retrying unauthorized requests", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({
+        ok: false,
+        status: 401,
+        json: () => Promise.resolve({ ok: false, error: "unauthorized" })
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: () => Promise.resolve({ ok: true, sessionToken: "fresh-token", user: { username: "bingus" } })
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: () => Promise.resolve({ ok: true })
+      });
+    // eslint-disable-next-line no-undef
+    global.fetch = fetchMock;
+    const store = { token: "stale-token", username: "bingus" };
+    // eslint-disable-next-line no-undef
+    global.localStorage = {
+      getItem: vi.fn((key) => {
+        if (key === "bingus_session_token") return store.token;
+        if (key === "bingus_username") return store.username;
+        return null;
+      }),
+      setItem: vi.fn((key, value) => {
+        if (key === "bingus_session_token") store.token = value;
+        if (key === "bingus_username") store.username = value;
+      }),
+      removeItem: vi.fn((key) => {
+        if (key === "bingus_session_token") store.token = null;
+        if (key === "bingus_username") store.username = null;
+      })
+    };
+
+    const { apiGetStats } = await import("../api.js");
+    const res = await apiGetStats();
+
+    expect(res).toEqual({ ok: true, status: 200 });
+    expect(store.token).toBe("fresh-token");
+    expect(store.username).toBe("bingus");
+    expect(fetchMock).toHaveBeenNthCalledWith(1, "/api/stats", expect.any(Object));
+    expect(fetchMock).toHaveBeenNthCalledWith(2, "/api/me", expect.any(Object));
+    expect(fetchMock).toHaveBeenNthCalledWith(3, "/api/stats", expect.any(Object));
+  });
+
+  it("keeps session data when recovery requests fail unexpectedly", async () => {
+    const fetchMock = vi.fn((url) => {
+      if (url === "/api/stats") {
+        return Promise.resolve({
+          ok: false,
+          status: 401,
+          json: () => Promise.resolve({ ok: false, error: "unauthorized" })
+        });
+      }
+      if (url === "/api/me") {
+        return Promise.reject(new Error("network"));
+      }
+      if (url === "/api/register") {
+        return Promise.reject(new Error("network"));
+      }
+      throw new Error(`unexpected url ${url}`);
+    });
+    // eslint-disable-next-line no-undef
+    global.fetch = fetchMock;
+    const store = { token: "stale-token", username: "bingus" };
+    // eslint-disable-next-line no-undef
+    global.localStorage = {
+      getItem: vi.fn((key) => {
+        if (key === "bingus_session_token") return store.token;
+        if (key === "bingus_username") return store.username;
+        return null;
+      }),
+      setItem: vi.fn(),
+      removeItem: vi.fn((key) => {
+        if (key === "bingus_session_token") store.token = null;
+        if (key === "bingus_username") store.username = null;
+      })
+    };
+
+    const { apiGetStats } = await import("../api.js");
+    const res = await apiGetStats();
+
+    expect(res).toEqual({ ok: false, status: 401, error: "unauthorized" });
+    expect(store.token).toBe("stale-token");
+    expect(store.username).toBe("bingus");
+  });
+
+  it("clears session data after explicit recovery failures", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({
+        ok: false,
+        status: 401,
+        json: () => Promise.resolve({ ok: false, error: "unauthorized" })
+      })
+      .mockResolvedValueOnce({
+        ok: false,
+        status: 401,
+        json: () => Promise.resolve({ ok: false, error: "unauthorized" })
+      })
+      .mockResolvedValueOnce({
+        ok: false,
+        status: 401,
+        json: () => Promise.resolve({ ok: false, error: "unauthorized" })
+      });
+    // eslint-disable-next-line no-undef
+    global.fetch = fetchMock;
+    const store = { token: "stale-token", username: "bingus" };
+    // eslint-disable-next-line no-undef
+    global.localStorage = {
+      getItem: vi.fn((key) => {
+        if (key === "bingus_session_token") return store.token;
+        if (key === "bingus_username") return store.username;
+        return null;
+      }),
+      setItem: vi.fn(),
+      removeItem: vi.fn((key) => {
+        if (key === "bingus_session_token") store.token = null;
+        if (key === "bingus_username") store.username = null;
+      })
+    };
+
+    const { apiGetStats } = await import("../api.js");
+    const res = await apiGetStats();
+
+    expect(res).toEqual({ ok: false, status: 401, error: "unauthorized" });
+    expect(store.token).toBeNull();
+    expect(store.username).toBeNull();
+    expect(fetchMock).toHaveBeenNthCalledWith(1, "/api/stats", expect.any(Object));
+    expect(fetchMock).toHaveBeenNthCalledWith(2, "/api/me", expect.any(Object));
+    expect(fetchMock).toHaveBeenNthCalledWith(3, "/api/register", {
+      credentials: "same-origin",
+      headers: { Authorization: "Bearer stale-token", "Content-Type": "application/json" },
+      method: "POST",
+      body: JSON.stringify({ username: "bingus" })
+    });
   });
 });
