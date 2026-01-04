@@ -5,7 +5,8 @@ import {
   describeUnlock,
   getUnlockedIdsByType,
   isUnlockSatisfied,
-  normalizeUnlock
+  normalizeUnlock,
+  normalizeUnlockableState
 } from "../unlockables.js";
 
 describe("unlockables client helpers", () => {
@@ -43,5 +44,26 @@ describe("unlockables client helpers", () => {
       context: { bestScore: 12 }
     });
     expect(unlocked).toContain("basic");
+  });
+
+  it("honors persisted unlockable state when resolving unlocked ids", () => {
+    const catalog = buildUnlockablesCatalog({
+      icons: [{ id: "icon_locked", name: "Locked Icon", unlock: { type: "score", minScore: 999 } }]
+    });
+    const state = { unlocked: { "player_texture:icon_locked": Date.now(), "player_texture:bad": -4 } };
+    const unlocked = getUnlockedIdsByType({
+      unlockables: catalog.unlockables,
+      type: UNLOCKABLE_TYPES.playerTexture,
+      state,
+      context: { bestScore: 0 }
+    });
+    expect(unlocked).toEqual(["icon_locked"]);
+  });
+
+  it("normalizes unlockable state to valid timestamped entries", () => {
+    const normalized = normalizeUnlockableState({
+      unlocked: { "player_texture:ok": "42", "player_texture:bad": -3, "player_texture:zero": 0 }
+    });
+    expect(normalized.unlocked).toEqual({ "player_texture:ok": 42 });
   });
 });

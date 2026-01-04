@@ -1057,6 +1057,7 @@ function computeUnlockedIconSet(icons = playerIcons) {
     getUnlockedIdsByType({
       unlockables,
       type: UNLOCKABLE_TYPES.playerTexture,
+      state: net.user?.unlockables,
       context: {
         bestScore: best,
         achievements,
@@ -1083,6 +1084,7 @@ function computeUnlockedPipeTextureSet(textures = net.pipeTextures) {
   const unlockedIds = getUnlockedIdsByType({
     unlockables: net.unlockables?.unlockables || [],
     type: UNLOCKABLE_TYPES.pipeTexture,
+    state: net.user?.unlockables,
     context: {
       bestScore: best,
       achievements,
