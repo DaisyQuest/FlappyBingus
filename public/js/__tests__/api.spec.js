@@ -141,6 +141,7 @@ describe("api helpers", () => {
 
     const {
       apiGetMe,
+      apiGetIconRegistry,
       apiRegister,
       apiSubmitScore,
       apiGetBestRun,
@@ -157,6 +158,7 @@ describe("api helpers", () => {
 
     const requests = [
       [apiGetMe, ["/api/me", { method: "GET" }]],
+      [apiGetIconRegistry, ["/api/icon-registry", { method: "GET" }]],
       [apiRegister, ["/api/register", { method: "POST", body: JSON.stringify({ username: "bingus" }) }]],
       [apiSubmitScore, ["/api/score", { method: "POST", body: JSON.stringify({ score: 9001, bustercoinsEarned: 0 }) }]],
       [apiGetBestRun, ["/api/run/best?username=bingus", { method: "GET" }]],
@@ -172,6 +174,7 @@ describe("api helpers", () => {
     ];
 
     await apiGetMe();
+    await apiGetIconRegistry();
     await apiRegister("bingus");
     await apiSubmitScore(9001);
     await apiGetBestRun("bingus");
