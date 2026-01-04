@@ -24,7 +24,7 @@ describe("pipe texture menu handlers", () => {
   it("skips mode changes when the mode is unchanged", async () => {
     const document = buildDom();
     const button = document.querySelector("button[data-pipe-texture-mode='classic']");
-    const triggerUserSave = vi.fn();
+    const apiSetPipeTexture = vi.fn();
 
     const { handlers } = createPipeTextureMenuHandlers({
       elements: {
@@ -51,9 +51,8 @@ describe("pipe texture menu handlers", () => {
       openPurchaseModal: vi.fn(),
       applyPipeTextureSelection: vi.fn(),
       shouldTriggerSelectionSave: vi.fn(),
-      triggerUserSave,
       ensureLoggedInForSave: vi.fn(),
-      apiSetPipeTexture: vi.fn(),
+      apiSetPipeTexture,
       getAuthStatusFromResponse: vi.fn(),
       recoverSession: vi.fn(),
       setUserHint: vi.fn(),
@@ -68,7 +67,7 @@ describe("pipe texture menu handlers", () => {
 
     await handlers.handleModeClick({ target: button });
 
-    expect(triggerUserSave).not.toHaveBeenCalled();
+    expect(apiSetPipeTexture).not.toHaveBeenCalled();
     expect(handlers.handleModeClick).toBeDefined();
   });
 
@@ -79,7 +78,6 @@ describe("pipe texture menu handlers", () => {
     const setCurrentPipeTextureMode = vi.fn();
     const setUserHint = vi.fn();
     const shouldTriggerSelectionSave = vi.fn().mockReturnValue(true);
-    const triggerUserSave = vi.fn();
 
     const { handlers } = createPipeTextureMenuHandlers({
       elements: {
@@ -106,7 +104,6 @@ describe("pipe texture menu handlers", () => {
       openPurchaseModal: vi.fn(),
       applyPipeTextureSelection: vi.fn(),
       shouldTriggerSelectionSave,
-      triggerUserSave,
       ensureLoggedInForSave: vi.fn(),
       apiSetPipeTexture: vi.fn().mockResolvedValue({ ok: false, error: "pipe_texture_locked" }),
       getAuthStatusFromResponse: vi.fn().mockReturnValue({ online: false, unauthorized: false }),
@@ -124,7 +121,6 @@ describe("pipe texture menu handlers", () => {
     await handlers.handleModeClick({ target: button });
 
     expect(shouldTriggerSelectionSave).toHaveBeenCalledWith({ previousId: "classic", nextId: "alt" });
-    expect(triggerUserSave).toHaveBeenCalled();
     expect(setCurrentPipeTextureMode).toHaveBeenCalledWith("alt");
     expect(setUserHint).toHaveBeenCalled();
     expect(document.getElementById("hint").className).toBe("hint bad");
@@ -135,7 +131,7 @@ describe("pipe texture menu handlers", () => {
     const document = buildDom();
     const button = document.querySelector("button[data-pipe-texture-mode='alt']");
     const net = { pipeTextures: [{ id: "spark" }], user: { bestScore: 0 }, online: true };
-    const triggerUserSave = vi.fn();
+    const apiSetPipeTexture = vi.fn();
 
     const { handlers } = createPipeTextureMenuHandlers({
       elements: {
@@ -162,13 +158,8 @@ describe("pipe texture menu handlers", () => {
       openPurchaseModal: vi.fn(),
       applyPipeTextureSelection: vi.fn(),
       shouldTriggerSelectionSave: vi.fn().mockReturnValue(false),
-      triggerUserSave,
       ensureLoggedInForSave: vi.fn(),
-      apiSetPipeTexture: vi.fn().mockResolvedValue({
-        ok: true,
-        user: { pipeTextureMode: "alt" },
-        pipeTextures: []
-      }),
+      apiSetPipeTexture,
       getAuthStatusFromResponse: vi.fn(),
       recoverSession: vi.fn(),
       setUserHint: vi.fn(),
@@ -183,7 +174,7 @@ describe("pipe texture menu handlers", () => {
 
     await handlers.handleModeClick({ target: button });
 
-    expect(triggerUserSave).not.toHaveBeenCalled();
+    expect(apiSetPipeTexture).not.toHaveBeenCalled();
   });
 
   it("confirms mode changes after successful save", async () => {
@@ -215,8 +206,7 @@ describe("pipe texture menu handlers", () => {
       computeUnlockedPipeTextureSet: vi.fn().mockReturnValue(new Set(["spark"])),
       openPurchaseModal: vi.fn(),
       applyPipeTextureSelection: vi.fn(),
-      shouldTriggerSelectionSave: vi.fn(),
-      triggerUserSave: vi.fn(),
+      shouldTriggerSelectionSave: vi.fn().mockReturnValue(true),
       ensureLoggedInForSave: vi.fn(),
       apiSetPipeTexture: vi.fn().mockResolvedValue({
         ok: true,
@@ -275,7 +265,6 @@ describe("pipe texture menu handlers", () => {
       openPurchaseModal,
       applyPipeTextureSelection: vi.fn(),
       shouldTriggerSelectionSave: vi.fn(),
-      triggerUserSave: vi.fn(),
       ensureLoggedInForSave: vi.fn(),
       apiSetPipeTexture: vi.fn(),
       getAuthStatusFromResponse: vi.fn(),
@@ -334,7 +323,6 @@ describe("pipe texture menu handlers", () => {
       openPurchaseModal: vi.fn(),
       applyPipeTextureSelection: vi.fn(),
       shouldTriggerSelectionSave: vi.fn(),
-      triggerUserSave: vi.fn(),
       ensureLoggedInForSave: vi.fn(),
       apiSetPipeTexture: vi.fn(),
       getAuthStatusFromResponse: vi.fn(),
@@ -389,7 +377,6 @@ describe("pipe texture menu handlers", () => {
       openPurchaseModal: vi.fn(),
       applyPipeTextureSelection,
       shouldTriggerSelectionSave: vi.fn().mockReturnValue(true),
-      triggerUserSave: vi.fn(),
       ensureLoggedInForSave,
       apiSetPipeTexture: vi.fn(),
       getAuthStatusFromResponse: vi.fn(),
@@ -442,7 +429,6 @@ describe("pipe texture menu handlers", () => {
       openPurchaseModal: vi.fn(),
       applyPipeTextureSelection: vi.fn(),
       shouldTriggerSelectionSave: vi.fn(),
-      triggerUserSave: vi.fn(),
       ensureLoggedInForSave: vi.fn(),
       apiSetPipeTexture: vi.fn(),
       getAuthStatusFromResponse: vi.fn(),
@@ -494,7 +480,6 @@ describe("pipe texture menu handlers", () => {
       openPurchaseModal: vi.fn(),
       applyPipeTextureSelection: vi.fn(),
       shouldTriggerSelectionSave: vi.fn(),
-      triggerUserSave: vi.fn(),
       ensureLoggedInForSave: vi.fn(),
       apiSetPipeTexture: vi.fn(),
       getAuthStatusFromResponse: vi.fn(),
@@ -546,7 +531,6 @@ describe("pipe texture menu handlers", () => {
       openPurchaseModal: vi.fn(),
       applyPipeTextureSelection: vi.fn(),
       shouldTriggerSelectionSave: vi.fn(),
-      triggerUserSave: vi.fn(),
       ensureLoggedInForSave,
       apiSetPipeTexture,
       getAuthStatusFromResponse: vi.fn(),
@@ -598,8 +582,7 @@ describe("pipe texture menu handlers", () => {
       computeUnlockedPipeTextureSet: vi.fn().mockReturnValue(new Set(["spark"])),
       openPurchaseModal: vi.fn(),
       applyPipeTextureSelection,
-      shouldTriggerSelectionSave: vi.fn().mockReturnValue(false),
-      triggerUserSave: vi.fn(),
+      shouldTriggerSelectionSave: vi.fn().mockReturnValue(true),
       ensureLoggedInForSave: vi.fn(),
       apiSetPipeTexture: vi.fn().mockResolvedValue({
         ok: true,
@@ -659,8 +642,7 @@ describe("pipe texture menu handlers", () => {
       computeUnlockedPipeTextureSet: vi.fn().mockReturnValue(new Set(["spark", "ember"])),
       openPurchaseModal: vi.fn(),
       applyPipeTextureSelection,
-      shouldTriggerSelectionSave: vi.fn().mockReturnValue(false),
-      triggerUserSave: vi.fn(),
+      shouldTriggerSelectionSave: vi.fn().mockReturnValue(true),
       ensureLoggedInForSave: vi.fn(),
       apiSetPipeTexture: vi.fn().mockResolvedValue({ ok: false }),
       getAuthStatusFromResponse: vi.fn().mockReturnValue({ online: false, unauthorized: true }),

@@ -35,6 +35,7 @@ export function createIconMenuHandlers({
     iconOverlay,
     iconOverlayClose
   } = elements;
+  let iconSaveInFlight = null;
 
   const resolveIconState = () => {
     const icons = getPlayerIcons();
@@ -63,6 +64,7 @@ export function createIconMenuHandlers({
 
     const net = getNet();
     const id = btn.dataset.iconId;
+    if (iconSaveInFlight === id) return;
     let { icons: playerIcons, unlocked } = resolveIconState();
     if (!unlocked.has(id)) {
       if (btn.dataset.unlockType === "purchase") {
@@ -117,37 +119,44 @@ export function createIconMenuHandlers({
       return;
     }
 
-    const res = await apiSetIcon(id);
-    const outcome = classifyIconSaveResponse(res);
-    net.online = outcome.online;
+    iconSaveInFlight = id;
+    try {
+      const res = await apiSetIcon(id);
+      const outcome = classifyIconSaveResponse(res);
+      net.online = outcome.online;
 
-    if (outcome.needsReauth) {
-      await recoverSession();
-    }
-
-    if (outcome.outcome === "saved" && res) {
-      setNetUser(res.user);
-      net.trails = mergeTrailCatalog(res.trails, { current: net.trails });
-      syncUnlockablesCatalog({ trails: net.trails });
-      if (Array.isArray(res.icons) && res.icons.length) {
-        const selected = res.user?.selectedIcon || id;
-        if (isIconInCatalog(res.icons, selected)) {
-          syncIconCatalog(res.icons);
-        }
+      if (outcome.needsReauth) {
+        await recoverSession();
       }
-      syncPipeTextureCatalog(res.pipeTextures || net.pipeTextures);
-      applyIconSelection(res.user?.selectedIcon || id, getPlayerIcons());
-    } else if (outcome.revert) {
-      applyIconSelection(previous, playerIcons);
-    }
 
-    if (!outcome.online || !net.user) {
-      setUserHint();
-    }
+      if (outcome.outcome === "saved" && res) {
+        setNetUser(res.user);
+        net.trails = mergeTrailCatalog(res.trails, { current: net.trails });
+        syncUnlockablesCatalog({ trails: net.trails });
+        if (Array.isArray(res.icons) && res.icons.length) {
+          const selected = res.user?.selectedIcon || id;
+          if (isIconInCatalog(res.icons, selected)) {
+            syncIconCatalog(res.icons);
+          }
+        }
+        syncPipeTextureCatalog(res.pipeTextures || net.pipeTextures);
+        applyIconSelection(res.user?.selectedIcon || id, getPlayerIcons());
+      } else if (outcome.revert) {
+        applyIconSelection(previous, playerIcons);
+      }
 
-    if (iconHint) {
-      iconHint.className = outcome.outcome === "saved" ? "hint good" : "hint bad";
-      iconHint.textContent = outcome.message;
+      if (!outcome.online || !net.user) {
+        setUserHint();
+      }
+
+      if (iconHint) {
+        iconHint.className = outcome.outcome === "saved" ? "hint good" : "hint bad";
+        iconHint.textContent = outcome.message;
+      }
+    } finally {
+      if (iconSaveInFlight === id) {
+        iconSaveInFlight = null;
+      }
     }
   };
 

@@ -20,7 +20,6 @@ export function createPipeTextureMenuHandlers({
   openPurchaseModal,
   applyPipeTextureSelection,
   shouldTriggerSelectionSave,
-  triggerUserSave,
   ensureLoggedInForSave,
   apiSetPipeTexture,
   getAuthStatusFromResponse,
@@ -41,6 +40,8 @@ export function createPipeTextureMenuHandlers({
     pipeTextureModeOptions,
     pipeTextureHint
   } = elements;
+  let pipeTextureSaveKey = null;
+  const buildSaveKey = (id, mode) => `${id || ""}:${mode || ""}`;
 
   const handleLauncherClick = () => {
     refreshPipeTextureMenu(getCurrentPipeTextureId());
@@ -67,50 +68,60 @@ export function createPipeTextureMenuHandlers({
     const net = getNet();
     const nextMode = normalizePipeTextureMode(btn.dataset.pipeTextureMode);
     if (nextMode === getCurrentPipeTextureMode()) return;
+    const saveKey = buildSaveKey(getCurrentPipeTextureId(), nextMode);
+    if (pipeTextureSaveKey === saveKey) return;
     const previous = getCurrentPipeTextureMode();
     setCurrentPipeTextureMode(nextMode);
     writePipeTextureModeCookie(getCurrentPipeTextureMode());
     renderPipeTextureModeButtons(getCurrentPipeTextureMode());
     syncPipeTextureSwatch(getCurrentPipeTextureId(), net.pipeTextures);
     renderPipeTextureMenuOptions(getCurrentPipeTextureId(), computeUnlockedPipeTextureSet(net.pipeTextures), net.pipeTextures);
-    if (typeof shouldTriggerSelectionSave === "function" && shouldTriggerSelectionSave({ previousId: previous, nextId: nextMode })) {
-      triggerUserSave?.();
-    }
+    const shouldSaveSelection = typeof shouldTriggerSelectionSave === "function"
+      && shouldTriggerSelectionSave({ previousId: previous, nextId: nextMode });
 
     if (!net.user && !(await ensureLoggedInForSave())) return;
 
-    const res = await apiSetPipeTexture(getCurrentPipeTextureId(), getCurrentPipeTextureMode());
-    if (!res || !res.ok) {
-      const authStatus = getAuthStatusFromResponse(res);
-      net.online = authStatus.online;
-      if (authStatus.unauthorized) {
-        await recoverSession();
+    if (!shouldSaveSelection) return;
+
+    pipeTextureSaveKey = saveKey;
+    try {
+      const res = await apiSetPipeTexture(getCurrentPipeTextureId(), getCurrentPipeTextureMode());
+      if (!res || !res.ok) {
+        const authStatus = getAuthStatusFromResponse(res);
+        net.online = authStatus.online;
+        if (authStatus.unauthorized) {
+          await recoverSession();
+        }
+        if (!authStatus.online || !net.user) {
+          setUserHint();
+        }
+        setCurrentPipeTextureMode(previous);
+        writePipeTextureModeCookie(getCurrentPipeTextureMode());
+        renderPipeTextureModeButtons(getCurrentPipeTextureMode());
+        syncPipeTextureSwatch(getCurrentPipeTextureId(), net.pipeTextures);
+        if (pipeTextureHint) {
+          pipeTextureHint.className = "hint bad";
+          pipeTextureHint.textContent = res?.error === "pipe_texture_locked"
+            ? "That mode is locked with this texture."
+            : "Could not save pipe texture mode.";
+        }
+        return;
       }
-      if (!authStatus.online || !net.user) {
-        setUserHint();
-      }
-      setCurrentPipeTextureMode(previous);
+
+      setNetUser(res.user);
+      syncPipeTextureCatalog(res.pipeTextures || net.pipeTextures);
+      setCurrentPipeTextureMode(normalizePipeTextureMode(res.user?.pipeTextureMode || getCurrentPipeTextureMode()));
       writePipeTextureModeCookie(getCurrentPipeTextureMode());
       renderPipeTextureModeButtons(getCurrentPipeTextureMode());
       syncPipeTextureSwatch(getCurrentPipeTextureId(), net.pipeTextures);
       if (pipeTextureHint) {
-        pipeTextureHint.className = "hint bad";
-        pipeTextureHint.textContent = res?.error === "pipe_texture_locked"
-          ? "That mode is locked with this texture."
-          : "Could not save pipe texture mode.";
+        pipeTextureHint.className = "hint good";
+        pipeTextureHint.textContent = "Pipe texture mode saved.";
       }
-      return;
-    }
-
-    setNetUser(res.user);
-    syncPipeTextureCatalog(res.pipeTextures || net.pipeTextures);
-    setCurrentPipeTextureMode(normalizePipeTextureMode(res.user?.pipeTextureMode || getCurrentPipeTextureMode()));
-    writePipeTextureModeCookie(getCurrentPipeTextureMode());
-    renderPipeTextureModeButtons(getCurrentPipeTextureMode());
-    syncPipeTextureSwatch(getCurrentPipeTextureId(), net.pipeTextures);
-    if (pipeTextureHint) {
-      pipeTextureHint.className = "hint good";
-      pipeTextureHint.textContent = "Pipe texture mode saved.";
+    } finally {
+      if (pipeTextureSaveKey === saveKey) {
+        pipeTextureSaveKey = null;
+      }
     }
   };
 
@@ -119,6 +130,8 @@ export function createPipeTextureMenuHandlers({
     if (!btn) return;
     const net = getNet();
     const id = btn.dataset.pipeTextureId;
+    const saveKey = buildSaveKey(id, getCurrentPipeTextureMode());
+    if (pipeTextureSaveKey === saveKey) return;
     const unlocked = computeUnlockedPipeTextureSet(net.pipeTextures);
     if (!unlocked.has(id)) {
       if (btn.dataset.unlockType === "purchase") {
@@ -149,9 +162,7 @@ export function createPipeTextureMenuHandlers({
     const previous = getCurrentPipeTextureId();
     applyPipeTextureSelection(id, net.pipeTextures, unlocked);
     setCurrentPipeTextureId(id);
-    if (shouldTriggerSelectionSave({ previousId: previous, nextId: id })) {
-      triggerUserSave?.();
-    }
+    const shouldSaveSelection = shouldTriggerSelectionSave({ previousId: previous, nextId: id });
     if (pipeTextureHint) {
       pipeTextureHint.className = net.user ? "hint" : "hint good";
       pipeTextureHint.textContent = net.user ? "Saving pipe texture…" : "Equipped (guest mode).";
@@ -159,35 +170,44 @@ export function createPipeTextureMenuHandlers({
 
     if (!net.user && !(await ensureLoggedInForSave())) return;
 
-    const res = await apiSetPipeTexture(id, getCurrentPipeTextureMode());
-    if (!res || !res.ok) {
-      const authStatus = getAuthStatusFromResponse(res);
-      net.online = authStatus.online;
-      if (authStatus.unauthorized) {
-        await recoverSession();
-      }
-      if (!authStatus.online || !net.user) {
-        setUserHint();
-      }
-      applyPipeTextureSelection(previous, net.pipeTextures, unlocked);
-      setCurrentPipeTextureId(previous);
-      if (pipeTextureHint) {
-        pipeTextureHint.className = "hint bad";
-        pipeTextureHint.textContent = res?.error === "pipe_texture_locked"
-          ? "That pipe texture is locked."
-          : "Could not save pipe texture.";
-      }
-      return;
-    }
+    if (!shouldSaveSelection) return;
 
-    setNetUser(res.user);
-    syncPipeTextureCatalog(res.pipeTextures || net.pipeTextures);
-    setCurrentPipeTextureMode(normalizePipeTextureMode(res.user?.pipeTextureMode || getCurrentPipeTextureMode()));
-    setCurrentPipeTextureId(res.user?.selectedPipeTexture || id);
-    applyPipeTextureSelection(getCurrentPipeTextureId(), net.pipeTextures, computeUnlockedPipeTextureSet(net.pipeTextures));
-    if (pipeTextureHint) {
-      pipeTextureHint.className = "hint good";
-      pipeTextureHint.textContent = "Pipe texture saved.";
+    pipeTextureSaveKey = saveKey;
+    try {
+      const res = await apiSetPipeTexture(id, getCurrentPipeTextureMode());
+      if (!res || !res.ok) {
+        const authStatus = getAuthStatusFromResponse(res);
+        net.online = authStatus.online;
+        if (authStatus.unauthorized) {
+          await recoverSession();
+        }
+        if (!authStatus.online || !net.user) {
+          setUserHint();
+        }
+        applyPipeTextureSelection(previous, net.pipeTextures, unlocked);
+        setCurrentPipeTextureId(previous);
+        if (pipeTextureHint) {
+          pipeTextureHint.className = "hint bad";
+          pipeTextureHint.textContent = res?.error === "pipe_texture_locked"
+            ? "That pipe texture is locked."
+            : "Could not save pipe texture.";
+        }
+        return;
+      }
+
+      setNetUser(res.user);
+      syncPipeTextureCatalog(res.pipeTextures || net.pipeTextures);
+      setCurrentPipeTextureMode(normalizePipeTextureMode(res.user?.pipeTextureMode || getCurrentPipeTextureMode()));
+      setCurrentPipeTextureId(res.user?.selectedPipeTexture || id);
+      applyPipeTextureSelection(getCurrentPipeTextureId(), net.pipeTextures, computeUnlockedPipeTextureSet(net.pipeTextures));
+      if (pipeTextureHint) {
+        pipeTextureHint.className = "hint good";
+        pipeTextureHint.textContent = "Pipe texture saved.";
+      }
+    } finally {
+      if (pipeTextureSaveKey === saveKey) {
+        pipeTextureSaveKey = null;
+      }
     }
   };
 
