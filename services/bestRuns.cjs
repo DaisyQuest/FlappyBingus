@@ -33,15 +33,17 @@ function sanitizeMime(mime) {
 
 function normalizeMedia(media) {
   if (!media) return { ok: true, value: null };
-  if (typeof media.dataUrl !== "string" || !media.dataUrl) return { ok: true, value: null };
+  if (typeof media.dataUrl !== "string") return { ok: true, value: null };
+  const trimmed = media.dataUrl.trim();
+  if (!trimmed) return { ok: true, value: null };
 
-  const bytes = utf8Bytes(media.dataUrl);
+  const bytes = utf8Bytes(trimmed);
   if (bytes > MAX_MEDIA_BYTES) return { ok: false, error: "media_too_large" };
 
   return {
     ok: true,
     value: {
-      dataUrl: media.dataUrl,
+      dataUrl: trimmed,
       bytes,
       mimeType: sanitizeMime(media.mimeType || media.type || "")
     }

@@ -221,6 +221,13 @@ describe("normalizeBestRunRequest", () => {
     );
     expect(res.ok).toBe(true);
     expect(res.payload.media).toBeNull();
+
+    const whitespace = normalizeBestRunRequest(
+      { ...baseBody, media: { dataUrl: "   " } },
+      { bestScore: 0, validateRunStats: okRunStats }
+    );
+    expect(whitespace.ok).toBe(true);
+    expect(whitespace.payload.media).toBeNull();
   });
 
   it("hydrates stored replay JSON into a playback-ready shape", () => {
