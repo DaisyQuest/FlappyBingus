@@ -80,7 +80,7 @@ import { renderScoreBreakdown } from "./scoreBreakdown.js";
 import { computePersonalBestStatus, updatePersonalBestElements } from "./personalBest.js";
 import { updatePersonalBestUI } from "./personalBestUI.js";
 import { buildGameOverStats, GAME_OVER_STAT_VIEWS } from "./gameOverStats.js";
-import { buildUnlockablesCatalog, getUnlockedIdsByType, UNLOCKABLE_TYPES } from "./unlockables.js";
+import { buildUnlockablesCatalog, UNLOCKABLE_TYPES } from "./unlockables.js";
 import { DEFAULT_CURRENCY_ID, getUserCurrencyBalance } from "./currencySystem.js";
 import {
   DEFAULT_PLAYER_ICON_ID,
@@ -121,7 +121,7 @@ import { TrailPreview } from "./trailPreview.js";
 import { normalizeTrailSelection } from "./trailSelectUtils.js";
 import { setTrailStyleOverrides } from "./trailStyles.js";
 import { buildTrailHint, GUEST_TRAIL_HINT_TEXT } from "./trailHint.js";
-import { DEFAULT_TRAILS, getUnlockedTrails, normalizeTrails, sortTrailsForDisplay } from "./trailProgression.js";
+import { DEFAULT_TRAILS, normalizeTrails, sortTrailsForDisplay } from "./trailProgression.js";
 import { computePipeColor } from "./pipeColors.js";
 import { hydrateBestRunPayload, maybeUploadBestRun } from "./bestRunRecorder.js";
 import { renderHighscores } from "./highscores.js";
@@ -194,6 +194,14 @@ import { createBootState, createNetState } from "./main/state.js";
 import { createIconLookup, makeReplayCosmeticsApplier, resolveActiveCosmetics } from "./main/cosmetics.js";
 import { createGameOverStatsController } from "./main/gameOverStatsController.js";
 import { createReplayBytesMeasurer } from "./main/replayMetrics.js";
+import { createPersonalBestUpdater } from "./main/personalBestAdapter.js";
+import { createVolumeController } from "./main/audioControls.js";
+import { refreshBootUI } from "./main/bootUI.js";
+import {
+  computeUnlockedIconSet,
+  computeUnlockedPipeTextureSet,
+  computeUnlockedTrailSet
+} from "./main/unlockableSets.js";
 
 
 // ---- DOM ----
@@ -388,21 +396,18 @@ const textStyleElements = {
 };
 
 // ---- Local best fallback cookie (legacy support) ----
-function updatePersonalBestUIWrapper(finalScore, userBestScore) {
-  updatePersonalBestUI({
-    finalScore,
-    userBestScore,
-    elements: {
-      personalBestEl: overPB,
-      badgeEl: overPbBadge,
-      statusEl: overPbStatus
-    },
-    readLocalBest,
-    writeLocalBest,
-    computePersonalBestStatus,
-    updatePersonalBestElements
-  });
-}
+const updatePersonalBestUIWrapper = createPersonalBestUpdater({
+  elements: {
+    personalBestEl: overPB,
+    badgeEl: overPbBadge,
+    statusEl: overPbStatus
+  },
+  readLocalBest,
+  writeLocalBest,
+  computePersonalBestStatus,
+  updatePersonalBestElements,
+  updatePersonalBestUI
+});
 
 const gameOverStatsController = createGameOverStatsController({
   elements: {
@@ -499,11 +504,16 @@ const menuProfileModel = createMenuProfileModel({
   fallbackPipeTextureId: currentPipeTextureId,
   bestScoreFallback: 0
 });
+const refreshBootUIWrapper = () => refreshBootUI({
+  boot,
+  net,
+  elements: { startBtn, tutorialBtn, bootPill, bootText }
+});
 
 // assets
 let playerImg = getCachedIconSprite(iconLookup.getById(currentIconId) || iconLookup.getFallback());
 boot.imgReady = true; boot.imgOk = true;
-refreshBootUI();
+refreshBootUIWrapper();
 
 trailPreview = trailPreviewCanvas ? new TrailPreview({
   canvas: trailPreviewCanvas,
@@ -585,36 +595,6 @@ const AUDIO = Object.freeze({
 const DEFAULT_MUSIC = DEFAULT_AUDIO_SETTINGS.music;
 const DEFAULT_SFX = DEFAULT_AUDIO_SETTINGS.sfx;
 const DEFAULT_AUDIO = { ...DEFAULT_AUDIO_SETTINGS, music: DEFAULT_MUSIC, sfx: DEFAULT_SFX, muted: false };
-
-function handleVolumeChange() {
-  applyVolumeFromUI({
-    musicSlider,
-    sfxSlider,
-    muteToggle,
-    defaults: DEFAULT_AUDIO,
-    setMusicVolume,
-    setSfxVolume,
-    setMuted,
-    writeAudioSettings,
-    game
-  });
-}
-
-function primeVolumeControls() {
-  primeVolumeUI({
-    musicSlider,
-    sfxSlider,
-    muteToggle,
-    readAudioSettings,
-    defaults: DEFAULT_AUDIO
-  });
-  handleVolumeChange();
-}
-
-const volumeChangeHandler = () => handleVolumeChange();
-musicSlider?.addEventListener("input", volumeChangeHandler);
-sfxSlider?.addEventListener("input", volumeChangeHandler);
-muteToggle?.addEventListener("change", volumeChangeHandler);
 applySkillSettingsToUI(skillSettings);
 initSocialDock({
   discordButton,
@@ -679,6 +659,20 @@ let replayGame = buildGameInstance({ onGameOver: () => {}, input: replayIdleInpu
 game.setSkillSettings(skillSettings);
 replayGame.setSkillSettings(skillSettings);
 
+const volumeController = createVolumeController({
+  elements: { musicSlider, sfxSlider, muteToggle },
+  defaults: DEFAULT_AUDIO,
+  readAudioSettings,
+  writeAudioSettings,
+  applyVolumeFromUI,
+  primeVolumeUI,
+  setMusicVolume,
+  setSfxVolume,
+  setMuted,
+  game
+});
+volumeController.bindVolumeControls();
+
 let driver = new GameDriver({
   game,
   syncRandSource: setRandSource,
@@ -737,23 +731,6 @@ window.visualViewport?.addEventListener("resize", () => {
 });
 
 // ---- Boot UI ----
-function refreshBootUI() {
-  startBtn.disabled = !(boot.imgReady && boot.cfgReady);
-  if (tutorialBtn) tutorialBtn.disabled = startBtn.disabled;
-
-  bootPill.classList.remove("ok", "bad", "neutral");
-  const ready = boot.imgReady && boot.cfgReady;
-  if (!ready) {
-    bootPill.classList.add("neutral");
-    bootText.textContent = "Loading…";
-    return;
-  }
-  bootPill.classList.add("ok");
-  const a = boot.imgOk ? "player ok" : "player fallback";
-  const b = boot.cfgOk ? boot.cfgSrc : "defaults";
-  const c = net.online ? (net.user ? `user: ${net.user.username}` : "guest") : "offline";
-  bootText.textContent = `${a} • ${b} • ${c}`;
-}
 
 // ---- Menu rendering (highscores, cosmetics, binds) ----
 function syncMenuProfileBindingsFromState({
@@ -1006,60 +983,24 @@ function syncPipeTextureCatalog(nextTextures = null) {
   syncMenuProfileBindingsFromState();
 }
 
-function getOwnedUnlockables(user = net.user) {
-  if (!user) return [];
-  if (Array.isArray(user.ownedUnlockables)) return user.ownedUnlockables;
-  if (Array.isArray(user.ownedIcons)) return user.ownedIcons;
-  return [];
-}
-
-function computeUnlockedIconSet(icons = playerIcons) {
-  const best = net.user ? (net.user.bestScore | 0) : 0;
-  const achievements = net.user?.achievements || net.achievements?.state;
-  const owned = getOwnedUnlockables(net.user);
-  const isRecordHolder = Boolean(net.user?.isRecordHolder);
-  const unlockables = net.unlockables?.unlockables || buildUnlockablesCatalog({ icons }).unlockables;
-  return new Set(
-    getUnlockedIdsByType({
-      unlockables,
-      type: UNLOCKABLE_TYPES.playerTexture,
-      state: net.user?.unlockables,
-      context: {
-        bestScore: best,
-        achievements,
-        ownedIds: owned,
-        recordHolder: isRecordHolder
-      }
-    })
-  );
-}
-
-function computeUnlockedTrailSet(trails = net.trails) {
-  const achievements = net.user?.achievements || net.achievements?.state;
-  const isRecordHolder = Boolean(net.user?.isRecordHolder);
-  const owned = getOwnedUnlockables(net.user);
-  const best = net.user ? (net.user.bestScore | 0) : 0;
-  return new Set(getUnlockedTrails(trails, achievements, { isRecordHolder, ownedIds: owned, bestScore: best }));
-}
-
-function computeUnlockedPipeTextureSet(textures = net.pipeTextures) {
-  const best = net.user ? (net.user.bestScore | 0) : 0;
-  const achievements = net.user?.achievements || net.achievements?.state;
-  const owned = getOwnedUnlockables(net.user);
-  const isRecordHolder = Boolean(net.user?.isRecordHolder);
-  const unlockedIds = getUnlockedIdsByType({
-    unlockables: net.unlockables?.unlockables || [],
-    type: UNLOCKABLE_TYPES.pipeTexture,
-    state: net.user?.unlockables,
-    context: {
-      bestScore: best,
-      achievements,
-      ownedIds: owned,
-      recordHolder: isRecordHolder
-    }
-  });
-  return new Set(unlockedIds);
-}
+const resolveAchievementsState = () => net.user?.achievements || net.achievements?.state;
+const computeUnlockedIconSetForMenu = (icons = playerIcons) => computeUnlockedIconSet({
+  icons,
+  user: net.user,
+  achievementsState: resolveAchievementsState(),
+  unlockables: net.unlockables?.unlockables
+});
+const computeUnlockedTrailSetForMenu = (trails = net.trails) => computeUnlockedTrailSet({
+  trails,
+  user: net.user,
+  achievementsState: resolveAchievementsState()
+});
+const computeUnlockedPipeTextureSetForMenu = (textures = net.pipeTextures) => computeUnlockedPipeTextureSet({
+  textures,
+  user: net.user,
+  achievementsState: resolveAchievementsState(),
+  unlockables: net.unlockables?.unlockables
+});
 
 function syncLauncherSwatch(iconId = currentIconId, icons = playerIcons, image = playerImg) {
   const icon = icons.find((i) => i.id === iconId) || icons[0];
@@ -1076,7 +1017,7 @@ function syncPipeTextureSwatch(textureId = currentPipeTextureId, textures = net.
 
 function renderIconOptions(
   selectedId = currentIconId,
-  unlocked = computeUnlockedIconSet(playerIcons),
+  unlocked = computeUnlockedIconSetForMenu(playerIcons),
   icons = playerIcons,
   selectedImg = playerImg
 ) {
@@ -1102,7 +1043,7 @@ function renderIconOptions(
 
 function renderPipeTextureMenuOptions(
   selectedId = currentPipeTextureId,
-  unlocked = computeUnlockedPipeTextureSet(net.pipeTextures),
+  unlocked = computeUnlockedPipeTextureSetForMenu(net.pipeTextures),
   textures = net.pipeTextures
 ) {
   const swatches = [];
@@ -1125,7 +1066,11 @@ function renderPipeTextureMenuOptions(
   return rendered;
 }
 
-function applyIconSelection(id = currentIconId, icons = playerIcons, unlocked = computeUnlockedIconSet(icons)) {
+function applyIconSelection(
+  id = currentIconId,
+  icons = playerIcons,
+  unlocked = computeUnlockedIconSetForMenu(icons)
+) {
   const nextId = normalizeIconSelection({
     currentId: id || currentIconId || DEFAULT_PLAYER_ICON_ID,
     userSelectedId: net.user?.selectedIcon,
@@ -1154,7 +1099,7 @@ function applyIconSelection(id = currentIconId, icons = playerIcons, unlocked = 
 function applyPipeTextureSelection(
   id = currentPipeTextureId,
   textures = net.pipeTextures,
-  unlocked = computeUnlockedPipeTextureSet(textures)
+  unlocked = computeUnlockedPipeTextureSetForMenu(textures)
 ) {
   const safeId = unlocked.has(id) ? id : (Array.from(unlocked)[0] || DEFAULT_PIPE_TEXTURE_ID);
   currentPipeTextureId = safeId || DEFAULT_PIPE_TEXTURE_ID;
@@ -1218,7 +1163,7 @@ function refreshTrailMenu(selectedId = currentTrailId) {
   const isRecordHolder = Boolean(net.user?.isRecordHolder);
   const achievements = net.user?.achievements || net.achievements?.state;
   const orderedTrails = sortTrailsForDisplay(net.trails, { isRecordHolder });
-  const unlocked = computeUnlockedTrailSet(orderedTrails);
+  const unlocked = computeUnlockedTrailSetForMenu(orderedTrails);
   const selected = normalizeTrailSelection({
     currentId: selectedId,
     userSelectedId: net.user?.selectedTrail,
@@ -1269,7 +1214,7 @@ function renderPipeTextureModeButtons(mode = currentPipeTextureMode) {
 }
 
 function refreshPipeTextureMenu(selectedId = currentPipeTextureId) {
-  const unlocked = computeUnlockedPipeTextureSet(net.pipeTextures);
+  const unlocked = computeUnlockedPipeTextureSetForMenu(net.pipeTextures);
   const safeId = unlocked.has(selectedId) ? selectedId : (Array.from(unlocked)[0] || DEFAULT_PIPE_TEXTURE_ID);
   applyPipeTextureSelection(safeId, net.pipeTextures, unlocked);
   renderPipeTextureModeButtons(currentPipeTextureMode);
@@ -1453,7 +1398,7 @@ async function confirmPendingPurchase() {
 
   refreshTrailMenu();
   refreshPipeTextureMenu(currentPipeTextureId);
-  renderIconOptions(currentIconId, computeUnlockedIconSet(playerIcons), playerIcons);
+renderIconOptions(currentIconId, computeUnlockedIconSetForMenu(playerIcons), playerIcons);
   renderShopCategory(activeShopTab);
   setUserHint();
   syncMenuProfileBindingsFromState();
@@ -1657,7 +1602,7 @@ const { refreshProfileAndHighscores, recoverSession, registerUser } = createSess
   renderHighscoresUI,
   renderAchievements,
   renderBindUI: renderBindUIWrapper,
-  refreshBootUI,
+  refreshBootUI: refreshBootUIWrapper,
   playerIcons,
   getCurrentIconId: () => currentIconId,
   getCurrentPipeTextureId: () => currentPipeTextureId,
@@ -1729,7 +1674,7 @@ createTrailMenuHandlers({
   getAuthStatusFromResponse,
   recoverSession,
   sortTrailsForDisplay,
-  computeUnlockedTrailSet,
+  computeUnlockedTrailSet: computeUnlockedTrailSetForMenu,
   describeTrailLock,
   trailHoverText,
   DEFAULT_TRAIL_HINT,
@@ -1758,7 +1703,7 @@ createPipeTextureMenuHandlers({
   renderPipeTextureModeButtons,
   syncPipeTextureSwatch,
   renderPipeTextureMenuOptions,
-  computeUnlockedPipeTextureSet,
+  computeUnlockedPipeTextureSet: computeUnlockedPipeTextureSetForMenu,
   openPurchaseModal,
   applyPipeTextureSelection,
   shouldTriggerSelectionSave,
@@ -1788,7 +1733,7 @@ createIconMenuHandlers({
   getNet: () => net,
   getPlayerIcons: () => playerIcons,
   getCurrentIconId: () => currentIconId,
-  computeUnlockedIconSet,
+  computeUnlockedIconSet: computeUnlockedIconSetForMenu,
   openPurchaseModal,
   applyIconSelection,
   ensureLoggedInForSave,
@@ -2419,8 +2364,8 @@ function frame(ts) {
     genRandomSeed
   });
 
-  primeVolumeControls();
-  renderIconOptions(currentIconId, computeUnlockedIconSet(playerIcons), playerIcons);
+  volumeController.primeVolumeControls();
+  renderIconOptions(currentIconId, computeUnlockedIconSetForMenu(playerIcons), playerIcons);
 
   exportMp4Btn?.addEventListener("click", async () => {
     try {
@@ -2533,7 +2478,7 @@ function frame(ts) {
   renderBindUIWrapper();
 
   await refreshProfileAndHighscores();
-  refreshBootUI();
+  refreshBootUIWrapper();
 
   resumeTrailPreview(net.user?.selectedTrail || currentTrailId || "classic");
   requestAnimationFrame((t) => {
