@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { buildReplayEnvelope, hydrateBestRunPayload, maybeUploadBestRun, serializeReplayEnvelope, __testables } from "../bestRunRecorder.js";
-import { SIM_TICK_MS } from "../simPrecision.js";
+import { SIM_TICK_MS, SIM_TPS } from "../simPrecision.js";
 
 const baseRun = () => ({
   ended: true,
@@ -47,10 +47,41 @@ describe("buildReplayEnvelope", () => {
     });
   });
 
+  it("includes a config snapshot when provided", () => {
+    const run = baseRun();
+    const configSnapshot = { pipes: { speed: { start: 1, end: 2 } } };
+
+    const envelope = buildReplayEnvelope(run, { finalScore: 12, configSnapshot });
+
+    expect(envelope.configSnapshot).toEqual(configSnapshot);
+    expect(envelope.configSnapshot).not.toBe(configSnapshot);
+  });
+
+  it("drops config snapshots that cannot be cloned", () => {
+    const run = baseRun();
+    const configSnapshot = { pipes: {}, onApply: () => {} };
+
+    const envelope = buildReplayEnvelope(run, { finalScore: 12, configSnapshot });
+
+    expect(envelope.configSnapshot).toBeUndefined();
+  });
+
   it("derives duration from the shared simulation tick precision by default", () => {
     const run = baseRun();
     const envelope = buildReplayEnvelope(run, { finalScore: 5 });
     expect(envelope.durationMs).toBe(Math.round(run.ticks.length * SIM_TICK_MS));
+  });
+
+  it("stores the sim TPS snapshot on the replay payload", () => {
+    const run = baseRun();
+    const envelope = buildReplayEnvelope(run, { finalScore: 5 });
+    expect(envelope.simTps).toBe(SIM_TPS);
+  });
+
+  it("falls back to the default sim TPS when provided values are invalid", () => {
+    const run = baseRun();
+    const envelope = buildReplayEnvelope(run, { finalScore: 5, simTps: -5 });
+    expect(envelope.simTps).toBe(SIM_TPS);
   });
 
   it("returns null when the run is incomplete or empty", () => {
@@ -87,6 +118,7 @@ describe("maybeUploadBestRun", () => {
       finalScore: 150,
       bestScore: 100,
       runStats: { orbsCollected: 1 },
+      configSnapshot: { scoring: { pipeDodge: 3 } },
       recordVideo: () => media,
       upload
     });
@@ -101,6 +133,8 @@ describe("maybeUploadBestRun", () => {
         media
       })
     );
+    expect(upload.mock.calls[0][0].replayJson).toContain('"configSnapshot"');
+    expect(upload.mock.calls[0][0].replayJson).toContain('"simTps"');
   });
 
   it("reports failure when the upload endpoint returns an error", async () => {
@@ -164,6 +198,24 @@ describe("hydrateBestRunPayload", () => {
     expect(hydrated?.cosmetics).toEqual({ trailId: "aurora", pipeTextureMode: "ultra" });
   });
 
+  it("hydrates config snapshots when available", () => {
+    const envelope = buildReplayEnvelope(
+      baseRun(),
+      { finalScore: 10, configSnapshot: { skills: { dashDestroy: { cooldown: 2 } } } }
+    );
+    const hydrated = hydrateBestRunPayload({ ...envelope, replayJson: JSON.stringify(envelope) });
+    expect(hydrated?.configSnapshot).toEqual({ skills: { dashDestroy: { cooldown: 2 } } });
+  });
+
+  it("hydrates sim TPS values when available", () => {
+    const envelope = buildReplayEnvelope(
+      baseRun(),
+      { finalScore: 10, simTps: 240 }
+    );
+    const hydrated = hydrateBestRunPayload({ ...envelope, replayJson: JSON.stringify(envelope) });
+    expect(hydrated?.simTps).toBe(240);
+  });
+
   it("returns null when the payload is invalid", () => {
     expect(hydrateBestRunPayload(null)).toBeNull();
     expect(hydrateBestRunPayload({ replayJson: "{}" })).toBeNull();
@@ -175,5 +227,16 @@ describe("normalizeCosmetics", () => {
   it("drops empty cosmetics payloads", () => {
     expect(__testables.normalizeCosmetics(null)).toBeNull();
     expect(__testables.normalizeCosmetics({ trailId: " " })).toBeNull();
+  });
+
+  it("drops config snapshots that are not plain objects", () => {
+    expect(__testables.cloneConfigSnapshot(null)).toBeNull();
+    expect(__testables.cloneConfigSnapshot("nope")).toBeNull();
+  });
+
+  it("normalizes sim TPS values", () => {
+    expect(__testables.normalizeSimTps("nope")).toBeNull();
+    expect(__testables.normalizeSimTps(-10)).toBeNull();
+    expect(__testables.normalizeSimTps(480.9)).toBe(480);
   });
 });

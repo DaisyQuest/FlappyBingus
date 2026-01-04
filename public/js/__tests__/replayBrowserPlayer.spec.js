@@ -34,6 +34,7 @@ describe("replayBrowserPlayer", () => {
 
   it("loads runs and resets the game state", () => {
     const game = makeGame();
+    game.cfg = { pipes: { speed: 1 } };
     const controller = createReplayPlaybackController({ game, simDt: 1 });
 
     controller.loadRun(baseRun());
@@ -43,6 +44,34 @@ describe("replayBrowserPlayer", () => {
     expect(game.setStateMenu).not.toHaveBeenCalled();
     expect(state.total).toBe(2);
     expect(state.index).toBe(0);
+  });
+
+  it("applies config snapshots when available", () => {
+    const game = makeGame();
+    const baseConfig = { pipes: { speed: 1 } };
+    const runConfig = { pipes: { speed: 3 } };
+    game.cfg = baseConfig;
+    const controller = createReplayPlaybackController({ game, simDt: 1 });
+
+    controller.loadRun({ ...baseRun(), configSnapshot: runConfig });
+    expect(game.cfg).toBe(runConfig);
+
+    controller.loadRun(baseRun());
+    expect(game.cfg).toBe(baseConfig);
+  });
+
+  it("uses run-specific sim TPS values for replay steps", () => {
+    const game = makeGame();
+    const step = vi.fn();
+    const controller = createReplayPlaybackController({ game, simDt: 1, step });
+
+    controller.loadRun({ ...baseRun(), simTps: 2 });
+    controller.stepOnce();
+    expect(step).toHaveBeenCalledWith(0.5, expect.any(Array));
+
+    controller.loadRun(baseRun());
+    controller.stepOnce();
+    expect(step).toHaveBeenCalledWith(1, expect.any(Array));
   });
 
   it("applies cosmetics when loading replay runs", () => {

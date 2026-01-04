@@ -26,6 +26,14 @@ function resolveRequestFrame(requestFrame) {
   return (cb) => setTimeout(() => cb(Date.now()), 16);
 }
 
+function resolveSimDt(baseSimDt, run) {
+  const simTps = Number(run?.simTps);
+  if (Number.isFinite(simTps) && simTps > 0) {
+    return 1 / simTps;
+  }
+  return baseSimDt;
+}
+
 export function createReplayPlaybackController({
   game,
   simDt = SIM_DT,
@@ -34,6 +42,9 @@ export function createReplayPlaybackController({
   onProgress,
   applyCosmetics
 } = {}) {
+  const baseConfig = game?.cfg;
+  const baseSimDt = simDt;
+  let activeSimDt = simDt;
   let run = null;
   let replayInput = createReplayInput();
   let playing = false;
@@ -82,12 +93,24 @@ export function createReplayPlaybackController({
     }
   };
 
+  const applyRunConfig = (nextRun) => {
+    if (!game) return;
+    const nextConfig = (nextRun && typeof nextRun.configSnapshot === "object" && nextRun.configSnapshot)
+      ? nextRun.configSnapshot
+      : baseConfig;
+    if (nextConfig) {
+      game.cfg = nextConfig;
+    }
+  };
+
   const loadRun = (nextRun) => {
     run = nextRun;
     replayInput = createReplayInput();
     playing = false;
     resetCounters();
     applyRunCosmetics(run);
+    applyRunConfig(run);
+    activeSimDt = resolveSimDt(baseSimDt, run);
     if (run) resetGameForRun();
     notifyProgress();
   };
@@ -104,7 +127,7 @@ export function createReplayPlaybackController({
 
   const applyTick = () => {
     if (!run || tickIndex >= totalTicks()) return false;
-    applyReplayTick({ tick: run.ticks[tickIndex], game, replayInput, simDt, step });
+    applyReplayTick({ tick: run.ticks[tickIndex], game, replayInput, simDt: activeSimDt, step });
     tickIndex += 1;
     if (game?.render) game.render();
     return true;
@@ -126,10 +149,10 @@ export function createReplayPlaybackController({
     lastTs = ts;
     acc += frameDt * speed;
 
-    while (acc >= simDt && tickIndex < totalTicks()) {
-      applyReplayTick({ tick: run.ticks[tickIndex], game, replayInput, simDt, step });
+    while (acc >= activeSimDt && tickIndex < totalTicks()) {
+      applyReplayTick({ tick: run.ticks[tickIndex], game, replayInput, simDt: activeSimDt, step });
       tickIndex += 1;
-      acc -= simDt;
+      acc -= activeSimDt;
       if (game?.state === 2) break;
     }
 
@@ -207,5 +230,6 @@ export const __testables = {
   SPEED_MAX,
   clampSpeed,
   createReplayInput,
-  resolveRequestFrame
+  resolveRequestFrame,
+  resolveSimDt
 };

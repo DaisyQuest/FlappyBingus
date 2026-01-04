@@ -1,7 +1,26 @@
-import { SIM_TICK_MS } from "./simPrecision.js";
+import { SIM_TICK_MS, SIM_TPS } from "./simPrecision.js";
 
 const MAX_REPLAY_UPLOAD_BYTES = 5 * 1024 * 1024;
 const DEFAULT_TICK_MS = SIM_TICK_MS;
+
+function cloneConfigSnapshot(raw) {
+  if (!raw || typeof raw !== "object") return null;
+  try {
+    if (typeof structuredClone === "function") {
+      return structuredClone(raw);
+    }
+    return JSON.parse(JSON.stringify(raw));
+  } catch {
+    return null;
+  }
+}
+
+function normalizeSimTps(value) {
+  const num = Number(value);
+  if (!Number.isFinite(num)) return null;
+  if (num <= 0) return null;
+  return Math.floor(num);
+}
 
 function clampInt(n) {
   const num = Number(n);
@@ -26,7 +45,15 @@ function normalizeCosmetics(raw) {
 
 export function buildReplayEnvelope(
   run,
-  { finalScore = 0, runStats = null, recordedAt = Date.now(), tickMs = DEFAULT_TICK_MS, cosmetics = null } = {}
+  {
+    finalScore = 0,
+    runStats = null,
+    recordedAt = Date.now(),
+    tickMs = DEFAULT_TICK_MS,
+    cosmetics = null,
+    configSnapshot = null,
+    simTps = SIM_TPS
+  } = {}
 ) {
   if (!run || !run.ended || !Array.isArray(run.ticks) || run.ticks.length === 0) return null;
 
@@ -55,6 +82,8 @@ export function buildReplayEnvelope(
   const rngTape = Array.isArray(run.rngTape) ? [...run.rngTape] : [];
   const durationMs = Math.max(0, Math.round(ticks.length * tickMs));
   const normalizedCosmetics = normalizeCosmetics(run.cosmetics || cosmetics);
+  const normalizedConfig = cloneConfigSnapshot(configSnapshot ?? run.configSnapshot);
+  const normalizedSimTps = normalizeSimTps(simTps ?? run.simTps) ?? SIM_TPS;
 
   const envelope = {
     version: 1,
@@ -64,9 +93,11 @@ export function buildReplayEnvelope(
     durationMs,
     ticks,
     rngTape,
-    runStats: runStats ? JSON.parse(JSON.stringify(runStats)) : null
+    runStats: runStats ? JSON.parse(JSON.stringify(runStats)) : null,
+    simTps: normalizedSimTps
   };
   if (normalizedCosmetics) envelope.cosmetics = normalizedCosmetics;
+  if (normalizedConfig) envelope.configSnapshot = normalizedConfig;
   return envelope;
 }
 
@@ -87,6 +118,8 @@ export function hydrateBestRunPayload(run) {
   const ticks = Array.isArray(parsed.ticks) ? parsed.ticks : [];
   if (!ticks.length) return null;
   const normalizedCosmetics = normalizeCosmetics(parsed.cosmetics || run.cosmetics);
+  const normalizedConfig = cloneConfigSnapshot(parsed.configSnapshot || run.configSnapshot);
+  const normalizedSimTps = normalizeSimTps(parsed.simTps ?? run.simTps);
 
   const hydrated = {
     seed: parsed.seed || run.seed || "",
@@ -101,6 +134,8 @@ export function hydrateBestRunPayload(run) {
     runStats: run.runStats || parsed.runStats || null
   };
   if (normalizedCosmetics) hydrated.cosmetics = normalizedCosmetics;
+  if (normalizedConfig) hydrated.configSnapshot = normalizedConfig;
+  if (normalizedSimTps) hydrated.simTps = normalizedSimTps;
   return hydrated;
 }
 
@@ -108,6 +143,7 @@ export async function maybeUploadBestRun({
   activeRun,
   finalScore,
   runStats,
+  configSnapshot,
   bestScore = 0,
   recordVideo,
   upload,
@@ -123,7 +159,7 @@ export async function maybeUploadBestRun({
     return false;
   }
 
-  const envelope = buildReplayEnvelope(activeRun, { finalScore: score, runStats });
+  const envelope = buildReplayEnvelope(activeRun, { finalScore: score, runStats, configSnapshot });
   if (!envelope) return false;
 
   const { json, bytes } = serializeReplayEnvelope(envelope);
@@ -169,5 +205,7 @@ export async function maybeUploadBestRun({
 
 export const __testables = {
   MAX_REPLAY_UPLOAD_BYTES,
-  normalizeCosmetics
+  normalizeCosmetics,
+  cloneConfigSnapshot,
+  normalizeSimTps
 };
