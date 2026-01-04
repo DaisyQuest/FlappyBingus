@@ -396,6 +396,11 @@ const ENDPOINT_GROUPS = Object.freeze([
         path: "/api/icon-styles",
         methods: ["GET"],
         summary: "Fetch runtime icon style overrides."
+      },
+      {
+        path: "/api/icon-registry",
+        methods: ["GET"],
+        summary: "Fetch the player icon registry for menu rendering."
       }
     ]
   },
@@ -2620,6 +2625,18 @@ async function route(req, res) {
       trails: catalog.trails,
       icons: catalog.icons,
       pipeTextures: catalog.pipeTextures
+    });
+    return;
+  }
+
+  if (pathname === "/api/icon-registry" && req.method === "GET") {
+    if (rateLimit(req, res, "/api/icon-registry")) return;
+    const catalog = getVisibleCatalog();
+    sendJson(res, 200, {
+      ok: true,
+      icons: catalog.icons,
+      defaults: ICONS_BASE,
+      meta: { generatedAt: new Date().toISOString() }
     });
     return;
   }

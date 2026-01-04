@@ -25,6 +25,10 @@ function createDeps(overrides = {}) {
       pipeTextures: [{ id: "pipe-1" }],
       achievements: { state: { foo: true } }
     })),
+    apiGetIconRegistry: vi.fn(async () => ({
+      ok: true,
+      icons: [{ id: "registry-icon" }]
+    })),
     apiGetHighscores: vi.fn(async () => ({ ok: true, highscores: [{ username: "bee", score: 5 }] })),
     apiGetStats: vi.fn(async () => ({ ok: true, totalRuns: 12 })),
     apiRegister: vi.fn(),
@@ -79,6 +83,7 @@ describe("session flows", () => {
     await flows.refreshProfileAndHighscores();
 
     expect(deps.apiGetMe).toHaveBeenCalled();
+    expect(deps.apiGetIconRegistry).toHaveBeenCalled();
     expect(net.online).toBe(true);
     expect(deps.setNetUser).toHaveBeenCalledWith(expect.objectContaining({ username: "bee" }));
     expect(deps.mergeTrailCatalog).toHaveBeenCalledWith([{ id: "classic" }], { current: initialTrails });
@@ -112,6 +117,7 @@ describe("session flows", () => {
   it("refreshProfileAndHighscores handles offline responses", async () => {
     const { deps, net } = createDeps({
       apiGetMe: vi.fn(async () => ({ ok: false })),
+      apiGetIconRegistry: vi.fn(async () => ({ ok: true, icons: [{ id: "registry-icon" }] })),
       apiGetHighscores: vi.fn(async () => ({ ok: false })),
       net: {
         online: true,
@@ -129,7 +135,7 @@ describe("session flows", () => {
 
     expect(net.online).toBe(false);
     expect(deps.setNetUser).toHaveBeenCalledWith(null);
-    expect(deps.syncIconCatalog).toHaveBeenCalledWith(deps.playerIcons);
+    expect(deps.syncIconCatalog).toHaveBeenCalledWith([{ id: "registry-icon" }]);
     expect(net.achievements).toEqual({ definitions: deps.ACHIEVEMENTS, state: { normalized: true } });
     expect(net.highscores).toEqual([]);
   });
@@ -137,6 +143,7 @@ describe("session flows", () => {
   it("refreshProfileAndHighscores preserves user when keepUserOnFailure is true", async () => {
     const { deps, net } = createDeps({
       apiGetMe: vi.fn(async () => ({ ok: false })),
+      apiGetIconRegistry: vi.fn(async () => ({ ok: true, icons: [{ id: "registry-icon" }] })),
       net: {
         online: true,
         user: { username: "keep" },

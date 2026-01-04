@@ -9,6 +9,7 @@ import {
 } from "./settings.js";
 import {
   apiGetMe,
+  apiGetIconRegistry,
   apiRegister,
   apiGetHighscores,
   apiGetStats,
@@ -1027,6 +1028,7 @@ function syncIconCatalog(nextIcons = null) {
   syncLauncherSwatch(currentIconId, playerIcons, playerImg);
   syncUnlockablesCatalog({ icons: playerIcons });
   syncMenuProfileBindingsFromState();
+  iconMenuController?.refreshIconMenu?.(currentIconId);
 }
 
 function syncPipeTextureCatalog(nextTextures = null) {
@@ -1488,6 +1490,7 @@ async function updateSkillSettings(next, { persist = true } = {}) {
 // ---- Server refresh ----
 const { refreshProfileAndHighscores, recoverSession, registerUser } = createSessionFlows({
   apiGetMe,
+  apiGetIconRegistry,
   apiGetHighscores,
   apiGetStats,
   apiRegister,

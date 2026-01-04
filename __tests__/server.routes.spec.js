@@ -1106,6 +1106,30 @@ describe("server routes and helpers", () => {
     expect(payload.overrides.spark.name).toBe("Spark");
   });
 
+  it("serves the icon registry for player menus", async () => {
+    const { server } = await importServer({
+      gameConfigStoreOverrides: {
+        getConfig: vi.fn(() => ({
+          iconStyles: {
+            overrides: {
+              custom_icon: {
+                name: "Custom Icon",
+                style: { fill: "#111" }
+              }
+            }
+          }
+        }))
+      }
+    });
+    const res = createRes();
+    await server.route(createReq({ url: "/api/icon-registry" }), res);
+    const payload = readJson(res);
+    expect(payload.ok).toBe(true);
+    expect(payload.icons.some((icon) => icon.id === "custom_icon")).toBe(true);
+    expect(payload.defaults.length).toBeGreaterThan(0);
+    expect(payload.meta.generatedAt).toBeTypeOf("string");
+  });
+
   it("serves admin icon styles with merged icons", async () => {
     const { server } = await importServer({
       gameConfigStoreOverrides: {

@@ -115,14 +115,16 @@ describe("server player icon catalog", () => {
     const inferno = PLAYER_ICONS.find((icon) => icon.id === "inferno_cape");
     expect(fire?.unlock?.id).toBe("score_fire_cape_1000");
     expect(inferno?.unlock?.id).toBe("score_inferno_cape_2000");
-    expect(fire?.style?.animation?.type).toBe("lava");
-    expect(inferno?.style?.animation?.type).toBe("lava");
-    expect(fire?.style?.animation?.layers).toBeGreaterThan(2);
-    expect(inferno?.style?.animation?.layers).toBeGreaterThan(2);
-    expect(fire?.style?.animation?.smoothness).toBeGreaterThan(0);
-    expect(inferno?.style?.animation?.smoothness).toBeGreaterThan(0);
-    expect(fire?.style?.pattern).toBeUndefined();
-    expect(inferno?.style?.pattern).toBeUndefined();
+    expect(fire?.style?.animation?.type).toBe("cape_flow");
+    expect(inferno?.style?.animation?.type).toBe("cape_flow");
+    expect(fire?.style?.animation?.palette).toEqual(expect.objectContaining({ molten: expect.any(String) }));
+    expect(inferno?.style?.animation?.palette).toEqual(expect.objectContaining({ molten: expect.any(String) }));
+    expect(fire?.style?.animation?.bands).toBeGreaterThan(2);
+    expect(inferno?.style?.animation?.bands).toBeGreaterThan(2);
+    expect(fire?.style?.animation?.embers).toBeGreaterThan(0);
+    expect(inferno?.style?.animation?.embers).toBeGreaterThan(0);
+    expect(fire?.style?.pattern?.type).toBe("cobblestone");
+    expect(inferno?.style?.pattern?.type).toBe("cobblestone");
 
     const none = unlockedIcons({ achievements: { unlocked: {} } }, { icons: PLAYER_ICONS, recordHolder: false });
     expect(none).not.toContain("fire_cape");

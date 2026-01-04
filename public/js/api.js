@@ -11,6 +11,7 @@ const CLIENT_RATE_LIMITS = Object.freeze({
   "/api/shop/purchase": { limit: 6, windowMs: 10_000 },
   "/api/binds": { limit: 8, windowMs: 10_000 },
   "/api/settings": { limit: 8, windowMs: 10_000 },
+  "/api/icon-registry": { limit: 8, windowMs: 10_000 },
   "/api/highscores": { limit: 10, windowMs: 5_000 },
   "/api/stats": { limit: 10, windowMs: 10_000 },
   "/api/trail-styles": { limit: 6, windowMs: 10_000 },
@@ -103,6 +104,11 @@ async function requestJson(url, opts = {}) {
 export async function apiGetMe() {
   if (hitClientRateLimit("/api/me")) return null;
   return requestJson("/api/me", { method: "GET" });
+}
+
+export async function apiGetIconRegistry() {
+  if (hitClientRateLimit("/api/icon-registry")) return null;
+  return requestJson("/api/icon-registry", { method: "GET" });
 }
 
 export async function apiRegister(username) {

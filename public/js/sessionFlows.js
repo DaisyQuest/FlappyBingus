@@ -1,5 +1,6 @@
 export function createSessionFlows({
   apiGetMe,
+  apiGetIconRegistry,
   apiGetHighscores,
   apiGetStats,
   apiRegister,
@@ -40,21 +41,31 @@ export function createSessionFlows({
   usernameInput,
   userHint
 }) {
+  async function loadIconRegistry() {
+    if (typeof apiGetIconRegistry !== "function") return null;
+    const registry = await apiGetIconRegistry();
+    if (registry?.ok && Array.isArray(registry.icons)) {
+      return registry.icons;
+    }
+    return null;
+  }
+
   async function refreshProfileAndHighscores({ keepUserOnFailure = false } = {}) {
+    const registryIcons = await loadIconRegistry();
     const me = await apiGetMe();
     if (!me?.ok) {
       net.online = false;
       if (!keepUserOnFailure) {
         setNetUser(null);
       }
-      syncIconCatalog(net.icons || playerIcons);
+      syncIconCatalog(registryIcons || net.icons || playerIcons);
       net.achievements = { definitions: ACHIEVEMENTS, state: normalizeAchievementState() };
     } else {
       net.online = true;
       setNetUser(me.user || null);
       net.trails = mergeTrailCatalog(me.trails, { current: net.trails });
       syncUnlockablesCatalog({ trails: net.trails });
-      syncIconCatalog(me.icons || net.icons);
+      syncIconCatalog(me.icons || registryIcons || net.icons);
       syncPipeTextureCatalog(me.pipeTextures || net.pipeTextures);
       applyAchievementsPayload(me.achievements || { definitions: ACHIEVEMENTS, state: me.user?.achievements });
       if (net.user?.keybinds) setBinds(mergeBinds(DEFAULT_KEYBINDS, net.user.keybinds));
