@@ -21,6 +21,14 @@ const LIFETIME_LABELS = Object.freeze({
   mode: "Lifetime stats"
 });
 
+const SURF_RUN_LABELS = Object.freeze({
+  orb: "Best chain (this run)",
+  perfect: "Highest launch (this run)",
+  skillUsage: "Skill usage (this run)",
+  toggle: "Run stats",
+  mode: "Surf stats"
+});
+
 function clampCount(value) {
   const n = Number(value);
   if (!Number.isFinite(n) || n <= 0) return 0;
@@ -49,6 +57,13 @@ function normalizeRunStats(runStats = null) {
   };
 }
 
+function normalizeSurfStats(runStats = null) {
+  return {
+    maxChain: clampCount(runStats?.maxChain),
+    maxBigAir: clampCount(runStats?.maxBigAir)
+  };
+}
+
 function normalizeLifetimeStats(achievementsState = null, skillTotals = null) {
   const state = normalizeAchievementState(achievementsState);
   const progress = state.progress || {};
@@ -64,18 +79,25 @@ function normalizeLifetimeStats(achievementsState = null, skillTotals = null) {
 }
 
 export function buildGameOverStats({ view, runStats, achievementsState, skillTotals } = {}) {
-  const normalizedView = view === GAME_OVER_STAT_VIEWS.lifetime ? GAME_OVER_STAT_VIEWS.lifetime : GAME_OVER_STAT_VIEWS.run;
+  const isSurf = runStats?.mode === "surf";
+  const normalizedView = (!isSurf && view === GAME_OVER_STAT_VIEWS.lifetime)
+    ? GAME_OVER_STAT_VIEWS.lifetime
+    : GAME_OVER_STAT_VIEWS.run;
   const run = normalizeRunStats(runStats);
+  const surf = normalizeSurfStats(runStats);
   const lifetime = normalizeLifetimeStats(achievementsState, skillTotals);
   const source = normalizedView === GAME_OVER_STAT_VIEWS.lifetime ? lifetime : run;
-  const labels = normalizedView === GAME_OVER_STAT_VIEWS.lifetime ? LIFETIME_LABELS : RUN_LABELS;
+  const labels = isSurf
+    ? SURF_RUN_LABELS
+    : (normalizedView === GAME_OVER_STAT_VIEWS.lifetime ? LIFETIME_LABELS : RUN_LABELS);
+  const combo = isSurf
+    ? { orb: surf.maxChain, perfect: surf.maxBigAir }
+    : { orb: source.maxOrbCombo, perfect: source.maxPerfectCombo };
   return {
     view: normalizedView,
-    combo: {
-      orb: source.maxOrbCombo,
-      perfect: source.maxPerfectCombo
-    },
-    skillUsage: source.skillUsage,
-    labels
+    combo,
+    skillUsage: isSurf ? null : source.skillUsage,
+    labels,
+    toggleEnabled: !isSurf
   };
 }

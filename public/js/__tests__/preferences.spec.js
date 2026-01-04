@@ -48,6 +48,15 @@ describe("preferences", () => {
     expect(readLocalBest()).toBe(0);
   });
 
+  it("separates the surf best score cookie", () => {
+    writeLocalBest(90, "surf");
+    expect(readLocalBest("surf")).toBe(90);
+    expect(readLocalBest()).toBe(0);
+
+    globalThis.document.cookie = "chocolate_chip_surf=300";
+    expect(readLocalBest("surf")).toBe(300);
+  });
+
   it("round-trips the seed cookie with decoding", () => {
     writeSeed("alpha beta");
     expect(readSeed()).toBe("alpha beta");

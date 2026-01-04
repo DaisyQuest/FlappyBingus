@@ -38,6 +38,7 @@ describe("uiLayout", () => {
     expect(ui.over?.id).toBe("over");
     expect(ui.overAchievements?.hidden).toBe(true);
     expect(ui.start?.textContent).toContain("Start");
+    expect(ui.startSurf?.textContent).toContain("Surf");
     const readyCard = mount.querySelector(".panel-main .info-card");
     const readyFields = readyCard?.querySelectorAll(".field");
     expect(readyFields?.[0]?.querySelector("#iconOptions")).toBeInstanceOf(window.HTMLElement);
@@ -85,6 +86,7 @@ describe("uiLayout", () => {
     const ui = buildGameUI({ document, mount });
 
     expect(ui.start?.disabled).toBe(true);
+    expect(ui.startSurf?.disabled).toBe(true);
     expect(ui.tutorial?.disabled).toBe(true);
     expect(ui.exportGif?.disabled).toBe(true);
     expect(ui.exportMp4?.disabled).toBe(true);

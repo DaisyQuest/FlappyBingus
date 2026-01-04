@@ -167,7 +167,13 @@ function createTrailCard(doc, refs) {
     text: "Start",
     props: { disabled: true }
   });
-  actions.append(startBtn);
+  const startSurfBtn = createElement(doc, refs, "button", {
+    id: "startSurf",
+    className: "cta-btn wide",
+    text: "Surf",
+    props: { disabled: true }
+  });
+  actions.append(startBtn, startSurfBtn);
 
   const divider = doc.createElement("div");
   divider.className = "soft-divider";
