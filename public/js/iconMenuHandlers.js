@@ -35,14 +35,20 @@ export function createIconMenuHandlers({
     iconOverlayClose
   } = elements;
 
+  const resolveIconState = () => {
+    const icons = getPlayerIcons();
+    return { icons, unlocked: computeUnlockedIconSet(icons) };
+  };
+
+  const isIconInCatalog = (icons, id) => icons.some((icon) => icon?.id === id);
+
   const handleOptionsClick = async (event) => {
     const btn = event.target.closest("button[data-icon-id]");
     if (!btn) return;
 
     const net = getNet();
     const id = btn.dataset.iconId;
-    const playerIcons = getPlayerIcons();
-    const unlocked = computeUnlockedIconSet(playerIcons);
+    let { icons: playerIcons, unlocked } = resolveIconState();
     if (!unlocked.has(id)) {
       if (btn.dataset.unlockType === "purchase") {
         const icon = playerIcons.find((i) => i.id === id) || { id, name: id, unlock: {} };
@@ -81,6 +87,21 @@ export function createIconMenuHandlers({
 
     if (!net.user && !(await ensureLoggedInForSave())) return;
 
+    ({ icons: playerIcons, unlocked } = resolveIconState());
+    if (!isIconInCatalog(playerIcons, id) || !unlocked.has(id)) {
+      applyIconSelection(previous, playerIcons, unlocked);
+      if (iconHint) {
+        const fallback = { unlock: {} };
+        const lockTarget = playerIcons.find((icon) => icon.id === id) || fallback;
+        iconHint.className = "hint bad";
+        iconHint.textContent = isIconInCatalog(playerIcons, id)
+          ? describeIconLock(lockTarget, { unlocked: false })
+          : "That icon is unavailable.";
+      }
+      renderIconOptions(getCurrentIconId(), unlocked, playerIcons);
+      return;
+    }
+
     const res = await apiSetIcon(id);
     const outcome = classifyIconSaveResponse(res);
     net.online = outcome.online;
@@ -93,7 +114,12 @@ export function createIconMenuHandlers({
       setNetUser(res.user);
       net.trails = normalizeTrails(res.trails ?? net.trails, { allowEmpty: true });
       syncUnlockablesCatalog({ trails: net.trails });
-      syncIconCatalog(res.icons || net.icons);
+      if (Array.isArray(res.icons) && res.icons.length) {
+        const selected = res.user?.selectedIcon || id;
+        if (isIconInCatalog(res.icons, selected)) {
+          syncIconCatalog(res.icons);
+        }
+      }
       syncPipeTextureCatalog(res.pipeTextures || net.pipeTextures);
       applyIconSelection(res.user?.selectedIcon || id, getPlayerIcons());
     } else if (outcome.revert) {
