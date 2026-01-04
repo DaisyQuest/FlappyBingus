@@ -80,7 +80,7 @@ import { renderScoreBreakdown } from "./scoreBreakdown.js";
 import { computePersonalBestStatus, updatePersonalBestElements } from "./personalBest.js";
 import { updatePersonalBestUI } from "./personalBestUI.js";
 import { buildGameOverStats, GAME_OVER_STAT_VIEWS } from "./gameOverStats.js";
-import { buildUnlockablesCatalog, getUnlockedIdsByType, UNLOCKABLE_TYPES } from "./unlockables.js";
+import { buildUnlockablesCatalog, getUnlockedIdsByType, resolveUnlockablesForType, UNLOCKABLE_TYPES } from "./unlockables.js";
 import { DEFAULT_CURRENCY_ID, getUserCurrencyBalance } from "./currencySystem.js";
 import {
   DEFAULT_PLAYER_ICON_ID,
@@ -1052,7 +1052,14 @@ function computeUnlockedIconSet(icons = playerIcons) {
   const achievements = net.user?.achievements || net.achievements?.state;
   const owned = getOwnedUnlockables(net.user);
   const isRecordHolder = Boolean(net.user?.isRecordHolder);
-  const unlockables = net.unlockables?.unlockables || buildUnlockablesCatalog({ icons }).unlockables;
+  const unlockables = resolveUnlockablesForType({
+    unlockables: net.unlockables?.unlockables,
+    type: UNLOCKABLE_TYPES.playerTexture,
+    list: icons,
+    trails: net.trails,
+    icons,
+    pipeTextures: net.pipeTextures
+  });
   return new Set(
     getUnlockedIdsByType({
       unlockables,
@@ -1081,8 +1088,16 @@ function computeUnlockedPipeTextureSet(textures = net.pipeTextures) {
   const achievements = net.user?.achievements || net.achievements?.state;
   const owned = getOwnedUnlockables(net.user);
   const isRecordHolder = Boolean(net.user?.isRecordHolder);
+  const unlockables = resolveUnlockablesForType({
+    unlockables: net.unlockables?.unlockables,
+    type: UNLOCKABLE_TYPES.pipeTexture,
+    list: textures,
+    trails: net.trails,
+    icons: playerIcons,
+    pipeTextures: textures
+  });
   const unlockedIds = getUnlockedIdsByType({
-    unlockables: net.unlockables?.unlockables || [],
+    unlockables,
     type: UNLOCKABLE_TYPES.pipeTexture,
     state: net.user?.unlockables,
     context: {
