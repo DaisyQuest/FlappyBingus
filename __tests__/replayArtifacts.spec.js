@@ -119,6 +119,28 @@ describe("replay artifacts", () => {
     expect(maybeUploadBestRun).not.toHaveBeenCalled();
   });
 
+  it("passes config snapshots into best-run uploads", async () => {
+    const maybeUploadBestRun = vi.fn(async () => true);
+    const configSnapshot = { scoring: { pipeDodge: 3 } };
+    const uploader = createBestRunUploader({
+      getActiveRun: vi.fn(() => ({ ended: true, seed: "seed", ticks: [1] })),
+      getUser: vi.fn(() => ({ bestScore: 20 })),
+      getConfig: vi.fn(() => configSnapshot),
+      cloneReplayRun: vi.fn((run) => run),
+      maybeUploadBestRun,
+      uploadBestRun: vi.fn(),
+      setStatus: vi.fn()
+    });
+
+    await uploader(25, { stats: true });
+
+    expect(maybeUploadBestRun).toHaveBeenCalledWith(
+      expect.objectContaining({
+        configSnapshot
+      })
+    );
+  });
+
   it("updates status for failure and success paths", async () => {
     const setStatus = vi.fn();
     const maybeUploadBestRun = vi.fn(async ({ logger }) => {

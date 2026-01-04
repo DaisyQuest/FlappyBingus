@@ -12,6 +12,7 @@ export function downloadBlob(blob, filename) {
 export function createBestRunUploader({
   getActiveRun,
   getUser,
+  getConfig,
   cloneReplayRun,
   maybeUploadBestRun,
   uploadBestRun,
@@ -43,10 +44,13 @@ export function createBestRunUploader({
     if (!runForUpload?.ticks?.length) return;
     if (typeof maybeUploadBestRun !== "function") return;
 
+    const configSnapshot = typeof getConfig === "function" ? getConfig() : null;
+
     const uploaded = await maybeUploadBestRun({
       activeRun: runForUpload,
       finalScore,
       runStats,
+      configSnapshot,
       bestScore,
       upload: uploadBestRun,
       logger

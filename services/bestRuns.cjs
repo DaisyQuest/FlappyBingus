@@ -26,6 +26,13 @@ function normalizeCosmetics(raw) {
   return Object.keys(cosmetics).length ? cosmetics : null;
 }
 
+function normalizeSimTps(value) {
+  const num = Number(value);
+  if (!Number.isFinite(num)) return null;
+  if (num <= 0) return null;
+  return Math.floor(num);
+}
+
 function sanitizeMime(mime) {
   if (typeof mime !== "string" || !mime.trim()) return "application/octet-stream";
   return mime.slice(0, 128);
@@ -143,6 +150,10 @@ function hydrateReplayFromJson(run) {
   if (!ticks.length) return null;
   const rngTape = Array.isArray(parsed?.rngTape) ? parsed.rngTape : [];
   const cosmetics = normalizeCosmetics(parsed?.cosmetics || run.cosmetics);
+  const configSnapshot = (parsed?.configSnapshot && typeof parsed.configSnapshot === "object")
+    ? parsed.configSnapshot
+    : null;
+  const simTps = normalizeSimTps(parsed?.simTps ?? run.simTps);
 
   const hydrated = {
     seed: String(parsed.seed || run.seed || ""),
@@ -154,6 +165,8 @@ function hydrateReplayFromJson(run) {
     ticksLength: ticks.length
   };
   if (cosmetics) hydrated.cosmetics = cosmetics;
+  if (configSnapshot) hydrated.configSnapshot = configSnapshot;
+  if (simTps) hydrated.simTps = simTps;
   return hydrated;
 }
 

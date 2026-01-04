@@ -606,6 +606,7 @@ let replayManager = null;
 const uploadBestRunArtifacts = createBestRunUploader({
   getActiveRun: () => replayManager?.getActiveRun(),
   getUser: () => net.user,
+  getConfig: () => CFG,
   cloneReplayRun,
   maybeUploadBestRun,
   uploadBestRun: apiUploadBestRun,
@@ -891,6 +892,8 @@ async function handlePlayHighscore(username) {
 
   pauseTrailPreview();
   setUIMode(false);
+  let playbackRun = null;
+  let previousReplayConfig = null;
   try {
     const res = await apiGetBestRun(username);
     if (!res?.ok || !res.run) {
@@ -902,7 +905,7 @@ async function handlePlayHighscore(username) {
       });
       return;
     }
-    const playbackRun = hydrateBestRunPayload(res.run);
+    playbackRun = hydrateBestRunPayload(res.run);
     if (!playbackRun) {
       updateReplayModal({
         title: modalTitle,
@@ -911,6 +914,11 @@ async function handlePlayHighscore(username) {
         canClose: true
       });
       return;
+    }
+
+    if (playbackRun.configSnapshot && replayGame) {
+      previousReplayConfig = replayGame.cfg;
+      replayGame.cfg = playbackRun.configSnapshot;
     }
 
     const played = await replayManager.play({
@@ -942,6 +950,9 @@ async function handlePlayHighscore(username) {
       canClose: true
     });
   } finally {
+    if (previousReplayConfig && playbackRun?.configSnapshot && replayGame) {
+      replayGame.cfg = previousReplayConfig;
+    }
     const menuVisible = !menu?.classList?.contains("hidden");
     const overVisible = !over?.classList?.contains("hidden");
     setUIMode(Boolean(menuVisible || overVisible));

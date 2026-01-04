@@ -21,6 +21,14 @@ function ensureClassList(el) {
   return el?.classList;
 }
 
+function resolveSimDt(baseSimDt, run) {
+  const simTps = Number(run?.simTps);
+  if (Number.isFinite(simTps) && simTps > 0) {
+    return 1 / simTps;
+  }
+  return baseSimDt;
+}
+
 function startCapture({ canvas, fps }) {
   if (!canvas?.captureStream) {
     throw new Error("Replay capture requires a canvas with captureStream().");
@@ -226,6 +234,7 @@ export function createReplayManager({
         : (wantsDeterministic
           ? playbackTicksDeterministic
           : (canUseRealtime ? playbackTicks : playbackTicksDeterministic));
+      const runSimDt = resolveSimDt(simDt, run);
       const yieldBetweenRenders = wantsDeterministic && canUseRealtime
         ? () => new Promise((resolve) => {
           const raf = requestFrame || requestAnimationFrame;
@@ -241,7 +250,7 @@ export function createReplayManager({
           replayInput,
           captureMode,
           playbackMode: wantsDeterministic ? "deterministic" : "realtime",
-          simDt,
+          simDt: runSimDt,
           requestFrame,
           step: playbackStep,
           yieldBetweenRenders,
@@ -295,6 +304,7 @@ export const __testables = {
   DEFAULT_CAPTURE_FPS,
   createReplayInput,
   hasReplayData,
+  resolveSimDt,
   startCapture,
   stopCapture
 };

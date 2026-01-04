@@ -274,6 +274,54 @@ describe("replayManager", () => {
     }));
   });
 
+  it("uses the replay's sim TPS snapshot when provided", async () => {
+    const game = { input: { name: "real" }, startRun: vi.fn() };
+    const run = {
+      seed: "seed",
+      ended: true,
+      ticks: [{}],
+      rngTape: [],
+      simTps: 240
+    };
+    const playbackTicksDeterministic = vi.fn(async () => {});
+
+    const manager = createReplayManager({
+      game,
+      playbackTicksDeterministic,
+      simDt: SIM_DT
+    });
+
+    await manager.play({ run, captureMode: "none", playbackMode: "deterministic" });
+
+    expect(playbackTicksDeterministic).toHaveBeenCalledWith(expect.objectContaining({
+      simDt: 1 / 240
+    }));
+  });
+
+  it("falls back to the base sim dt when replay sim TPS is invalid", async () => {
+    const game = { input: { name: "real" }, startRun: vi.fn() };
+    const run = {
+      seed: "seed",
+      ended: true,
+      ticks: [{}],
+      rngTape: [],
+      simTps: -5
+    };
+    const playbackTicksDeterministic = vi.fn(async () => {});
+
+    const manager = createReplayManager({
+      game,
+      playbackTicksDeterministic,
+      simDt: SIM_DT
+    });
+
+    await manager.play({ run, captureMode: "none", playbackMode: "deterministic" });
+
+    expect(playbackTicksDeterministic).toHaveBeenCalledWith(expect.objectContaining({
+      simDt: SIM_DT
+    }));
+  });
+
   it("restores hidden UI states after replay playback", async () => {
     const game = { input: { name: "real" }, startRun: vi.fn() };
     const menu = { classList: makeClassList(["hidden"]) };

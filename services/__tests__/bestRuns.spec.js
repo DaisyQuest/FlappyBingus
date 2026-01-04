@@ -250,6 +250,32 @@ describe("normalizeBestRunRequest", () => {
     });
   });
 
+  it("hydrates config snapshots embedded in replay JSON", () => {
+    const body = {
+      ...baseBody,
+      replay: {
+        ...baseBody.replay,
+        configSnapshot: { pipes: { speed: { start: 1, end: 2 } } }
+      }
+    };
+    const payload = normalizeBestRunRequest(body, { bestScore: 0, validateRunStats: okRunStats }).payload;
+    const hydrated = hydrateReplayFromJson(payload);
+    expect(hydrated.configSnapshot).toEqual({ pipes: { speed: { start: 1, end: 2 } } });
+  });
+
+  it("hydrates sim TPS snapshots embedded in replay JSON", () => {
+    const body = {
+      ...baseBody,
+      replay: {
+        ...baseBody.replay,
+        simTps: 240
+      }
+    };
+    const payload = normalizeBestRunRequest(body, { bestScore: 0, validateRunStats: okRunStats }).payload;
+    const hydrated = hydrateReplayFromJson(payload);
+    expect(hydrated.simTps).toBe(240);
+  });
+
   it("returns null for malformed replay blobs", () => {
     expect(hydrateReplayFromJson(null)).toBeNull();
     expect(hydrateReplayFromJson({ replayJson: "{" })).toBeNull();
@@ -263,12 +289,14 @@ describe("normalizeBestRunRequest", () => {
       durationMs: 456,
       replayJson: JSON.stringify({
         ticks: [{ move: { dx: 0, dy: 0 }, cursor: { x: 0, y: 0, has: false } }],
-        rngTape: "not-array"
+        rngTape: "not-array",
+        simTps: -10
       })
     };
     const hydrated = hydrateReplayFromJson(run);
     expect(hydrated.seed).toBe("fallback-seed");
     expect(hydrated.durationMs).toBe(456);
     expect(hydrated.rngTapeLength).toBe(0);
+    expect(hydrated.simTps).toBeUndefined();
   });
 });
