@@ -4,7 +4,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
-import { ADSENSE_SCRIPT_SRC } from "../services/adsense.cjs";
+import { ADSENSE_CLIENT_ID, ADSENSE_LOADER_SRC } from "../services/adsense.cjs";
 
 const baseUser = () => ({
   username: "PlayerOne",
@@ -466,7 +466,8 @@ describe("server routes and helpers", () => {
     expect(res.status).toBe(200);
     expect(res.headers["Content-Type"]).toContain("text/html");
     expect(res.body).toContain("<title>Replay Browser</title>");
-    expect(res.body).toContain(ADSENSE_SCRIPT_SRC);
+    expect(res.body).toContain(ADSENSE_LOADER_SRC);
+    expect(res.body).toContain(`data-adsense-client=\"${ADSENSE_CLIENT_ID}\"`);
   });
 
   it("serves the endpoint browser page with page links and api entries", async () => {
@@ -483,7 +484,8 @@ describe("server routes and helpers", () => {
     expect(res.body).toContain('href="/highscores"');
     expect(res.body).toContain('href="/playerSessionData"');
     expect(res.body).toContain('href="/trail_previews?format=html"');
-    expect(res.body).toContain(ADSENSE_SCRIPT_SRC);
+    expect(res.body).toContain(ADSENSE_LOADER_SRC);
+    expect(res.body).toContain(`data-adsense-client=\"${ADSENSE_CLIENT_ID}\"`);
   });
 
   it("serves a highscores HTML page with adsense support", async () => {
@@ -495,7 +497,8 @@ describe("server routes and helpers", () => {
     expect(res.status).toBe(200);
     expect(res.headers["Content-Type"]).toContain("text/html");
     expect(res.body).toContain("<title>Flappy Bingus – High Scores</title>");
-    expect(res.body).toContain(ADSENSE_SCRIPT_SRC);
+    expect(res.body).toContain(ADSENSE_LOADER_SRC);
+    expect(res.body).toContain(`data-adsense-client=\"${ADSENSE_CLIENT_ID}\"`);
   });
 
   it("serves player session data as friendly HTML when authenticated", async () => {
@@ -516,7 +519,8 @@ describe("server routes and helpers", () => {
     expect(res.body).toContain("<title>Player Session Data</title>");
     expect(res.body).toContain("PlayerOne");
     expect(res.body).toContain("sessionToken");
-    expect(res.body).toContain(ADSENSE_SCRIPT_SRC);
+    expect(res.body).toContain(ADSENSE_LOADER_SRC);
+    expect(res.body).toContain(`data-adsense-client=\"${ADSENSE_CLIENT_ID}\"`);
   });
 
   it("returns an unauthorized HTML response when session data is missing", async () => {
@@ -529,7 +533,8 @@ describe("server routes and helpers", () => {
     expect(res.headers["Content-Type"]).toContain("text/html");
     expect(res.body).toContain("No active session");
     expect(res.body).toContain("Unauthorized session.");
-    expect(res.body).toContain(ADSENSE_SCRIPT_SRC);
+    expect(res.body).toContain(ADSENSE_LOADER_SRC);
+    expect(res.body).toContain(`data-adsense-client=\"${ADSENSE_CLIENT_ID}\"`);
   });
 
   it("clears invalid session cookies when serving player session data", async () => {
@@ -1621,7 +1626,8 @@ describe("server routes and helpers", () => {
     expect(htmlRes.status).toBe(200);
     expect(htmlRes.headers["Content-Type"]).toContain("text/html");
     expect(htmlRes.body).toContain("<!doctype html>");
-    expect(htmlRes.body).toContain(ADSENSE_SCRIPT_SRC);
+    expect(htmlRes.body).toContain(ADSENSE_LOADER_SRC);
+    expect(htmlRes.body).toContain(`data-adsense-client=\"${ADSENSE_CLIENT_ID}\"`);
   });
 
   it("includes trail style overrides in the preview catalog", async () => {
@@ -1656,7 +1662,8 @@ describe("server routes and helpers", () => {
     expect(htmlRes.status).toBe(200);
     expect(htmlRes.headers["Content-Type"]).toContain("text/html");
     expect(htmlRes.body).toContain("<!doctype html>");
-    expect(htmlRes.body).toContain(ADSENSE_SCRIPT_SRC);
+    expect(htmlRes.body).toContain(ADSENSE_LOADER_SRC);
+    expect(htmlRes.body).toContain(`data-adsense-client=\"${ADSENSE_CLIENT_ID}\"`);
   });
 
   it("includes custom trails in unlockables output", async () => {
@@ -1727,7 +1734,8 @@ describe("server routes and helpers", () => {
     expect(res.status).toBe(200);
     expect(res.body).toContain("1d 1h 1m 1s");
     expect(res.body).toContain("Database error");
-    expect(res.body).toContain(ADSENSE_SCRIPT_SRC);
+    expect(res.body).toContain(ADSENSE_LOADER_SRC);
+    expect(res.body).toContain(`data-adsense-client=\"${ADSENSE_CLIENT_ID}\"`);
   });
 
   it("blocks traversal attempts when serving static assets", async () => {
