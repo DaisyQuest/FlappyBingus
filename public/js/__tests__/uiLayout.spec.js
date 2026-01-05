@@ -313,9 +313,6 @@ describe("uiLayout", () => {
     const supportButton = dock?.querySelector("#supportButton");
     const supportPopover = dock?.querySelector("#supportPopover");
     const iframe = discordPopover?.querySelector("iframe.discord-widget");
-    const offerwallLabel = supportPopover?.querySelector(".support-offerwall-label");
-    const offerwall = supportPopover?.querySelector(".support-offerwall");
-    const offerwallIframe = offerwall?.querySelector("iframe.support-offerwall-iframe");
 
     expect(dock).toBeInstanceOf(window.HTMLDivElement);
     expect(discordButton).toBeInstanceOf(window.HTMLButtonElement);
@@ -327,15 +324,9 @@ describe("uiLayout", () => {
     expect(iframe?.getAttribute("src")).toContain("discord.com/widget");
     expect(donatePopover?.textContent).toContain("Thank you so much");
     expect(donatePopover?.textContent).toContain("Venmo: @Bingus69");
-    expect(supportPopover?.textContent).toContain("Supportcoins");
-    expect(supportPopover?.textContent).toContain("CPAlead");
-    expect(offerwallLabel?.textContent).toContain("offers");
-    expect(offerwall?.getAttribute("aria-live")).toBe("polite");
-    expect(offerwallIframe?.getAttribute("src")).toBe("https://www.fastrsrvr.com/list/EyDhpAOq");
-    expect(offerwallIframe?.getAttribute("sandbox")).toBe(
-      "allow-popups allow-same-origin allow-scripts allow-top-navigation-by-user-activation allow-popups-to-escape-sandbox"
-    );
-    expect(offerwallIframe?.getAttribute("frameborder")).toBe("0");
+    expect(supportPopover?.textContent).toContain("Support the game");
+    expect(supportPopover?.textContent).toContain("AdSense");
+    expect(supportPopover?.querySelector(".support-offerwall")).toBeNull();
     expect(ui.socialDock).toBe(dock);
   });
 
@@ -348,20 +339,9 @@ describe("uiLayout", () => {
     expect(donateRuleMatch?.[0]).toContain("width:460px");
   });
 
-  it("styles the support offerwall container within the popover", () => {
+  it("styles the support provider copy within the popover", () => {
     const css = fs.readFileSync(new URL("../../styles/flappybingus.css", import.meta.url), "utf8");
-    const offerwallRuleMatch = css.match(/\.support-offerwall\{[^}]*\}/);
-
-    expect(offerwallRuleMatch).not.toBeNull();
-    expect(offerwallRuleMatch?.[0]).toContain("min-height:690px");
-    expect(offerwallRuleMatch?.[0]).toContain("max-height:690px");
-    expect(offerwallRuleMatch?.[0]).toContain("overflow:hidden");
-
-    const offerwallIframeRuleMatch = css.match(/\.support-offerwall-iframe\{[^}]*\}/);
-    expect(offerwallIframeRuleMatch).not.toBeNull();
-    expect(offerwallIframeRuleMatch?.[0]).toContain("width:100%");
-    expect(offerwallIframeRuleMatch?.[0]).toContain("height:690px");
-    expect(offerwallIframeRuleMatch?.[0]).toContain("border:0");
+    expect(css).toMatch(/\.support-provider\{[^}]*font-size:12px[^}]*font-weight:700/);
   });
 
   it("positions the trail swatch to the left of the launcher text and exposes the overlay grid", () => {
