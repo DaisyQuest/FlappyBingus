@@ -28,12 +28,9 @@ const SKILL_COOLDOWN_REFS = [
 
 const DONATE_MESSAGE = "Thank you so much for even considering to click this button! Any tips to support the development team are greatly appreciated!";
 const DONATE_VENMO = "Venmo: @Bingus69";
-const SUPPORT_MESSAGE = "Support the game by watching a short ad or completing an offer.";
-const SUPPORT_REWARD = "Earn Supportcoins when your support is confirmed.";
-const SUPPORT_PROVIDER = "Offers are delivered via CPAlead reward tools/offer wall.";
-const SUPPORT_OFFERWALL_MESSAGE = "Browse the offers below to confirm your Supportcoin reward.";
-const SUPPORT_OFFERWALL_IFRAME_SRC = "https://www.fastrsrvr.com/list/EyDhpAOq";
-const SUPPORT_OFFERWALL_IFRAME_SANDBOX = "allow-popups allow-same-origin allow-scripts allow-top-navigation-by-user-activation allow-popups-to-escape-sandbox";
+const SUPPORT_MESSAGE = "Support the game by viewing ads.";
+const SUPPORT_REWARD = "Ads help keep Flappy Bingus running for everyone.";
+const SUPPORT_PROVIDER = "Ads are served by Google AdSense.";
 
 function readCooldown(cfg, key, { multiplier = 1 } = {}) {
   const fallback = Number(DEFAULT_CONFIG?.skills?.[key]?.cooldown);
@@ -2030,20 +2027,7 @@ function createSocialDock(doc, refs) {
       const provider = doc.createElement("p");
       provider.className = "support-provider";
       provider.textContent = SUPPORT_PROVIDER;
-      const offerwallLabel = doc.createElement("p");
-      offerwallLabel.className = "support-offerwall-label";
-      offerwallLabel.textContent = SUPPORT_OFFERWALL_MESSAGE;
-      const offerwall = doc.createElement("div");
-      offerwall.className = "support-offerwall";
-      offerwall.setAttribute("aria-live", "polite");
-      const offerwallIframe = doc.createElement("iframe");
-      offerwallIframe.className = "support-offerwall-iframe";
-      offerwallIframe.src = SUPPORT_OFFERWALL_IFRAME_SRC;
-      offerwallIframe.setAttribute("sandbox", SUPPORT_OFFERWALL_IFRAME_SANDBOX);
-      offerwallIframe.setAttribute("frameborder", "0");
-      offerwallIframe.title = "Support offers";
-      offerwall.append(offerwallIframe);
-      popover.append(copy, reward, provider, offerwallLabel, offerwall);
+      popover.append(copy, reward, provider);
     }
   });
 

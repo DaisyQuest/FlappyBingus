@@ -707,10 +707,12 @@ describe("MongoDataStore mutations and reads", () => {
       amount: 3,
       transactionId: "txn-1",
       offerId: "offer-1",
-      provider: "cpalead"
+      provider: "adsense"
     });
 
-    expect(offers.insertOne).toHaveBeenCalledWith(expect.objectContaining({ transactionId: "txn-1", amount: 3 }));
+    expect(offers.insertOne).toHaveBeenCalledWith(
+      expect.objectContaining({ transactionId: "txn-1", amount: 3, provider: "adsense" })
+    );
     expect(users.findOneAndUpdate).toHaveBeenCalledWith(
       { key: "k" },
       {
@@ -721,6 +723,32 @@ describe("MongoDataStore mutations and reads", () => {
     );
     expect(result.credited).toBe(true);
     expect(result.user).toEqual({ key: "k", currencies: { supportcoin: 3 } });
+  });
+
+  it("defaults support offers to adsense when no provider is supplied", async () => {
+    const { MongoDataStore } = await loadModule();
+    const offers = makeCollection({
+      insertOne: vi.fn(async () => ({ insertedId: "offer-id" }))
+    });
+    const users = makeCollection({
+      findOneAndUpdate: vi.fn(async () => ({ value: { key: "k", currencies: { supportcoin: 3 } } }))
+    });
+    const store = new MongoDataStore({ uri: "mongodb://ok", dbName: "db" });
+    store.ensureConnected = vi.fn();
+    store.supportOffersCollection = () => offers;
+    store.usersCollection = () => users;
+
+    await store.recordSupportOffer({
+      key: "k",
+      username: "User",
+      amount: 3,
+      transactionId: "txn-1",
+      offerId: "offer-1"
+    });
+
+    expect(offers.insertOne).toHaveBeenCalledWith(
+      expect.objectContaining({ transactionId: "txn-1", amount: 3, provider: "adsense" })
+    );
   });
 
   it("returns duplicate status for repeated support transactions", async () => {
