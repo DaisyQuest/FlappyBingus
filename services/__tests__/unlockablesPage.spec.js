@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { ADSENSE_CLIENT_ID, ADSENSE_LOADER_SRC } from "../adsense.cjs";
+import { ADSENSE_CLIENT_ID, ADSENSE_LOADER_SRC, ADSENSE_SCRIPT_SRC } from "../adsense.cjs";
 import { renderUnlockablesPage, wantsUnlockablesHtml } from "../unlockablesPage.cjs";
 
 const baseUnlockables = [
@@ -38,6 +38,7 @@ describe("unlockables page helpers", () => {
     expect(html).toContain("&lt;Script&gt;");
     expect(html).toContain("data-unlockable-id=\"&lt;weird&gt;\"");
     expect(html).toContain("\\u003c");
+    expect(html).toContain(ADSENSE_SCRIPT_SRC);
     expect(html).toContain(ADSENSE_LOADER_SRC);
     expect(html).toContain(`data-adsense-client=\"${ADSENSE_CLIENT_ID}\"`);
   });

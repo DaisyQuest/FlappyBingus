@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { ADSENSE_CLIENT_ID, ADSENSE_LOADER_SRC } from "../adsense.cjs";
+import { ADSENSE_CLIENT_ID, ADSENSE_LOADER_SRC, ADSENSE_SCRIPT_SRC } from "../adsense.cjs";
 import { renderTrailPreviewPage, wantsPreviewHtml } from "../trailPreviewPage.cjs";
 
 describe("trailPreviewPage", () => {
@@ -38,6 +38,7 @@ describe("trailPreviewPage", () => {
       expect(html).toContain('data-trail-id="aurora"');
       expect(html).toContain("Unlocks at 700 score");
       expect(html).toContain("trail-preview-aurora");
+      expect(html).toContain(ADSENSE_SCRIPT_SRC);
       expect(html).toContain(ADSENSE_LOADER_SRC);
       expect(html).toContain(`data-adsense-client=\"${ADSENSE_CLIENT_ID}\"`);
     });

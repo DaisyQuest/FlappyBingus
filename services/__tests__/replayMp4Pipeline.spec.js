@@ -1,5 +1,3 @@
-"use strict";
-
 import { describe, expect, it, vi } from "vitest";
 import os from "node:os";
 import path from "node:path";
