@@ -31,17 +31,14 @@ const WORLD_HEIGHT = 720;
 
 const STATE = Object.freeze({ MENU: 0, PLAY: 1, OVER: 2 });
 
-import { Pipe, Gate, Orb, Part, FloatText, setEntityRandSource } from "./entities.js";
+import { Orb, Part, FloatText, setEntityRandSource } from "./entities.js";
+import { Gate, Pipe } from "./pipes/pipeEntity.js";
 import { spawnBurst, spawnCrossfire, spawnOrb, spawnSinglePipe, spawnWall } from "./spawn.js";
 import { dashBounceMax, orbPoints, tickCooldowns } from "./mechanics.js";
 import { buildScorePopupStyle, buildComboAuraStyle, COMBO_AURA_THRESHOLDS } from "./uiStyles.js";
 import { computePipeColor } from "./pipeColors.js";
-import {
-  DEFAULT_PIPE_TEXTURE_ID,
-  DEFAULT_PIPE_TEXTURE_MODE,
-  drawPipeTexture,
-  normalizePipeTextureMode
-} from "./pipeTextures.js";
+import { DEFAULT_PIPE_TEXTURE_ID, DEFAULT_PIPE_TEXTURE_MODE } from "./pipeTextures.js";
+import { drawPipe } from "./pipes/pipeRendering.js";
 import { trailStyleFor } from "./trailStyles.js";
 import {
   createBackgroundLayer,
@@ -1849,24 +1846,8 @@ export class Game {
   }
 
   _drawPipe(p, base) {
-    if (this.skillSettings?.extremeLowDetail) {
-      const ctx = this.ctx;
-      ctx.save();
-      ctx.fillStyle = typeof base === "string" ? base : rgb(base);
-      ctx.fillRect(p.x, p.y, p.w, p.h);
-      ctx.restore();
-      return;
-    }
     const selection = this.getPipeTexture ? this.getPipeTexture() : null;
-    const textureId = this.skillSettings?.simpleTextures
-      ? DEFAULT_PIPE_TEXTURE_ID
-      : (typeof selection === "string"
-        ? selection
-        : (selection?.id || DEFAULT_PIPE_TEXTURE_ID));
-    const mode = this.skillSettings?.simpleTextures
-      ? "MONOCHROME"
-      : normalizePipeTextureMode(selection?.mode || DEFAULT_PIPE_TEXTURE_MODE);
-    drawPipeTexture(this.ctx, p, base, { textureId, mode, time: this.timeAlive });
+    drawPipe(this.ctx, p, base, { selection, skillSettings: this.skillSettings, time: this.timeAlive });
   }
 
 _drawOrb(o) {

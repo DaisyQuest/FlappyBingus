@@ -186,6 +186,54 @@ describe("Game core utilities", () => {
     expect(game._getRenderPlayerPosition(2)).toEqual({ x: 100, y: 200 });
   });
 
+  it("initializes score buckets on demand and falls back to the default bucket", () => {
+    const { game } = buildGame();
+    game.runStats = null;
+
+    const orbBucket = game._scoreBucket("orbs");
+    expect(orbBucket).toBe(game.runStats.scoreBreakdown.orbs);
+
+    const fallbackBucket = game._scoreBucket("mystery");
+    expect(fallbackBucket).toBe(game.runStats.scoreBreakdown.other);
+  });
+
+  it("clamps score additions and counts to safe values", () => {
+    const { game } = buildGame();
+
+    game._addScore(10.8, { bucket: "orbs", count: 2.3 });
+    expect(game.runStats.scoreBreakdown.orbs.points).toBe(10);
+    expect(game.runStats.scoreBreakdown.orbs.count).toBe(2);
+    expect(game.score).toBe(10);
+
+    game._addScore(-5, { bucket: "perfects", count: -2 });
+    expect(game.runStats.scoreBreakdown.perfects.points).toBe(0);
+    expect(game.runStats.scoreBreakdown.perfects.count).toBe(0);
+    expect(game.score).toBe(10);
+  });
+
+  it("scales particle counts based on skill settings and enforces minimums", () => {
+    const { game } = buildGame();
+
+    game.setSkillSettings({ simpleParticles: true, reducedEffects: false });
+    expect(game._particleScale()).toBeCloseTo(0.5);
+
+    game.setSkillSettings({ simpleParticles: true, reducedEffects: true });
+    expect(game._particleScale()).toBeCloseTo(0.175);
+    expect(game._scaleParticles(3)).toBe(1);
+    expect(game._scaleParticles(3, { min: 2 })).toBe(2);
+  });
+
+  it("uses a fallback random source when visual rand is not set", () => {
+    const { game } = buildGame();
+    setRandSource(() => 0.2);
+    game.visualRand = null;
+
+    expect(game._visualRand(0, 10)).toBeCloseTo(2);
+
+    game.visualRand = () => 0.8;
+    expect(game._visualRand(0, 10)).toBeCloseTo(8);
+  });
+
   it("resizes canvas, recomputes player size, and initializes background layers", () => {
     const { game, canvas } = buildGame();
     game.resizeToWindow();
