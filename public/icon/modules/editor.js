@@ -1,26 +1,19 @@
+import {
+  ANIMATION_TYPES,
+  EFFECT_TYPES,
+  PATTERN_TYPES,
+  createDefaultIconStyleV2,
+  resolveIconStyleV2,
+  validateIconStyleV2
+} from "../../js/iconStyleV2.js";
+import { ICON_PRESETS, applyPresetPatch } from "./presets.js";
+
 const UNLOCK_OPTIONS = [
   { value: "free", label: "Free" },
   { value: "score", label: "Score" },
   { value: "achievement", label: "Achievement" },
   { value: "purchase", label: "Purchase" },
   { value: "record", label: "Record holder" }
-];
-
-const PATTERN_OPTIONS = [
-  { value: "", label: "None" },
-  { value: "zigzag", label: "Zigzag" },
-  { value: "centerline", label: "Centerline" },
-  { value: "stripes", label: "Stripes" },
-  { value: "honeycomb", label: "Honeycomb" },
-  { value: "citrus_slice", label: "Citrus Slice" },
-  { value: "cobblestone", label: "Cobblestone" }
-];
-
-const ANIMATION_OPTIONS = [
-  { value: "", label: "None" },
-  { value: "lava", label: "Lava Flow" },
-  { value: "cape_flow", label: "Cape Flow" },
-  { value: "zigzag_scroll", label: "Zigzag Scroll" }
 ];
 
 const COLOR_SWATCHES = [
@@ -36,84 +29,124 @@ const COLOR_SWATCHES = [
   "#94a3b8"
 ];
 
-function formatDefault(value) {
-  if (value === undefined || value === null) return "—";
-  if (Array.isArray(value)) return value.map((v) => formatDefault(v)).join(" → ");
-  if (typeof value === "object") return "object";
-  return String(value);
+const PATTERN_LABELS = PATTERN_TYPES.map((value) => ({
+  value,
+  label: value ? value.replace(/([A-Z])/g, " $1").replace(/^./, (c) => c.toUpperCase()) : "None"
+}));
+
+const EFFECT_LABELS = EFFECT_TYPES.map((value) => ({
+  value,
+  label: value.replace(/([A-Z])/g, " $1").replace(/^./, (c) => c.toUpperCase())
+}));
+
+const ANIMATION_LABELS = ANIMATION_TYPES.map((value) => ({
+  value,
+  label: value.replace(/([A-Z])/g, " $1").replace(/^./, (c) => c.toUpperCase())
+}));
+
+const TIMING_MODES = [
+  { value: "loop", label: "Loop" },
+  { value: "pingpong", label: "Pingpong" },
+  { value: "once", label: "Once" }
+];
+
+const EASING_OPTIONS = [
+  { value: "linear", label: "Linear" },
+  { value: "easeIn", label: "Ease In" },
+  { value: "easeOut", label: "Ease Out" },
+  { value: "easeInOut", label: "Ease In Out" },
+  { value: "smoothStep", label: "Smooth Step" }
+];
+
+const TARGET_SUGGESTIONS = [
+  "palette.fill",
+  "palette.core",
+  "palette.rim",
+  "palette.glow",
+  "palette.accent",
+  "pattern.rotationDeg",
+  "pattern.centerOffset",
+  "pattern.alpha",
+  "shadow.blur",
+  "stroke.width",
+  "texture.offset",
+  "effects[0].params.progress",
+  "preview.scale"
+];
+
+function createElement(tag, { className, text, attrs } = {}) {
+  const el = document.createElement(tag);
+  if (className) el.className = className;
+  if (text) el.textContent = text;
+  if (attrs) {
+    Object.entries(attrs).forEach(([key, value]) => el.setAttribute(key, value));
+  }
+  return el;
 }
 
-function createFieldRow(labelText, input, defaultValue, options = {}) {
-  const row = document.createElement("div");
-  row.className = "field-row";
-  const label = document.createElement("label");
-  label.textContent = labelText;
+function createFieldRow(labelText, input, { hint, swatches, defaultValue } = {}) {
+  const row = createElement("div", { className: "field-row" });
+  const label = createElement("label", { text: labelText });
   row.append(label, input);
-  if (options.swatches) {
-    row.appendChild(createColorSwatches(input, options.swatches));
+  if (swatches) {
+    row.appendChild(createColorSwatches(input, swatches));
   }
   if (defaultValue !== undefined) {
-    const hint = document.createElement("small");
-    hint.textContent = `Default: ${formatDefault(defaultValue)}`;
-    row.appendChild(hint);
+    const hintEl = createElement("small", { text: `Default: ${defaultValue}` });
+    row.appendChild(hintEl);
+  }
+  if (hint) {
+    const hintEl = createElement("small", { text: hint, className: "muted" });
+    row.appendChild(hintEl);
   }
   return row;
 }
 
 function createTextInput(value = "") {
-  const input = document.createElement("input");
-  input.type = "text";
+  const input = createElement("input", { attrs: { type: "text" } });
   input.value = value ?? "";
   return input;
 }
 
 function createNumberInput(value = "") {
-  const input = document.createElement("input");
-  input.type = "number";
+  const input = createElement("input", { attrs: { type: "number", step: "any" } });
   input.value = value === null || value === undefined ? "" : String(value);
-  input.step = "any";
+  return input;
+}
+
+function createCheckbox(value = false) {
+  const input = createElement("input", { attrs: { type: "checkbox" } });
+  input.checked = Boolean(value);
   return input;
 }
 
 function createSelect(options, value = "") {
-  const select = document.createElement("select");
+  const select = createElement("select");
   options.forEach((opt) => {
-    const option = document.createElement("option");
+    const option = createElement("option", { text: opt.label });
     option.value = opt.value;
-    option.textContent = opt.label;
     select.appendChild(option);
   });
   select.value = value ?? "";
   return select;
 }
 
-function createColorSwatches(input, { isListMode, onSelect } = {}) {
-  const row = document.createElement("div");
-  row.className = "color-swatch-row";
-  const swatches = document.createElement("div");
-  swatches.className = "color-swatches";
+function createTextArea(value = "") {
+  const input = createElement("textarea");
+  input.value = value ?? "";
+  input.rows = 4;
+  return input;
+}
+
+function createColorSwatches(input) {
+  const row = createElement("div", { className: "color-swatch-row" });
+  const swatches = createElement("div", { className: "color-swatches" });
   COLOR_SWATCHES.forEach((hex) => {
-    const button = document.createElement("button");
-    button.type = "button";
-    button.className = "color-swatch";
-    button.dataset.color = hex;
+    const button = createElement("button", { className: "color-swatch", attrs: { type: "button", "data-color": hex } });
     button.setAttribute("aria-label", `Set color ${hex}`);
     button.style.background = hex;
     button.addEventListener("click", () => {
-      if (typeof onSelect === "function") {
-        onSelect(hex);
-        return;
-      }
-      const listMode = typeof isListMode === "function"
-        ? isListMode()
-        : input.dataset.colorList === "true";
-      if (listMode) {
-        const values = input.value.split(",").map((entry) => entry.trim()).filter(Boolean);
-        values.push(hex);
-        input.value = values.join(", ");
-      } else {
-        input.value = hex;
-      }
+      input.value = hex;
       input.dispatchEvent(new Event("input", { bubbles: true }));
     });
     swatches.appendChild(button);
@@ -122,129 +155,297 @@ function createColorSwatches(input, { isListMode, onSelect } = {}) {
   return row;
 }
 
-function parseNumber(value) {
-  if (value === undefined || value === null || value === "") return undefined;
-  const num = Number(value);
-  return Number.isFinite(num) ? num : undefined;
+function setPath(target, path, value) {
+  const parts = path.replace(/\[(\d+)\]/g, ".$1").split(".").filter(Boolean);
+  let ref = target;
+  for (let i = 0; i < parts.length - 1; i += 1) {
+    const key = parts[i];
+    if (!ref[key] || typeof ref[key] !== "object") {
+      ref[key] = Number.isFinite(Number(parts[i + 1])) ? [] : {};
+    }
+    ref = ref[key];
+  }
+  ref[parts[parts.length - 1]] = value;
 }
 
-function parseText(value) {
-  if (value === undefined || value === null) return undefined;
-  const trimmed = String(value).trim();
-  return trimmed.length ? trimmed : undefined;
-}
-
-function parseColorList(value) {
-  const text = parseText(value);
-  if (!text) return undefined;
-  return text.split(",").map((entry) => entry.trim()).filter(Boolean);
-}
-
-function createPatternGroup(type, fields, values = {}, defaults = {}) {
-  const wrapper = document.createElement("div");
-  wrapper.className = "field-grid";
-  wrapper.dataset.patternGroup = type;
-  fields.forEach(({ key, label, type: inputType, isColor = false, isColorList = false }) => {
-    const input = inputType === "number"
-      ? createNumberInput(values?.[key])
-      : createTextInput(values?.[key] ?? "");
-    input.dataset.field = `pattern.${key}`;
-    if (isColorList) input.dataset.colorList = "true";
-    wrapper.appendChild(createFieldRow(
-      label,
-      input,
-      defaults?.[key],
-      isColor || isColorList ? { swatches: {} } : {}
-    ));
-  });
-  return wrapper;
-}
-
-function createAnimationGroup(type, fields, values = {}, defaults = {}) {
-  const wrapper = document.createElement("div");
-  wrapper.className = "field-grid";
-  wrapper.dataset.animationGroup = type;
-  fields.forEach(({ key, label, type: inputType, isColor = false }) => {
-    const input = inputType === "number"
-      ? createNumberInput(values?.[key])
-      : createTextInput(values?.[key] ?? "");
-    input.dataset.field = `animation.${key}`;
-    wrapper.appendChild(createFieldRow(
-      label,
-      input,
-      defaults?.[key],
-      isColor ? { swatches: {} } : {}
-    ));
-  });
-  return wrapper;
-}
-
-function updatePatternVisibility(card) {
-  const select = card.querySelector("[data-field='patternType']");
-  if (!select) return;
-  card.querySelectorAll("[data-pattern-group]").forEach((group) => {
-    group.classList.toggle("hidden", group.dataset.patternGroup !== select.value);
+function reindexRows(list, rowAttr, fieldPrefix) {
+  const rows = Array.from(list.querySelectorAll(`[${rowAttr}]`));
+  rows.forEach((row, index) => {
+    row.setAttribute(rowAttr, String(index));
+    row.querySelectorAll("[data-field]").forEach((input) => {
+      if (!input.dataset.field.startsWith(fieldPrefix)) return;
+      const rest = input.dataset.field.split("].").slice(1).join("].");
+      input.dataset.field = `${fieldPrefix}${index}].${rest}`;
+    });
   });
 }
 
-function updateAnimationVisibility(card) {
-  const select = card.querySelector("[data-field='animationType']");
-  if (!select) return;
-  card.querySelectorAll("[data-animation-group]").forEach((group) => {
-    group.classList.toggle("hidden", group.dataset.animationGroup !== select.value);
+function parseValue(input) {
+  const type = input.dataset.type || input.type;
+  if (type === "checkbox") return input.checked;
+  if (type === "number") {
+    if (input.value === "") return undefined;
+    const num = Number(input.value);
+    return Number.isFinite(num) ? num : undefined;
+  }
+  if (type === "json") {
+    if (!input.value.trim()) return undefined;
+    try {
+      return JSON.parse(input.value);
+    } catch {
+      return { __jsonError: true, raw: input.value };
+    }
+  }
+  const value = String(input.value ?? "").trim();
+  return value.length ? value : undefined;
+}
+
+function buildPatternExtraFields(pattern = {}) {
+  const grid = createElement("div", { className: "field-grid", attrs: { "data-pattern-extra": "true" } });
+  const extras = [
+    "stroke",
+    "background",
+    "amplitude",
+    "waves",
+    "spacing",
+    "colors",
+    "stripeWidth",
+    "angle",
+    "lineWidth",
+    "cellSize",
+    "segments",
+    "centerRadius",
+    "rindStroke",
+    "segmentStroke",
+    "segmentWidth",
+    "base",
+    "highlight",
+    "stoneSize",
+    "gap",
+    "rays",
+    "rings",
+    "count",
+    "lines",
+    "stripes",
+    "cells"
+  ];
+  extras.forEach((key) => {
+    const isNumber = [
+      "amplitude",
+      "waves",
+      "spacing",
+      "stripeWidth",
+      "angle",
+      "lineWidth",
+      "cellSize",
+      "segments",
+      "centerRadius",
+      "segmentWidth",
+      "stoneSize",
+      "gap",
+      "rays",
+      "rings",
+      "count",
+      "lines",
+      "stripes",
+      "cells"
+    ].includes(key);
+    const isJson = key === "colors";
+    const input = isJson
+      ? createTextArea(JSON.stringify(pattern[key] || [], null, 2))
+      : (isNumber ? createNumberInput(pattern[key]) : createTextInput(pattern[key] ?? ""));
+    input.dataset.field = `style.pattern.${key}`;
+    input.dataset.type = isNumber ? "number" : (isJson ? "json" : "text");
+    grid.appendChild(createFieldRow(`Pattern ${key}`, input, { swatches: !isNumber && !isJson }));
   });
+  return grid;
+}
+
+function createTabBar(tabs) {
+  const bar = createElement("div", { className: "tab-bar" });
+  tabs.forEach((tab) => {
+    const button = createElement("button", { className: "tab-button", text: tab.label, attrs: { type: "button", "data-tab": tab.id } });
+    if (tab.active) button.classList.add("active");
+    bar.appendChild(button);
+  });
+  return bar;
+}
+
+function activateTab(card, tabId) {
+  card.querySelectorAll("[data-tab-panel]").forEach((panel) => {
+    panel.classList.toggle("hidden", panel.dataset.tabPanel !== tabId);
+  });
+  card.querySelectorAll(".tab-button").forEach((btn) => {
+    btn.classList.toggle("active", btn.dataset.tab === tabId);
+  });
+}
+
+function createEffectRow(effect = {}, index = 0) {
+  const row = createElement("div", { className: "effect-row", attrs: { "data-effect-row": String(index) } });
+  const header = createElement("div", { className: "effect-row-header" });
+  const typeSelect = createSelect(EFFECT_LABELS, effect.type || "outline");
+  typeSelect.dataset.field = `style.effects[${index}].type`;
+  const enabled = createCheckbox(effect.enabled !== false);
+  enabled.dataset.field = `style.effects[${index}].enabled`;
+  const params = createTextArea(JSON.stringify(effect.params || {}, null, 2));
+  params.dataset.field = `style.effects[${index}].params`;
+  params.dataset.type = "json";
+  const actions = createElement("div", { className: "row-actions" });
+  const moveUp = createElement("button", { text: "↑", attrs: { type: "button", "data-move": "up" } });
+  const moveDown = createElement("button", { text: "↓", attrs: { type: "button", "data-move": "down" } });
+  const remove = createElement("button", { text: "Remove", attrs: { type: "button", "data-remove": "true" } });
+  actions.append(moveUp, moveDown, remove);
+  header.append(typeSelect, enabled, createElement("span", { text: "Enabled" }), actions);
+  row.append(header, createFieldRow("Params (JSON)", params));
+  return row;
+}
+
+function createAnimationRow(animation = {}, index = 0) {
+  const row = createElement("div", { className: "effect-row", attrs: { "data-animation-row": String(index) } });
+  const header = createElement("div", { className: "effect-row-header" });
+  const idInput = createTextInput(animation.id || "");
+  idInput.dataset.field = `style.animations[${index}].id`;
+  const typeSelect = createSelect(ANIMATION_LABELS, animation.type || "pulseUniform");
+  typeSelect.dataset.field = `style.animations[${index}].type`;
+  const enabled = createCheckbox(animation.enabled !== false);
+  enabled.dataset.field = `style.animations[${index}].enabled`;
+  const actions = createElement("div", { className: "row-actions" });
+  const moveUp = createElement("button", { text: "↑", attrs: { type: "button", "data-move": "up" } });
+  const moveDown = createElement("button", { text: "↓", attrs: { type: "button", "data-move": "down" } });
+  const remove = createElement("button", { text: "Remove", attrs: { type: "button", "data-remove": "true" } });
+  actions.append(moveUp, moveDown, remove);
+  header.append(idInput, typeSelect, enabled, createElement("span", { text: "Enabled" }), actions);
+
+  const target = createTextInput(animation.target || "");
+  target.dataset.field = `style.animations[${index}].target`;
+  target.setAttribute("list", "iconAnimationTargets");
+
+  const timing = animation.timing || {};
+  const modeSelect = createSelect(TIMING_MODES, timing.mode || "loop");
+  modeSelect.dataset.field = `style.animations[${index}].timing.mode`;
+  const duration = createNumberInput(timing.durationMs ?? 1200);
+  duration.dataset.field = `style.animations[${index}].timing.durationMs`;
+  const delay = createNumberInput(timing.delayMs ?? 0);
+  delay.dataset.field = `style.animations[${index}].timing.delayMs`;
+  const easing = createSelect(EASING_OPTIONS, timing.easing || "linear");
+  easing.dataset.field = `style.animations[${index}].timing.easing`;
+  const phaseOffset = createNumberInput(timing.phaseOffset ?? 0);
+  phaseOffset.dataset.field = `style.animations[${index}].timing.phaseOffset`;
+
+  const params = createTextArea(JSON.stringify(animation.params || {}, null, 2));
+  params.dataset.field = `style.animations[${index}].params`;
+  params.dataset.type = "json";
+
+  const seed = createNumberInput(animation.seed ?? "");
+  seed.dataset.field = `style.animations[${index}].seed`;
+
+  row.append(
+    header,
+    createFieldRow("Target", target),
+    createFieldRow("Timing mode", modeSelect),
+    createFieldRow("Duration (ms)", duration),
+    createFieldRow("Delay (ms)", delay),
+    createFieldRow("Easing", easing),
+    createFieldRow("Phase offset", phaseOffset),
+    createFieldRow("Seed", seed),
+    createFieldRow("Params (JSON)", params)
+  );
+
+  return row;
+}
+
+function createPresetPanel(currentStyle) {
+  const wrap = createElement("div", { className: "preset-panel" });
+  const search = createTextInput("");
+  search.placeholder = "Search presets";
+  search.dataset.presetSearch = "true";
+  const tags = Array.from(new Set(ICON_PRESETS.flatMap((preset) => preset.tags || []))).sort();
+  const tagSelect = createSelect([{ value: "", label: "All tags" }, ...tags.map((tag) => ({ value: tag, label: tag }))], "");
+  tagSelect.dataset.presetTag = "true";
+
+  const list = createElement("div", { className: "preset-list", attrs: { "data-preset-list": "true" } });
+  ICON_PRESETS.forEach((preset) => {
+    const button = createElement("button", { className: "preset-button", text: preset.name, attrs: { type: "button", "data-preset-id": preset.id } });
+    button.dataset.tags = (preset.tags || []).join(",");
+    list.appendChild(button);
+  });
+
+  wrap.append(createFieldRow("Search", search), createFieldRow("Tag", tagSelect), list);
+  wrap.dataset.currentStyle = JSON.stringify(currentStyle);
+  return wrap;
 }
 
 function createIconCard({ icon, allowRemove = false } = {}) {
-  const card = document.createElement("section");
-  card.className = "icon-card";
+  const style = resolveIconStyleV2(icon);
+  const card = createElement("section", { className: "icon-card" });
   card.dataset.iconCard = "true";
 
-  const header = document.createElement("header");
-  const titleWrap = document.createElement("div");
-  const heading = document.createElement("h3");
-  heading.textContent = icon?.name || icon?.id || "New icon";
-  titleWrap.append(heading);
-
-  header.append(titleWrap);
+  const header = createElement("header");
+  const heading = createElement("h3", { text: icon?.name || icon?.id || "New icon" });
+  header.append(heading);
   card.appendChild(header);
 
-  const body = document.createElement("div");
-  body.className = "icon-card-body";
+  const body = createElement("div", { className: "icon-card-body" });
 
-  const preview = document.createElement("div");
-  preview.className = "icon-preview";
-  const previewWrap = document.createElement("div");
-  previewWrap.dataset.iconPreview = "true";
-  preview.append(previewWrap);
-  body.appendChild(preview);
+  const preview = createElement("div", { className: "icon-preview" });
+  const previewToolbar = createElement("div", { className: "preview-toolbar" });
+  const previewBg = createSelect([
+    { value: "dark", label: "Dark" },
+    { value: "light", label: "Light" },
+    { value: "checker", label: "Checker" }
+  ], "dark");
+  previewBg.dataset.previewBg = "true";
+  const reducedToggle = createCheckbox(false);
+  reducedToggle.dataset.previewReduceMotion = "true";
+  const maskToggle = createCheckbox(false);
+  maskToggle.dataset.previewMask = "true";
+  previewToolbar.append(
+    createFieldRow("Background", previewBg),
+    createFieldRow("Reduced motion", reducedToggle),
+    createFieldRow("Show mask", maskToggle)
+  );
+  const previewWrap = createElement("div", { className: "preview-grid", attrs: { "data-icon-preview": "true" } });
+  [64, 128, 256].forEach((size) => {
+    const canvas = createElement("canvas", { className: "icon-preview-canvas", attrs: { width: size, height: size, "data-preview-size": String(size) } });
+    previewWrap.appendChild(canvas);
+  });
+  preview.append(previewToolbar, previewWrap);
 
-  const controls = document.createElement("div");
-  controls.className = "icon-controls";
+  const tabs = createTabBar([
+    { id: "basics", label: "Basics", active: true },
+    { id: "style", label: "Style" },
+    { id: "pattern", label: "Pattern" },
+    { id: "effects", label: "Effects" },
+    { id: "animations", label: "Animations" },
+    { id: "presets", label: "Presets" },
+    { id: "advanced", label: "Advanced" }
+  ]);
 
-  const basic = document.createElement("section");
-  basic.className = "section-card";
-  basic.innerHTML = "<strong>Basics</strong>";
-  const basicGrid = document.createElement("div");
-  basicGrid.className = "field-grid";
+  const panel = createElement("div", { className: "tab-panels" });
+
+  const basics = createElement("section", { className: "section-card", attrs: { "data-tab-panel": "basics" } });
+  basics.appendChild(createElement("strong", { text: "Basics" }));
+  const basicsGrid = createElement("div", { className: "field-grid" });
   const idInput = createTextInput(icon?.id || "");
   idInput.dataset.field = "id";
   const nameInput = createTextInput(icon?.name || "");
   nameInput.dataset.field = "name";
   const imageInput = createTextInput(icon?.imageSrc || "");
   imageInput.dataset.field = "imageSrc";
-  basicGrid.append(
+  const schemaInput = createNumberInput(icon?.schemaVersion ?? 2);
+  schemaInput.dataset.field = "schemaVersion";
+  schemaInput.dataset.type = "number";
+  basicsGrid.append(
     createFieldRow("ID", idInput),
     createFieldRow("Name", nameInput),
-    createFieldRow("Image src", imageInput)
+    createFieldRow("Image src", imageInput),
+    createFieldRow("Schema version", schemaInput)
   );
-  basic.appendChild(basicGrid);
+  basics.appendChild(basicsGrid);
 
-  const unlock = document.createElement("section");
-  unlock.className = "section-card";
-  unlock.innerHTML = "<strong>Unlock</strong>";
-  const unlockGrid = document.createElement("div");
-  unlockGrid.className = "field-grid";
+  const unlock = createElement("section", { className: "section-card", attrs: { "data-tab-panel": "basics" } });
+  unlock.appendChild(createElement("strong", { text: "Unlock" }));
+  const unlockGrid = createElement("div", { className: "field-grid" });
   const unlockType = createSelect(UNLOCK_OPTIONS, icon?.unlock?.type || "free");
   unlockType.dataset.field = "unlockType";
   const unlockLabel = createTextInput(icon?.unlock?.label || "");
@@ -267,146 +468,233 @@ function createIconCard({ icon, allowRemove = false } = {}) {
   );
   unlock.appendChild(unlockGrid);
 
-  const colors = document.createElement("section");
-  colors.className = "section-card";
-  colors.innerHTML = "<strong>Style</strong>";
-  const colorGrid = document.createElement("div");
-  colorGrid.className = "field-grid";
-  const fill = createTextInput(icon?.style?.fill || "");
-  fill.dataset.field = "fill";
-  const core = createTextInput(icon?.style?.core || "");
-  core.dataset.field = "core";
-  const rim = createTextInput(icon?.style?.rim || "");
-  rim.dataset.field = "rim";
-  const glow = createTextInput(icon?.style?.glow || "");
-  glow.dataset.field = "glow";
-  colorGrid.append(
-    createFieldRow("Fill", fill, undefined, { swatches: {} }),
-    createFieldRow("Core", core, undefined, { swatches: {} }),
-    createFieldRow("Rim", rim, undefined, { swatches: {} }),
-    createFieldRow("Glow", glow, undefined, { swatches: {} })
+  const stylePanel = createElement("section", { className: "section-card", attrs: { "data-tab-panel": "style" } });
+  stylePanel.appendChild(createElement("strong", { text: "Style" }));
+  const styleGrid = createElement("div", { className: "field-grid" });
+  const sizeInput = createNumberInput(style.size);
+  sizeInput.dataset.field = "style.size";
+  sizeInput.dataset.type = "number";
+  const radiusInput = createTextInput("0.5");
+  radiusInput.disabled = true;
+  styleGrid.append(
+    createFieldRow("Preview size", sizeInput),
+    createFieldRow("Radius ratio", radiusInput, { hint: "Locked to circle invariant." }),
+    createFieldRow("Mask mode", (() => {
+      const select = createSelect([{ value: "hard", label: "Hard" }, { value: "soft", label: "Soft" }], style.circle?.maskMode || "hard");
+      select.dataset.field = "style.circle.maskMode";
+      return select;
+    })()),
+    createFieldRow("Edge feather px", (() => {
+      const input = createNumberInput(style.circle?.edgeFeatherPx ?? 0);
+      input.dataset.field = "style.circle.edgeFeatherPx";
+      input.dataset.type = "number";
+      return input;
+    })())
   );
-  colors.appendChild(colorGrid);
+  const paletteGrid = createElement("div", { className: "field-grid" });
+  [
+    ["fill", "Fill"],
+    ["core", "Core"],
+    ["rim", "Rim"],
+    ["glow", "Glow"],
+    ["accent", "Accent"]
+  ].forEach(([key, label]) => {
+    const input = createTextInput(style.palette?.[key] || "");
+    input.dataset.field = `style.palette.${key}`;
+    paletteGrid.appendChild(createFieldRow(label, input, { swatches: {} }));
+  });
+  const strokeGrid = createElement("div", { className: "field-grid" });
+  const strokeWidth = createNumberInput(style.stroke?.width ?? "");
+  strokeWidth.dataset.field = "style.stroke.width";
+  strokeWidth.dataset.type = "number";
+  const strokeColor = createTextInput(style.stroke?.color || "");
+  strokeColor.dataset.field = "style.stroke.color";
+  const strokeAlpha = createNumberInput(style.stroke?.alpha ?? "");
+  strokeAlpha.dataset.field = "style.stroke.alpha";
+  strokeAlpha.dataset.type = "number";
+  strokeGrid.append(
+    createFieldRow("Stroke width", strokeWidth),
+    createFieldRow("Stroke color", strokeColor, { swatches: {} }),
+    createFieldRow("Stroke alpha", strokeAlpha)
+  );
+  const shadowGrid = createElement("div", { className: "field-grid" });
+  const shadowEnabled = createCheckbox(style.shadow?.enabled !== false);
+  shadowEnabled.dataset.field = "style.shadow.enabled";
+  shadowEnabled.dataset.type = "checkbox";
+  const shadowBlur = createNumberInput(style.shadow?.blur ?? "");
+  shadowBlur.dataset.field = "style.shadow.blur";
+  shadowBlur.dataset.type = "number";
+  const shadowSpread = createNumberInput(style.shadow?.spread ?? "");
+  shadowSpread.dataset.field = "style.shadow.spread";
+  shadowSpread.dataset.type = "number";
+  const shadowColor = createTextInput(style.shadow?.color || "");
+  shadowColor.dataset.field = "style.shadow.color";
+  const shadowAlpha = createNumberInput(style.shadow?.alpha ?? "");
+  shadowAlpha.dataset.field = "style.shadow.alpha";
+  shadowAlpha.dataset.type = "number";
+  const shadowOffsetX = createNumberInput(style.shadow?.offsetX ?? "");
+  shadowOffsetX.dataset.field = "style.shadow.offsetX";
+  shadowOffsetX.dataset.type = "number";
+  const shadowOffsetY = createNumberInput(style.shadow?.offsetY ?? "");
+  shadowOffsetY.dataset.field = "style.shadow.offsetY";
+  shadowOffsetY.dataset.type = "number";
+  shadowGrid.append(
+    createFieldRow("Shadow enabled", shadowEnabled),
+    createFieldRow("Shadow blur", shadowBlur),
+    createFieldRow("Shadow spread", shadowSpread),
+    createFieldRow("Shadow color", shadowColor, { swatches: {} }),
+    createFieldRow("Shadow alpha", shadowAlpha),
+    createFieldRow("Shadow offset X", shadowOffsetX),
+    createFieldRow("Shadow offset Y", shadowOffsetY)
+  );
+  stylePanel.append(styleGrid, createElement("strong", { text: "Palette" }), paletteGrid, createElement("strong", { text: "Stroke" }), strokeGrid, createElement("strong", { text: "Shadow" }), shadowGrid);
 
-  const patternSection = document.createElement("section");
-  patternSection.className = "section-card";
-  patternSection.innerHTML = "<strong>Pattern</strong>";
-  const patternSelect = createSelect(PATTERN_OPTIONS, icon?.style?.pattern?.type || "");
-  patternSelect.dataset.field = "patternType";
-  patternSection.appendChild(createFieldRow("Pattern", patternSelect));
+  const patternPanel = createElement("section", { className: "section-card", attrs: { "data-tab-panel": "pattern" } });
+  patternPanel.appendChild(createElement("strong", { text: "Pattern" }));
+  const patternGrid = createElement("div", { className: "field-grid" });
+  const patternType = createSelect(PATTERN_LABELS, style.pattern?.type || "");
+  patternType.dataset.field = "style.pattern.type";
+  const patternScale = createNumberInput(style.pattern?.scale ?? 1);
+  patternScale.dataset.field = "style.pattern.scale";
+  patternScale.dataset.type = "number";
+  const patternRotation = createNumberInput(style.pattern?.rotationDeg ?? 0);
+  patternRotation.dataset.field = "style.pattern.rotationDeg";
+  patternRotation.dataset.type = "number";
+  const patternAlpha = createNumberInput(style.pattern?.alpha ?? 1);
+  patternAlpha.dataset.field = "style.pattern.alpha";
+  patternAlpha.dataset.type = "number";
+  const radialBias = createNumberInput(style.pattern?.radialBias ?? 0);
+  radialBias.dataset.field = "style.pattern.radialBias";
+  radialBias.dataset.type = "number";
+  const centerX = createNumberInput(style.pattern?.centerOffset?.x ?? 0);
+  centerX.dataset.field = "style.pattern.centerOffset.x";
+  centerX.dataset.type = "number";
+  const centerY = createNumberInput(style.pattern?.centerOffset?.y ?? 0);
+  centerY.dataset.field = "style.pattern.centerOffset.y";
+  centerY.dataset.type = "number";
+  const primaryColor = createTextInput(style.pattern?.primaryColor || "");
+  primaryColor.dataset.field = "style.pattern.primaryColor";
+  const secondaryColor = createTextInput(style.pattern?.secondaryColor || "");
+  secondaryColor.dataset.field = "style.pattern.secondaryColor";
+  const blendMode = createSelect([
+    { value: "normal", label: "Normal" },
+    { value: "screen", label: "Screen" },
+    { value: "multiply", label: "Multiply" },
+    { value: "overlay", label: "Overlay" },
+    { value: "softLight", label: "Soft Light" },
+    { value: "hardLight", label: "Hard Light" }
+  ], style.pattern?.blendMode || "normal");
+  blendMode.dataset.field = "style.pattern.blendMode";
+  patternGrid.append(
+    createFieldRow("Type", patternType),
+    createFieldRow("Scale", patternScale),
+    createFieldRow("Rotation (deg)", patternRotation),
+    createFieldRow("Alpha", patternAlpha),
+    createFieldRow("Radial bias", radialBias),
+    createFieldRow("Center offset X", centerX),
+    createFieldRow("Center offset Y", centerY),
+    createFieldRow("Primary color", primaryColor, { swatches: {} }),
+    createFieldRow("Secondary color", secondaryColor, { swatches: {} }),
+    createFieldRow("Blend mode", blendMode)
+  );
+  patternPanel.append(patternGrid, buildPatternExtraFields(style.pattern));
 
-  const patternFields = [
-    createPatternGroup("zigzag", [
-      { key: "stroke", label: "Stroke", type: "text", isColor: true },
-      { key: "background", label: "Background", type: "text", isColor: true },
-      { key: "amplitude", label: "Amplitude", type: "number" },
-      { key: "waves", label: "Waves", type: "number" },
-      { key: "spacing", label: "Spacing", type: "number" }
-    ], icon?.style?.pattern || {}),
-    createPatternGroup("centerline", [
-      { key: "stroke", label: "Stroke", type: "text", isColor: true },
-      { key: "accent", label: "Accent", type: "text", isColor: true },
-      { key: "glow", label: "Glow", type: "text", isColor: true }
-    ], icon?.style?.pattern || {}),
-    createPatternGroup("stripes", [
-      { key: "colors", label: "Colors (comma)", type: "text", isColorList: true },
-      { key: "stripeWidth", label: "Stripe width", type: "number" },
-      { key: "angle", label: "Angle", type: "number" },
-      { key: "glow", label: "Glow", type: "text", isColor: true }
-    ], icon?.style?.pattern || {}),
-    createPatternGroup("honeycomb", [
-      { key: "stroke", label: "Stroke", type: "text", isColor: true },
-      { key: "lineWidth", label: "Line width", type: "number" },
-      { key: "cellSize", label: "Cell size", type: "number" },
-      { key: "glow", label: "Glow", type: "text", isColor: true }
-    ], icon?.style?.pattern || {}),
-    createPatternGroup("citrus_slice", [
-      { key: "stroke", label: "Stroke", type: "text", isColor: true },
-      { key: "lineWidth", label: "Line width", type: "number" },
-      { key: "segments", label: "Segments", type: "number" },
-      { key: "centerRadius", label: "Center radius", type: "number" },
-      { key: "glow", label: "Glow", type: "text", isColor: true },
-      { key: "rindStroke", label: "Rind stroke", type: "text", isColor: true },
-      { key: "segmentStroke", label: "Segment stroke", type: "text", isColor: true },
-      { key: "segmentWidth", label: "Segment width", type: "number" }
-    ], icon?.style?.pattern || {}),
-    createPatternGroup("cobblestone", [
-      { key: "base", label: "Base", type: "text", isColor: true },
-      { key: "highlight", label: "Highlight", type: "text", isColor: true },
-      { key: "stroke", label: "Stroke", type: "text", isColor: true },
-      { key: "glow", label: "Glow", type: "text", isColor: true },
-      { key: "lineWidth", label: "Line width", type: "number" },
-      { key: "stoneSize", label: "Stone size", type: "number" },
-      { key: "gap", label: "Gap", type: "number" }
-    ], icon?.style?.pattern || {})
-  ];
-  patternFields.forEach((group) => patternSection.appendChild(group));
+  const effectsPanel = createElement("section", { className: "section-card", attrs: { "data-tab-panel": "effects" } });
+  effectsPanel.appendChild(createElement("strong", { text: "Effects" }));
+  const effectsList = createElement("div", { className: "effect-list", attrs: { "data-effect-list": "true" } });
+  (style.effects || []).forEach((effect, idx) => effectsList.appendChild(createEffectRow(effect, idx)));
+  const addEffectBtn = createElement("button", { text: "Add effect", attrs: { type: "button", "data-add-effect": "true" } });
+  effectsPanel.append(effectsList, addEffectBtn);
 
-  const animationSection = document.createElement("section");
-  animationSection.className = "section-card";
-  animationSection.innerHTML = "<strong>Animation</strong>";
-  const animationSelect = createSelect(ANIMATION_OPTIONS, icon?.style?.animation?.type || "");
-  animationSelect.dataset.field = "animationType";
-  animationSection.appendChild(createFieldRow("Animation", animationSelect));
+  const animationsPanel = createElement("section", { className: "section-card", attrs: { "data-tab-panel": "animations" } });
+  animationsPanel.appendChild(createElement("strong", { text: "Animations" }));
+  const animList = createElement("div", { className: "effect-list", attrs: { "data-animation-list": "true" } });
+  (style.animations || []).forEach((anim, idx) => animList.appendChild(createAnimationRow(anim, idx)));
+  const addAnimBtn = createElement("button", { text: "Add animation", attrs: { type: "button", "data-add-animation": "true" } });
+  const testRow = createElement("div", { className: "test-events" });
+  [
+    { label: "Test Tap", type: "tap" },
+    { label: "Test Score", type: "score" },
+    { label: "Test Hit", type: "hit" }
+  ].forEach((entry) => {
+    const btn = createElement("button", { text: entry.label, attrs: { type: "button", "data-event-type": entry.type } });
+    testRow.appendChild(btn);
+  });
+  animationsPanel.append(animList, addAnimBtn, testRow);
 
-  const animationFields = [
-    createAnimationGroup("lava", [
-      { key: "speed", label: "Speed", type: "number" },
-      { key: "layers", label: "Layers", type: "number" },
-      { key: "smoothness", label: "Smoothness", type: "number" },
-      { key: "fallback", label: "Fallback", type: "text", isColor: true },
-      { key: "paletteBase", label: "Palette base", type: "text", isColor: true },
-      { key: "paletteEmber", label: "Palette ember", type: "text", isColor: true },
-      { key: "paletteMolten", label: "Palette molten", type: "text", isColor: true },
-      { key: "paletteFlare", label: "Palette flare", type: "text", isColor: true }
-    ], {
-      speed: icon?.style?.animation?.speed,
-      layers: icon?.style?.animation?.layers,
-      smoothness: icon?.style?.animation?.smoothness,
-      fallback: icon?.style?.animation?.fallback,
-      paletteBase: icon?.style?.animation?.palette?.base,
-      paletteEmber: icon?.style?.animation?.palette?.ember,
-      paletteMolten: icon?.style?.animation?.palette?.molten,
-      paletteFlare: icon?.style?.animation?.palette?.flare
-    }),
-    createAnimationGroup("cape_flow", [
-      { key: "speed", label: "Speed", type: "number" },
-      { key: "bands", label: "Bands", type: "number" },
-      { key: "embers", label: "Embers", type: "number" },
-      { key: "paletteBase", label: "Palette base", type: "text", isColor: true },
-      { key: "paletteAsh", label: "Palette ash", type: "text", isColor: true },
-      { key: "paletteEmber", label: "Palette ember", type: "text", isColor: true },
-      { key: "paletteMolten", label: "Palette molten", type: "text", isColor: true },
-      { key: "paletteFlare", label: "Palette flare", type: "text", isColor: true }
-    ], {
-      speed: icon?.style?.animation?.speed,
-      bands: icon?.style?.animation?.bands,
-      embers: icon?.style?.animation?.embers,
-      paletteBase: icon?.style?.animation?.palette?.base,
-      paletteAsh: icon?.style?.animation?.palette?.ash,
-      paletteEmber: icon?.style?.animation?.palette?.ember,
-      paletteMolten: icon?.style?.animation?.palette?.molten,
-      paletteFlare: icon?.style?.animation?.palette?.flare
-    }),
-    createAnimationGroup("zigzag_scroll", [
-      { key: "speed", label: "Speed", type: "number" }
-    ], {
-      speed: icon?.style?.animation?.speed
-    })
-  ];
-  animationFields.forEach((group) => animationSection.appendChild(group));
+  addEffectBtn.addEventListener("click", () => {
+    effectsList.appendChild(createEffectRow({}, effectsList.children.length));
+    reindexRows(effectsList, "data-effect-row", "style.effects[");
+  });
 
-  controls.append(basic, unlock, colors, patternSection, animationSection);
-  body.appendChild(controls);
+  addAnimBtn.addEventListener("click", () => {
+    animList.appendChild(createAnimationRow({}, animList.children.length));
+    reindexRows(animList, "data-animation-row", "style.animations[");
+  });
+
+  effectsList.addEventListener("click", (event) => {
+    const row = event.target.closest("[data-effect-row]");
+    if (!row) return;
+    if (event.target.dataset.remove) {
+      row.remove();
+      reindexRows(effectsList, "data-effect-row", "style.effects[");
+      return;
+    }
+    const move = event.target.dataset.move;
+    if (!move) return;
+    const sibling = move === "up" ? row.previousElementSibling : row.nextElementSibling;
+    if (!sibling) return;
+    if (move === "up") effectsList.insertBefore(row, sibling);
+    else effectsList.insertBefore(sibling, row);
+    reindexRows(effectsList, "data-effect-row", "style.effects[");
+  });
+
+  animList.addEventListener("click", (event) => {
+    const row = event.target.closest("[data-animation-row]");
+    if (!row) return;
+    if (event.target.dataset.remove) {
+      row.remove();
+      reindexRows(animList, "data-animation-row", "style.animations[");
+      return;
+    }
+    const move = event.target.dataset.move;
+    if (!move) return;
+    const sibling = move === "up" ? row.previousElementSibling : row.nextElementSibling;
+    if (!sibling) return;
+    if (move === "up") animList.insertBefore(row, sibling);
+    else animList.insertBefore(sibling, row);
+    reindexRows(animList, "data-animation-row", "style.animations[");
+  });
+
+  const presetPanel = createElement("section", { className: "section-card", attrs: { "data-tab-panel": "presets" } });
+  presetPanel.appendChild(createElement("strong", { text: "Presets" }));
+  presetPanel.appendChild(createPresetPanel(style));
+
+  const advancedPanel = createElement("section", { className: "section-card", attrs: { "data-tab-panel": "advanced" } });
+  advancedPanel.appendChild(createElement("strong", { text: "Advanced JSON" }));
+  const jsonArea = createTextArea(JSON.stringify({ ...icon, schemaVersion: icon?.schemaVersion ?? 2, style }, null, 2));
+  jsonArea.dataset.field = "advancedJson";
+  const jsonErrors = createElement("div", { className: "validation-errors", attrs: { "data-validation-errors": "true" } });
+  const applyJson = createElement("button", { text: "Apply JSON", attrs: { type: "button", "data-apply-json": "true" } });
+  const copyJson = createElement("button", { text: "Copy JSON", attrs: { type: "button", "data-copy-json": "true" } });
+  advancedPanel.append(createFieldRow("Icon JSON", jsonArea), applyJson, copyJson, jsonErrors);
+
+  panel.append(basics, unlock, stylePanel, patternPanel, effectsPanel, animationsPanel, presetPanel, advancedPanel);
+  body.append(preview, tabs, panel);
   card.appendChild(body);
 
+  const targetList = createElement("datalist", { attrs: { id: "iconAnimationTargets" } });
+  TARGET_SUGGESTIONS.forEach((value) => {
+    const option = createElement("option");
+    option.value = value;
+    targetList.appendChild(option);
+  });
+  card.appendChild(targetList);
+
   if (allowRemove) {
-    const actions = document.createElement("div");
-    actions.className = "icon-actions";
-    const disableBtn = document.createElement("button");
-    disableBtn.type = "button";
-    disableBtn.textContent = "Clear unlock to free";
-    disableBtn.addEventListener("click", () => {
+    const actions = createElement("div", { className: "icon-actions" });
+    const resetBtn = createElement("button", { text: "Reset unlock to free", attrs: { type: "button" } });
+    resetBtn.addEventListener("click", () => {
       unlockType.value = "free";
       unlockLabel.value = "";
       unlockId.value = "";
@@ -414,23 +702,25 @@ function createIconCard({ icon, allowRemove = false } = {}) {
       unlockCost.value = "";
       unlockCurrency.value = "";
     });
-    actions.append(disableBtn);
+    actions.append(resetBtn);
     card.appendChild(actions);
   }
 
-  patternSelect.addEventListener("change", () => updatePatternVisibility(card));
-  animationSelect.addEventListener("change", () => updateAnimationVisibility(card));
-  updatePatternVisibility(card);
-  updateAnimationVisibility(card);
+  tabs.addEventListener("click", (event) => {
+    const btn = event.target.closest(".tab-button");
+    if (!btn) return;
+    activateTab(card, btn.dataset.tab);
+  });
+  activateTab(card, "basics");
 
   return card;
 }
 
 function readIconDefinition(card) {
-  const id = parseText(card.querySelector("[data-field='id']")?.value);
+  const id = String(card.querySelector("[data-field='id']")?.value || "").trim();
   if (!id) return null;
   const icon = { id };
-  const name = parseText(card.querySelector("[data-field='name']")?.value);
+  const name = String(card.querySelector("[data-field='name']")?.value || "").trim();
   if (name) icon.name = name;
   const imageSrcRaw = card.querySelector("[data-field='imageSrc']")?.value;
   if (imageSrcRaw !== undefined) {
@@ -439,94 +729,73 @@ function readIconDefinition(card) {
     else icon.imageSrc = "";
   }
 
+  const schemaVersion = Number(card.querySelector("[data-field='schemaVersion']")?.value || 2);
+  icon.schemaVersion = Number.isFinite(schemaVersion) ? schemaVersion : 2;
+
   const unlockType = card.querySelector("[data-field='unlockType']")?.value || "free";
   const unlock = { type: unlockType };
-  const unlockLabel = parseText(card.querySelector("[data-field='unlockLabel']")?.value);
+  const unlockLabel = String(card.querySelector("[data-field='unlockLabel']")?.value || "").trim();
   if (unlockLabel) unlock.label = unlockLabel;
   if (unlockType === "score") {
-    const minScore = parseNumber(card.querySelector("[data-field='unlockScore']")?.value);
-    if (minScore !== undefined) unlock.minScore = minScore;
+    const minScore = Number(card.querySelector("[data-field='unlockScore']")?.value);
+    if (Number.isFinite(minScore)) unlock.minScore = minScore;
   } else if (unlockType === "achievement") {
-    const unlockId = parseText(card.querySelector("[data-field='unlockId']")?.value);
+    const unlockId = String(card.querySelector("[data-field='unlockId']")?.value || "").trim();
     if (unlockId) unlock.id = unlockId;
   } else if (unlockType === "purchase") {
-    const cost = parseNumber(card.querySelector("[data-field='unlockCost']")?.value);
-    if (cost !== undefined) unlock.cost = cost;
-    const currencyId = parseText(card.querySelector("[data-field='unlockCurrency']")?.value);
+    const cost = Number(card.querySelector("[data-field='unlockCost']")?.value);
+    if (Number.isFinite(cost)) unlock.cost = cost;
+    const currencyId = String(card.querySelector("[data-field='unlockCurrency']")?.value || "").trim();
     if (currencyId) unlock.currencyId = currencyId;
   }
   icon.unlock = unlock;
 
-  const style = {};
-  let hasStyle = false;
-  const fill = parseText(card.querySelector("[data-field='fill']")?.value);
-  const core = parseText(card.querySelector("[data-field='core']")?.value);
-  const rim = parseText(card.querySelector("[data-field='rim']")?.value);
-  const glow = parseText(card.querySelector("[data-field='glow']")?.value);
-  if (fill) {
-    style.fill = fill;
-    hasStyle = true;
-  }
-  if (core) {
-    style.core = core;
-    hasStyle = true;
-  }
-  if (rim) {
-    style.rim = rim;
-    hasStyle = true;
-  }
-  if (glow) {
-    style.glow = glow;
-    hasStyle = true;
-  }
+  const style = createDefaultIconStyleV2();
+  const fieldInputs = Array.from(card.querySelectorAll("[data-field^='style.']"));
+  fieldInputs.forEach((input) => {
+    const value = parseValue(input);
+    if (value === undefined) return;
+    if (value?.__jsonError) {
+      input.dataset.jsonError = "true";
+      return;
+    }
+    const path = input.dataset.field.replace("style.", "");
+    setPath(style, path, value);
+  });
 
-  const patternType = card.querySelector("[data-field='patternType']")?.value || "";
-  if (patternType) {
-    const pattern = { type: patternType };
-    card.querySelectorAll("[data-field^='pattern.']").forEach((input) => {
-      const key = input.dataset.field.replace("pattern.", "");
-      const value = key === "colors" ? parseColorList(input.value) : parseText(input.value);
-      const numberValue = ["amplitude", "waves", "spacing", "stripeWidth", "angle", "lineWidth", "cellSize", "segments", "centerRadius", "segmentWidth", "stoneSize", "gap"].includes(key)
-        ? parseNumber(input.value)
-        : value;
-      if (numberValue !== undefined) pattern[key] = numberValue;
-    });
-    style.pattern = pattern;
-    hasStyle = true;
-  } else {
-    style.pattern = null;
-    hasStyle = true;
-  }
-
-  const animationType = card.querySelector("[data-field='animationType']")?.value || "";
-  if (animationType) {
-    const animation = { type: animationType };
-    card.querySelectorAll("[data-field^='animation.']").forEach((input) => {
-      const key = input.dataset.field.replace("animation.", "");
-      if (key.startsWith("palette")) {
-        const paletteKey = key.replace("palette", "").toLowerCase();
-        const value = parseText(input.value);
-        if (value) {
-          animation.palette = animation.palette || {};
-          animation.palette[paletteKey] = value;
-        }
-      } else {
-        const num = parseNumber(input.value);
-        if (num !== undefined) animation[key] = num;
-        else {
-          const value = parseText(input.value);
-          if (value) animation[key] = value;
-        }
+  const effects = Array.from(card.querySelectorAll("[data-effect-row]"));
+  style.effects = effects.map((row, index) => {
+    const effect = { type: "outline", enabled: true };
+    row.querySelectorAll("[data-field^='style.effects']").forEach((input) => {
+      const value = parseValue(input);
+      if (value === undefined) return;
+      if (value?.__jsonError) {
+        input.dataset.jsonError = "true";
+        return;
       }
+      const path = input.dataset.field.replace(`style.effects[${index}].`, "");
+      setPath(effect, path, value);
     });
-    style.animation = animation;
-    hasStyle = true;
-  } else {
-    style.animation = null;
-    hasStyle = true;
-  }
+    return effect;
+  });
 
-  if (hasStyle) icon.style = style;
+  const animations = Array.from(card.querySelectorAll("[data-animation-row]"));
+  style.animations = animations.map((row, index) => {
+    const anim = { enabled: true, timing: {} };
+    row.querySelectorAll("[data-field^='style.animations']").forEach((input) => {
+      const value = parseValue(input);
+      if (value === undefined) return;
+      if (value?.__jsonError) {
+        input.dataset.jsonError = "true";
+        return;
+      }
+      const path = input.dataset.field.replace(`style.animations[${index}].`, "");
+      setPath(anim, path, value);
+    });
+    return anim;
+  });
+
+  icon.style = style;
   return icon;
 }
 
@@ -541,8 +810,127 @@ function collectIconDefinitions(root) {
   return icons;
 }
 
+function filterPresets(list, { query = "", tag = "" } = {}) {
+  const normalizedQuery = query.trim().toLowerCase();
+  return list.filter((preset) => {
+    const matchesQuery = !normalizedQuery
+      || preset.name.toLowerCase().includes(normalizedQuery)
+      || preset.id.toLowerCase().includes(normalizedQuery);
+    const matchesTag = !tag || (preset.tags || []).includes(tag);
+    return matchesQuery && matchesTag;
+  });
+}
+
+function applyPresetToCard(card, preset) {
+  const icon = readIconDefinition(card);
+  if (!icon) return;
+  const mergedStyle = applyPresetPatch(icon.style, preset);
+  card.querySelectorAll("[data-field^='style.']").forEach((input) => {
+    const path = input.dataset.field.replace("style.", "");
+    const value = path.split(".").reduce((acc, key) => (acc ? acc[key] : undefined), mergedStyle);
+    if (input.type === "checkbox") {
+      input.checked = Boolean(value);
+    } else if (value !== undefined) {
+      input.value = typeof value === "object" ? JSON.stringify(value) : String(value);
+    }
+  });
+  const effectsList = card.querySelector("[data-effect-list]");
+  if (effectsList) {
+    effectsList.innerHTML = "";
+    (mergedStyle.effects || []).forEach((effect, idx) => effectsList.appendChild(createEffectRow(effect, idx)));
+  }
+  const animList = card.querySelector("[data-animation-list]");
+  if (animList) {
+    animList.innerHTML = "";
+    (mergedStyle.animations || []).forEach((anim, idx) => animList.appendChild(createAnimationRow(anim, idx)));
+  }
+  const errors = validateIconStyleV2(mergedStyle);
+  if (!errors.ok) {
+    const errorBox = card.querySelector("[data-validation-errors]");
+    if (errorBox) {
+      errorBox.innerHTML = errors.errors.map((err) => `<div>${err.path}: ${err.message}</div>`).join("");
+    }
+  }
+}
+
+function wirePresetPanel(card) {
+  const panel = card.querySelector("[data-tab-panel='presets']");
+  if (!panel) return;
+  const list = panel.querySelector("[data-preset-list]");
+  const search = panel.querySelector("[data-preset-search]");
+  const tagSelect = panel.querySelector("[data-preset-tag]");
+  if (!list || !search || !tagSelect) return;
+
+  function render() {
+    const filtered = filterPresets(ICON_PRESETS, { query: search.value, tag: tagSelect.value });
+    list.querySelectorAll(".preset-button").forEach((btn) => {
+      const preset = ICON_PRESETS.find((item) => item.id === btn.dataset.presetId);
+      btn.classList.toggle("hidden", !filtered.includes(preset));
+    });
+  }
+
+  search.addEventListener("input", render);
+  tagSelect.addEventListener("change", render);
+  list.addEventListener("click", (event) => {
+    const button = event.target.closest(".preset-button");
+    if (!button) return;
+    const preset = ICON_PRESETS.find((item) => item.id === button.dataset.presetId);
+    if (!preset) return;
+    applyPresetToCard(card, preset);
+  });
+  render();
+}
+
+function wireAdvancedPanel(card) {
+  const panel = card.querySelector("[data-tab-panel='advanced']");
+  if (!panel) return;
+  const jsonArea = panel.querySelector("[data-field='advancedJson']");
+  const applyBtn = panel.querySelector("[data-apply-json]");
+  const copyBtn = panel.querySelector("[data-copy-json]");
+  const errorBox = panel.querySelector("[data-validation-errors]");
+  if (!jsonArea || !applyBtn || !copyBtn) return;
+
+  applyBtn.addEventListener("click", () => {
+    if (errorBox) errorBox.textContent = "";
+    try {
+      const parsed = JSON.parse(jsonArea.value || "{}");
+      if (!parsed || typeof parsed !== "object") return;
+      const nextStyle = resolveIconStyleV2(parsed);
+      const errors = validateIconStyleV2(nextStyle);
+      if (!errors.ok && errorBox) {
+        errorBox.innerHTML = errors.errors.map((err) => `<div>${err.path}: ${err.message}</div>`).join("");
+        return;
+      }
+      card.querySelector("[data-field='id']").value = parsed.id || "";
+      card.querySelector("[data-field='name']").value = parsed.name || "";
+      card.querySelector("[data-field='imageSrc']").value = parsed.imageSrc || "";
+    } catch (err) {
+      if (errorBox) errorBox.textContent = `Invalid JSON: ${err.message}`;
+    }
+  });
+
+  copyBtn.addEventListener("click", async () => {
+    const text = jsonArea.value || "";
+    try {
+      await navigator.clipboard.writeText(text);
+    } catch {
+      jsonArea.select();
+      document.execCommand("copy");
+    }
+  });
+}
+
+function validateIconCard(card) {
+  const icon = readIconDefinition(card);
+  if (!icon) return { ok: false, errors: [{ path: "id", message: "missing_id" }] };
+  return validateIconStyleV2(icon.style || {});
+}
+
 export {
   createIconCard,
   collectIconDefinitions,
-  readIconDefinition
+  readIconDefinition,
+  wirePresetPanel,
+  wireAdvancedPanel,
+  validateIconCard
 };

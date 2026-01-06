@@ -4,16 +4,18 @@
 // =====================
 import { DEFAULT_CURRENCY_ID, formatCurrencyAmount } from "./currencySystem.js";
 import { describeIconLock } from "./playerIcons.js";
+import { resolveIconStyleV2 } from "./iconStyleV2.js";
 
 export const DEFAULT_ICON_HINT = "Mouse over an icon to see how to unlock it.";
 
 export function applyIconSwatchStyles(el, icon) {
   if (!el) return;
-  const style = icon?.style || {};
-  const fill = style.fill || "#ff8c1a";
-  const core = style.core || fill || "#ffc285";
-  const rim = style.rim || "#0f172a";
-  const glow = style.glow || "rgba(255,200,120,.5)";
+  const style = resolveIconStyleV2(icon);
+  const palette = style.palette || {};
+  const fill = palette.fill || "#ff8c1a";
+  const core = palette.core || "#ffc285";
+  const rim = palette.rim || "#0f172a";
+  const glow = palette.glow || "rgba(255,200,120,.5)";
   el.style.setProperty("--icon-fill", fill);
   el.style.setProperty("--icon-core", core);
   el.style.setProperty("--icon-rim", rim);

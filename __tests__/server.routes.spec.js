@@ -860,7 +860,8 @@ describe("server routes and helpers", () => {
           simpleTextures: false,
           simpleParticles: true,
           reducedEffects: false,
-          extremeLowDetail: false
+          extremeLowDetail: false,
+          reduceMotion: false
         }
       }))
     });
@@ -902,7 +903,8 @@ describe("server routes and helpers", () => {
       simpleTextures: false,
       simpleParticles: true,
       reducedEffects: false,
-      extremeLowDetail: false
+      extremeLowDetail: false,
+      reduceMotion: false
     });
     expect(readJson(res).icons?.length).toBeGreaterThan(0);
     expect(readJson(res).pipeTextures?.length).toBeGreaterThan(0);
@@ -1532,7 +1534,8 @@ describe("server routes and helpers", () => {
             simpleTextures: false,
             simpleParticles: true,
             reducedEffects: false,
-            extremeLowDetail: false
+            extremeLowDetail: false,
+            reduceMotion: false
           }
         }),
         headers: { cookie: buildSessionCookie(server, "PlayerOne") }
@@ -1571,7 +1574,8 @@ describe("server routes and helpers", () => {
       simpleTextures: false,
       simpleParticles: true,
       reducedEffects: false,
-      extremeLowDetail: false
+      extremeLowDetail: false,
+      reduceMotion: false
     });
     expect(readJson(valid).user.settings).toEqual({
       dashBehavior: "destroy",
@@ -1603,7 +1607,8 @@ describe("server routes and helpers", () => {
       simpleTextures: false,
       simpleParticles: true,
       reducedEffects: false,
-      extremeLowDetail: false
+      extremeLowDetail: false,
+      reduceMotion: false
     });
   });
 

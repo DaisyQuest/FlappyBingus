@@ -544,9 +544,10 @@ describe("player icon sprites", () => {
     const strokes = operations.filter((op) => op.type === "stroke");
     expect(strokes).toHaveLength(3); // rim + 2 centerline strokes
     expect(strokes[1].strokeStyle).toBe("#ff1a1a");
-    expect(strokes[1].lineWidth).toBeCloseTo(Math.max(2, 100 * 0.065), 6);
+    const outer = 100 * 0.46;
+    expect(strokes[1].lineWidth).toBeCloseTo(Math.max(2, outer * 0.16), 6);
     expect(strokes[2].strokeStyle).toBe("#ff1a1a");
-    expect(strokes[2].lineWidth).toBeCloseTo(Math.max(2, 100 * 0.04), 6);
+    expect(strokes[2].lineWidth).toBeCloseTo(Math.max(2, outer * 0.1), 6);
 
     const fills = operations.filter((op) => op.type === "fill");
     expect(fills[0].fillStyle).toBe("#000000");

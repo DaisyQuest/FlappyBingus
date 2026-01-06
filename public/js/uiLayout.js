@@ -585,6 +585,11 @@ function createPerformanceCard(doc, refs) {
       hint: "Slims down particle styles and disables trail glints for weaker hardware."
     }),
     makeToggleRow({
+      id: "reduceMotionToggle",
+      label: "Reduce motion",
+      hint: "Disables continuous cosmetic animations while keeping gameplay the same."
+    }),
+    makeToggleRow({
       id: "extremeLowDetailToggle",
       label: "Extreme low detail mode",
       hint: "Draws minimal pipe textures for the most limited GPUs."

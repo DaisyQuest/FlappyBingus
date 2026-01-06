@@ -12,7 +12,7 @@
     "test:headless": "vitest run",
     "test:headless:watch": "vitest watch",
     "test:coverage": "vitest run --coverage",
-    "test:coverage:summary": "npm run test:coverage && node scripts/coverage-summary.js",
+    "test:coverage:summary": "npm run test:coverage && node scripts/coverage-summary.js && node scripts/coverage-gate.js",
     "test:report": "npm run test:coverage:summary"
   },
   "dependencies": {

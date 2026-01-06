@@ -1,6 +1,7 @@
 "use strict";
 
 const { PLAYER_ICONS, normalizePlayerIcons } = require("./playerIcons.cjs");
+const { validateIconStyleV2 } = require("./iconStyleV2.cjs");
 
 const BASE_ICON_CATALOG = Object.freeze(normalizePlayerIcons(PLAYER_ICONS));
 
@@ -56,6 +57,15 @@ function normalizeIconCatalog(payload) {
       return;
     }
     seen.add(id);
+    const styleCheck = validateIconStyleV2(icon.style || icon.styleV2 || {});
+    if (!styleCheck.ok) {
+      styleCheck.errors.forEach((err) => {
+        errors.push({
+          path: `icons[${index}].style.${err.path || "invalid"}`,
+          message: err.message
+        });
+      });
+    }
     sanitized.push(icon);
   });
 

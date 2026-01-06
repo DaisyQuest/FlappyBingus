@@ -2,6 +2,7 @@
 
 const { DEFAULT_CURRENCY_ID, normalizeCurrencyId, getCurrencyDefinition } = require("./currency.cjs");
 const { buildBaseIcons } = require("./iconRegistry.cjs");
+const { resolveIconStyleV2 } = require("./iconStyleV2.cjs");
 
 const PLAYER_ICONS = Object.freeze(buildBaseIcons());
 
@@ -19,17 +20,25 @@ function normalizePlayerIcons(list) {
 
     const name = typeof icon.name === "string" && icon.name.trim() ? icon.name.trim() : id;
     const unlock = normalizeUnlock(icon.unlock);
+    const style = resolveIconStyleV2(icon);
     out.push({
       ...icon,
       id,
       name,
-      unlock
+      unlock,
+      style,
+      schemaVersion: Number.isFinite(icon.schemaVersion) ? icon.schemaVersion : 2
     });
   }
 
   if (out.length) return out;
   if (hasList) return [];
-  return PLAYER_ICONS.map((i) => ({ ...i, unlock: normalizeUnlock(i.unlock) }));
+  return PLAYER_ICONS.map((icon) => ({
+    ...icon,
+    unlock: normalizeUnlock(icon.unlock),
+    style: resolveIconStyleV2(icon),
+    schemaVersion: Number.isFinite(icon.schemaVersion) ? icon.schemaVersion : 2
+  }));
 }
 
 function normalizeUnlock(unlock) {

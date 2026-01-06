@@ -3,6 +3,8 @@
 // Utility to generate high-contrast player icon sprites from metadata.
 // =====================
 
+import { drawImageIconFrameV2, renderIconFrameV2, shouldAnimateIcon, buildIconRenderState } from "./iconRendererV2.js";
+
 const DEFAULT_FILL = "#ff8c1a";
 const DEFAULT_RIM = "#0f172a";
 const DEFAULT_CORE = "#ffc285";
@@ -17,6 +19,7 @@ const DEFAULT_LAVA_PALETTE = Object.freeze({
 function clamp01(v) {
   return Math.min(1, Math.max(0, v));
 }
+
 
 function drawZigZag(ctx, radius, {
   stroke = "#fff",
@@ -236,7 +239,10 @@ function drawCitrusSlice(ctx, radius, {
 
 function makeCanvas(size) {
   const safeSize = Math.max(16, Math.floor(size) || 96);
-  const isJsdom = typeof navigator !== "undefined" && /jsdom/i.test(navigator.userAgent || "");
+  const userAgent = typeof document !== "undefined"
+    ? document.defaultView?.navigator?.userAgent
+    : (typeof navigator !== "undefined" ? navigator.userAgent : "");
+  const isJsdom = /jsdom/i.test(userAgent || "");
   if (typeof document !== "undefined" && document.createElement && !isJsdom) {
     const canvas = document.createElement("canvas");
     canvas.width = safeSize;
@@ -631,26 +637,20 @@ function drawImageIconFrame(ctx, canvas, icon, image, { animationPhase = 0 } = {
   ctx.restore?.();
 }
 
-function maybeStartSpriteAnimation(canvas, icon, renderFrame) {
-  const animation = icon?.style?.animation;
-  if (!animation || (animation.type !== "lava" && animation.type !== "cape_flow" && animation.type !== "zigzag_scroll")) {
-    return null;
-  }
+function maybeStartSpriteAnimation(canvas, icon, renderFrame, { reducedMotion = false } = {}) {
+  if (reducedMotion) return null;
+  if (!shouldAnimateIcon(icon)) return null;
   const raf = typeof requestAnimationFrame === "function" ? requestAnimationFrame : null;
   const caf = typeof cancelAnimationFrame === "function" ? cancelAnimationFrame : null;
   if (!raf) return null;
-  const speed = Math.max(0.001, Number(animation.speed) || 0.04);
   let lastTs = null;
-  let phase = 0;
   const state = { running: true, rafId: null };
 
   const step = (ts) => {
     if (!state.running) return;
     if (lastTs === null) lastTs = ts;
-    const dt = Math.max(0, (ts - lastTs) / 1000);
     lastTs = ts;
-    phase = (phase + dt * speed) % 1;
-    renderFrame({ animationPhase: phase });
+    renderFrame({ timeMs: ts });
     state.rafId = raf(step);
   };
 
@@ -663,7 +663,7 @@ function maybeStartSpriteAnimation(canvas, icon, renderFrame) {
   return state;
 }
 
-export function createPlayerIconSprite(icon = {}, { size = 96 } = {}) {
+export function createPlayerIconSprite(icon = {}, { size = 96, reducedMotion = false, events = [], showMask = false } = {}) {
   const canvas = makeCanvas(size);
   let ctx = null;
   try {
@@ -677,7 +677,12 @@ export function createPlayerIconSprite(icon = {}, { size = 96 } = {}) {
     if (imageSrc && typeof Image === "function") {
       const image = new Image();
       canvas.__image = image;
-      const renderImage = (opts = {}) => drawImageIconFrame(ctx, canvas, icon, image, opts);
+      const renderImage = (opts = {}) => drawImageIconFrameV2(ctx, canvas, icon, image, {
+        timeMs: opts.timeMs || 0,
+        events,
+        reducedMotion,
+        showMask
+      });
       image.addEventListener?.("load", () => {
         renderImage();
         canvas.__imageLoaded = true;
@@ -685,12 +690,17 @@ export function createPlayerIconSprite(icon = {}, { size = 96 } = {}) {
       }, { once: true });
       image.src = imageSrc;
       renderImage();
-      const animation = maybeStartSpriteAnimation(canvas, icon, renderImage);
+      const animation = maybeStartSpriteAnimation(canvas, icon, renderImage, { reducedMotion });
       if (animation) canvas.__animation = animation;
     } else {
-      const renderFrame = (opts = {}) => renderIconFrame(ctx, canvas, icon, opts);
+      const renderFrame = (opts = {}) => renderIconFrameV2(ctx, canvas, icon, {
+        timeMs: opts.timeMs || 0,
+        events,
+        reducedMotion,
+        showMask
+      });
       renderFrame();
-      const animation = maybeStartSpriteAnimation(canvas, icon, renderFrame);
+      const animation = maybeStartSpriteAnimation(canvas, icon, renderFrame, { reducedMotion });
       if (animation) canvas.__animation = animation;
     }
   }
@@ -710,5 +720,6 @@ export const __testables = {
   drawCobblestone,
   drawImageIconFrame,
   renderIconFrame,
-  maybeStartSpriteAnimation
+  maybeStartSpriteAnimation,
+  buildIconRenderState
 };

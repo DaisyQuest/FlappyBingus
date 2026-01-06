@@ -85,7 +85,8 @@ describe("server helpers (trails)", () => {
       simpleTextures: false,
       simpleParticles: true,
       reducedEffects: true,
-      extremeLowDetail: false
+      extremeLowDetail: false,
+      reduceMotion: false
     });
   });
 
@@ -236,7 +237,8 @@ describe("server helpers (trails)", () => {
       simpleTextures: false,
       simpleParticles: true,
       reducedEffects: true,
-      extremeLowDetail: false
+      extremeLowDetail: false,
+      reduceMotion: false
     });
     expect(u.runs).toBe(0);
     expect(u.totalScore).toBe(0);

@@ -57,7 +57,8 @@ export const DEFAULT_SKILL_SETTINGS = Object.freeze({
   simpleTextures: false,
   simpleParticles: true,
   reducedEffects: true,
-  extremeLowDetail: false
+  extremeLowDetail: false,
+  reduceMotion: false
 });
 
 export const SKILL_BEHAVIOR_OPTIONS = Object.freeze({
@@ -78,7 +79,8 @@ const SIMPLE_SETTING_KEYS = new Set([
   "simpleTextures",
   "simpleParticles",
   "reducedEffects",
-  "extremeLowDetail"
+  "extremeLowDetail",
+  "reduceMotion"
 ]);
 
 const LEGACY_TEXT_STYLE_MAP = Object.freeze({

@@ -387,6 +387,7 @@ describe("uiLayout", () => {
     expect(performanceCard?.querySelector("#simpleTexturesToggle")).toBeInstanceOf(window.HTMLInputElement);
     expect(performanceCard?.querySelector("#simpleParticlesToggle")).toBeInstanceOf(window.HTMLInputElement);
     expect(performanceCard?.querySelector("#reducedEffectsToggle")).toBeInstanceOf(window.HTMLInputElement);
+    expect(performanceCard?.querySelector("#reduceMotionToggle")).toBeInstanceOf(window.HTMLInputElement);
     expect(performanceCard?.querySelector("#extremeLowDetailToggle")).toBeInstanceOf(window.HTMLInputElement);
     expect(settingsGrid?.querySelector(".muted-note")).toBeNull();
 
