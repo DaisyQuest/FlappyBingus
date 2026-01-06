@@ -31,16 +31,17 @@ const WORLD_HEIGHT = 720;
 
 const STATE = Object.freeze({ MENU: 0, PLAY: 1, OVER: 2 });
 
-import { Pipe, Gate, Orb, Part, FloatText, setEntityRandSource } from "./entities.js";
-import { spawnBurst, spawnCrossfire, spawnOrb, spawnSinglePipe, spawnWall } from "./spawn.js";
+import { Orb, Part, FloatText, setEntityRandSource } from "./entities.js";
+import { Pipe, Gate } from "./pipes/pipeEntity.js";
+import { spawnBurst, spawnCrossfire, spawnSinglePipe, spawnWall } from "./pipes/pipeSpawner.js";
+import { spawnOrb } from "./orbs/orbSpawner.js";
 import { dashBounceMax, orbPoints, tickCooldowns } from "./mechanics.js";
 import { buildScorePopupStyle, buildComboAuraStyle, COMBO_AURA_THRESHOLDS } from "./uiStyles.js";
 import { computePipeColor } from "./pipeColors.js";
+import { drawPipe } from "./pipes/pipeRendering.js";
 import {
   DEFAULT_PIPE_TEXTURE_ID,
-  DEFAULT_PIPE_TEXTURE_MODE,
-  drawPipeTexture,
-  normalizePipeTextureMode
+  DEFAULT_PIPE_TEXTURE_MODE
 } from "./pipeTextures.js";
 import { trailStyleFor } from "./trailStyles.js";
 import {
@@ -1849,43 +1850,11 @@ export class Game {
   }
 
   _drawPipe(p, base) {
-    if (this.skillSettings?.extremeLowDetail) {
-      const ctx = this.ctx;
-      const strokeColor = this.cfg?.pipes?.colors?.stroke ?? "#000000";
-      const strokeWidth = Number(this.cfg?.pipes?.strokeWidth ?? 2);
-      ctx.save();
-      ctx.fillStyle = typeof base === "string" ? base : rgb(base);
-      ctx.fillRect(p.x, p.y, p.w, p.h);
-      if (Number.isFinite(strokeWidth) && strokeWidth > 0 && strokeColor) {
-        const inset = strokeWidth / 2;
-        const rectW = Math.max(0, p.w - strokeWidth);
-        const rectH = Math.max(0, p.h - strokeWidth);
-        if (rectW > 0 && rectH > 0) {
-          ctx.strokeStyle = strokeColor;
-          ctx.lineWidth = strokeWidth;
-          ctx.strokeRect(p.x + inset, p.y + inset, rectW, rectH);
-        }
-      }
-      ctx.restore();
-      return;
-    }
-    const selection = this.getPipeTexture ? this.getPipeTexture() : null;
-    const textureId = this.skillSettings?.simpleTextures
-      ? DEFAULT_PIPE_TEXTURE_ID
-      : (typeof selection === "string"
-        ? selection
-        : (selection?.id || DEFAULT_PIPE_TEXTURE_ID));
-    const mode = this.skillSettings?.simpleTextures
-      ? "MONOCHROME"
-      : normalizePipeTextureMode(selection?.mode || DEFAULT_PIPE_TEXTURE_MODE);
-    const strokeColor = this.cfg?.pipes?.colors?.stroke ?? "#000000";
-    const strokeWidth = Number(this.cfg?.pipes?.strokeWidth ?? 2);
-    drawPipeTexture(this.ctx, p, base, {
-      textureId,
-      mode,
-      time: this.timeAlive,
-      strokeColor,
-      strokeWidth
+    drawPipe(this.ctx, p, base, {
+      skillSettings: this.skillSettings,
+      cfg: this.cfg,
+      timeAlive: this.timeAlive,
+      getPipeTexture: this.getPipeTexture
     });
   }
 
