@@ -142,13 +142,15 @@ describe("theme helpers", () => {
     const exported = exportThemeString({
       ...THEME_DEFAULT_VALUES,
       accent: "#112233",
-      pipeGreen: "#445566"
+      pipeGreen: "#445566",
+      pipeStroke: "#010203"
     });
     const imported = importThemeString(exported);
 
     expect(imported.error).toBeUndefined();
     expect(imported.values.accent).toBe("#112233");
     expect(imported.values.pipeGreen).toBe("#445566");
+    expect(imported.values.pipeStroke).toBe("#010203");
   });
 
   it("rejects malformed import payloads", () => {

@@ -1851,9 +1851,21 @@ export class Game {
   _drawPipe(p, base) {
     if (this.skillSettings?.extremeLowDetail) {
       const ctx = this.ctx;
+      const strokeColor = this.cfg?.pipes?.colors?.stroke ?? "#000000";
+      const strokeWidth = Number(this.cfg?.pipes?.strokeWidth ?? 2);
       ctx.save();
       ctx.fillStyle = typeof base === "string" ? base : rgb(base);
       ctx.fillRect(p.x, p.y, p.w, p.h);
+      if (Number.isFinite(strokeWidth) && strokeWidth > 0 && strokeColor) {
+        const inset = strokeWidth / 2;
+        const rectW = Math.max(0, p.w - strokeWidth);
+        const rectH = Math.max(0, p.h - strokeWidth);
+        if (rectW > 0 && rectH > 0) {
+          ctx.strokeStyle = strokeColor;
+          ctx.lineWidth = strokeWidth;
+          ctx.strokeRect(p.x + inset, p.y + inset, rectW, rectH);
+        }
+      }
       ctx.restore();
       return;
     }
@@ -1866,7 +1878,15 @@ export class Game {
     const mode = this.skillSettings?.simpleTextures
       ? "MONOCHROME"
       : normalizePipeTextureMode(selection?.mode || DEFAULT_PIPE_TEXTURE_MODE);
-    drawPipeTexture(this.ctx, p, base, { textureId, mode, time: this.timeAlive });
+    const strokeColor = this.cfg?.pipes?.colors?.stroke ?? "#000000";
+    const strokeWidth = Number(this.cfg?.pipes?.strokeWidth ?? 2);
+    drawPipeTexture(this.ctx, p, base, {
+      textureId,
+      mode,
+      time: this.timeAlive,
+      strokeColor,
+      strokeWidth
+    });
   }
 
 _drawOrb(o) {

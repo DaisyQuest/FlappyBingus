@@ -512,6 +512,12 @@ export const THEME_FIELDS = [
     group: "Pipes"
   },
   {
+    id: "pipeStroke",
+    label: "Pipe stroke",
+    type: "color",
+    group: "Pipes"
+  },
+  {
     id: "scrollbarTrack",
     label: "Scrollbar track",
     type: "color",
@@ -627,6 +633,7 @@ const THEME_FIELD_DESCRIPTIONS = {
   pipeBlue: "Blue pipe color.",
   pipeWisteria: "Wisteria pipe color.",
   pipeRed: "Red pipe color.",
+  pipeStroke: "Pipe outline/border color.",
   scrollbarTrack: "Scrollbar track color.",
   scrollbarTrackAlpha: "Opacity of the scrollbar track.",
   scrollbarThumbStart: "Scrollbar thumb top color.",
@@ -704,6 +711,7 @@ export const THEME_DEFAULT_VALUES = {
   pipeBlue: "#b3ebf2",
   pipeWisteria: "#c9a0dc",
   pipeRed: "#ff746c",
+  pipeStroke: "#000000",
   scrollbarTrack: "#ffffff",
   scrollbarTrackAlpha: 0.06,
   scrollbarThumbStart: "#aadcff",
@@ -1269,6 +1277,7 @@ function generateSmartThemeValues() {
   values.pipeBlue = hslToHex(offsetHue(accentHue, -140), 70, 60);
   values.pipeWisteria = hslToHex(offsetHue(accentHue, 30), 60, 68);
   values.pipeRed = hslToHex(offsetHue(accentHue, 140), 70, 60);
+  values.pipeStroke = "#000000";
 
   values.scrollbarTrack = hslToHex(baseHue, 20, 98);
   values.scrollbarThumbStart = hslToHex(accentHue, 40, 86);

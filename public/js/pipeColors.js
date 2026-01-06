@@ -4,7 +4,8 @@ const DEFAULT_COLORS = Object.freeze({
   green: "#b7efb2", // pastel green (starting difficulty)
   blue: "#b3ebf2", // pastel blue (mid-low difficulty)
   wisteria: "#c9a0dc", // wisteria (mid-high difficulty)
-  red: "#ff746c" // pastel red (maximum difficulty)
+  red: "#ff746c", // pastel red (maximum difficulty)
+  stroke: "#000000" // pipe border stroke
 });
 
 function paletteColor(colors, key, fallbacks = []) {
@@ -34,4 +35,3 @@ export function computePipeColor(difficulty01, colors = DEFAULT_COLORS) {
 export function pipePaletteDefaults() {
   return { ...DEFAULT_COLORS };
 }
-

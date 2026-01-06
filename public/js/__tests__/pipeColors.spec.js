@@ -62,8 +62,8 @@ describe("DEFAULT_CONFIG pipe colors", () => {
       green: "#b7efb2",
       blue: "#b3ebf2",
       wisteria: "#c9a0dc",
-      red: "#ff746c"
+      red: "#ff746c",
+      stroke: "#000000"
     });
   });
 });
-

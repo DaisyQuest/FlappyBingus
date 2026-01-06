@@ -22,7 +22,14 @@ export const DEFAULT_CONFIG = {
     gap: { startScale: 0.30, endScale: 0.20, min: 88, max: 190 },
     special: { startCadence: 3.8, endCadence: 2.3, jitterMin: 0.2, jitterMax: 0.7 },
     patternWeights: { wall: [0.18, 0.30], aimed: [0.26, 0.40] },
-    colors: { green: "#b7efb2", blue: "#b3ebf2", wisteria: "#c9a0dc", red: "#ff746c" }
+    strokeWidth: 2,
+    colors: {
+      green: "#b7efb2",
+      blue: "#b3ebf2",
+      wisteria: "#c9a0dc",
+      red: "#ff746c",
+      stroke: "#000000"
+    }
   },
   skills: {
     // cooldowns live here; activation keybinds are user-configurable (menu)
