@@ -217,38 +217,17 @@ export class Tutorial {
     this._phasePassed = false;
     this._phaseCelebrateT = 0;
 
-    this._dashUsed = false;
-    this._dashTarget = null;
-    this._dashCountdownT = 0;
-    this._dashNeedReenter = false;
-    this._dashReenterArmed = false;
-    this._dashWasInZone = false;
     this._dashSuccessDelay = 0;
-    this._dashWallsSpawned = 0;
-    this._reflectWalls = [];
-    this._reflectWallsHit = new Set();
-    this._reflectHitsThisDash = 0;
-    this._reflectPrevBounceCount = 0;
-    this._reflectSuccessDelay = 0;
-    this._reflectSeenSerial = 0;
     this._dashDestroyPipe = null;
     this._dashDestroySeen = false;
 
     this._teleTarget = null;
     this._teleUsed = false;
 
-    this._slowUsed = false;
-    this._slowBurstSpawned = false;
-    this._navButtons = null;
-    this._slowExplosionCleared = false;
-    this._surviveT = 0;
     this._navButtons = null;
 
     // Temporary tuning (restored on step change)
     this._movePlayerCfgBackup = null;
-
-    // Navigation buttons
-    this._navButtons = null;
 
     // Config overrides (restored on stop)
     this._cfgBackup = null;
@@ -334,8 +313,6 @@ export class Tutorial {
     this._phaseWall = null;
     this._teleTarget = null;
 
-    this._slowBurstSpawned = false;
-
     if (this._settingsBackup) this.game.setSkillSettings(this._settingsBackup);
     this._restoreMovementTuning();
     this._restoreConfig();
@@ -366,9 +343,7 @@ export class Tutorial {
     if (!this.active) return;
     const sid = this._stepId();
     if ((sid === "skill_phase" || sid === "practice") && actionId === "phase") this._phaseUsed = true;
-    if ((sid === "skill_dash" || sid === "practice") && actionId === "dash") this._dashUsed = true;
     if ((sid === "skill_teleport" || sid === "practice") && actionId === "teleport") this._teleUsed = true;
-    if ((sid === "skill_slow" || sid === "practice") && actionId === "slowField") this._slowUsed = true;
   }
 
   // Optional: call this from main.js when a skill is pressed but blocked.
@@ -423,9 +398,9 @@ export class Tutorial {
     // Ensure the “teaching skill” is always ready when we’re in a skill step,
     // and keep all skills ready in practice mode.
     if (sid === "skill_phase" || sid === "practice") this.game.cds.phase = 0;
-    if (sid === "skill_dash" || sid === "dash_reflect" || sid === "dash_destroy" || sid === "practice") this.game.cds.dash = 0;
+    if (sid === "dash_destroy" || sid === "practice") this.game.cds.dash = 0;
     if (sid === "skill_teleport" || sid === "practice") this.game.cds.teleport = 0;
-    if (sid === "skill_slow" || sid === "slow_explosion" || sid === "practice") this.game.cds.slowField = 0;
+    if (sid === "practice") this.game.cds.slowField = 0;
   }
 
   afterSimTick(dt) {
@@ -438,12 +413,8 @@ export class Tutorial {
     else if (sid === "orbs") this._stepOrbs(dt);
     else if (sid === "perfect") this._stepPerfect(dt);
     else if (sid === "skill_phase") this._stepSkillPhase(dt);
-    else if (sid === "skill_dash") this._stepSkillDash(dt);
-    else if (sid === "dash_reflect") this._stepDashReflect(dt);
     else if (sid === "dash_destroy") this._stepDashDestroy(dt);
     else if (sid === "skill_teleport") this._stepSkillTeleport(dt);
-    else if (sid === "skill_slow") this._stepSkillSlow(dt);
-    else if (sid === "slow_explosion") this._stepSlowExplosion(dt);
     else if (sid === "practice") {
       // sandbox: nothing special
     }
@@ -635,7 +606,9 @@ export class Tutorial {
       ctx.shadowColor = "rgba(0,0,0,.55)";
       ctx.shadowBlur = 14;
       ctx.fillStyle = "rgba(255,255,255,.92)";
-      ctx.fillText(this._msgFlash, panelX + panelW * 0.5, panelY + panelH + 20);
+      const flashX = this.game.W * 0.5;
+      const flashY = Math.max(32, this.game.H * 0.18);
+      ctx.fillText(this._msgFlash, flashX, flashY);
       ctx.restore();
     }
   }
@@ -697,12 +670,8 @@ export class Tutorial {
       { id: "orbs" },
       { id: "perfect" },
       { id: "skill_phase" },
-      { id: "skill_dash" },
-      { id: "dash_destroy" },
-      { id: "dash_reflect" },
       { id: "skill_teleport" },
-      { id: "skill_slow" },
-      { id: "slow_explosion" },
+      { id: "dash_destroy" },
       { id: "practice" },
     ];
   }
@@ -731,30 +700,13 @@ export class Tutorial {
     this._phasePassed = false;
     this._phaseCelebrateT = 0;
 
-    this._dashUsed = false;
-    this._dashTarget = null;
-    this._dashCountdownT = 0;
-    this._dashNeedReenter = false;
-    this._dashReenterArmed = false;
-    this._dashWasInZone = false;
     this._dashSuccessDelay = 0;
-    this._dashWallsSpawned = 0;
-    this._reflectWalls = [];
-    this._reflectWallsHit = new Set();
-    this._reflectHitsThisDash = 0;
-    this._reflectPrevBounceCount = 0;
-    this._reflectSuccessDelay = 0;
-    this._reflectSeenSerial = this.game?.lastDashReflect?.serial || 0;
     this._dashDestroyPipe = null;
     this._dashDestroySeen = false;
 
     this._teleTarget = null;
     this._teleUsed = false;
 
-    this._slowUsed = false;
-    this._slowBurstSpawned = false;
-    this._slowExplosionCleared = false;
-    this._surviveT = 0;
 
     // Fresh run per scenario keeps it clean and beginner-friendly.
     this.game.startRun();
@@ -808,19 +760,6 @@ export class Tutorial {
       this._beginSkillIntro("phase");
     }
 
-    if (sid === "skill_dash") {
-      this._setPerfectEnabled(false);
-      this._allowed = new Set(["dash"]);
-      this._beginSkillIntro("dash");
-    }
-
-    if (sid === "dash_reflect") {
-      this._setPerfectEnabled(false);
-      this._allowed = new Set(["dash"]);
-      this.game.setSkillSettings({ ...(this._settingsBackup || this.game.skillSettings), dashBehavior: "ricochet" });
-      this._spawnDashReflectScenario();
-    }
-
     if (sid === "dash_destroy") {
       this._setPerfectEnabled(false);
       this._allowed = new Set(["dash"]);
@@ -832,20 +771,6 @@ export class Tutorial {
       this._setPerfectEnabled(false);
       this._allowed = new Set(["teleport"]);
       this._beginSkillIntro("teleport");
-    }
-
-    if (sid === "skill_slow") {
-      this._setPerfectEnabled(false);
-      this._allowed = new Set(["slowField"]);
-      this.game.setSkillSettings({ ...(this._settingsBackup || this.game.skillSettings), slowFieldBehavior: "slow" });
-      this._beginSkillIntro("slowField");
-    }
-
-    if (sid === "slow_explosion") {
-      this._setPerfectEnabled(false);
-      this._allowed = new Set(["slowField"]);
-      this.game.setSkillSettings({ ...(this._settingsBackup || this.game.skillSettings), slowFieldBehavior: "explosion" });
-      this._spawnSlowExplosionScenario();
     }
 
     if (sid === "practice") {
@@ -1208,9 +1133,7 @@ _stepOrbs(dt) {
       this.pauseSim = false;
       const sid = this._stepId();
       if (sid === "skill_phase") this._spawnPhaseScenario();
-      if (sid === "skill_dash") this._spawnDashScenario();
       if (sid === "skill_teleport") this._spawnTeleportScenario();
-      if (sid === "skill_slow") this._spawnSlowScenario();
     }
   }
 
@@ -1247,188 +1170,6 @@ _stepOrbs(dt) {
     if (this._phasePassed) {
       this._phaseCelebrateT = Math.max(0, this._phaseCelebrateT - dt);
       if (this._phaseCelebrateT <= 0) this._nextStep();
-    }
-  }
-
-  // =====================================================
-  // Skill: DASH
-  // =====================================================
-  _spawnDashScenario() {
-    const W = this.game.W, H = this.game.H;
-    const p = this.game.player;
-
-    // Spawn player bottom-left.
-    p.x = clamp(W * 0.16, p.r + 28, W - p.r - 28);
-    p.y = clamp(H * 0.84, p.r + 28, H - p.r - 28);
-
-    // Success zone top-right.
-    const tx = clamp(W * 0.86, 70, W - 70);
-    const ty = clamp(H * 0.18, 70, H - 70);
-    this._dashTarget = { x: tx, y: ty, r: clamp(Math.min(W, H) * 0.060, 44, 62) };
-
-    // Five seconds to make it.
-    this._dashCountdownT = 5.0;
-    this._dashNeedReenter = false;
-    this._dashReenterArmed = false;
-    this._dashWasInZone = false;
-    this._dashSuccessDelay = 0;
-    this._dashWallsSpawned = 0;
-
-    // Send one or two small walls moving left across the map.
-    this._spawnDashWalls();
-  }
-
-  _spawnDashWalls() {
-    const W = this.game.W, H = this.game.H;
-    const th = this.game._thickness ? this.game._thickness() : Math.max(46, Math.min(W, H) * 0.08);
-    const base = (this.game._pipeSpeed ? this.game._pipeSpeed() : 260);
-    const spd = Math.max(175, base * 0.75);
-
-    const mk = (x, y, w, h, vx, vy) => this.game.pipes.push(makePipeRect({ x, y, w, h, vx, vy }));
-
-    const blockW = th;
-    const blockH = th * 2.6;
-
-    // Block 1 (mid-lane)
-    mk(W + 18, clamp(H * 0.58, 20, H - blockH - 20), blockW, blockH, -spd, 0);
-
-    // Block 2 (upper-mid) on larger screens
-    if (Math.min(W, H) >= 520) {
-      mk(W + 18 + th * 2.0, clamp(H * 0.32, 20, H - blockH - 20), blockW, blockH, -spd, 0);
-    }
-
-    // Block 3 (top -> bottom)
-    const vertW = blockH;
-    const vertH = blockW;
-    mk(clamp(W * 0.62, 20, W - vertW - 20), -vertH - 18, vertW, vertH, 0, spd);
-  }
-
-  _stepSkillDash(dt) {
-    if (!this._dashTarget) return;
-
-    // Detect dash usage.
-    if (!this._dashUsed && this.game.player.dashT > 0) this._dashUsed = true;
-
-    // Countdown.
-    this._dashCountdownT = Math.max(0, (this._dashCountdownT || 0) - dt);
-
-    const p = this.game.player;
-    const ok = dist2(p.x, p.y, this._dashTarget.x, this._dashTarget.y) <= (this._dashTarget.r * this._dashTarget.r);
-
-    // Zone entry logic to enforce "must dash to proceed".
-    if (ok && !this._dashWasInZone) {
-      if (this._dashUsed) {
-        this._flash("Dash = a burst of speed in your movement direction.");
-        this._dashSuccessDelay = 0.85;
-      } else {
-        this._flash("Good — now use DASH and touch the zone again.");
-        this._dashNeedReenter = true;
-      }
-    }
-
-    // If they reached the zone without dashing, require exit + re-entry after a dash.
-    if (!ok && this._dashNeedReenter && this._dashWasInZone) {
-      this._dashReenterArmed = true;
-    }
-    if (ok && this._dashNeedReenter && this._dashUsed && this._dashReenterArmed && !this._dashWasInZone) {
-      this._flash("Nice dash.");
-      this._dashSuccessDelay = 0.85;
-    }
-
-    this._dashWasInZone = ok;
-
-    // Success delay (lets the player understand what happened).
-    if (this._dashSuccessDelay > 0) {
-      this._dashSuccessDelay = Math.max(0, this._dashSuccessDelay - dt);
-      if (this._dashSuccessDelay <= 0) this._nextStep();
-      return;
-    }
-
-    // Fail on timeout.
-    if (this._dashCountdownT <= 0) {
-      if (!this._dashUsed) this._flash("Too slow — you must DASH to make it in time.");
-      else this._flash("Time’s up — try again and take a cleaner line.");
-      this._restartStep();
-    }
-  }
-
-  // =====================================================
-  // Dash Reflect (ricochet)
-  // =====================================================
-  _spawnDashReflectScenario() {
-    const W = this.game.W, H = this.game.H;
-    const p = this.game.player;
-
-    const th = this.game._thickness ? this.game._thickness() : Math.max(46, Math.min(W, H) * 0.08);
-    const wallH = clamp(H * 0.46, 160, H * 0.62);
-    const wallW = clamp(W * 0.32, 220, W * 0.48);
-
-    p.x = clamp(W * 0.32, p.r + 30, W - p.r - 30);
-    p.y = clamp(H * 0.68, p.r + 30, H - p.r - 30);
-    p.vx = 0; p.vy = 0; p.dashT = 0; p.dashBounces = 0;
-    this.game.cds.dash = 0;
-
-    const wallY = clamp(p.y - wallH * 0.55, 24, H - wallH - 24);
-    const wallX = clamp(p.x + wallW * 0.35, 60, W - wallW - 60);
-    const horiz = makePipeRect({ x: wallX, y: wallY, w: wallW, h: th, vx: 0, vy: 0 });
-    const vert = makePipeRect({ x: wallX + wallW - th, y: wallY, w: th, h: wallH, vx: 0, vy: 0 });
-
-    this._reflectWalls = [
-      { id: "front", pipe: horiz },
-      { id: "side", pipe: vert },
-    ];
-    this._reflectWallsHit = new Set();
-    this._reflectHitsThisDash = 0;
-    this._reflectPrevBounceCount = 0;
-    this._reflectSuccessDelay = 0;
-    this._reflectSeenSerial = this.game?.lastDashReflect?.serial || 0;
-
-    this.game.pipes.push(horiz, vert);
-    this._flash("Dash into the cornered walls and ricochet twice in one dash.");
-  }
-
-  _findReflectWall(x, y) {
-    if (!this._reflectWalls?.length) return null;
-    const px = Number.isFinite(x) ? x : this.game.player.x;
-    const py = Number.isFinite(y) ? y : this.game.player.y;
-    const pad = 10;
-    return this._reflectWalls.find(({ pipe }) =>
-      px >= pipe.x - pad && px <= pipe.x + pipe.w + pad &&
-      py >= pipe.y - pad && py <= pipe.y + pipe.h + pad
-    );
-  }
-
-  _stepDashReflect(dt) {
-    if (!this._reflectWalls?.length) return;
-
-    const ev = this.game.lastDashReflect;
-    if (ev && ev.serial !== this._reflectSeenSerial) {
-      this._reflectSeenSerial = ev.serial;
-
-      const bounceCount = Number(ev.count) || 0;
-      if (bounceCount <= 1 || bounceCount < this._reflectPrevBounceCount) {
-        this._reflectWallsHit.clear();
-        this._reflectHitsThisDash = 0;
-      }
-      this._reflectPrevBounceCount = bounceCount;
-
-      const hitWall = this._findReflectWall(ev.x, ev.y);
-      if (hitWall && !this._reflectWallsHit.has(hitWall.id)) {
-        this._reflectWallsHit.add(hitWall.id);
-        this._reflectHitsThisDash += 1;
-        this._flash(this._reflectHitsThisDash >= 2
-          ? "Nice — double ricochet in one dash!"
-          : "Good bounce — now carom into the second wall.");
-      }
-
-      if (this._reflectHitsThisDash >= 2 && this._reflectWallsHit.size >= 2) {
-        this._reflectSuccessDelay = Math.max(this._reflectSuccessDelay, 0.85);
-      }
-    }
-
-    if (this._reflectSuccessDelay > 0) {
-      this._reflectSuccessDelay = Math.max(0, this._reflectSuccessDelay - dt);
-      if (this._reflectSuccessDelay <= 0) this._nextStep();
     }
   }
 
@@ -1516,113 +1257,6 @@ _stepOrbs(dt) {
   }
 
   // =====================================================
-  // Skill: SLOW FIELD
-  // =====================================================
-  _spawnSlowScenario() {
-    // Wait for cast, then spawn a short, intense burst.
-    this._slowBurstSpawned = false;
-    this._surviveT = 0;
-  }
-
-  _spawnSlowBurst() {
-    const W = this.game.W, H = this.game.H;
-    const th = this.game._thickness ? this.game._thickness() : Math.max(48, Math.min(W, H) * 0.08);
-    const base = Math.max(1, (this.game._pipeSpeed ? this.game._pipeSpeed() : 280));
-    const spd = base * 1.55;
-
-    const p = this.game.player;
-    const mk = (side, dx, dy) => {
-      // Side: 0 L,1 R,2 T,3 B
-      let x = 0, y = 0, vx = 0, vy = 0, w = 0, h = 0;
-      if (side === 0) { w = th; h = th * 4.2; x = -w - 18; y = clamp(p.y + dy, 20, H - h - 20); vx = spd; vy = 0; }
-      if (side === 1) { w = th; h = th * 4.2; x = W + 18; y = clamp(p.y + dy, 20, H - h - 20); vx = -spd; vy = 0; }
-      if (side === 2) { w = th * 4.2; h = th; x = clamp(p.x + dx, 20, W - w - 20); y = -h - 18; vx = 0; vy = spd; }
-      if (side === 3) { w = th * 4.2; h = th; x = clamp(p.x + dx, 20, W - w - 20); y = H + 18; vx = 0; vy = -spd; }
-      this.game.pipes.push(makePipeRect({ x, y, w, h, vx, vy }));
-    };
-
-    // A few aimed-ish pipes (but still very dodgeable once slowed).
-    mk(0, 0, -110);
-    mk(0, 0, 110);
-    mk(1, 0, -80);
-    mk(1, 0, 80);
-    mk(2, -120, 0);
-    mk(2, 120, 0);
-    mk(3, -90, 0);
-    mk(3, 90, 0);
-  }
-
-  _stepSkillSlow(dt) {
-    if (!this._slowUsed && this.game.slowField) {
-      this._slowUsed = true;
-      this._flash("Nice — walls slow down inside the circle.");
-    }
-
-    if (this._slowUsed && !this._slowBurstSpawned) {
-      this._slowBurstSpawned = true;
-      this._spawnSlowBurst();
-      this._surviveT = 2.6;
-    }
-
-    if (this._slowBurstSpawned) {
-      this._surviveT = Math.max(0, this._surviveT - dt);
-      if (this._surviveT <= 0) {
-        this._flash("Tutorial complete — practice with everything unlocked.");
-        this._nextStep();
-      }
-    }
-  }
-
-  // =====================================================
-  // Skill: SLOW FIELD (explosion variant)
-  // =====================================================
-  _spawnSlowExplosionScenario() {
-    const W = this.game.W, H = this.game.H;
-    const p = this.game.player;
-    p.x = clamp(W * 0.42, p.r + 30, W - p.r - 30);
-    p.y = clamp(H * 0.65, p.r + 30, H - p.r - 30);
-    p.vx = 0; p.vy = 0;
-
-    const th = this.game._thickness ? this.game._thickness() : Math.max(46, Math.min(W, H) * 0.08);
-    const cluster = [
-      { dx: 0, dy: -50 },
-      { dx: th * 1.5, dy: 20 },
-      { dx: -th * 1.2, dy: 40 }
-    ];
-    for (const { dx, dy } of cluster) {
-      const w = th * 1.2;
-      const h = th * 2.1;
-      const x = clamp(W * 0.60 + dx, 20, W - w - 20);
-      const y = clamp(H * 0.45 + dy, 20, H - h - 20);
-      this.game.pipes.push(makePipeRect({ x, y, w, h, vx: 0, vy: 0 }));
-    }
-
-    this._slowExplosionCleared = false;
-    this._surviveT = 0;
-    this._flash("Explosion variant: cast near the cluster to vaporize the pipes.");
-  }
-
-  _stepSlowExplosion(dt) {
-    if (!this._slowUsed && this.game.lastSlowBlast) {
-      this._slowUsed = true;
-      this._flash("Blast triggered — pipes inside the ring are destroyed.");
-    }
-
-    if (!this._slowExplosionCleared && this._slowUsed) {
-      const remaining = this.game.pipes.length;
-      if (remaining === 0) {
-        this._slowExplosionCleared = true;
-        this._surviveT = 0.7;
-      }
-    }
-
-    if (this._slowExplosionCleared) {
-      this._surviveT = Math.max(0, this._surviveT - dt);
-      if (this._surviveT <= 0) this._nextStep();
-    }
-  }
-
-  // =====================================================
   // UI copy + guides
   // =====================================================
   _uiCopy() {
@@ -1672,28 +1306,6 @@ _stepOrbs(dt) {
       };
     }
 
-    if (sid === "skill_dash") {
-      const t = Math.ceil(Math.max(0, this._dashCountdownT || 0));
-      return {
-        title: "Skill: Dash",
-        body:
-          `Dash bursts forward in your movement direction.\n` +
-          `Hold a direction and press ${key("dash")} to reach the target before time runs out.`,
-        objective: `Reach the highlighted zone in ${t}s using Dash (${key("dash")}).`,
-        hotkey: { label: key("dash") || "Dash" }
-      };
-    }
-
-    if (sid === "dash_reflect") {
-      return {
-        title: "Dash Reflect",
-        body:
-          `While Dash is active, hitting a wall will bounce you.`,
-        objective: `Double-ricochet in one dash: hit both walls before the dash ends.`,
-        hotkey: { label: key("dash") || "Dash" }
-      };
-    }
-
     if (sid === "dash_destroy") {
       return {
         title: "Dash Destroy",
@@ -1711,26 +1323,6 @@ _stepOrbs(dt) {
           `Teleport jumps you instantly to your cursor.`,
         objective: `Teleport (${key("teleport")}) into the highlighted circle.`,
         hotkey: { label: key("teleport") || "Teleport" }
-      };
-    }
-
-    if (sid === "skill_slow") {
-      return {
-        title: "Skill: Slow Field",
-        body:
-          `Slow Field creates a circle that slows walls inside it.`,
-        objective: `Cast Slow Field (${key("slowField")}) and survive the burst.`,
-        hotkey: { label: key("slowField") || "Slow Field" }
-      };
-    }
-
-    if (sid === "slow_explosion") {
-      return {
-        title: "Slow Field: Explosion",
-        body:
-          "Explosion is a smaller, instant detonation.",
-        objective: "Cast the explosive Slow Field to clear the nearby pipe cluster.",
-        hotkey: { label: key("slowField") || "Slow Field" }
       };
     }
 
@@ -1786,52 +1378,6 @@ _stepOrbs(dt) {
       ctx.beginPath();
       ctx.arc(this.game.W * 0.5, y, 8, 0, Math.PI * 2);
       ctx.fill();
-      ctx.restore();
-    }
-
-    // Dash: highlight target area + countdown.
-    if (sid === "skill_dash" && this._dashTarget) {
-      ctx.save();
-      ctx.globalAlpha = 0.60;
-      ctx.strokeStyle = "rgba(255,255,255,.90)";
-      ctx.lineWidth = 2.5;
-      ctx.beginPath();
-      ctx.arc(this._dashTarget.x, this._dashTarget.y, this._dashTarget.r, 0, Math.PI * 2);
-      ctx.stroke();
-
-      ctx.globalAlpha = 0.20;
-      ctx.fillStyle = "rgba(255,255,255,.55)";
-      ctx.beginPath();
-      ctx.arc(this._dashTarget.x, this._dashTarget.y, this._dashTarget.r, 0, Math.PI * 2);
-      ctx.fill();
-
-      // Big countdown below the tutorial panel.
-      const t = Math.ceil(Math.max(0, this._dashCountdownT || 0));
-      const panel = meta?.panel;
-      const cx = this.game.W * 0.5;
-      const cy = panel ? (panel.y + panel.h + 58) : (this.game.H * 0.22);
-
-      ctx.globalAlpha = 0.92;
-      ctx.font = "950 54px system-ui,-apple-system,Segoe UI,Roboto,sans-serif";
-      ctx.textAlign = "center";
-      ctx.textBaseline = "middle";
-      ctx.shadowColor = "rgba(0,0,0,.55)";
-      ctx.shadowBlur = 18;
-      ctx.fillStyle = "rgba(255,255,255,.92)";
-      ctx.fillText(String(t), cx, cy);
-
-      ctx.restore();
-    }
-
-    // Dash reflect: outline both walls to visualize the 90° corner.
-    if (sid === "dash_reflect" && this._reflectWalls?.length) {
-      ctx.save();
-      ctx.globalAlpha = 0.78;
-      ctx.strokeStyle = "rgba(255,220,180,.85)";
-      ctx.lineWidth = 3;
-      for (const { pipe } of this._reflectWalls) {
-        ctx.strokeRect(pipe.x, pipe.y, pipe.w, pipe.h);
-      }
       ctx.restore();
     }
 

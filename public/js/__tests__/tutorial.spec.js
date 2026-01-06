@@ -116,7 +116,22 @@ const makeOverlayCtx = () => {
   };
 };
 
-describe("Tutorial skill variants", () => {
+describe("Tutorial sequencing and dash destroy", () => {
+  it("keeps teleport as phase 5 in the step order", () => {
+    const game = setupGame();
+    const tutorial = new Tutorial({ game, input: game.input, getBinds: () => ({}), onExit: () => {} });
+    const stepIds = tutorial._steps().map((step) => step.id);
+    expect(stepIds).toEqual([
+      "move",
+      "orbs",
+      "perfect",
+      "skill_phase",
+      "skill_teleport",
+      "dash_destroy",
+      "practice",
+    ]);
+  });
+
   it("teaches destroy dash and advances after a shatter", () => {
     const game = setupGame();
     const tutorial = new Tutorial({ game, input: game.input, getBinds: () => ({}), onExit: () => {} });
@@ -132,38 +147,6 @@ describe("Tutorial skill variants", () => {
     tutorial._stepDashDestroy(0.5);
     tutorial._stepDashDestroy(0.5);
     expect(spy).toHaveBeenCalled();
-    tutorial.stop();
-  });
-
-  it("teaches explosive slow field clearing clusters", () => {
-    const game = setupGame();
-    const tutorial = new Tutorial({ game, input: game.input, getBinds: () => ({}), onExit: () => {} });
-    tutorial.start();
-    const idx = tutorial._steps().findIndex((s) => s.id === "slow_explosion");
-    tutorial._enterStep(idx);
-
-    expect(game.skillSettings.slowFieldBehavior).toBe("explosion");
-    const spy = vi.spyOn(tutorial, "_nextStep");
-    tutorial._slowExplosionCleared = true;
-    tutorial._surviveT = 0.2;
-    tutorial._stepSlowExplosion(0.25);
-    expect(spy).toHaveBeenCalled();
-    tutorial.stop();
-  });
-
-  it("forces ricochet dash during the bounce lesson even if the player prefers destroy", () => {
-    const game = setupGame();
-    game.setSkillSettings({ dashBehavior: "destroy", slowFieldBehavior: "slow" });
-    const tutorial = new Tutorial({ game, input: game.input, getBinds: () => ({}), onExit: () => {} });
-    tutorial.start();
-
-    const reflectIdx = tutorial._steps().findIndex((s) => s.id === "dash_reflect");
-    tutorial._enterStep(reflectIdx);
-
-    expect(game.skillSettings.dashBehavior).toBe("ricochet");
-
-    tutorial._nextStep(); // moves into skill_teleport
-    expect(game.skillSettings.dashBehavior).toBe("destroy");
     tutorial.stop();
   });
 
@@ -185,23 +168,6 @@ describe("Tutorial skill variants", () => {
     tutorial.stop();
   });
 
-  it("enforces the slow-field variant even if the player prefers explosions", () => {
-    const game = setupGame();
-    game.setSkillSettings({ slowFieldBehavior: "explosion" });
-    const tutorial = new Tutorial({ game, input: game.input, getBinds: () => ({}), onExit: () => {} });
-    tutorial.start();
-
-    const slowIdx = tutorial._steps().findIndex((s) => s.id === "skill_slow");
-    tutorial._enterStep(slowIdx);
-
-    expect(game.skillSettings.slowFieldBehavior).toBe("slow");
-
-    const explosionIdx = tutorial._steps().findIndex((s) => s.id === "slow_explosion");
-    tutorial._enterStep(explosionIdx);
-    expect(game.skillSettings.slowFieldBehavior).toBe("explosion");
-    tutorial.stop();
-  });
-
   it("boosts movement speed during the WASD step and restores it afterwards", () => {
     const game = setupGame();
     const origSpeed = game.cfg.player.maxSpeed;
@@ -217,80 +183,9 @@ describe("Tutorial skill variants", () => {
     expect(game.cfg.player.accel).toBe(origAccel);
     tutorial.stop();
   });
-
-  it("spawns a stationary 90° corner for the bounce lesson", () => {
-    const game = setupGame();
-    const tutorial = new Tutorial({ game, input: game.input, getBinds: () => ({}), onExit: () => {} });
-    tutorial.start();
-
-    const reflectIdx = tutorial._steps().findIndex((s) => s.id === "dash_reflect");
-    tutorial._enterStep(reflectIdx);
-
-    expect(tutorial._reflectWalls).toHaveLength(2);
-    const horiz = tutorial._reflectWalls.find(({ pipe }) => pipe.w > pipe.h)?.pipe;
-    const vert = tutorial._reflectWalls.find(({ pipe }) => pipe.h > pipe.w)?.pipe;
-    expect(horiz?.vy).toBe(0);
-    expect(vert?.vx).toBe(0);
-    expect(vert?.x).toBeCloseTo((horiz?.x || 0) + (horiz?.w || 0) - (vert?.w || 0));
-    expect(vert?.y).toBeCloseTo(horiz?.y || 0);
-    tutorial.stop();
-  });
-
-  it("advances only after two unique wall bounces during the same dash", () => {
-    const game = setupGame();
-    const tutorial = new Tutorial({ game, input: game.input, getBinds: () => ({}), onExit: () => {} });
-    tutorial.start();
-
-    const reflectIdx = tutorial._steps().findIndex((s) => s.id === "dash_reflect");
-    tutorial._enterStep(reflectIdx);
-
-    const first = tutorial._reflectWalls[0].pipe;
-    const second = tutorial._reflectWalls[1].pipe;
-    const bounce = (pipe, serial, count) => {
-      tutorial.game.lastDashReflect = { x: pipe.x + pipe.w * 0.5, y: pipe.y + pipe.h * 0.5, serial, count };
-      tutorial._stepDashReflect(0.016);
-    };
-
-    const spy = vi.spyOn(tutorial, "_nextStep");
-    bounce(first, 1, 1);
-    expect(tutorial._reflectHitsThisDash).toBe(1);
-    expect(tutorial._reflectSuccessDelay).toBe(0);
-
-    bounce(second, 2, 2);
-    expect(tutorial._reflectHitsThisDash).toBe(2);
-    expect(tutorial._reflectSuccessDelay).toBeGreaterThan(0);
-    tutorial._stepDashReflect(1.0);
-    expect(spy).toHaveBeenCalled();
-    tutorial.stop();
-  });
-
-  it("resets bounce tracking when a new dash starts", () => {
-    const game = setupGame();
-    const tutorial = new Tutorial({ game, input: game.input, getBinds: () => ({}), onExit: () => {} });
-    tutorial.start();
-
-    const reflectIdx = tutorial._steps().findIndex((s) => s.id === "dash_reflect");
-    tutorial._enterStep(reflectIdx);
-
-    const first = tutorial._reflectWalls[0].pipe;
-    const bounce = (pipe, serial, count) => {
-      tutorial.game.lastDashReflect = { x: pipe.x + pipe.w * 0.5, y: pipe.y + pipe.h * 0.5, serial, count };
-      tutorial._stepDashReflect(0.016);
-    };
-
-    bounce(first, 1, 1);
-    expect(tutorial._reflectHitsThisDash).toBe(1);
-
-    // New dash = bounce count resets to 1, which should clear prior hits.
-    bounce(first, 2, 1);
-    expect(tutorial._reflectHitsThisDash).toBe(1);
-    expect(tutorial._reflectWallsHit.size).toBe(1);
-    expect(tutorial._reflectSuccessDelay).toBe(0);
-    tutorial.stop();
-  });
 });
 
-describe("Tutorial copy, guides, and slow-field flows", () => {
+describe("Tutorial copy, guides, and overlay cues", () => {
   it("emits contextual copy for every step", () => {
     const game = setupGame();
     const tutorial = new Tutorial({
@@ -299,8 +194,7 @@ describe("Tutorial copy, guides, and slow-field flows", () => {
       getBinds: () => ({
         dash: { type: "key", code: "KeyV" },
         phase: { type: "key", code: "KeyQ" },
-        teleport: { type: "mouse", button: 2 },
-        slowField: { type: "key", code: "KeyE" }
+        teleport: { type: "mouse", button: 2 }
       }),
       onExit: () => {}
     });
@@ -315,11 +209,8 @@ describe("Tutorial copy, guides, and slow-field flows", () => {
     expect(copyFor("orbs").objective).toContain("Collect 5 orbs");
     expect(copyFor("perfect").body).toContain("dashed line");
     expect(copyFor("skill_phase").hotkey.label).toBeTruthy();
-    expect(copyFor("skill_dash").objective).toContain("Dash");
     expect(copyFor("dash_destroy").body).toContain("smashes");
     expect(copyFor("skill_teleport").hotkey.label).toBeTruthy();
-    expect(copyFor("skill_slow").title).toContain("Slow Field");
-    expect(copyFor("slow_explosion").objective).toContain("explosive");
     expect(copyFor("practice").hotkey.label).toContain("Enter");
     tutorial.stop();
   });
@@ -332,8 +223,7 @@ describe("Tutorial copy, guides, and slow-field flows", () => {
       getBinds: () => ({
         dash: { type: "key", code: "Space" },
         phase: { type: "mouse", button: 2 },
-        teleport: { type: "mouse", button: 0 },
-        slowField: { type: "key", code: "KeyE" }
+        teleport: { type: "mouse", button: 0 }
       }),
       onExit: () => {}
     });
@@ -345,9 +235,8 @@ describe("Tutorial copy, guides, and slow-field flows", () => {
     };
 
     expect(copyFor("skill_phase").hotkey.label).toBe("RMB");
-    expect(copyFor("skill_dash").hotkey.label).toBe("Space");
+    expect(copyFor("dash_destroy").hotkey.label).toBe("Space");
     expect(copyFor("skill_teleport").hotkey.label).toBe("LMB");
-    expect(copyFor("skill_slow").hotkey.label).toBe("E");
     tutorial.stop();
   });
 
@@ -393,28 +282,6 @@ describe("Tutorial copy, guides, and slow-field flows", () => {
       tutorial._stepSkillPhase(1.0);
     });
 
-    completeStep("skill_dash", () => {
-      tutorial._spawnDashScenario();
-      tutorial.game.player.dashT = 1;
-      tutorial.game.player.x = tutorial._dashTarget.x;
-      tutorial.game.player.y = tutorial._dashTarget.y;
-      tutorial._stepSkillDash(0.1);
-      tutorial._stepSkillDash(1.0);
-    });
-
-    completeStep("dash_destroy", () => {
-      tutorial._spawnDashDestroyScenario();
-      tutorial.game.lastPipeShatter = { cause: "dashDestroy" };
-      tutorial._stepDashDestroy(0.1);
-      tutorial._stepDashDestroy(1.0);
-    });
-
-    completeStep("dash_reflect", () => {
-      tutorial._spawnDashReflectScenario();
-      tutorial._reflectSuccessDelay = 0.1;
-      tutorial._stepDashReflect(0.2);
-    });
-
     completeStep("skill_teleport", () => {
       tutorial._spawnTeleportScenario();
       tutorial._teleUsed = true;
@@ -423,19 +290,11 @@ describe("Tutorial copy, guides, and slow-field flows", () => {
       tutorial._stepSkillTeleport();
     });
 
-    completeStep("skill_slow", () => {
-      tutorial.game.slowField = {};
-      tutorial._stepSkillSlow(0.1);
-      tutorial._stepSkillSlow(3.0);
-    });
-
-    completeStep("slow_explosion", () => {
-      tutorial._spawnSlowExplosionScenario();
-      tutorial.game.lastSlowBlast = { happened: true };
-      tutorial._stepSlowExplosion(0.1);
-      tutorial.game.pipes = [];
-      tutorial._stepSlowExplosion(0.1);
-      tutorial._stepSlowExplosion(1.0);
+    completeStep("dash_destroy", () => {
+      tutorial._spawnDashDestroyScenario();
+      tutorial.game.lastPipeShatter = { cause: "dashDestroy" };
+      tutorial._stepDashDestroy(0.1);
+      tutorial._stepDashDestroy(1.0);
     });
 
     tutorial.stop();
@@ -454,47 +313,6 @@ describe("Tutorial copy, guides, and slow-field flows", () => {
     expect(tutorial.active).toBe(false);
   });
 
-  it("walks through the slow-field survival and completion flow", () => {
-    const game = setupGame();
-    const tutorial = new Tutorial({ game, input: game.input, getBinds: () => ({}), onExit: () => {} });
-    tutorial.start();
-    tutorial._enterStep(tutorial._steps().findIndex((s) => s.id === "skill_slow"));
-
-    const flash = vi.spyOn(tutorial, "_flash");
-    const spawnBurst = vi.spyOn(tutorial, "_spawnSlowBurst").mockImplementation(() => {});
-    const advance = vi.spyOn(tutorial, "_nextStep");
-
-    tutorial.game.slowField = {};
-    tutorial._stepSkillSlow(0.1);
-    expect(tutorial._slowUsed).toBe(true);
-    expect(spawnBurst).toHaveBeenCalled();
-    expect(flash).toHaveBeenCalled();
-
-    tutorial._stepSkillSlow(3.0);
-    expect(advance).toHaveBeenCalled();
-    tutorial.stop();
-  });
-
-  it("waits for explosion clears before advancing the explosive slow-field step", () => {
-    const game = setupGame();
-    const tutorial = new Tutorial({ game, input: game.input, getBinds: () => ({}), onExit: () => {} });
-    tutorial.start();
-    tutorial._enterStep(tutorial._steps().findIndex((s) => s.id === "slow_explosion"));
-
-    const advance = vi.spyOn(tutorial, "_nextStep");
-    tutorial.game.lastSlowBlast = { happened: true };
-    tutorial._stepSlowExplosion(0.1);
-    expect(tutorial._slowUsed).toBe(true);
-
-    tutorial.game.pipes = [];
-    tutorial._stepSlowExplosion(0.1);
-    expect(tutorial._slowExplosionCleared).toBe(true);
-
-    tutorial._stepSlowExplosion(1.0);
-    expect(advance).toHaveBeenCalled();
-    tutorial.stop();
-  });
-
   it("renders visual guides for multiple tutorial steps", () => {
     const game = setupGame();
     const tutorial = new Tutorial({ game, input: game.input, getBinds: () => ({}), onExit: () => {} });
@@ -502,9 +320,7 @@ describe("Tutorial copy, guides, and slow-field flows", () => {
 
     const runGuides = (id) => {
       tutorial._enterStep(tutorial._steps().findIndex((s) => s.id === id));
-      if (id === "skill_dash") {
-        tutorial._spawnDashScenario();
-      } else if (id === "skill_teleport") {
+      if (id === "skill_teleport") {
         tutorial._spawnTeleportScenario();
       }
       const ctx = makeCtx();
@@ -516,13 +332,26 @@ describe("Tutorial copy, guides, and slow-field flows", () => {
     const perfectCtx = runGuides("perfect");
     expect(perfectCtx.setLineDash).toHaveBeenCalledWith([10, 10]);
 
-    const dashCtx = runGuides("skill_dash");
-    expect(dashCtx.fillText).toHaveBeenCalled();
-
-    const reflectCtx = runGuides("dash_reflect");
-    expect(reflectCtx.strokeRect).toHaveBeenCalledTimes(2);
-
     expect(runGuides("skill_teleport").fill).toHaveBeenCalled();
+    tutorial.stop();
+  });
+
+  it("renders flash text near the top-middle of the screen", () => {
+    const game = setupGame();
+    const tutorial = new Tutorial({ game, input: game.input, getBinds: () => ({}), onExit: () => {} });
+    tutorial.start();
+
+    tutorial._msgFlash = "Try again — you've got this.";
+    tutorial._msgFlashT = 1;
+    const ctx = makeOverlayCtx();
+    tutorial.renderOverlay(ctx);
+
+    const flashCall = ctx.fillText.mock.calls.find(([text]) => text === tutorial._msgFlash);
+    expect(flashCall).toBeTruthy();
+    const [, x, y] = flashCall;
+    expect(x).toBeCloseTo(game.W * 0.5, 1);
+    expect(y).toBeGreaterThanOrEqual(32);
+    expect(y).toBeLessThan(game.H * 0.3);
     tutorial.stop();
   });
 
