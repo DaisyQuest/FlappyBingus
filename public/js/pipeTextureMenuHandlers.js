@@ -20,7 +20,6 @@ export function createPipeTextureMenuHandlers({
   openPurchaseModal,
   applyPipeTextureSelection,
   shouldTriggerSelectionSave,
-  ensureLoggedInForSave,
   apiSetPipeTexture,
   getAuthStatusFromResponse,
   recoverSession,
@@ -79,9 +78,14 @@ export function createPipeTextureMenuHandlers({
     const shouldSaveSelection = typeof shouldTriggerSelectionSave === "function"
       && shouldTriggerSelectionSave({ previousId: previous, nextId: nextMode });
 
-    if (!net.user && !(await ensureLoggedInForSave())) return;
-
     if (!shouldSaveSelection) return;
+    if (!net.user) {
+      if (pipeTextureHint) {
+        pipeTextureHint.className = "hint good";
+        pipeTextureHint.textContent = "Mode applied (guest mode). Sign in to save.";
+      }
+      return;
+    }
 
     pipeTextureSaveKey = saveKey;
     try {
@@ -93,7 +97,7 @@ export function createPipeTextureMenuHandlers({
           await recoverSession();
         }
         if (!authStatus.online || !net.user) {
-          setUserHint();
+          setUserHint({ allowReauth: false });
         }
         setCurrentPipeTextureMode(previous);
         writePipeTextureModeCookie(getCurrentPipeTextureMode());
@@ -165,12 +169,13 @@ export function createPipeTextureMenuHandlers({
     const shouldSaveSelection = shouldTriggerSelectionSave({ previousId: previous, nextId: id });
     if (pipeTextureHint) {
       pipeTextureHint.className = net.user ? "hint" : "hint good";
-      pipeTextureHint.textContent = net.user ? "Saving pipe texture…" : "Equipped (guest mode).";
+      pipeTextureHint.textContent = net.user
+        ? "Saving pipe texture…"
+        : "Equipped (guest mode). Sign in to save.";
     }
 
-    if (!net.user && !(await ensureLoggedInForSave())) return;
-
     if (!shouldSaveSelection) return;
+    if (!net.user) return;
 
     pipeTextureSaveKey = saveKey;
     try {
@@ -182,7 +187,7 @@ export function createPipeTextureMenuHandlers({
           await recoverSession();
         }
         if (!authStatus.online || !net.user) {
-          setUserHint();
+          setUserHint({ allowReauth: false });
         }
         applyPipeTextureSelection(previous, net.pipeTextures, unlocked);
         setCurrentPipeTextureId(previous);

@@ -29,11 +29,8 @@ export async function handleTrailSaveResponse({
       const recovered = typeof recoverSession === "function"
         ? await recoverSession()
         : false;
-      if (!recovered) {
-        setNetUser(null);
-      }
     }
-    setUserHint();
+    setUserHint({ allowReauth: false });
     const bestScore = net.user ? (net.user.bestScore | 0) : 0;
     const hint = buildTrailHint({
       online: net.online,

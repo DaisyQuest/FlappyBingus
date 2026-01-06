@@ -815,7 +815,7 @@ function setNetUser(nextUser, { syncProfile = true } = {}) {
 
 let reauthInProgress = false;
 
-function setUserHint() {
+function setUserHint({ allowReauth = true } = {}) {
   const best = net.user ? (net.user.bestScore | 0) : 0;
   const isRecordHolder = Boolean(net.user?.isRecordHolder);
   const achievements = net.user?.achievements || net.achievements?.state;
@@ -835,7 +835,7 @@ function setUserHint() {
     inputValue: usernameInput?.value,
     sessionUsername: readSessionUsername()
   });
-  const shouldReauth = shouldAttemptReauth({
+  const shouldReauth = allowReauth && (shouldAttemptReauth({
     hintText: hint.text,
     username,
     inFlight: reauthInProgress
@@ -843,7 +843,7 @@ function setUserHint() {
     hintText: authTrailHint?.text,
     username,
     inFlight: reauthInProgress
-  });
+  }));
 
   if (shouldReauth) {
     reauthInProgress = true;
@@ -1597,7 +1597,6 @@ createTrailMenuHandlers({
   toggleTrailMenu,
   setTrailHint,
   applyTrailSelection,
-  ensureLoggedInForSave,
   openPurchaseModal,
   handleTrailSaveResponse,
   setNetUser,
@@ -1643,7 +1642,6 @@ createPipeTextureMenuHandlers({
   openPurchaseModal,
   applyPipeTextureSelection,
   shouldTriggerSelectionSave,
-  ensureLoggedInForSave,
   apiSetPipeTexture,
   getAuthStatusFromResponse,
   recoverSession,
@@ -1671,7 +1669,6 @@ createIconMenuHandlers({
   getIconMenuState,
   openPurchaseModal,
   applyIconSelection,
-  ensureLoggedInForSave,
   apiSetIcon,
   classifyIconSaveResponse,
   setNetUser,

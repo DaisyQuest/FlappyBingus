@@ -51,7 +51,6 @@ describe("icon menu handlers", () => {
       getIconMenuState: () => ({ unlocked: new Set(["spark"]) }),
       openPurchaseModal: vi.fn(),
       applyIconSelection,
-      ensureLoggedInForSave: vi.fn().mockResolvedValue(true),
       apiSetIcon,
       classifyIconSaveResponse: vi.fn(() => ({
         outcome: "saved",
@@ -100,7 +99,6 @@ describe("icon menu handlers", () => {
       getIconMenuState: () => ({ unlocked: new Set() }),
       openPurchaseModal,
       applyIconSelection: vi.fn(),
-      ensureLoggedInForSave: vi.fn(),
       apiSetIcon: vi.fn(),
       classifyIconSaveResponse: vi.fn(),
       setNetUser: vi.fn(),
@@ -142,7 +140,6 @@ describe("icon menu handlers", () => {
       getIconMenuState: () => ({ unlocked: new Set() }),
       openPurchaseModal: vi.fn(),
       applyIconSelection: vi.fn(),
-      ensureLoggedInForSave: vi.fn(),
       apiSetIcon: vi.fn(),
       classifyIconSaveResponse: vi.fn(),
       setNetUser: vi.fn(),
@@ -170,7 +167,7 @@ describe("icon menu handlers", () => {
 
   it("reverts when the selected icon is unavailable after save checks", async () => {
     const elements = buildElements();
-    const net = { user: null, online: true, trails: [], icons: [], pipeTextures: [] };
+    const net = { user: { username: "pilot" }, online: true, trails: [], icons: [], pipeTextures: [] };
     const getPlayerIcons = vi.fn()
       .mockReturnValueOnce([{ id: "spark", name: "Spark" }])
       .mockReturnValueOnce([]);
@@ -188,7 +185,6 @@ describe("icon menu handlers", () => {
       getIconMenuState,
       openPurchaseModal: vi.fn(),
       applyIconSelection,
-      ensureLoggedInForSave: vi.fn().mockResolvedValue(true),
       apiSetIcon: vi.fn(),
       classifyIconSaveResponse: vi.fn(),
       setNetUser: vi.fn(),
@@ -209,7 +205,7 @@ describe("icon menu handlers", () => {
 
     await handlers.handlers.handleOptionsClick({ target: elements.button });
 
-    expect(applyIconSelection).toHaveBeenCalledWith("old", [], expect.any(Set));
+    expect(applyIconSelection).toHaveBeenLastCalledWith("old", [], expect.any(Set));
     expect(elements.iconHint.textContent).toBe("That icon is unavailable.");
     expect(refreshIconMenu).toHaveBeenCalled();
   });
@@ -244,7 +240,6 @@ describe("icon menu handlers", () => {
       getIconMenuState: () => ({ unlocked: new Set(["spark"]) }),
       openPurchaseModal: vi.fn(),
       applyIconSelection,
-      ensureLoggedInForSave: vi.fn().mockResolvedValue(true),
       apiSetIcon,
       classifyIconSaveResponse: vi.fn(() => ({
         outcome: "saved",
@@ -283,6 +278,7 @@ describe("icon menu handlers", () => {
     const net = { user: { username: "pilot" }, online: true, trails: [], icons: [], pipeTextures: [] };
     const applyIconSelection = vi.fn();
     const recoverSession = vi.fn();
+    const setUserHint = vi.fn();
 
     const handlers = createIconMenuHandlers({
       elements,
@@ -292,7 +288,6 @@ describe("icon menu handlers", () => {
       getIconMenuState: () => ({ unlocked: new Set(["spark"]) }),
       openPurchaseModal: vi.fn(),
       applyIconSelection,
-      ensureLoggedInForSave: vi.fn().mockResolvedValue(true),
       apiSetIcon: vi.fn(),
       classifyIconSaveResponse: vi.fn(() => ({
         outcome: "failed",
@@ -306,7 +301,7 @@ describe("icon menu handlers", () => {
       syncUnlockablesCatalog: vi.fn(),
       syncIconCatalog: vi.fn(),
       syncPipeTextureCatalog: vi.fn(),
-      setUserHint: vi.fn(),
+      setUserHint,
       recoverSession,
       refreshIconMenu: vi.fn(),
       toggleIconMenu: vi.fn(),
@@ -320,8 +315,50 @@ describe("icon menu handlers", () => {
     await handlers.handlers.handleOptionsClick({ target: elements.button });
 
     expect(recoverSession).toHaveBeenCalled();
+    expect(setUserHint).toHaveBeenCalledWith({ allowReauth: false });
     expect(applyIconSelection).toHaveBeenCalledWith("old", expect.any(Array));
     expect(elements.iconHint.textContent).toBe("Icon failed.");
+  });
+
+  it("skips server saves for guests and keeps the local selection", async () => {
+    const elements = buildElements();
+    const net = { user: null, online: true, trails: [], icons: [], pipeTextures: [] };
+    const applyIconSelection = vi.fn();
+    const apiSetIcon = vi.fn();
+    const classifyIconSaveResponse = vi.fn();
+
+    const handlers = createIconMenuHandlers({
+      elements,
+      getNet: () => net,
+      getPlayerIcons: () => [{ id: "spark", name: "Spark" }],
+      getCurrentIconId: () => "old",
+      getIconMenuState: () => ({ unlocked: new Set(["spark"]) }),
+      openPurchaseModal: vi.fn(),
+      applyIconSelection,
+      apiSetIcon,
+      classifyIconSaveResponse,
+      setNetUser: vi.fn(),
+      mergeTrailCatalog: vi.fn(),
+      syncUnlockablesCatalog: vi.fn(),
+      syncIconCatalog: vi.fn(),
+      syncPipeTextureCatalog: vi.fn(),
+      setUserHint: vi.fn(),
+      recoverSession: vi.fn(),
+      refreshIconMenu: vi.fn(),
+      toggleIconMenu: vi.fn(),
+      resetIconHint: vi.fn(),
+      describeIconLock: vi.fn(() => "Locked"),
+      iconHoverText: vi.fn(() => "Hover"),
+      DEFAULT_CURRENCY_ID: "bustercoin",
+      UNLOCKABLE_TYPES: { playerTexture: "player_texture" }
+    });
+
+    await handlers.handlers.handleOptionsClick({ target: elements.button });
+
+    expect(applyIconSelection).toHaveBeenCalledWith("spark", expect.any(Array), expect.any(Set));
+    expect(elements.iconHint.textContent).toBe("Equipped (guest mode). Sign in to save.");
+    expect(apiSetIcon).not.toHaveBeenCalled();
+    expect(classifyIconSaveResponse).not.toHaveBeenCalled();
   });
 
   it("shows hover hints based on unlock state", () => {
@@ -336,7 +373,6 @@ describe("icon menu handlers", () => {
       computeUnlockedIconSet: () => new Set(["spark"]),
       openPurchaseModal: vi.fn(),
       applyIconSelection: vi.fn(),
-      ensureLoggedInForSave: vi.fn(),
       apiSetIcon: vi.fn(),
       classifyIconSaveResponse: vi.fn(),
       setNetUser: vi.fn(),
@@ -382,7 +418,6 @@ describe("icon menu handlers", () => {
       getIconMenuState: () => ({ unlocked: new Set(["spark"]) }),
       openPurchaseModal: vi.fn(),
       applyIconSelection: vi.fn(),
-      ensureLoggedInForSave: vi.fn().mockResolvedValue(true),
       apiSetIcon,
       classifyIconSaveResponse: vi.fn(() => ({
         outcome: "saved",

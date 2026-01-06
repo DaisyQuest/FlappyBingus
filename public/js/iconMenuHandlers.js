@@ -10,7 +10,6 @@ export function createIconMenuHandlers({
   computeUnlockedIconSet,
   openPurchaseModal,
   applyIconSelection,
-  ensureLoggedInForSave,
   apiSetIcon,
   classifyIconSaveResponse,
   setNetUser,
@@ -99,10 +98,12 @@ export function createIconMenuHandlers({
     applyIconSelection(id, playerIcons, unlocked);
     if (iconHint) {
       iconHint.className = net.user ? "hint" : "hint good";
-      iconHint.textContent = net.user ? "Saving icon choice…" : "Equipped (guest mode).";
+      iconHint.textContent = net.user
+        ? "Saving icon choice…"
+        : "Equipped (guest mode). Sign in to save.";
     }
 
-    if (!net.user && !(await ensureLoggedInForSave())) return;
+    if (!net.user) return;
 
     ({ icons: playerIcons, unlocked } = resolveIconState());
     if (!isIconInCatalog(playerIcons, id) || !unlocked.has(id)) {
@@ -146,7 +147,7 @@ export function createIconMenuHandlers({
       }
 
       if (!outcome.online || !net.user) {
-        setUserHint();
+        setUserHint({ allowReauth: false });
       }
 
       if (iconHint) {
