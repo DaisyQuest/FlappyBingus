@@ -7,7 +7,7 @@ import * as pipeColors from "../pipeColors.js";
 import * as pipeTextures from "../pipeTextures.js";
 import * as perfectGaps from "../perfectGaps.js";
 import * as mechanics from "../mechanics.js";
-import * as spawn from "../spawn.js";
+import * as pipeSpawner from "../pipes/pipeSpawner.js";
 import * as backgroundLayer from "../backgroundLayer.js";
 import { ACTIONS } from "../keybinds.js";
 
@@ -1683,7 +1683,7 @@ describe("Game loop", () => {
     game.parts.push(...Array.from({ length: 1101 }, () => ({ life: 1, update: vi.fn() })));
     game.floats.push(...Array.from({ length: 81 }, () => ({ life: 1, update: vi.fn() })));
 
-    const spawnWallSpy = vi.spyOn(spawn, "spawnWall");
+    const spawnWallSpy = vi.spyOn(pipeSpawner, "spawnWall");
     game.update(0.6);
 
     expect(spawnWallSpy).toHaveBeenCalled();
