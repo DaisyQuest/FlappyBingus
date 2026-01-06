@@ -14,6 +14,8 @@ export const PIPE_TEXTURE_MODES = Object.freeze([
 
 export const DEFAULT_PIPE_TEXTURE_ID = "basic";
 export const DEFAULT_PIPE_TEXTURE_MODE = "MINIMAL";
+export const DEFAULT_PIPE_STROKE_COLOR = "#000000";
+export const DEFAULT_PIPE_STROKE_WIDTH = 2;
 
 const PIPE_TEXTURE_MODE_SETTINGS = Object.freeze({
   MONOCHROME: { detail: 0, stripeAlpha: 0.06, noiseAlpha: 0.0, glow: 0.08, activity: 0.35, shadowBlur: 6 },
@@ -523,7 +525,9 @@ function applyPipeFinish(ctx, p, base, { detail = 2, strength = 0.2 } = {}) {
 export function drawPipeTexture(ctx, p, base, {
   textureId = DEFAULT_PIPE_TEXTURE_ID,
   mode = DEFAULT_PIPE_TEXTURE_MODE,
-  time = 0
+  time = 0,
+  strokeColor = DEFAULT_PIPE_STROKE_COLOR,
+  strokeWidth = DEFAULT_PIPE_STROKE_WIDTH
 } = {}) {
   if (!ctx || !p) return;
   const resolvedMode = normalizePipeTextureMode(mode);
@@ -627,12 +631,16 @@ export function drawPipeTexture(ctx, p, base, {
   });
 
   ctx.restore();
+
+  drawPipeStroke(ctx, p, { strokeColor, strokeWidth });
 }
 
 export function paintPipeTextureSwatch(canvas, textureId, {
   mode = DEFAULT_PIPE_TEXTURE_MODE,
   base = { r: 120, g: 220, b: 255 },
-  time = 0
+  time = 0,
+  strokeColor = DEFAULT_PIPE_STROKE_COLOR,
+  strokeWidth = DEFAULT_PIPE_STROKE_WIDTH
 } = {}) {
   if (!canvas) return;
   let ctx = null;
@@ -646,5 +654,20 @@ export function paintPipeTextureSwatch(canvas, textureId, {
   const w = canvas.width || 160;
   const h = canvas.height || 90;
   ctx.clearRect(0, 0, w, h);
-  drawPipeTexture(ctx, { x: 0, y: 0, w, h }, base, { textureId, mode, time });
+  drawPipeTexture(ctx, { x: 0, y: 0, w, h }, base, { textureId, mode, time, strokeColor, strokeWidth });
+}
+
+function drawPipeStroke(ctx, p, { strokeColor, strokeWidth } = {}) {
+  const width = Number(strokeWidth);
+  if (!Number.isFinite(width) || width <= 0) return;
+  if (!strokeColor) return;
+  const inset = width / 2;
+  const rectW = Math.max(0, p.w - width);
+  const rectH = Math.max(0, p.h - width);
+  if (rectW <= 0 || rectH <= 0) return;
+  ctx.save();
+  ctx.strokeStyle = strokeColor;
+  ctx.lineWidth = width;
+  ctx.strokeRect(p.x + inset, p.y + inset, rectW, rectH);
+  ctx.restore();
 }

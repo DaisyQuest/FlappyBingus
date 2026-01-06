@@ -1073,7 +1073,12 @@ function syncPipeTextureSwatch(textureId = currentPipeTextureId, textures = net.
   const target = textures.find((t) => t.id === textureId) || textures[0];
   const canvas = pipeTextureLauncher?.querySelector("canvas.pipe-texture-swatch-canvas");
   const base = computePipeColor(0.5, CFG?.pipes?.colors);
-  paintPipeTextureSwatch(canvas, target?.id || DEFAULT_PIPE_TEXTURE_ID, { mode: currentPipeTextureMode, base });
+  paintPipeTextureSwatch(canvas, target?.id || DEFAULT_PIPE_TEXTURE_ID, {
+    mode: currentPipeTextureMode,
+    base,
+    strokeColor: CFG?.pipes?.colors?.stroke,
+    strokeWidth: CFG?.pipes?.strokeWidth
+  });
 }
 
 const refreshIconMenu = (...args) => iconMenuController.refreshIconMenu(...args);
@@ -1093,7 +1098,12 @@ function renderPipeTextureMenuOptions(
   });
   const base = computePipeColor(0.5, CFG?.pipes?.colors);
   swatches.forEach(({ canvas, texture }) => {
-    paintPipeTextureSwatch(canvas, texture.id, { mode: currentPipeTextureMode, base });
+    paintPipeTextureSwatch(canvas, texture.id, {
+      mode: currentPipeTextureMode,
+      base,
+      strokeColor: CFG?.pipes?.colors?.stroke,
+      strokeWidth: CFG?.pipes?.strokeWidth
+    });
   });
   if (pipeTextureHint) {
     const text = rendered ? DEFAULT_PIPE_TEXTURE_HINT : "No pipe textures available.";
@@ -2384,14 +2394,16 @@ function frame(ts) {
         green: values.pipeGreen,
         blue: values.pipeBlue,
         wisteria: values.pipeWisteria,
-        red: values.pipeRed
+        red: values.pipeRed,
+        stroke: values.pipeStroke
       };
       if (replayGame.cfg?.pipes?.colors) {
         replayGame.cfg.pipes.colors = {
           green: values.pipeGreen,
           blue: values.pipeBlue,
           wisteria: values.pipeWisteria,
-          red: values.pipeRed
+          red: values.pipeRed,
+          stroke: values.pipeStroke
         };
       }
     }

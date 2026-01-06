@@ -194,4 +194,51 @@ describe("pipeTextures", () => {
     expect(ctx.fillRect).toHaveBeenCalled();
     expect(ctx.beginPath).toHaveBeenCalled();
   });
+
+  it("keeps pipe bounds consistent when drawing strokes", () => {
+    const gradient = { addColorStop: vi.fn() };
+    const ctx = {
+      save: vi.fn(),
+      restore: vi.fn(),
+      fillRect: vi.fn(),
+      fill: vi.fn(),
+      strokeRect: vi.fn(),
+      translate: vi.fn(),
+      rotate: vi.fn(),
+      beginPath: vi.fn(),
+      rect: vi.fn(),
+      clip: vi.fn(),
+      closePath: vi.fn(),
+      moveTo: vi.fn(),
+      lineTo: vi.fn(),
+      fillText: vi.fn(),
+      measureText: vi.fn(() => ({ width: 42 })),
+      createLinearGradient: vi.fn(() => gradient),
+      clearRect: vi.fn()
+    };
+    const base = { r: 120, g: 200, b: 80 };
+    const pipe = { x: 10, y: 20, w: 120, h: 40 };
+
+    drawPipeTexture(ctx, pipe, base, {
+      textureId: "digital",
+      mode: "MONOCHROME",
+      time: 1.1,
+      strokeWidth: 0,
+      strokeColor: "#000000"
+    });
+
+    expect(ctx.strokeRect).not.toHaveBeenCalled();
+    expect(pipe).toEqual({ x: 10, y: 20, w: 120, h: 40 });
+
+    drawPipeTexture(ctx, pipe, base, {
+      textureId: "digital",
+      mode: "MONOCHROME",
+      time: 1.1,
+      strokeWidth: 2,
+      strokeColor: "#000000"
+    });
+
+    expect(ctx.strokeRect).toHaveBeenCalledWith(11, 21, 118, 38);
+    expect(pipe).toEqual({ x: 10, y: 20, w: 120, h: 40 });
+  });
 });
