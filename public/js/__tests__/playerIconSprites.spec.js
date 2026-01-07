@@ -733,4 +733,118 @@ describe("player icon sprites", () => {
     expect(smooth.stops.length).toBeGreaterThan(0);
     expect(rough.stops[1].pos).not.toBeCloseTo(smooth.stops[1].pos, 6);
   });
+
+  it("clamps animation helpers to a [0, 1] range", () => {
+    expect(__testables.clamp01(-2)).toBe(0);
+    expect(__testables.clamp01(0.4)).toBe(0.4);
+    expect(__testables.clamp01(2)).toBe(1);
+  });
+
+  it("falls back to custom colors when gradients are unavailable", () => {
+    const lava = __testables.createLavaGradient(null, 40, { fallback: "#123" }, 0.1);
+    const cape = __testables.createCapeFlowGradient({ createLinearGradient: null }, 40, { fallback: "#456" }, 0.2);
+    expect(lava).toBe("#123");
+    expect(cape).toBe("#456");
+  });
+
+  it("resets the alpha channel after drawing cape embers", () => {
+    const ctx = {
+      globalAlpha: 0,
+      beginPath: vi.fn(),
+      arc: vi.fn(),
+      fill: vi.fn(),
+      set fillStyle(v) { this._fillStyle = v; },
+      get fillStyle() { return this._fillStyle; }
+    };
+
+    __testables.drawCapeEmbers(ctx, 40, { embers: 0.2, palette: { ember: "#123" } }, 0.5);
+    expect(ctx.globalAlpha).toBe(1);
+    expect(ctx.fill).toHaveBeenCalled();
+  });
+
+  it("skips pattern metadata when no pattern is supplied", () => {
+    const ctx = {
+      clearRect: () => {},
+      save: () => {},
+      translate: () => {},
+      beginPath: () => {},
+      arc: () => {},
+      fill: () => {},
+      stroke: () => {},
+      restore: () => {},
+      set lineWidth(v) { this._lineWidth = v; },
+      get lineWidth() { return this._lineWidth; }
+    };
+    const canvas = { width: 80, height: 80 };
+    __testables.renderIconFrame(ctx, canvas, { style: { fill: "#123" } }, { animationPhase: 0.2 });
+    expect(canvas.__pattern).toBeUndefined();
+  });
+
+  it("avoids drawing images when the sprite has no dimensions", () => {
+    const ctx = {
+      clearRect: () => {},
+      save: () => {},
+      translate: () => {},
+      beginPath: () => {},
+      arc: () => {},
+      clip: () => {},
+      fill: () => {},
+      stroke: () => {},
+      restore: () => {},
+      drawImage: vi.fn(),
+      set lineWidth(v) { this._lineWidth = v; },
+      get lineWidth() { return this._lineWidth; }
+    };
+    const canvas = { width: 80, height: 80 };
+    const image = { width: 0, height: 0, naturalWidth: 0, naturalHeight: 0 };
+
+    __testables.drawImageIconFrame(ctx, canvas, { style: { fill: "#123" } }, image, { animationPhase: 0.1 });
+    expect(ctx.drawImage).not.toHaveBeenCalled();
+  });
+
+  it("does not start sprite animations when motion is reduced", () => {
+    const prevRaf = global.requestAnimationFrame;
+    global.requestAnimationFrame = vi.fn();
+    const icon = { style: { version: 2, animations: [{ id: "pulse", type: "pulseUniform", target: "palette.fill" }] } };
+
+    try {
+      const result = __testables.maybeStartSpriteAnimation({}, icon, () => {}, { reducedMotion: true });
+      expect(result).toBeNull();
+      expect(global.requestAnimationFrame).not.toHaveBeenCalled();
+    } finally {
+      global.requestAnimationFrame = prevRaf;
+    }
+  });
+
+  it("returns null when requestAnimationFrame is unavailable", () => {
+    const prevRaf = global.requestAnimationFrame;
+    global.requestAnimationFrame = undefined;
+    const icon = { style: { version: 2, animations: [{ id: "pulse", type: "pulseUniform", target: "palette.fill" }] } };
+
+    try {
+      const result = __testables.maybeStartSpriteAnimation({}, icon, () => {}, { reducedMotion: false });
+      expect(result).toBeNull();
+    } finally {
+      global.requestAnimationFrame = prevRaf;
+    }
+  });
+
+  it("stops running animations and cancels frames", () => {
+    const prevRaf = global.requestAnimationFrame;
+    const prevCaf = global.cancelAnimationFrame;
+    global.requestAnimationFrame = vi.fn(() => 12);
+    global.cancelAnimationFrame = vi.fn();
+    const icon = { style: { version: 2, animations: [{ id: "pulse", type: "pulseUniform", target: "palette.fill" }] } };
+
+    try {
+      const state = __testables.maybeStartSpriteAnimation({}, icon, () => {}, { reducedMotion: false });
+      expect(state?.running).toBe(true);
+      state.stop();
+      expect(state.running).toBe(false);
+      expect(global.cancelAnimationFrame).toHaveBeenCalledWith(12);
+    } finally {
+      global.requestAnimationFrame = prevRaf;
+      global.cancelAnimationFrame = prevCaf;
+    }
+  });
 });
