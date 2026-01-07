@@ -120,9 +120,9 @@ describe("player icon helpers", () => {
 
   it("defines the Perfect Line Beacon palette as a black core with bright red accents", () => {
     const perfectLine = BASE_ICONS.find((icon) => icon.id === "perfect_ten_liner");
-    expect(perfectLine?.style?.fill).toBe("#000000");
-    expect(perfectLine?.style?.core).toBe("#000000");
-    expect(perfectLine?.style?.rim).toBe("#ff1a1a");
+    expect(perfectLine?.style?.palette?.fill).toBe("#000000");
+    expect(perfectLine?.style?.palette?.core).toBe("#000000");
+    expect(perfectLine?.style?.palette?.rim).toBe("#ff1a1a");
     expect(perfectLine?.style?.pattern).toEqual(
       expect.objectContaining({
         stroke: "#ff1a1a",
@@ -196,14 +196,14 @@ describe("player icon helpers", () => {
     const inferno = BASE_ICONS.find((icon) => icon.id === "inferno_cape");
     expect(fire?.unlock?.id).toBe("score_fire_cape_1000");
     expect(inferno?.unlock?.id).toBe("score_inferno_cape_2000");
-    expect(fire?.style?.animation?.type).toBe("cape_flow");
-    expect(inferno?.style?.animation?.type).toBe("cape_flow");
-    expect(fire?.style?.animation?.palette).toEqual(expect.objectContaining({ molten: expect.any(String) }));
-    expect(inferno?.style?.animation?.palette).toEqual(expect.objectContaining({ molten: expect.any(String) }));
-    expect(fire?.style?.animation?.bands).toBeGreaterThan(2);
-    expect(inferno?.style?.animation?.bands).toBeGreaterThan(2);
-    expect(fire?.style?.animation?.embers).toBeGreaterThan(0);
-    expect(inferno?.style?.animation?.embers).toBeGreaterThan(0);
+    expect(fire?.style?.legacyAnimation?.type).toBe("cape_flow");
+    expect(inferno?.style?.legacyAnimation?.type).toBe("cape_flow");
+    expect(fire?.style?.legacyAnimation?.palette).toEqual(expect.objectContaining({ molten: expect.any(String) }));
+    expect(inferno?.style?.legacyAnimation?.palette).toEqual(expect.objectContaining({ molten: expect.any(String) }));
+    expect(fire?.style?.legacyAnimation?.bands).toBeGreaterThan(2);
+    expect(inferno?.style?.legacyAnimation?.bands).toBeGreaterThan(2);
+    expect(fire?.style?.legacyAnimation?.embers).toBeGreaterThan(0);
+    expect(inferno?.style?.legacyAnimation?.embers).toBeGreaterThan(0);
     expect(fire?.style?.pattern?.type).toBe("cobblestone");
     expect(inferno?.style?.pattern?.type).toBe("cobblestone");
 

@@ -1,5 +1,12 @@
 import { getIconRegistry, saveIconRegistry } from "./modules/api.js";
-import { collectIconDefinitions, createIconCard, readIconDefinition } from "./modules/editor.js";
+import {
+  collectIconDefinitions,
+  createIconCard,
+  readIconDefinition,
+  wirePresetPanel,
+  wireAdvancedPanel,
+  validateIconCard
+} from "./modules/editor.js";
 import { createPlayerIconSprite } from "/js/playerIconSprites.js";
 
 const statusChip = document.getElementById("adminStatus");
@@ -60,13 +67,21 @@ function updatePreview(card) {
   if (!previewWrap) return;
   const icon = readIconDefinition(card);
   if (!icon) return;
-
-  const previous = previewWrap.querySelector("canvas");
-  if (previous) stopPreview(previous);
+  previewWrap.querySelectorAll("canvas").forEach((canvas) => stopPreview(canvas));
   previewWrap.innerHTML = "";
-  const canvas = createPlayerIconSprite(icon, { size: 96 });
-  canvas.classList.add("icon-preview-canvas");
-  previewWrap.appendChild(canvas);
+
+  const reducedMotion = Boolean(card.querySelector("[data-preview-reduce-motion]")?.checked);
+  const showMask = Boolean(card.querySelector("[data-preview-mask]")?.checked);
+  const bg = card.querySelector("[data-preview-bg]")?.value || "dark";
+  previewWrap.dataset.previewBg = bg;
+
+  const events = card.__previewEvents || [];
+  [64, 128, 256].forEach((size) => {
+    const canvas = createPlayerIconSprite(icon, { size, reducedMotion, events, showMask });
+    canvas.classList.add("icon-preview-canvas");
+    canvas.dataset.previewSize = String(size);
+    previewWrap.appendChild(canvas);
+  });
 }
 
 function updateHeading(card) {
@@ -99,10 +114,27 @@ function renderIconEditor() {
 
   function attachCard(card) {
     grid.appendChild(card);
+    wirePresetPanel(card);
+    wireAdvancedPanel(card);
     updatePreview(card);
-    card.addEventListener("input", () => {
-      updateHeading(card);
-      updatePreview(card);
+    const schedulePreview = () => {
+      if (card.__previewRaf) return;
+      const raf = typeof requestAnimationFrame === "function" ? requestAnimationFrame : null;
+      const next = () => {
+        card.__previewRaf = null;
+        updateHeading(card);
+        updatePreview(card);
+      };
+      card.__previewRaf = raf ? raf(next) : setTimeout(next, 0);
+    };
+    card.addEventListener("input", schedulePreview);
+    card.addEventListener("click", (event) => {
+      const eventBtn = event.target.closest("[data-event-type]");
+      if (eventBtn) {
+        card.__previewEvents = card.__previewEvents || [];
+        card.__previewEvents.push({ type: eventBtn.dataset.eventType, timeMs: performance.now() });
+        schedulePreview();
+      }
     });
   }
 
@@ -124,6 +156,8 @@ function renderIconEditor() {
       allowRemove: false
     });
     grid.prepend(card);
+    wirePresetPanel(card);
+    wireAdvancedPanel(card);
     updatePreview(card);
     card.addEventListener("input", () => {
       updateHeading(card);
@@ -133,6 +167,23 @@ function renderIconEditor() {
   saveBtn.addEventListener("click", async () => {
     try {
       setStatus("Saving icons…");
+      const cards = Array.from(grid.querySelectorAll("[data-icon-card]"));
+      const invalid = cards.flatMap((card) => {
+        const result = validateIconCard(card);
+        const errorBox = card.querySelector("[data-validation-errors]");
+        if (errorBox) errorBox.innerHTML = "";
+        if (!result.ok) {
+          if (errorBox) {
+            errorBox.innerHTML = result.errors.map((err) => `<div>${err.path}: ${err.message}</div>`).join("");
+          }
+          return result.errors.map((err) => `${err.path}: ${err.message}`);
+        }
+        return [];
+      });
+      if (invalid.length) {
+        setStatus("Fix validation errors before saving.", "error");
+        return;
+      }
       const icons = collectIconDefinitions(grid);
       const saved = await saveIconRegistry({ icons });
       state.icons = Array.isArray(saved?.icons) ? saved.icons : icons;

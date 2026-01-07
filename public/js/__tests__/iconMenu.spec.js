@@ -10,7 +10,7 @@ import {
 } from "../iconMenu.js";
 
 const ICONS = [
-  { id: "free", name: "Freebie", style: { fill: "#123", core: "#456", rim: "#789", glow: "pink" }, unlock: { type: "free" } },
+  { id: "free", name: "Freebie", style: { palette: { fill: "#123", core: "#456", rim: "#789", glow: "pink" } }, unlock: { type: "free" } },
   { id: "locked", name: "Locked", unlock: { type: "score", minScore: 50 } }
 ];
 
@@ -75,9 +75,9 @@ describe("iconMenu helpers", () => {
     const fallback = document.createElement("span");
     applyIconSwatchStyles(fallback, null);
     expect(fallback.style.getPropertyValue("--icon-fill")).toBe("#ff8c1a");
-    expect(fallback.style.getPropertyValue("--icon-core")).toBe("#ff8c1a");
+    expect(fallback.style.getPropertyValue("--icon-core")).toBe("#ffc285");
     expect(fallback.style.getPropertyValue("--icon-rim")).toBe("#0f172a");
-    expect(fallback.style.getPropertyValue("--icon-glow")).toBe("rgba(255,200,120,.5)");
+    expect(fallback.style.getPropertyValue("--icon-glow")).toBe("rgba(255, 200, 120, 0.75)");
   });
 
   it("explains hover text for locked and unlocked states", () => {

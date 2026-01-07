@@ -310,6 +310,8 @@ describe("replayMp4Pipeline", () => {
 
     await queue.drain();
     expect(queue.size()).toBe(0);
+  });
+
   it("returns errors for getStatus with invalid profiles or missing replays", () => {
     const queue = createInMemoryRenderQueue();
     const pipeline = createReplayMp4Pipeline({ queue });

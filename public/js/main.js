@@ -276,6 +276,7 @@ const {
   simpleTexturesToggle,
   simpleParticlesToggle,
   reducedEffectsToggle,
+  reduceMotionToggle,
   extremeLowDetailToggle,
   hsWrap,
   pbText,
@@ -1488,6 +1489,8 @@ function applySkillSettingsToUI(settings = skillSettings) {
   if (simpleParticlesToggle) simpleParticlesToggle.checked = normalized.simpleParticles;
   if (reducedEffectsToggle) reducedEffectsToggle.checked = normalized.reducedEffects;
   if (extremeLowDetailToggle) extremeLowDetailToggle.checked = normalized.extremeLowDetail;
+  if (reduceMotionToggle) reduceMotionToggle.checked = normalized.reduceMotion;
+  if (typeof window !== "undefined") window.__reduceMotion = normalized.reduceMotion;
 }
 
 async function updateSkillSettings(next, { persist = true } = {}) {
@@ -1809,6 +1812,9 @@ simpleParticlesToggle?.addEventListener("change", () => {
 });
 reducedEffectsToggle?.addEventListener("change", () => {
   updateSkillSettings({ ...skillSettings, reducedEffects: reducedEffectsToggle.checked });
+});
+reduceMotionToggle?.addEventListener("change", () => {
+  updateSkillSettings({ ...skillSettings, reduceMotion: reduceMotionToggle.checked });
 });
 extremeLowDetailToggle?.addEventListener("change", () => {
   updateSkillSettings({ ...skillSettings, extremeLowDetail: extremeLowDetailToggle.checked });

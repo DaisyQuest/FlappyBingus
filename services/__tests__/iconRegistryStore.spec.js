@@ -55,8 +55,20 @@ describe("icon registry store", () => {
     const now = vi.fn().mockReturnValueOnce(300).mockReturnValueOnce(310);
     const store = createIconRegistryStore({ persistence, now });
     const result = await store.save([{ id: "spark", unlock: { type: "free" } }]);
-    expect(persistence.save).toHaveBeenCalledWith([{ id: "spark", name: "spark", unlock: { type: "free", label: "Free" } }]);
-    expect(result).toEqual([{ id: "spark", name: "spark", unlock: { type: "free", label: "Free" } }]);
+    expect(persistence.save).toHaveBeenCalledWith([expect.objectContaining({
+      id: "spark",
+      name: "spark",
+      unlock: { type: "free", label: "Free" },
+      schemaVersion: 2,
+      style: expect.any(Object)
+    })]);
+    expect(result).toEqual([expect.objectContaining({
+      id: "spark",
+      name: "spark",
+      unlock: { type: "free", label: "Free" },
+      schemaVersion: 2,
+      style: expect.any(Object)
+    })]);
     expect(store.getMeta().lastPersistedAt).toBe(300);
     expect(store.getMeta().lastSavedAt).toBe(310);
     expect(store.getMeta().lastLoadedAt).toBe(0);
@@ -76,7 +88,7 @@ describe("icon registry store", () => {
     const now = vi.fn(() => 520);
     const store = createIconRegistryStore({ now });
     const icons = await store.save([{ id: "nova" }]);
-    expect(icons).toEqual([{ id: "nova", name: "nova", unlock: { type: "free", label: "Free" } }]);
+    expect(icons).toEqual([expect.objectContaining({ id: "nova", name: "nova", unlock: { type: "free", label: "Free" } })]);
     expect(store.getMeta().lastPersistedAt).toBeNull();
     expect(store.getMeta().lastSavedAt).toBe(520);
     expect(store.getMeta().lastLoadedAt).toBe(0);
@@ -89,7 +101,7 @@ describe("icon registry store", () => {
     const savedIcons = await store.save([{ id: "ember", unlock: { type: "free" } }]);
 
     expect(loadedIcons).toEqual([]);
-    expect(savedIcons).toEqual([{ id: "ember", name: "ember", unlock: { type: "free", label: "Free" } }]);
+    expect(savedIcons).toEqual([expect.objectContaining({ id: "ember", name: "ember", unlock: { type: "free", label: "Free" } })]);
     expect(store.getMeta()).toEqual({ lastLoadedAt: 789, lastSavedAt: 789, lastPersistedAt: null });
   });
 
@@ -103,5 +115,24 @@ describe("icon registry store", () => {
     const fetchedAgain = store.getIcons();
     expect(fetchedAgain[0].name).toBe("nova");
     expect(fetchedIcons[0]).not.toBe(fetchedAgain[0]);
+  });
+
+  it("round-trips v2 styles with effects and animations", async () => {
+    const persistence = { saved: null, load: vi.fn(async () => persistence.saved), save: vi.fn(async (icons) => { persistence.saved = icons; }) };
+    const store = createIconRegistryStore({ persistence });
+    const icon = {
+      id: "pulse",
+      name: "Pulse",
+      unlock: { type: "free" },
+      style: {
+        circle: { radiusRatio: 0.5, maskMode: "hard", edgeFeatherPx: 0 },
+        palette: { fill: "#111", core: "#222", rim: "#333", glow: "#444" },
+        effects: [{ type: "outline", enabled: true, params: { width: 4 } }],
+        animations: [{ id: "spin", type: "slowSpin", enabled: true, target: "pattern.rotationDeg", timing: { mode: "loop", durationMs: 1200 } }]
+      }
+    };
+    const saved = await store.save([icon]);
+    const loaded = await store.load();
+    expect(loaded).toEqual(saved);
   });
 });

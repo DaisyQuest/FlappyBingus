@@ -201,7 +201,8 @@ const DEFAULT_SETTINGS = Object.freeze({
   simpleTextures: false,
   simpleParticles: true,
   reducedEffects: true,
-  extremeLowDetail: false
+  extremeLowDetail: false,
+  reduceMotion: false
 });
 
 const ENDPOINT_GROUPS = Object.freeze([
@@ -1087,7 +1088,8 @@ function normalizeSettings(settings) {
     reducedEffects: typeof src.reducedEffects === "boolean" ? src.reducedEffects : DEFAULT_SETTINGS.reducedEffects,
     extremeLowDetail: typeof src.extremeLowDetail === "boolean"
       ? src.extremeLowDetail
-      : DEFAULT_SETTINGS.extremeLowDetail
+      : DEFAULT_SETTINGS.extremeLowDetail,
+    reduceMotion: typeof src.reduceMotion === "boolean" ? src.reduceMotion : DEFAULT_SETTINGS.reduceMotion
   };
 }
 
@@ -1125,7 +1127,10 @@ function validateSettingsPayload(settings) {
       : DEFAULT_SETTINGS.reducedEffects,
     extremeLowDetail: typeof settings.extremeLowDetail === "boolean"
       ? settings.extremeLowDetail
-      : DEFAULT_SETTINGS.extremeLowDetail
+      : DEFAULT_SETTINGS.extremeLowDetail,
+    reduceMotion: typeof settings.reduceMotion === "boolean"
+      ? settings.reduceMotion
+      : DEFAULT_SETTINGS.reduceMotion
   };
 }
 
@@ -2725,6 +2730,7 @@ async function route(req, res) {
     sendJson(res, 200, {
       ok: true,
       icons: catalog.icons,
+      schemaVersion: 2,
       meta: { generatedAt: new Date().toISOString() }
     });
     return;
@@ -2830,6 +2836,7 @@ async function route(req, res) {
       sendJson(res, 200, {
         ok: true,
         icons: getIconDefinitions(),
+        schemaVersion: 2,
         meta: iconRegistryStore.getMeta()
       });
       return;
@@ -2854,6 +2861,7 @@ async function route(req, res) {
         sendJson(res, 200, {
           ok: true,
           icons: getIconDefinitions(),
+          schemaVersion: 2,
           meta: iconRegistryStore.getMeta()
         });
       } catch (err) {

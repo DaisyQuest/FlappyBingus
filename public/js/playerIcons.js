@@ -4,6 +4,7 @@
 // =====================
 import { DEFAULT_CURRENCY_ID, formatCurrencyAmount, normalizeCurrencyId } from "./currencySystem.js";
 import { buildBaseIcons } from "./iconRegistry.js";
+import { resolveIconStyleV2 } from "./iconStyleV2.js";
 
 export function normalizeIconUnlock(unlock) {
   if (!unlock || typeof unlock !== "object") return { type: "free", label: "Free" };
@@ -41,17 +42,25 @@ export function normalizePlayerIcons(list, { allowEmpty = false } = {}) {
 
     const name = typeof icon.name === "string" && icon.name.trim() ? icon.name.trim() : id;
     const unlock = normalizeIconUnlock(icon.unlock);
+    const style = resolveIconStyleV2(icon);
     out.push({
       ...icon,
       id,
       name,
-      unlock
+      unlock,
+      style,
+      schemaVersion: Number.isFinite(icon.schemaVersion) ? icon.schemaVersion : 2
     });
   }
 
   if (out.length) return out;
   if (hasList) return allowEmpty ? [] : [];
-  return baseIcons.map((i) => ({ ...i, unlock: normalizeIconUnlock(i.unlock) }));
+  return baseIcons.map((icon) => ({
+    ...icon,
+    unlock: normalizeIconUnlock(icon.unlock),
+    style: resolveIconStyleV2(icon),
+    schemaVersion: Number.isFinite(icon.schemaVersion) ? icon.schemaVersion : 2
+  }));
 }
 
 export function getUnlockedPlayerIcons(icons, {
