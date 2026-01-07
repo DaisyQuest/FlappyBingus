@@ -127,6 +127,141 @@ describe("Game core loop hooks", () => {
     expect(spy).toHaveBeenCalledWith("dash");
   });
 
+  it("registers and prunes wall warnings", async () => {
+    makeWindow(300, 200, 2);
+    const { canvas, ctx } = baseCanvas();
+    const { Game } = await import("../game.js");
+    const cfg = cloneCfg();
+    cfg.pipes.wallWarning.duration = 0.1;
+
+    const game = new Game({
+      canvas,
+      ctx,
+      config: cfg,
+      playerImg: { naturalWidth: 10, naturalHeight: 20 },
+      input: { getMove: () => ({ dx: 0, dy: 0 }), cursor: { has: false } },
+      getTrailId: () => "classic",
+      getBinds: () => ({}),
+      onGameOver: () => {}
+    });
+
+    game.timeAlive = 1;
+    expect(game._registerWallWarning({ side: 2, thickness: 24 })).toBe(true);
+    expect(game.wallWarnings).toHaveLength(1);
+
+    game.timeAlive = 1.05;
+    game._pruneWallWarnings();
+    expect(game.wallWarnings).toHaveLength(1);
+
+    game.timeAlive = 1.2;
+    game._pruneWallWarnings();
+    expect(game.wallWarnings).toHaveLength(0);
+  });
+
+  it("skips wall warnings when disabled", async () => {
+    makeWindow(300, 200, 2);
+    const { canvas, ctx } = baseCanvas();
+    const { Game } = await import("../game.js");
+    const cfg = cloneCfg();
+    cfg.pipes.wallWarning.enabled = false;
+
+    const game = new Game({
+      canvas,
+      ctx,
+      config: cfg,
+      playerImg: { naturalWidth: 10, naturalHeight: 20 },
+      input: { getMove: () => ({ dx: 0, dy: 0 }), cursor: { has: false } },
+      getTrailId: () => "classic",
+      getBinds: () => ({}),
+      onGameOver: () => {}
+    });
+
+    expect(game._registerWallWarning({ side: 1, thickness: 24 })).toBe(false);
+    expect(game._registerWallWarning({ side: Number.NaN, thickness: 24 })).toBe(false);
+    expect(game.wallWarnings).toHaveLength(0);
+  });
+
+  it("clears perfect aura state when perfect scoring is disabled", async () => {
+    makeWindow(300, 200, 2);
+    const { canvas, ctx } = baseCanvas();
+    const { Game } = await import("../game.js");
+    const cfg = cloneCfg();
+    cfg.scoring.perfect.enabled = false;
+    cfg.catalysts.orbs.enabled = false;
+
+    const game = new Game({
+      canvas,
+      ctx,
+      config: cfg,
+      playerImg: { naturalWidth: 10, naturalHeight: 20 },
+      input: { getMove: () => ({ dx: 0, dy: 0 }), cursor: { has: false } },
+      getTrailId: () => "classic",
+      getBinds: () => ({}),
+      onGameOver: () => {}
+    });
+
+    game.state = 1;
+    game.pipeT = 10;
+    game.specialT = 10;
+    game.orbT = 10;
+    game.perfectAuraIntensity = 0.5;
+    game.perfectAuraMode = "gold";
+
+    game.update(0.016);
+
+    expect(game.perfectAuraIntensity).toBe(0);
+    expect(game.perfectAuraMode).toBeNull();
+  });
+
+  it("bails out of update when dash collisions trigger game over", async () => {
+    makeWindow(300, 200, 2);
+    const { canvas, ctx } = baseCanvas();
+    const { Game } = await import("../game.js");
+    const cfg = cloneCfg();
+    cfg.catalysts.orbs.enabled = false;
+
+    const game = new Game({
+      canvas,
+      ctx,
+      config: cfg,
+      playerImg: { naturalWidth: 10, naturalHeight: 20 },
+      input: { getMove: () => ({ dx: 0, dy: 0 }), cursor: { has: false } },
+      getTrailId: () => "classic",
+      getBinds: () => ({}),
+      onGameOver: () => {}
+    });
+
+    game.state = 1;
+    game.pipeT = 10;
+    game.specialT = 10;
+    game.orbT = 10;
+    game.player.invT = 0;
+    game.player.dashT = 0.2;
+    game.player.x = 5;
+    game.player.y = 5;
+    game.player.r = 10;
+
+    const pipe = {
+      x: 0,
+      y: 0,
+      w: 20,
+      h: 20,
+      vx: 0,
+      vy: 0,
+      update: vi.fn(),
+      off: () => false
+    };
+    game.pipes = [pipe];
+
+    const collisionSpy = vi.spyOn(game, "_handlePipeCollision").mockReturnValue("over");
+    const timeBefore = game.timeAlive;
+
+    game.update(0.016);
+
+    expect(collisionSpy).toHaveBeenCalled();
+    expect(game.timeAlive).toBeGreaterThan(timeBefore);
+  });
+
   it("executes dash, phase, and teleport skill flows", async () => {
     makeWindow(200, 200, 1.5);
     const { canvas, ctx } = baseCanvas();

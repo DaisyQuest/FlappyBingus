@@ -128,6 +128,9 @@ export class Game {
     this._gapMeta = new Map(); // gapId -> { perfected, broken, pipesRemaining }
     this._nextGapId = 1;
 
+    this.wallWarnings = [];
+    this._rawDpr = 1;
+
     this.lastDashReflect = null;
     this.slowField = null; // {x,y,r,fac,t,tm}
     this.slowExplosion = null; // {x,y,r,t,tm}
@@ -342,6 +345,7 @@ export class Game {
     this.ctx.imageSmoothingEnabled = true;
 
     this.DPR = dpr * scale;
+    this._rawDpr = dpr;
     this.W = WORLD_WIDTH;
     this.H = WORLD_HEIGHT;
 
@@ -391,6 +395,7 @@ export class Game {
     this.orbs = [];
     this.parts = [];
     this.floats = [];
+    this.wallWarnings = [];
     this._resetRunStats();
 
     if (clearScore) this.score = 0;
@@ -543,6 +548,45 @@ export class Game {
 
   _pipeColor() {
     return computePipeColor(this._difficulty01(), this.cfg.pipes.colors);
+  }
+
+  _wallWarningConfig() {
+    const cfg = this.cfg?.pipes?.wallWarning || {};
+    const duration = clamp(Number(cfg.duration) || 0, 0, 5);
+    const pulseRate = clamp(Number(cfg.pulseRate) || 0, 0, 20);
+    const minAlpha = clamp(Number(cfg.minAlpha) || 0, 0, 1);
+    const maxAlpha = clamp(Number(cfg.maxAlpha) || 0, 0, 1);
+    return {
+      enabled: cfg.enabled !== false,
+      duration,
+      pulseRate,
+      minAlpha: Math.min(minAlpha, maxAlpha),
+      maxAlpha: Math.max(minAlpha, maxAlpha)
+    };
+  }
+
+  _registerWallWarning({ side, thickness } = {}) {
+    const cfg = this._wallWarningConfig();
+    if (!cfg.enabled || cfg.duration <= 0) return false;
+    const safeSide = Number.isFinite(side) ? side : null;
+    if (safeSide === null) return false;
+    const safeThickness = Math.max(0, Number(thickness) || this._thickness());
+    this.wallWarnings.push({
+      side: safeSide,
+      thickness: safeThickness,
+      startTime: this.timeAlive,
+      duration: cfg.duration
+    });
+    return true;
+  }
+
+  _pruneWallWarnings(now = this.timeAlive) {
+    if (!Array.isArray(this.wallWarnings) || this.wallWarnings.length === 0) return;
+    const filtered = this.wallWarnings.filter((warning) => {
+      const elapsed = now - (warning?.startTime ?? 0);
+      return elapsed <= (warning?.duration ?? 0);
+    });
+    this.wallWarnings = filtered;
   }
 
   _pipeSpawnBudget() {
@@ -1521,6 +1565,7 @@ export class Game {
     if (this.state !== STATE.PLAY) return;
 
     this.timeAlive += dt;
+    this._pruneWallWarnings(this.timeAlive);
     this._tickCooldowns(dt);
 
     if (this.comboBreakFlash > 0) this.comboBreakFlash = Math.max(0, this.comboBreakFlash - dt);
@@ -1796,6 +1841,21 @@ export class Game {
     const ctx = this.ctx;
     const renderAlpha = Number.isFinite(alpha) ? clamp(alpha, 0, 1) : 1;
     const renderPos = this._getRenderPlayerPosition(renderAlpha);
+    const canvas = this.canvas;
+
+    if (canvas && ctx?.setTransform) {
+      ctx.save();
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.fillStyle = "#07101a";
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.restore();
+    }
+
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(0, 0, this.W, this.H);
+    ctx.clip();
 
     // background (cached offscreen)
     const backgroundDrawn = drawBackgroundLayer(this.background, ctx, { width: this.W, height: this.H });
@@ -1835,6 +1895,8 @@ export class Game {
       this._drawHUD();
       this._drawPerfectFlash();
     }
+    ctx.restore();
+    this._drawWallWarnings();
   }
 
   _roundRect(x, y, w, h, r) {
@@ -2146,6 +2208,60 @@ _drawOrb(o) {
     ctx.strokeStyle = "rgba(255,90,90,.85)";
     ctx.lineWidth = Math.max(2, arcWidth * 0.55);
     ctx.beginPath(); ctx.arc(scoreX, scoreY, arcRadius + arcWidth * 0.2, Math.PI, Math.PI * 2); ctx.stroke();
+    ctx.restore();
+  }
+
+  _drawWallWarnings() {
+    const ctx = this.ctx;
+    if (!ctx || this.state !== STATE.PLAY) return;
+    if (!Array.isArray(this.wallWarnings) || this.wallWarnings.length === 0) return;
+    const view = this.canvas?._view;
+    if (!view) return;
+    const cfg = this._wallWarningConfig();
+    if (!cfg.enabled || cfg.maxAlpha <= 0) return;
+
+    const dpr = Math.max(1, this._rawDpr || 1);
+    const cssW = this.canvas?.width ? (this.canvas.width / dpr) : 0;
+    const cssH = this.canvas?.height ? (this.canvas.height / dpr) : 0;
+    const extraLeft = Math.max(0, view.x);
+    const extraTop = Math.max(0, view.y);
+    const extraRight = Math.max(0, cssW - (view.x + view.width));
+    const extraBottom = Math.max(0, cssH - (view.y + view.height));
+
+    if (extraLeft <= 0 && extraTop <= 0 && extraRight <= 0 && extraBottom <= 0) return;
+
+    const pulseRate = cfg.pulseRate;
+    ctx.save();
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.fillStyle = "rgb(255,70,70)";
+
+    for (const warning of this.wallWarnings) {
+      if (!warning) continue;
+      const elapsed = this.timeAlive - (warning.startTime ?? 0);
+      const duration = warning.duration ?? cfg.duration;
+      if (!(elapsed >= 0 && elapsed <= duration)) continue;
+      const pulsePhase = pulseRate > 0 ? Math.sin(elapsed * pulseRate * Math.PI * 2) * 0.5 + 0.5 : 1;
+      const life = clamp(1 - (elapsed / Math.max(1e-4, duration)), 0, 1);
+      const alpha = clamp(lerp(cfg.minAlpha, cfg.maxAlpha, pulsePhase) * life, 0, 1);
+      if (alpha <= 0) continue;
+      const thickness = Math.max(0, Number(warning.thickness) || 0) * view.scale;
+      ctx.globalAlpha = alpha;
+
+      if (warning.side === 0 && extraLeft > 0) {
+        const width = Math.min(extraLeft, thickness || extraLeft);
+        if (width > 0) ctx.fillRect(extraLeft - width, extraTop, width, view.height);
+      } else if (warning.side === 1 && extraRight > 0) {
+        const width = Math.min(extraRight, thickness || extraRight);
+        if (width > 0) ctx.fillRect(extraLeft + view.width, extraTop, width, view.height);
+      } else if (warning.side === 2 && extraTop > 0) {
+        const height = Math.min(extraTop, thickness || extraTop);
+        if (height > 0) ctx.fillRect(extraLeft, extraTop - height, view.width, height);
+      } else if (warning.side === 3 && extraBottom > 0) {
+        const height = Math.min(extraBottom, thickness || extraBottom);
+        if (height > 0) ctx.fillRect(extraLeft, extraTop + view.height, view.width, height);
+      }
+    }
+
     ctx.restore();
   }
 

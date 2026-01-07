@@ -87,6 +87,9 @@ export function spawnWall(game, opts = {}) {
   if (pipeCount > 0 && game._gapMeta) {
     game._gapMeta.set(gapId, { perfected: false, broken: false, pipesRemaining: pipeCount });
   }
+  if (pipeCount > 0 && typeof game._registerWallWarning === "function") {
+    game._registerWallWarning({ side, thickness: th });
+  }
 }
 
 export function spawnBurst(game) {

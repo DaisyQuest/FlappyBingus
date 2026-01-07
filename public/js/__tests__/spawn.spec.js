@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { spawnBurst, spawnCrossfire, spawnSinglePipe, spawnWall } from "../pipes/pipeSpawner.js";
 import { spawnOrb } from "../orbs/orbSpawner.js";
 import { createSeededRand, setRandSource } from "../util.js";
@@ -41,7 +41,8 @@ function makeGame() {
     _thickness: () => 20,
     _pipeSpeed: () => 100,
     _gapSize: () => 80,
-    _difficulty01: () => 0.5
+    _difficulty01: () => 0.5,
+    _registerWallWarning: vi.fn()
   };
 }
 
@@ -99,6 +100,7 @@ describe("spawnWall", () => {
     expect(game.gates[0].axis).toBe("x");
     expect(game.gates[0].gapHalf).toBeCloseTo(30, 5);
     expect(game._gapMeta.size).toBe(1);
+    expect(game._registerWallWarning).toHaveBeenCalledWith({ side: 0, thickness: 20 });
   });
 
   it("supports vertical walls with y-axis gate", () => {
