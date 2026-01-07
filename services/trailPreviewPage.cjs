@@ -1,7 +1,5 @@
 "use strict";
 
-const { ADSENSE_SCRIPT_TAG } = require("./adsense.cjs");
-
 /**
  * Determine whether the caller expects an HTML response instead of JSON.
  * @param {{formatParam?:string|null,acceptHeader?:string|undefined}} opts
@@ -73,7 +71,6 @@ function renderTrailPreviewPage(catalog = {}) {
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width,initial-scale=1"/>
   <title>Trail Previews</title>
-  ${ADSENSE_SCRIPT_TAG}
   <style>
     :root{color-scheme:dark light;}
     body{margin:0;padding:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;background:#0b1220;color:#e5e7eb;}
