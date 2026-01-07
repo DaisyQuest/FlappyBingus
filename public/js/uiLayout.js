@@ -1783,7 +1783,8 @@ function createMenuScreen(doc, refs) {
     createShopOverlay(doc, refs),
     createPurchaseModal(doc, refs),
     createHighscoreDetailsModal(doc, refs),
-    createReplayModal(doc, refs)
+    createReplayModal(doc, refs),
+    createSocialDock(doc, refs)
   );
   return screen;
 }
@@ -2065,8 +2066,7 @@ export function buildGameUI({ document = window.document, mount } = {}) {
     canvas,
     createMenuScreen(doc, refs),
     createOverScreen(doc, refs),
-    achievementToasts,
-    createSocialDock(doc, refs)
+    achievementToasts
   );
   target.append(wrap);
 

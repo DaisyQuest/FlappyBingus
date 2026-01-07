@@ -306,6 +306,7 @@ describe("uiLayout", () => {
   it("renders the bottom-left social dock with popovers", () => {
     const ui = buildGameUI({ document, mount });
     const dock = mount.querySelector("#socialDock");
+    const menuScreen = mount.querySelector("#menu");
     const discordButton = dock?.querySelector("#discordButton");
     const donateButton = dock?.querySelector("#donateButton");
     const discordPopover = dock?.querySelector("#discordPopover");
@@ -315,6 +316,7 @@ describe("uiLayout", () => {
     const iframe = discordPopover?.querySelector("iframe.discord-widget");
 
     expect(dock).toBeInstanceOf(window.HTMLDivElement);
+    expect(menuScreen?.contains(dock)).toBe(true);
     expect(discordButton).toBeInstanceOf(window.HTMLButtonElement);
     expect(donateButton).toBeInstanceOf(window.HTMLButtonElement);
     expect(supportButton).toBeInstanceOf(window.HTMLButtonElement);
@@ -328,6 +330,12 @@ describe("uiLayout", () => {
     expect(supportPopover?.textContent).toContain("AdSense");
     expect(supportPopover?.querySelector(".support-offerwall")).toBeNull();
     expect(ui.socialDock).toBe(dock);
+  });
+
+  it("adds bubbly styling to skill buttons", () => {
+    const css = fs.readFileSync(new URL("../../styles/flappybingus.css", import.meta.url), "utf8");
+    expect(css).toMatch(/\.skill-option::before\{[^}]*radial-gradient/);
+    expect(css).toMatch(/\.skill-option-icon\{[^}]*radial-gradient/);
   });
 
   it("widens the donate popover so each sentence can sit on its own line", () => {

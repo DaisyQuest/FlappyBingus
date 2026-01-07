@@ -2,7 +2,7 @@
 import { describe, it, beforeAll, beforeEach, afterEach, expect, vi } from "vitest";
 import { Game, WORLD_HEIGHT, WORLD_WIDTH } from "../game.js";
 import { DEFAULT_CONFIG } from "../config.js";
-import { setRandSource } from "../util.js";
+import { formatRunDuration, setRandSource } from "../util.js";
 import * as pipeColors from "../pipeColors.js";
 import * as pipeTextures from "../pipeTextures.js";
 import * as perfectGaps from "../perfectGaps.js";
@@ -35,10 +35,12 @@ const mockCtx = () => {
     createRadialGradient: vi.fn(() => gradient),
     createLinearGradient: vi.fn(() => gradient),
     beginPath: vi.fn(),
+    closePath: vi.fn(),
     rect: vi.fn(),
     clip: vi.fn(),
     arc: vi.fn(),
     quadraticCurveTo: vi.fn(),
+    arcTo: vi.fn(),
     fill: vi.fn(),
     stroke: vi.fn(),
     strokeRect: vi.fn(),
@@ -49,7 +51,11 @@ const mockCtx = () => {
     strokeText: vi.fn(),
     moveTo: vi.fn(),
     lineTo: vi.fn(),
+    translate: vi.fn(),
+    rotate: vi.fn(),
+    scale: vi.fn(),
     imageSmoothingEnabled: true,
+    measureText: vi.fn((text) => ({ width: String(text).length * 8 })),
     get globalAlpha() { return this._ga || 0; },
     set globalAlpha(v) { this._ga = v; },
     get fillStyle() { return this._fs; },
@@ -2023,5 +2029,21 @@ describe("Game loop", () => {
     expect(game._difficulty01()).toBe(0);
     game.score = 1;
     expect(game._difficulty01()).toBeGreaterThan(0);
+  });
+});
+
+describe("HUD rendering", () => {
+  it("renders time without the Time label and uses the pill treatment", () => {
+    const { game, ctx } = buildGame();
+    game.timeAlive = 75;
+    game.score = 42;
+
+    game._drawHUD();
+
+    const timeText = formatRunDuration(game.timeAlive);
+    const drawnText = ctx.fillText.mock.calls.map(call => call[0]);
+    expect(drawnText).toContain(timeText);
+    expect(drawnText.some(text => String(text).includes("Time:"))).toBe(false);
+    expect(ctx.createLinearGradient).toHaveBeenCalled();
   });
 });
