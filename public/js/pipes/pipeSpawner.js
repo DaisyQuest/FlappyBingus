@@ -29,6 +29,9 @@ export function spawnSinglePipe(game, opts = {}) {
   }
 
   game.pipes.push(new Pipe(x, y, pw, ph, vx, vy));
+  if (typeof game._registerWallWarning === "function") {
+    game._registerWallWarning({ side, thickness: th });
+  }
 }
 
 export function spawnWall(game, opts = {}) {
