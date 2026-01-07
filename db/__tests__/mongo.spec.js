@@ -707,11 +707,11 @@ describe("MongoDataStore mutations and reads", () => {
       amount: 3,
       transactionId: "txn-1",
       offerId: "offer-1",
-      provider: "adsense"
+      provider: "support-offer"
     });
 
     expect(offers.insertOne).toHaveBeenCalledWith(
-      expect.objectContaining({ transactionId: "txn-1", amount: 3, provider: "adsense" })
+      expect.objectContaining({ transactionId: "txn-1", amount: 3, provider: "support-offer" })
     );
     expect(users.findOneAndUpdate).toHaveBeenCalledWith(
       { key: "k" },
@@ -725,7 +725,7 @@ describe("MongoDataStore mutations and reads", () => {
     expect(result.user).toEqual({ key: "k", currencies: { supportcoin: 3 } });
   });
 
-  it("defaults support offers to adsense when no provider is supplied", async () => {
+  it("defaults support offers to support-offer when no provider is supplied", async () => {
     const { MongoDataStore } = await loadModule();
     const offers = makeCollection({
       insertOne: vi.fn(async () => ({ insertedId: "offer-id" }))
@@ -747,7 +747,7 @@ describe("MongoDataStore mutations and reads", () => {
     });
 
     expect(offers.insertOne).toHaveBeenCalledWith(
-      expect.objectContaining({ transactionId: "txn-1", amount: 3, provider: "adsense" })
+      expect.objectContaining({ transactionId: "txn-1", amount: 3, provider: "support-offer" })
     );
   });
 

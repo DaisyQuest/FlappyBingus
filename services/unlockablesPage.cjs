@@ -1,7 +1,5 @@
 "use strict";
 
-const { ADSENSE_SCRIPT_TAG } = require("./adsense.cjs");
-
 function wantsUnlockablesHtml(opts = {}) {
   const format = (opts.formatParam || "").toLowerCase();
   if (format === "html") return true;
@@ -66,7 +64,6 @@ function renderUnlockablesPage({ unlockables = [], icons = [], pipeTextures = []
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width,initial-scale=1"/>
   <title>Unlockables</title>
-  ${ADSENSE_SCRIPT_TAG}
   <style>
     :root{color-scheme:dark light;}
     body{margin:0;padding:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;background:#0b1220;color:#e5e7eb;}

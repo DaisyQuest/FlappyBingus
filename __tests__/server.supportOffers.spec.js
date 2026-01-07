@@ -119,7 +119,7 @@ describe("support offer completion", () => {
     expect(payload.credited).toBe(true);
     expect(payload.supportcoins).toBe(5);
     expect(mockDataStore.recordSupportOffer).toHaveBeenCalledWith(
-      expect.objectContaining({ amount: 5, provider: "adsense" })
+      expect.objectContaining({ amount: 5, provider: "support-offer" })
     );
   });
 

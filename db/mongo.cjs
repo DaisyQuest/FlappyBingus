@@ -616,7 +616,7 @@ class MongoDataStore {
     amount,
     transactionId,
     offerId = null,
-    provider = "adsense",
+    provider = "support-offer",
     rawPayload = null
   } = {}) {
     await this.ensureConnected();

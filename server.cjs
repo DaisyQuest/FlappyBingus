@@ -16,7 +16,6 @@ const { createScoreService, clampScoreDefault } = require("./services/scoreServi
 const { buildTrailPreviewCatalog } = require("./services/trailCatalog.cjs");
 const { renderTrailPreviewPage, wantsPreviewHtml } = require("./services/trailPreviewPage.cjs");
 const { renderUnlockablesPage, wantsUnlockablesHtml } = require("./services/unlockablesPage.cjs");
-const { ADSENSE_SCRIPT_TAG } = require("./services/adsense.cjs");
 const {
   applyUnlockableMenuConfig,
   createServerConfigStore,
@@ -1617,7 +1616,6 @@ function renderStatusPage(status) {
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <title>Flappy Bingus – Status</title>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css"/>
-  ${ADSENSE_SCRIPT_TAG}
 </head>
 <body class="bg-dark text-light">
   <div class="container py-4">
@@ -1737,7 +1735,6 @@ function renderPlayerSessionDataPage({ payload, error, username } = {}) {
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width,initial-scale=1"/>
   <title>Player Session Data</title>
-  ${ADSENSE_SCRIPT_TAG}
   <style>
     body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;margin:0;background:#0b1220;color:#e5e7eb}
     header{padding:18px 16px;border-bottom:1px solid rgba(255,255,255,.10);background:#0b1020}
@@ -1815,7 +1812,6 @@ function renderEndpointBrowserPage(groups) {
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <title>Endpoint Browser</title>
-  ${ADSENSE_SCRIPT_TAG}
   <style>
     :root {
       color-scheme: dark;
@@ -2161,7 +2157,7 @@ async function route(req, res) {
     return;
   }
 
-  // Support offer completion (ad reward callback)
+  // Support offer completion callback
   if (pathname === "/api/support/offer-complete" && (req.method === "GET" || req.method === "POST")) {
     if (rateLimit(req, res, "/api/support/offer-complete")) return;
     if (!(await ensureDatabase(res))) return;
@@ -2205,7 +2201,7 @@ async function route(req, res) {
       amount,
       transactionId: normalized.transactionId,
       offerId: normalized.offerId,
-      provider: "adsense",
+      provider: "support-offer",
       rawPayload: payload
     });
 
@@ -3141,7 +3137,6 @@ async function route(req, res) {
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
 <title>Flappy Bingus – High Scores</title>
-${ADSENSE_SCRIPT_TAG}
 <style>
   body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;margin:0;background:#0b1220;color:#e5e7eb}
   header{padding:18px 16px;border-bottom:1px solid rgba(255,255,255,.10);background:#0b1020}
