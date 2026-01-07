@@ -56,7 +56,7 @@ describe("icon editor helpers", () => {
     expect(read.style.pattern.colors).toEqual(["#111", "#222", "#333"]);
   });
 
-  it("applies swatch selections to palette fields", () => {
+  it("syncs hex inputs with the color picker", () => {
     const icon = {
       id: "swatchy",
       name: "Swatchy",
@@ -65,9 +65,84 @@ describe("icon editor helpers", () => {
     };
     const card = createIconCard({ icon, allowRemove: true });
     const fillInput = card.querySelector("[data-field='style.palette.fill']");
-    const fillSwatch = fillInput.closest(".field-row").querySelector(".color-swatch");
-    fillSwatch.click();
-    expect(fillInput.value).toBe(fillSwatch.dataset.color);
+    const colorPicker = fillInput.closest(".field-row").querySelector("input[type='color']");
+    colorPicker.value = "#112233";
+    colorPicker.dispatchEvent(new Event("input", { bubbles: true }));
+    expect(fillInput.value).toBe("#112233");
+
+    fillInput.value = "#abc";
+    fillInput.dispatchEvent(new Event("input", { bubbles: true }));
+    expect(colorPicker.value).toBe("#aabbcc");
+  });
+
+  it("keeps animation types aligned with pattern targets", () => {
+    const icon = {
+      id: "anim",
+      name: "Anim",
+      unlock: { type: "free" },
+      style: {
+        version: 2,
+        animations: [{ id: "scroll", type: "pulseUniform", target: "pattern.centerOffset" }]
+      }
+    };
+    const card = createIconCard({ icon, allowRemove: false });
+    const typeSelect = card.querySelector("[data-field='style.animations[0].type']");
+    const guidance = card.querySelector("[data-animation-guidance]");
+    const pulseOption = Array.from(typeSelect.options).find((option) => option.value === "pulseUniform");
+
+    expect(typeSelect.value).toBe("patternScroll");
+    expect(pulseOption.disabled).toBe(true);
+    expect(guidance.textContent).toMatch(/Pattern Scroll/);
+  });
+
+  it("locks color targets to color shift animations", () => {
+    const icon = {
+      id: "color-anim",
+      name: "Color Anim",
+      unlock: { type: "free" },
+      style: {
+        version: 2,
+        animations: [{ id: "shift", type: "slowSpin", target: "palette.fill" }]
+      }
+    };
+    const card = createIconCard({ icon, allowRemove: false });
+    const typeSelect = card.querySelector("[data-field='style.animations[0].type']");
+    const guidance = card.querySelector("[data-animation-guidance]");
+    const slowSpinOption = Array.from(typeSelect.options).find((option) => option.value === "slowSpin");
+
+    expect(typeSelect.value).toBe("colorShift");
+    expect(slowSpinOption.disabled).toBe(true);
+    expect(guidance.textContent).toMatch(/Color Shift/);
+  });
+
+  it("shows generic guidance for non-specific animation targets", () => {
+    const icon = {
+      id: "generic-anim",
+      name: "Generic Anim",
+      unlock: { type: "free" },
+      style: {
+        version: 2,
+        animations: [{ id: "blur", type: "pulseUniform", target: "shadow.blur" }]
+      }
+    };
+    const card = createIconCard({ icon, allowRemove: false });
+    const guidance = card.querySelector("[data-animation-guidance]");
+    expect(guidance.textContent).toMatch(/numeric animations/i);
+  });
+
+  it("prompts for a target when none is set", () => {
+    const icon = {
+      id: "empty-target",
+      name: "Empty Target",
+      unlock: { type: "free" },
+      style: {
+        version: 2,
+        animations: [{ id: "no-target", type: "pulseUniform", target: "" }]
+      }
+    };
+    const card = createIconCard({ icon, allowRemove: false });
+    const guidance = card.querySelector("[data-animation-guidance]");
+    expect(guidance.textContent).toMatch(/choose a target/i);
   });
 
   it("applies preset patches through the preset panel", () => {

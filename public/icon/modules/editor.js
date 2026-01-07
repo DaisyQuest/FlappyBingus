@@ -16,19 +16,6 @@ const UNLOCK_OPTIONS = [
   { value: "record", label: "Record holder" }
 ];
 
-const COLOR_SWATCHES = [
-  "#ffffff",
-  "#0f172a",
-  "#38bdf8",
-  "#22c55e",
-  "#facc15",
-  "#fb7185",
-  "#f97316",
-  "#a855f7",
-  "#f472b6",
-  "#94a3b8"
-];
-
 const PATTERN_LABELS = PATTERN_TYPES.map((value) => ({
   value,
   label: value ? value.replace(/([A-Z])/g, " $1").replace(/^./, (c) => c.toUpperCase()) : "None"
@@ -74,6 +61,50 @@ const TARGET_SUGGESTIONS = [
   "preview.scale"
 ];
 
+const ANIMATION_LABEL_BY_TYPE = new Map(ANIMATION_LABELS.map((entry) => [entry.value, entry.label]));
+
+const ANIMATION_TARGET_GUIDANCE = [
+  {
+    match: /^pattern\.centerOffset$/,
+    types: ["patternScroll"],
+    description: "Pattern Scroll moves the pattern center.",
+    strict: true
+  },
+  {
+    match: /^pattern\.rotationDeg$/,
+    types: ["patternRotate", "slowSpin"],
+    description: "Pattern Rotate or Slow Spin keeps rotation consistent.",
+    strict: true
+  },
+  {
+    match: /^texture\.offset$/,
+    types: ["grainDrift", "scanlineDrift"],
+    description: "Texture drift animations move texture offsets.",
+    strict: true
+  },
+  {
+    match: /^effects\[\d+\]\.params\.progress$/,
+    types: ["rimOrbitLight", "shimmerSweep", "radialRipple", "centerFlash", "sparkBloom", "shockRing", "hitFlash"],
+    description: "Sweep or event animations drive effect progress.",
+    strict: true
+  },
+  {
+    match: /^preview\.scale$/,
+    types: ["pulseUniform", "heartbeat", "tickPulse"],
+    description: "Pulse animations give preview scale a quick beat.",
+    strict: true
+  }
+];
+
+function isColorTarget(target) {
+  if (!target) return false;
+  const trimmed = target.trim();
+  if (/^palette\./.test(trimmed)) return true;
+  if (/^stroke\.color$/.test(trimmed)) return true;
+  if (/^shadow\.color$/.test(trimmed)) return true;
+  return /^pattern\.(primaryColor|secondaryColor|stroke|background|accent|glow|rindStroke|segmentStroke|base|highlight)$/.test(trimmed);
+}
+
 function createElement(tag, { className, text, attrs } = {}) {
   const el = document.createElement(tag);
   if (className) el.className = className;
@@ -84,13 +115,85 @@ function createElement(tag, { className, text, attrs } = {}) {
   return el;
 }
 
-function createFieldRow(labelText, input, { hint, swatches, defaultValue } = {}) {
+function normalizeHexColor(value) {
+  if (typeof value !== "string") return null;
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+  const shortMatch = trimmed.match(/^#([0-9a-f]{3})$/i);
+  if (shortMatch) {
+    return `#${shortMatch[1].split("").map((char) => char + char).join("")}`.toLowerCase();
+  }
+  const longMatch = trimmed.match(/^#([0-9a-f]{6})$/i);
+  if (longMatch) {
+    return `#${longMatch[1]}`.toLowerCase();
+  }
+  return null;
+}
+
+function buildAnimationHint(types, description) {
+  const list = types.map((type) => ANIMATION_LABEL_BY_TYPE.get(type) || type).join(", ");
+  return `Compatible: ${list}.${description ? ` ${description}` : ""}`;
+}
+
+function resolveAnimationGuidance(target) {
+  if (!target) return null;
+  const trimmed = target.trim();
+  const explicit = ANIMATION_TARGET_GUIDANCE.find((rule) => rule.match.test(trimmed));
+  if (explicit) return explicit;
+  if (isColorTarget(trimmed)) {
+    return {
+      types: ["colorShift"],
+      description: "Color Shift is the only color-safe animation.",
+      strict: true
+    };
+  }
+  return null;
+}
+
+function updateAnimationGuidance({ targetInput, typeSelect, hintEl }) {
+  const guidance = resolveAnimationGuidance(targetInput.value);
+  const options = Array.from(typeSelect.options);
+  if (!guidance) {
+    options.forEach((opt) => {
+      opt.disabled = false;
+    });
+    hintEl.textContent = targetInput.value
+      ? "Most numeric animations work best on alpha, scale, blur, or width targets."
+      : "Choose a target to see compatible animations.";
+    return;
+  }
+
+  const allowed = new Set(guidance.types);
+  options.forEach((opt) => {
+    opt.disabled = guidance.strict && !allowed.has(opt.value);
+  });
+  if (guidance.strict && !allowed.has(typeSelect.value)) {
+    typeSelect.value = guidance.types[0];
+  }
+  hintEl.textContent = buildAnimationHint(guidance.types, guidance.description);
+}
+
+function createFieldRow(labelText, input, { hint, defaultValue, colorPicker } = {}) {
   const row = createElement("div", { className: "field-row" });
   const label = createElement("label", { text: labelText });
-  row.append(label, input);
-  if (swatches) {
-    row.appendChild(createColorSwatches(input, swatches));
+  let inputNode = input;
+  if (colorPicker) {
+    const wrap = createElement("div", { className: "color-field" });
+    const picker = createElement("input", { className: "color-picker", attrs: { type: "color" } });
+    const initialHex = normalizeHexColor(input.value);
+    picker.value = initialHex || "#000000";
+    picker.addEventListener("input", () => {
+      input.value = picker.value;
+      input.dispatchEvent(new Event("input", { bubbles: true }));
+    });
+    input.addEventListener("input", () => {
+      const nextHex = normalizeHexColor(input.value);
+      if (nextHex) picker.value = nextHex;
+    });
+    wrap.append(input, picker);
+    inputNode = wrap;
   }
+  row.append(label, inputNode);
   if (defaultValue !== undefined) {
     const hintEl = createElement("small", { text: `Default: ${defaultValue}` });
     row.appendChild(hintEl);
@@ -136,23 +239,6 @@ function createTextArea(value = "") {
   input.value = value ?? "";
   input.rows = 4;
   return input;
-}
-
-function createColorSwatches(input) {
-  const row = createElement("div", { className: "color-swatch-row" });
-  const swatches = createElement("div", { className: "color-swatches" });
-  COLOR_SWATCHES.forEach((hex) => {
-    const button = createElement("button", { className: "color-swatch", attrs: { type: "button", "data-color": hex } });
-    button.setAttribute("aria-label", `Set color ${hex}`);
-    button.style.background = hex;
-    button.addEventListener("click", () => {
-      input.value = hex;
-      input.dispatchEvent(new Event("input", { bubbles: true }));
-    });
-    swatches.appendChild(button);
-  });
-  row.appendChild(swatches);
-  return row;
 }
 
 function setPath(target, path, value) {
@@ -251,12 +337,13 @@ function buildPatternExtraFields(pattern = {}) {
       "cells"
     ].includes(key);
     const isJson = key === "colors";
+    const isColor = !isNumber && !isJson && /color|stroke|background|accent|glow|rind|segment|base|highlight/i.test(key);
     const input = isJson
       ? createTextArea(JSON.stringify(pattern[key] || [], null, 2))
       : (isNumber ? createNumberInput(pattern[key]) : createTextInput(pattern[key] ?? ""));
     input.dataset.field = `style.pattern.${key}`;
     input.dataset.type = isNumber ? "number" : (isJson ? "json" : "text");
-    grid.appendChild(createFieldRow(`Pattern ${key}`, input, { swatches: !isNumber && !isJson }));
+    grid.appendChild(createFieldRow(`Pattern ${key}`, input, { colorPicker: isColor }));
   });
   return grid;
 }
@@ -320,6 +407,10 @@ function createAnimationRow(animation = {}, index = 0) {
   target.dataset.field = `style.animations[${index}].target`;
   target.setAttribute("list", "iconAnimationTargets");
 
+  const targetRow = createFieldRow("Target", target, { hint: "Choose a target to see compatible animations." });
+  const targetHint = targetRow.querySelector("small.muted");
+  if (targetHint) targetHint.dataset.animationGuidance = "true";
+
   const timing = animation.timing || {};
   const modeSelect = createSelect(TIMING_MODES, timing.mode || "loop");
   modeSelect.dataset.field = `style.animations[${index}].timing.mode`;
@@ -341,7 +432,7 @@ function createAnimationRow(animation = {}, index = 0) {
 
   row.append(
     header,
-    createFieldRow("Target", target),
+    targetRow,
     createFieldRow("Timing mode", modeSelect),
     createFieldRow("Duration (ms)", duration),
     createFieldRow("Delay (ms)", delay),
@@ -350,6 +441,11 @@ function createAnimationRow(animation = {}, index = 0) {
     createFieldRow("Seed", seed),
     createFieldRow("Params (JSON)", params)
   );
+
+  updateAnimationGuidance({ targetInput: target, typeSelect, hintEl: targetHint });
+  target.addEventListener("input", () => {
+    updateAnimationGuidance({ targetInput: target, typeSelect, hintEl: targetHint });
+  });
 
   return row;
 }
@@ -501,7 +597,7 @@ function createIconCard({ icon, allowRemove = false } = {}) {
   ].forEach(([key, label]) => {
     const input = createTextInput(style.palette?.[key] || "");
     input.dataset.field = `style.palette.${key}`;
-    paletteGrid.appendChild(createFieldRow(label, input, { swatches: {} }));
+    paletteGrid.appendChild(createFieldRow(label, input, { colorPicker: true }));
   });
   const strokeGrid = createElement("div", { className: "field-grid" });
   const strokeWidth = createNumberInput(style.stroke?.width ?? "");
@@ -514,7 +610,7 @@ function createIconCard({ icon, allowRemove = false } = {}) {
   strokeAlpha.dataset.type = "number";
   strokeGrid.append(
     createFieldRow("Stroke width", strokeWidth),
-    createFieldRow("Stroke color", strokeColor, { swatches: {} }),
+    createFieldRow("Stroke color", strokeColor, { colorPicker: true }),
     createFieldRow("Stroke alpha", strokeAlpha)
   );
   const shadowGrid = createElement("div", { className: "field-grid" });
@@ -542,7 +638,7 @@ function createIconCard({ icon, allowRemove = false } = {}) {
     createFieldRow("Shadow enabled", shadowEnabled),
     createFieldRow("Shadow blur", shadowBlur),
     createFieldRow("Shadow spread", shadowSpread),
-    createFieldRow("Shadow color", shadowColor, { swatches: {} }),
+    createFieldRow("Shadow color", shadowColor, { colorPicker: true }),
     createFieldRow("Shadow alpha", shadowAlpha),
     createFieldRow("Shadow offset X", shadowOffsetX),
     createFieldRow("Shadow offset Y", shadowOffsetY)
@@ -593,8 +689,8 @@ function createIconCard({ icon, allowRemove = false } = {}) {
     createFieldRow("Radial bias", radialBias),
     createFieldRow("Center offset X", centerX),
     createFieldRow("Center offset Y", centerY),
-    createFieldRow("Primary color", primaryColor, { swatches: {} }),
-    createFieldRow("Secondary color", secondaryColor, { swatches: {} }),
+    createFieldRow("Primary color", primaryColor, { colorPicker: true }),
+    createFieldRow("Secondary color", secondaryColor, { colorPicker: true }),
     createFieldRow("Blend mode", blendMode)
   );
   patternPanel.append(patternGrid, buildPatternExtraFields(style.pattern));
