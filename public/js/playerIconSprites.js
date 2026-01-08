@@ -665,6 +665,8 @@ function maybeStartSpriteAnimation(canvas, icon, renderFrame, { reducedMotion = 
 
 export function createPlayerIconSprite(icon = {}, { size = 96, reducedMotion = false, events = [], showMask = false } = {}) {
   const canvas = makeCanvas(size);
+  const safeEvents = Array.isArray(events) ? events : [];
+  canvas.__events = safeEvents;
   let ctx = null;
   try {
     ctx = canvas.getContext?.("2d") || null;
@@ -679,7 +681,7 @@ export function createPlayerIconSprite(icon = {}, { size = 96, reducedMotion = f
       canvas.__image = image;
       const renderImage = (opts = {}) => drawImageIconFrameV2(ctx, canvas, icon, image, {
         timeMs: opts.timeMs || 0,
-        events,
+        events: safeEvents,
         reducedMotion,
         showMask
       });
@@ -695,7 +697,7 @@ export function createPlayerIconSprite(icon = {}, { size = 96, reducedMotion = f
     } else {
       const renderFrame = (opts = {}) => renderIconFrameV2(ctx, canvas, icon, {
         timeMs: opts.timeMs || 0,
-        events,
+        events: safeEvents,
         reducedMotion,
         showMask
       });

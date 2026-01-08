@@ -605,6 +605,51 @@ describe("Combo timer logic", () => {
     expect(game.comboTimer).toBeCloseTo(game.getComboWindow(1), 5);
   });
 
+  it("triggers player icon events on orb pickup", () => {
+    const { game } = buildGame();
+    stabilizeRun(game);
+    const events = game.playerImg.__events;
+    game._iconEventClock = () => 1234;
+    game.orbs = [orbStub()];
+
+    game.update(0.1);
+
+    expect(events).toHaveLength(1);
+    expect(events[0]).toEqual({ type: "orbPickup", timeMs: 1234 });
+  });
+
+  it("does not trigger player icon events when orbs expire", () => {
+    const { game } = buildGame({ catalysts: { orbs: { enabled: false } } });
+    stabilizeRun(game);
+    const events = game.playerImg.__events;
+    game._iconEventClock = () => 1111;
+    game.orbs = [{ update: vi.fn(), dead: () => true }];
+
+    game.update(0.1);
+
+    expect(events).toHaveLength(0);
+  });
+
+  it("prunes stale player icon events on pickup", () => {
+    const { game } = buildGame();
+    stabilizeRun(game);
+    const events = game.playerImg.__events;
+    game._playerIconEventLimits = { maxAgeMs: 100, maxEvents: 2 };
+    events.push(
+      { type: "orbPickup", timeMs: 0 },
+      { type: "orbPickup", timeMs: "bad" },
+      { type: "orbPickup", timeMs: 900 }
+    );
+    game._iconEventClock = () => 1000;
+    game.orbs = [orbStub()];
+
+    game.update(0.1);
+
+    expect(events).toHaveLength(2);
+    expect(events[0].timeMs).toBe(900);
+    expect(events[1].timeMs).toBe(1000);
+  });
+
   it("builds combo aura state with timer ratio and flame cues", () => {
     const { game } = buildGame();
     const window = game.getComboWindow(12);
