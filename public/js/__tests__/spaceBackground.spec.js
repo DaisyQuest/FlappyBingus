@@ -36,6 +36,14 @@ describe("spaceBackground", () => {
     expect(state.type).toBe("space");
     expect(state.stars).toHaveLength(175);
     expect(Object.keys(state.layers)).toEqual(["far", "mid", "near"]);
+    expect(state.stars[0]).toMatchObject({
+      driftX: expect.any(Number),
+      driftY: expect.any(Number),
+      driftSpeedX: expect.any(Number),
+      driftSpeedY: expect.any(Number),
+      driftPhaseX: expect.any(Number),
+      driftPhaseY: expect.any(Number)
+    });
     const layeredTotal = Object.values(state.layers).reduce(
       (sum, layer) => sum + layer.staticStars.length + layer.twinkleStars.length,
       0
@@ -124,6 +132,23 @@ describe("spaceBackground", () => {
     expect(state.bursts.length).toBe(1);
   });
 
+  it("drifts nebula wisps around their spawn positions", () => {
+    const rand = () => 0.5;
+    const state = createSpaceBackground({ width: 200, height: 100, rand });
+    const wisp = state.nebula[0];
+    const baseX = wisp.baseX;
+    const baseY = wisp.baseY;
+
+    updateSpaceBackground(state, { width: 200, height: 100, dt: 1, rand });
+
+    const expectedX = baseX + __testables.computeDriftOffset(state.time, wisp.driftSpeedX, wisp.driftPhaseX, wisp.driftX);
+    const expectedY = baseY + __testables.computeDriftOffset(state.time, wisp.driftSpeedY, wisp.driftPhaseY, wisp.driftY);
+    expect(wisp.x).toBeCloseTo(expectedX, 6);
+    expect(wisp.y).toBeCloseTo(expectedY, 6);
+    expect(Math.abs(wisp.x - baseX)).toBeLessThanOrEqual(wisp.driftX + 0.0001);
+    expect(Math.abs(wisp.y - baseY)).toBeLessThanOrEqual(wisp.driftY + 0.0001);
+  });
+
   it("freezes motion entirely when reduceMotion is enabled", () => {
     const state = createSpaceBackground({
       width: 200,
@@ -133,6 +158,8 @@ describe("spaceBackground", () => {
     });
     state.burstCooldown = 0;
     const startOffset = state.layerOffsets.far.y;
+    const startTime = state.time;
+    const startNebula = state.nebula.map((wisp) => ({ x: wisp.x, y: wisp.y }));
 
     updateSpaceBackground(state, {
       width: 200,
@@ -143,6 +170,11 @@ describe("spaceBackground", () => {
     });
 
     expect(state.layerOffsets.far.y).toBe(startOffset);
+    expect(state.time).toBe(startTime);
+    state.nebula.forEach((wisp, index) => {
+      expect(wisp.x).toBe(startNebula[index].x);
+      expect(wisp.y).toBe(startNebula[index].y);
+    });
     expect(state.bursts.length).toBe(0);
   });
 
@@ -151,7 +183,8 @@ describe("spaceBackground", () => {
     const state = createSpaceBackground({ width: 120, height: 80, rand: () => 0.5 });
 
     renderSpaceBackground(ctx, state, { width: 120, height: 80 });
-    expect(ctx.drawImage).toHaveBeenCalled();
+    expect(ctx.arc).toHaveBeenCalled();
+    expect(ctx.drawImage).not.toHaveBeenCalled();
 
     const lowState = createSpaceBackground({
       width: 120,
@@ -166,8 +199,13 @@ describe("spaceBackground", () => {
 
   it("caps player shift when computing parallax", () => {
     expect(__testables.computePlayerShift(0, 100, { reduceMotion: true })).toBe(0);
-    expect(__testables.computePlayerShift(0, 100, { simpleBackground: true })).toBe(0);
-    const shift = __testables.computePlayerShift(0, 100, { reduceMotion: false, simpleBackground: false });
-    expect(Math.abs(shift)).toBeLessThanOrEqual(15);
+    expect(__testables.computePlayerShift(50, 100, { simpleBackground: true })).toBe(0);
+    expect(__testables.computePlayerShift(80, 100, { reduceMotion: false, simpleBackground: false })).toBe(0);
+  });
+
+  it("keeps player shift anchored when updating with playerY", () => {
+    const state = createSpaceBackground({ width: 200, height: 100, rand: () => 0.2 });
+    updateSpaceBackground(state, { width: 200, height: 100, dt: 0.2, rand: () => 0.2, playerY: 90 });
+    expect(state.playerShift).toBe(0);
   });
 });
