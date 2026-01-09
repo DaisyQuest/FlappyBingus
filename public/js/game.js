@@ -2167,11 +2167,12 @@ _drawOrb(o) {
     ctx.shadowBlur = 18; ctx.shadowOffsetY = 4;
     ctx.lineJoin = "round";
 
-    const bubble = ctx.createRadialGradient(scoreX, scoreY, bubbleSize * 0.15, scoreX, scoreY, bubbleSize * 0.85);
-    bubble.addColorStop(0, "rgba(255,255,255,.70)");
-    bubble.addColorStop(1, "rgba(160,210,255,.30)");
+    const bubble = ctx.createRadialGradient(scoreX, scoreY, bubbleSize * 0.12, scoreX, scoreY, bubbleSize * 0.95);
+    bubble.addColorStop(0, "rgba(255,255,255,.78)");
+    bubble.addColorStop(0.55, "rgba(210,240,255,.48)");
+    bubble.addColorStop(1, "rgba(120,190,255,.22)");
 
-    ctx.globalAlpha = 0.72;
+    ctx.globalAlpha = 0.78;
     ctx.fillStyle = bubble;
     ctx.strokeStyle = "rgba(255,255,255,.32)";
     ctx.lineWidth = Math.max(4, bubbleSize * 0.07);
@@ -2183,6 +2184,13 @@ _drawOrb(o) {
     ctx.strokeStyle = "rgba(120,210,255,.35)";
     ctx.strokeText(`${this.score | 0}`, scoreX, scoreY);
 
+    ctx.globalAlpha = 0.45;
+    ctx.lineWidth = Math.max(2, bubbleSize * 0.035);
+    ctx.strokeStyle = "rgba(255,255,255,.55)";
+    ctx.beginPath();
+    ctx.arc(scoreX, scoreY - bubbleSize * 0.12, bubbleSize * 0.62, 0, Math.PI * 2);
+    ctx.stroke();
+
     this._drawBustercoinCounter(scoreX, scoreY, bubbleSize);
 
     if (aura) {
@@ -2192,11 +2200,44 @@ _drawOrb(o) {
     this._drawComboBreakFlash(scoreX, scoreY, arcRadius, arcWidth);
 
     // time alive (top-left)
+    const timeText = formatRunDuration(this.timeAlive);
+    const timeX = 12;
+    const timeY = 8;
     ctx.textAlign = "left";
     ctx.textBaseline = "top";
-    ctx.globalAlpha = 0.72;
-    ctx.font = "800 13px system-ui,-apple-system,Segoe UI,Roboto,sans-serif";
-    ctx.fillText(`Time: ${formatRunDuration(this.timeAlive)}`, 14, 10);
+    ctx.globalAlpha = 0.95;
+    ctx.font = "900 16px \"Baloo 2\",\"Fredoka One\",system-ui,-apple-system,Segoe UI,Roboto,sans-serif";
+    const timeMetrics = ctx.measureText(timeText);
+    const timePadX = 12;
+    const timePadY = 6;
+    const pillW = timeMetrics.width + timePadX * 2;
+    const pillH = 26;
+    const pillR = pillH / 2;
+    const pillGradient = ctx.createLinearGradient(timeX, timeY, timeX, timeY + pillH);
+    pillGradient.addColorStop(0, "rgba(255,255,255,.42)");
+    pillGradient.addColorStop(1, "rgba(160,210,255,.28)");
+    ctx.save();
+    ctx.shadowColor = "rgba(0,0,0,.35)";
+    ctx.shadowBlur = 12;
+    ctx.shadowOffsetY = 3;
+    ctx.fillStyle = pillGradient;
+    ctx.strokeStyle = "rgba(255,255,255,.45)";
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.moveTo(timeX + pillR, timeY);
+    ctx.lineTo(timeX + pillW - pillR, timeY);
+    ctx.arc(timeX + pillW - pillR, timeY + pillR, pillR, -Math.PI / 2, Math.PI / 2);
+    ctx.lineTo(timeX + pillR, timeY + pillH);
+    ctx.arc(timeX + pillR, timeY + pillR, pillR, Math.PI / 2, -Math.PI / 2);
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+    ctx.restore();
+    ctx.fillStyle = "rgba(20,30,40,.95)";
+    ctx.shadowColor = "rgba(255,255,255,.35)";
+    ctx.shadowBlur = 6;
+    ctx.shadowOffsetY = 1;
+    ctx.fillText(timeText, timeX + timePadX, timeY + timePadY);
 
     // intensity (top-right)
     ctx.textAlign = "right";
