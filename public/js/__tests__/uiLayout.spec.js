@@ -306,6 +306,7 @@ describe("uiLayout", () => {
   it("renders the bottom-left social dock with popovers", () => {
     const ui = buildGameUI({ document, mount });
     const dock = mount.querySelector("#socialDock");
+    const overDock = mount.querySelector("#over #socialDock");
     const discordButton = dock?.querySelector("#discordButton");
     const donateButton = dock?.querySelector("#donateButton");
     const discordPopover = dock?.querySelector("#discordPopover");
@@ -315,6 +316,8 @@ describe("uiLayout", () => {
     const iframe = discordPopover?.querySelector("iframe.discord-widget");
 
     expect(dock).toBeInstanceOf(window.HTMLDivElement);
+    expect(dock?.closest("#menu")).toBe(ui.menu);
+    expect(overDock).toBeNull();
     expect(discordButton).toBeInstanceOf(window.HTMLButtonElement);
     expect(donateButton).toBeInstanceOf(window.HTMLButtonElement);
     expect(supportButton).toBeInstanceOf(window.HTMLButtonElement);
