@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { spawnBurst, spawnCrossfire, spawnSinglePipe, spawnWall } from "../pipes/pipeSpawner.js";
 import { spawnOrb } from "../orbs/orbSpawner.js";
 import { createSeededRand, setRandSource } from "../util.js";
@@ -41,7 +41,8 @@ function makeGame() {
     _thickness: () => 20,
     _pipeSpeed: () => 100,
     _gapSize: () => 80,
-    _difficulty01: () => 0.5
+    _difficulty01: () => 0.5,
+    _registerWallWarning: vi.fn()
   };
 }
 
@@ -60,6 +61,7 @@ describe("spawnSinglePipe", () => {
     expect(game.pipes).toHaveLength(1);
     expect(game.pipes[0].vx).toBeGreaterThan(0);
     expect(game.pipes[0].vy).not.toBe(0);
+    expect(game._registerWallWarning).toHaveBeenCalledWith({ side: 0, thickness: 20 });
   });
 
   it("honors side selection and speed sign", () => {
@@ -67,6 +69,7 @@ describe("spawnSinglePipe", () => {
     spawnSinglePipe(game, { side: 1, aimAtPlayer: false, speed: 150 });
     expect(game.pipes[0].vx).toBeLessThan(0);
     expect(Math.abs(game.pipes[0].vx)).toBeGreaterThan(0);
+    expect(game._registerWallWarning).toHaveBeenCalledWith({ side: 1, thickness: 20 });
   });
 
   it("spawns vertical pipes from the top and bottom edges", () => {
@@ -75,18 +78,29 @@ describe("spawnSinglePipe", () => {
     spawnSinglePipe(game, { side: 3, aimAtPlayer: false });
     expect(game.pipes[0].vy).toBeGreaterThan(0);
     expect(game.pipes[1].vy).toBeLessThan(0);
+    expect(game._registerWallWarning).toHaveBeenCalledWith({ side: 2, thickness: 20 });
+    expect(game._registerWallWarning).toHaveBeenCalledWith({ side: 3, thickness: 20 });
   });
 
   it("anchors aimed pipes just outside the selected side", () => {
     const game = makeGame();
     spawnSinglePipe(game, { side: 3, aimAtPlayer: true, speed: 120 });
     expect(game.pipes[0].y).toBeCloseTo(game.H + 14, 5);
+    expect(game._registerWallWarning).toHaveBeenCalledWith({ side: 3, thickness: 20 });
   });
 
   it("positions aimed pipes above the arena when spawned from the top", () => {
     const game = makeGame();
     spawnSinglePipe(game, { side: 2, aimAtPlayer: true, speed: 120 });
     expect(game.pipes[0].y).toBeLessThan(0);
+    expect(game._registerWallWarning).toHaveBeenCalledWith({ side: 2, thickness: 20 });
+  });
+
+  it("skips warning registration when no handler exists", () => {
+    const game = makeGame();
+    game._registerWallWarning = null;
+    spawnSinglePipe(game, { side: 0, aimAtPlayer: false });
+    expect(game.pipes).toHaveLength(1);
   });
 });
 
@@ -99,6 +113,7 @@ describe("spawnWall", () => {
     expect(game.gates[0].axis).toBe("x");
     expect(game.gates[0].gapHalf).toBeCloseTo(30, 5);
     expect(game._gapMeta.size).toBe(1);
+    expect(game._registerWallWarning).toHaveBeenCalledWith({ side: 0, thickness: 20 });
   });
 
   it("supports vertical walls with y-axis gate", () => {
@@ -137,6 +152,13 @@ describe("spawnWall", () => {
     spawnWall(game, { side: 1, gap: 50 });
     expect(game.gates).toHaveLength(1);
   });
+
+  it("ignores wall warning registration when handler is missing", () => {
+    const game = makeGame();
+    game._registerWallWarning = undefined;
+    spawnWall(game, { side: 0, gap: 60 });
+    expect(game.pipes).toHaveLength(2);
+  });
 });
 
 describe("spawnBurst", () => {
@@ -146,6 +168,7 @@ describe("spawnBurst", () => {
     expect(game.pipes).toHaveLength(6); // lerp(5,8,0.5) floored
     const vxVals = game.pipes.map((p) => p.vx);
     expect(vxVals.every((v) => Math.abs(v) > 0)).toBe(true);
+    expect(game._registerWallWarning).toHaveBeenCalledTimes(6);
   });
 
   it("anchors single-burst timing when difficulty collapses to one pipe", () => {
@@ -165,6 +188,7 @@ describe("spawnCrossfire", () => {
     expect(game.pipes).toHaveLength(4);
     const vxSigns = game.pipes.map((p) => Math.sign(p.vx));
     expect(vxSigns.filter((s) => s !== 0)).not.toHaveLength(0);
+    expect(game._registerWallWarning).toHaveBeenCalledTimes(4);
   });
 });
 

@@ -29,6 +29,13 @@ export const DEFAULT_CONFIG = {
       wisteria: "#c9a0dc",
       red: "#ff746c",
       stroke: "#000000"
+    },
+    wallWarning: {
+      enabled: true,
+      duration: 0.65,
+      pulseRate: 6,
+      minAlpha: 0.15,
+      maxAlpha: 0.7
     }
   },
   skills: {
