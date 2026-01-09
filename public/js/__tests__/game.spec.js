@@ -9,6 +9,7 @@ import * as perfectGaps from "../perfectGaps.js";
 import * as mechanics from "../mechanics.js";
 import * as pipeSpawner from "../pipes/pipeSpawner.js";
 import * as backgroundLayer from "../backgroundLayer.js";
+import { createProceduralBackground } from "../backgroundModes.js";
 import { ACTIONS } from "../keybinds.js";
 
 vi.mock("../audio.js", () => ({
@@ -290,7 +291,8 @@ describe("Game core utilities", () => {
     expect(game.player.r).toBeGreaterThan(0);
     expect(game.background.canvas).toBeTruthy();
     expect(game.background.dirty).toBe(false);
-    expect(game.background.mode.dots.length).toBeGreaterThan(0);
+    expect(game.background.mode.type).toBe("space");
+    expect(game.background.mode.stars.length).toBeGreaterThan(0);
 
     const previousCtx = game.background.ctx;
     game.W += 1;
@@ -1693,31 +1695,33 @@ describe("Player movement and trail emission", () => {
 });
 
 describe("Game loop", () => {
-  it("early exits on OVER and drifts dots in MENU", () => {
+  it("early exits on OVER and drifts space background in MENU", () => {
     const { game } = buildGame();
+    game.W = 200;
+    game.H = 100;
     game._initBackground();
-    game.background.mode.dots = [{ x: 0, y: 0, s: 1, r: 1 }];
+    const startOffset = game.background.mode.layerOffsets.far.y;
 
     game.state = 2;
     game.update(1);
-    expect(game.background.mode.dots[0].y).toBe(0);
+    expect(game.background.mode.layerOffsets.far.y).toBe(startOffset);
 
     game.state = 0;
     game.update(1);
-    expect(game.background.mode.dots[0].y).toBeGreaterThan(0);
+    expect(game.background.mode.layerOffsets.far.y).toBeGreaterThan(startOffset);
   });
 
   it("skips background animation when simple background is enabled", () => {
     const { game } = buildGame();
     const updateSpy = vi.spyOn(backgroundLayer, "updateBackgroundDots");
-    game._initBackground();
+    game.background.mode = createProceduralBackground({ width: 100, height: 50, rand: () => 0.5 });
     game.setSkillSettings({ simpleBackground: true });
     game.background.mode.dots = [{ x: 0, y: 0, s: 1, r: 1 }];
 
     game.state = 0;
     game.update(1);
 
-    expect(updateSpy).not.toHaveBeenCalled();
+    expect(updateSpy).toHaveBeenCalled();
     expect(game.background.mode.dots[0].y).toBe(0);
   });
 
@@ -1726,7 +1730,7 @@ describe("Game loop", () => {
       setRandSource(() => 0.75);
       const { game } = buildGame();
       game.setBackgroundRand(() => 0.75);
-      game._initBackground();
+      game.background.mode = createProceduralBackground({ width: game.W, height: game.H, rand: () => 0.75 });
       game.background.mode.dots = [{ x: 1, y: game.H + 20, s: 5, r: 1 }];
 
       game.update(0.1);

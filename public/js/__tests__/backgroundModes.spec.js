@@ -3,7 +3,8 @@ import {
   createProceduralBackground,
   updateProceduralBackground,
   createMonochromeBackground,
-  createVideoBackground
+  createVideoBackground,
+  createSpaceBackground
 } from "../backgroundModes.js";
 import { setRandSource } from "../util.js";
 
@@ -53,6 +54,12 @@ describe("backgroundModes", () => {
     const video = createVideoBackground({ src: "/video/bg.mp4" });
     expect(video.type).toBe("video");
     expect(video.src).toBe("/video/bg.mp4");
+  });
+
+  it("creates a space background", () => {
+    const space = createSpaceBackground({ width: 200, height: 100, rand: () => 0.5 });
+    expect(space.type).toBe("space");
+    expect(space.stars.length).toBeGreaterThan(0);
   });
 
   it("requires a video source", () => {
