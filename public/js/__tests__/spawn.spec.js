@@ -115,6 +115,22 @@ describe("spawnWall", () => {
     expect(game.pipes.some((pipe) => pipe.vy < 0)).toBe(true);
   });
 
+  it("skips pipes that fall below minimum length on horizontal walls", () => {
+    const game = makeGame();
+    setRandSource(() => 1);
+    spawnWall(game, { side: 0, gap: 400 });
+    expect(game.pipes).toHaveLength(1);
+    expect(game.pipes[0].h).toBeGreaterThan(10);
+  });
+
+  it("skips pipes that fall below minimum length on vertical walls", () => {
+    const game = makeGame();
+    setRandSource(() => 1);
+    spawnWall(game, { side: 2, gap: 400 });
+    expect(game.pipes).toHaveLength(1);
+    expect(game.pipes[0].w).toBeGreaterThan(10);
+  });
+
   it("skips gap bookkeeping when metadata storage is missing", () => {
     const game = makeGame();
     game._gapMeta = null;
@@ -130,6 +146,15 @@ describe("spawnBurst", () => {
     expect(game.pipes).toHaveLength(6); // lerp(5,8,0.5) floored
     const vxVals = game.pipes.map((p) => p.vx);
     expect(vxVals.every((v) => Math.abs(v) > 0)).toBe(true);
+  });
+
+  it("anchors single-burst timing when difficulty collapses to one pipe", () => {
+    const game = makeGame();
+    game._difficulty01 = () => -1.2;
+    setRandSource(() => 0);
+    spawnBurst(game);
+    expect(game.pipes).toHaveLength(1);
+    expect(game.pipes[0].vx).toBeGreaterThan(0);
   });
 });
 
