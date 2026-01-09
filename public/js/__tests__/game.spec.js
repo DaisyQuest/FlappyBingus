@@ -1700,15 +1700,15 @@ describe("Game loop", () => {
     game.W = 200;
     game.H = 100;
     game._initBackground();
-    const startOffset = game.background.mode.layerOffsets.far.y;
+    const startTime = game.background.mode.time;
 
     game.state = 2;
     game.update(1);
-    expect(game.background.mode.layerOffsets.far.y).toBe(startOffset);
+    expect(game.background.mode.time).toBe(startTime);
 
     game.state = 0;
     game.update(1);
-    expect(game.background.mode.layerOffsets.far.y).toBeGreaterThan(startOffset);
+    expect(game.background.mode.time).toBeGreaterThan(startTime);
   });
 
   it("skips background animation when simple background is enabled", () => {

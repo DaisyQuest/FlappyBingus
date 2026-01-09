@@ -4,7 +4,14 @@ const SPACE_BACKGROUND_COLOR = "#050a12";
 const MAX_STAR_ALPHA = 0.45;
 const MIN_STAR_ALPHA = 0.15;
 const TWINKLE_AMPLITUDE = 0.15;
-const PLAYER_SHIFT_MAX = 15;
+const STAR_DRIFT_MIN = 0.2;
+const STAR_DRIFT_MAX = 1.6;
+const STAR_DRIFT_SPEED_MIN = 0.18;
+const STAR_DRIFT_SPEED_MAX = 0.55;
+const NEBULA_DRIFT_MIN = 6;
+const NEBULA_DRIFT_MAX = 18;
+const NEBULA_DRIFT_SPEED_MIN = 0.08;
+const NEBULA_DRIFT_SPEED_MAX = 0.28;
 
 const LAYERS = [
   { key: "far", min: 0, max: 0.3, factor: 0.1, speed: 4 },
@@ -77,6 +84,7 @@ const buildStar = (w, h, z, rand, twinkleRate) => {
   const baseAlpha = clamp(MIN_STAR_ALPHA + randomRange(rand, 0, 0.3) + layer.factor * 0.05, MIN_STAR_ALPHA, MAX_STAR_ALPHA);
   const size = 0.6 + randomRange(rand, 0, 1.2) + layer.factor * 0.4;
   const twinkle = rand() < twinkleRate;
+  const driftScale = 0.6 + layer.factor;
   return {
     x: randomRange(rand, 0, w),
     y: randomRange(rand, 0, h),
@@ -86,17 +94,37 @@ const buildStar = (w, h, z, rand, twinkleRate) => {
     size,
     twinkle,
     twinklePhase: randomRange(rand, 0, Math.PI * 2),
-    twinkleSpeed: randomRange(rand, 0.8, 2.0)
+    twinkleSpeed: randomRange(rand, 0.8, 2.0),
+    driftX: randomRange(rand, STAR_DRIFT_MIN, STAR_DRIFT_MAX) * driftScale,
+    driftY: randomRange(rand, STAR_DRIFT_MIN, STAR_DRIFT_MAX) * driftScale,
+    driftSpeedX: randomRange(rand, STAR_DRIFT_SPEED_MIN, STAR_DRIFT_SPEED_MAX),
+    driftSpeedY: randomRange(rand, STAR_DRIFT_SPEED_MIN, STAR_DRIFT_SPEED_MAX),
+    driftPhaseX: randomRange(rand, 0, Math.PI * 2),
+    driftPhaseY: randomRange(rand, 0, Math.PI * 2)
   };
 };
 
 const buildNebulaWisp = (w, h, rand) => {
   const size = randomRange(rand, 30, 80);
+  const baseX = randomRange(rand, 0, w);
+  const baseY = randomRange(rand, 0, h);
+  const driftX = randomRange(rand, NEBULA_DRIFT_MIN, NEBULA_DRIFT_MAX);
+  const driftY = randomRange(rand, NEBULA_DRIFT_MIN, NEBULA_DRIFT_MAX);
+  const driftSpeedX = randomRange(rand, NEBULA_DRIFT_SPEED_MIN, NEBULA_DRIFT_SPEED_MAX);
+  const driftSpeedY = randomRange(rand, NEBULA_DRIFT_SPEED_MIN, NEBULA_DRIFT_SPEED_MAX);
+  const driftPhaseX = randomRange(rand, 0, Math.PI * 2);
+  const driftPhaseY = randomRange(rand, 0, Math.PI * 2);
   return {
-    x: randomRange(rand, 0, w),
-    y: randomRange(rand, 0, h),
-    vx: randomRange(rand, -4, 4),
-    vy: randomRange(rand, 2, 8),
+    x: baseX + Math.sin(driftPhaseX) * driftX,
+    y: baseY + Math.sin(driftPhaseY) * driftY,
+    baseX,
+    baseY,
+    driftX,
+    driftY,
+    driftSpeedX,
+    driftSpeedY,
+    driftPhaseX,
+    driftPhaseY,
     size,
     alpha: randomRange(rand, 0.02, 0.06),
     hue: randomRange(rand, 220, 280),
@@ -201,11 +229,16 @@ const drawTiledCanvas = (ctx, canvas, offsetX, offsetY, w, h) => {
   }
 };
 
-const computePlayerShift = (playerY, height, settings) => {
-  if (!Number.isFinite(playerY) || height <= 0) return 0;
-  if (settings.reduceMotion || settings.simpleBackground) return 0;
-  const ratio = clamp((playerY - height * 0.5) / (height * 0.5), -1, 1);
-  return ratio * PLAYER_SHIFT_MAX;
+const computePlayerShift = () => 0;
+
+const computeDriftOffset = (time, speed, phase, amplitude) => Math.sin(time * speed + phase) * amplitude;
+
+const getStarDrift = (star, time, settings) => {
+  if (settings.reduceMotion) return { x: 0, y: 0 };
+  return {
+    x: computeDriftOffset(time, star.driftSpeedX, star.driftPhaseX, star.driftX),
+    y: computeDriftOffset(time, star.driftSpeedY, star.driftPhaseY, star.driftY)
+  };
 };
 
 export function createSpaceBackground({ width, height, rand = getRandSource(), settings } = {}) {
@@ -267,31 +300,20 @@ export function updateSpaceBackground(state, { width, height, dt, rand = getRand
 
   if (state.settings.extremeLowDetail) return dirty;
 
-  if (delta > 0) {
-    state.time += delta;
-  }
-
   if (state.settings.reduceMotion) {
     return dirty;
   }
 
-  if (!state.settings.simpleBackground) {
-    for (const layer of Object.values(state.layers)) {
-      const offset = state.layerOffsets[layer.key];
-      const speedX = layer.speed * 0.2;
-      const speedY = layer.speed;
-      offset.x = wrapCoord(offset.x + speedX * delta, state.width);
-      offset.y = wrapCoord(offset.y + speedY * delta, state.height);
-      dirty = dirty || delta > 0;
-    }
+  if (delta > 0) {
+    state.time += delta;
   }
 
   if (!state.settings.reducedEffects) {
     for (const wisp of state.nebula) {
-      wisp.x += wisp.vx * delta;
-      wisp.y += wisp.vy * delta;
       wisp.life += delta;
-      if (wisp.life >= wisp.maxLife || wisp.x < -wisp.size || wisp.x > state.width + wisp.size || wisp.y > state.height + wisp.size) {
+      wisp.x = wisp.baseX + computeDriftOffset(state.time, wisp.driftSpeedX, wisp.driftPhaseX, wisp.driftX);
+      wisp.y = wisp.baseY + computeDriftOffset(state.time, wisp.driftSpeedY, wisp.driftPhaseY, wisp.driftY);
+      if (wisp.life >= wisp.maxLife) {
         Object.assign(wisp, buildNebulaWisp(state.width, state.height, rand));
       }
     }
@@ -324,19 +346,25 @@ export function renderSpaceBackground(ctx, state, { width, height } = {}) {
   if (state.settings.extremeLowDetail) return;
   const w = Math.max(1, width || state.width || 0);
   const h = Math.max(1, height || state.height || 0);
-  const playerShift = state.playerShift || 0;
+  const driftEnabled = !state.settings.reduceMotion;
 
   for (const layer of Object.values(state.layers)) {
     const offset = state.layerOffsets[layer.key];
-    const layerShift = playerShift * (layer.factor / 0.6);
-    if (layer.canvas) {
-      drawTiledCanvas(ctx, layer.canvas, offset.x, offset.y + layerShift, w, h);
+    if (layer.canvas && !driftEnabled) {
+      drawTiledCanvas(ctx, layer.canvas, offset.x, offset.y, w, h);
     } else {
       ctx.fillStyle = "#ffffff";
       for (const star of layer.staticStars) {
+        const drift = getStarDrift(star, state.time, state.settings);
         ctx.globalAlpha = star.baseAlpha;
         ctx.beginPath();
-        ctx.arc(wrapCoord(star.x + offset.x, w), wrapCoord(star.y + offset.y + layerShift, h), star.size, 0, Math.PI * 2);
+        ctx.arc(
+          wrapCoord(star.x + offset.x + drift.x, w),
+          wrapCoord(star.y + offset.y + drift.y, h),
+          star.size,
+          0,
+          Math.PI * 2
+        );
         ctx.fill();
       }
       ctx.globalAlpha = 1;
@@ -350,9 +378,16 @@ export function renderSpaceBackground(ctx, state, { width, height } = {}) {
           ? 1 + TWINKLE_AMPLITUDE * Math.sin(state.time * star.twinkleSpeed + star.twinklePhase)
           : 1;
         const alpha = clamp(star.baseAlpha * twinkle, MIN_STAR_ALPHA, MAX_STAR_ALPHA);
+        const drift = getStarDrift(star, state.time, state.settings);
         ctx.globalAlpha = alpha;
         ctx.beginPath();
-        ctx.arc(wrapCoord(star.x + offset.x, w), wrapCoord(star.y + offset.y + layerShift, h), star.size, 0, Math.PI * 2);
+        ctx.arc(
+          wrapCoord(star.x + offset.x + drift.x, w),
+          wrapCoord(star.y + offset.y + drift.y, h),
+          star.size,
+          0,
+          Math.PI * 2
+        );
         ctx.fill();
       }
       ctx.globalAlpha = 1;
@@ -360,25 +395,23 @@ export function renderSpaceBackground(ctx, state, { width, height } = {}) {
   }
 
   if (!state.settings.reducedEffects) {
-    const midShift = playerShift * (0.3 / 0.6);
     for (const wisp of state.nebula) {
-      const gradient = ctx.createRadialGradient(wisp.x, wisp.y + midShift, 0, wisp.x, wisp.y + midShift, wisp.size);
+      const gradient = ctx.createRadialGradient(wisp.x, wisp.y, 0, wisp.x, wisp.y, wisp.size);
       gradient.addColorStop(0, hsla(wisp.hue, 60, 60, wisp.alpha));
       gradient.addColorStop(1, hsla(wisp.hue, 60, 60, 0));
       ctx.fillStyle = gradient;
       ctx.beginPath();
-      ctx.arc(wisp.x, wisp.y + midShift, wisp.size, 0, Math.PI * 2);
+      ctx.arc(wisp.x, wisp.y, wisp.size, 0, Math.PI * 2);
       ctx.fill();
     }
 
-    const nearShift = playerShift;
     for (const burst of state.bursts) {
       const ageRatio = clamp(1 - burst.age / burst.maxAge, 0, 1);
       ctx.fillStyle = "#ffffff";
       for (const particle of burst.particles) {
         ctx.globalAlpha = clamp(0.18 * ageRatio, 0, 0.2);
         ctx.beginPath();
-        ctx.arc(burst.x + particle.x, burst.y + particle.y + nearShift, particle.size, 0, Math.PI * 2);
+        ctx.arc(burst.x + particle.x, burst.y + particle.y, particle.size, 0, Math.PI * 2);
         ctx.fill();
       }
       ctx.globalAlpha = 1;
@@ -397,6 +430,8 @@ export const __testables = {
   buildNebulaWisp,
   buildBurst,
   computePlayerShift,
+  computeDriftOffset,
+  getStarDrift,
   renderStaticStarCanvases,
   rebuildStarLayers
 };
