@@ -87,6 +87,99 @@ const makeInput = (moveRef = { dx: 0, dy: 0 }) => ({
   getMove: vi.fn(() => moveRef)
 });
 
+describe("warning scheduling", () => {
+  it("registers a wall warning with lead time and clears on spawn", () => {
+    const { game } = buildGame({ pipes: { warning: { leadSeconds: 1.0 } } });
+    game.startRun();
+    game.resizeToWindow();
+    game.pipeT = 0.5;
+    game.specialT = 10;
+
+    const seq = [0.05, 0.0, 0.5];
+    setRandSource(() => (seq.length ? seq.shift() : 0));
+
+    game.update(0.1);
+
+    expect(game.warnings).toHaveLength(1);
+    const warning = game.warnings[0];
+    expect(warning.type).toBe("wall");
+    expect(warning.side).toBe(0);
+    expect(warning.segments).toHaveLength(2);
+    expect(warning.spawnAt).toBeCloseTo(0.5, 5);
+    expect(game._pendingPipeSpawn).toBeTruthy();
+
+    game.update(0.5);
+
+    expect(game.warnings.some((warning) => warning.spawnAt <= game.timeAlive)).toBe(false);
+    expect(game.pipes.length).toBeGreaterThan(0);
+    expect(game._pendingPipeSpawn).toBeTruthy();
+  });
+
+  it("registers a single pipe warning and expires it on spawn", () => {
+    const { game } = buildGame({
+      pipes: {
+        warning: { leadSeconds: 1.0 },
+        patternWeights: { wall: [0, 0], aimed: [0, 0] }
+      }
+    });
+    game.startRun();
+    game.resizeToWindow();
+    game.pipeT = 0.3;
+    game.specialT = 10;
+
+    const seq = [0.9, 0.25, 0.5, 0.5, 0.5];
+    setRandSource(() => (seq.length ? seq.shift() : 0.5));
+
+    game.update(0.1);
+
+    expect(game.warnings).toHaveLength(1);
+    const warning = game.warnings[0];
+    expect(warning.type).toBe("pipe");
+    expect(warning.side).toBe(1);
+    expect(warning.segments).toHaveLength(1);
+    expect(warning.segments[0].start).toBeGreaterThanOrEqual(0);
+    expect(warning.segments[0].end).toBeLessThanOrEqual(game.H);
+
+    game.update(0.3);
+
+    expect(game.warnings.some((warning) => warning.spawnAt <= game.timeAlive)).toBe(false);
+    expect(game.pipes.length).toBeGreaterThan(0);
+  });
+
+  it("registers multiple warnings for burst specials", () => {
+    const { game } = buildGame({ pipes: { warning: { leadSeconds: 1.0 } } });
+    game.startRun();
+    game.resizeToWindow();
+    game.pipeT = 10;
+    game.specialT = 0.4;
+    game._difficulty01 = () => 0.5;
+
+    setRandSource(() => 0);
+
+    game.update(0.1);
+
+    expect(game.warnings).toHaveLength(6);
+    expect(game.warnings.every((warning) => warning.type === "pipe")).toBe(true);
+  });
+
+  it("registers multiple warnings for crossfire specials", () => {
+    const { game } = buildGame({ pipes: { warning: { leadSeconds: 1.0 } } });
+    game.startRun();
+    game.resizeToWindow();
+    game.pipeT = 10;
+    game.specialT = 0.4;
+    game._difficulty01 = () => 0.5;
+
+    const seq = [0.6];
+    setRandSource(() => (seq.length ? seq.shift() : 0));
+
+    game.update(0.1);
+
+    expect(game.warnings).toHaveLength(4);
+    expect(game.warnings.map((warning) => warning.side).sort()).toEqual([0, 1, 2, 3]);
+  });
+});
+
 const makeCanvas = (ctx) => ({ style: {}, width: 0, height: 0, getContext: vi.fn(() => ctx) });
 
 const buildGameWith = (GameClass, configOverrides = {}, moveRef = { dx: 0, dy: 0 }) => {
@@ -1683,10 +1776,11 @@ describe("Game loop", () => {
     game.parts.push(...Array.from({ length: 1101 }, () => ({ life: 1, update: vi.fn() })));
     game.floats.push(...Array.from({ length: 81 }, () => ({ life: 1, update: vi.fn() })));
 
-    const spawnWallSpy = vi.spyOn(pipeSpawner, "spawnWall");
+    const spawnWallSpy = vi.spyOn(pipeSpawner, "spawnWallFromPlan");
+    const spawnSingleSpy = vi.spyOn(pipeSpawner, "spawnSinglePipeFromPlan");
     game.update(0.6);
 
-    expect(spawnWallSpy).toHaveBeenCalled();
+    expect(spawnWallSpy.mock.calls.length + spawnSingleSpy.mock.calls.length).toBeGreaterThan(0);
     expect(game.comboSparkAcc).toBeLessThan(1);
     expect(game.score).toBeGreaterThan(0);
     expect(game.floats.some((f) => f.txt === "+7")).toBe(true);
