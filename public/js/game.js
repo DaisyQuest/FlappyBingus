@@ -3,7 +3,7 @@
 // =====================
 import {
   clamp, lerp, rand, norm2, approach, getRandSource,
-  circleRect, circleRectInfo, circleCircle,
+  circleRectInfo, circleCircle,
   hexToRgb, lerpC, rgb, shade, hsla, formatRunDuration
 } from "./util.js";
 import { ACTIONS, humanizeBind } from "./keybinds.js";
@@ -35,7 +35,7 @@ import { Orb, Part, FloatText, setEntityRandSource } from "./entities.js";
 import { Pipe, Gate } from "./pipes/pipeEntity.js";
 import { spawnBurst, spawnCrossfire, spawnSinglePipe, spawnWall } from "./pipes/pipeSpawner.js";
 import { spawnOrb } from "./orbs/orbSpawner.js";
-import { dashBounceMax, orbPoints, tickCooldowns } from "./mechanics.js";
+import { orbPoints, tickCooldowns } from "./mechanics.js";
 import { buildScorePopupStyle, buildComboAuraStyle, COMBO_AURA_THRESHOLDS } from "./uiStyles.js";
 import { computePipeColor } from "./pipeColors.js";
 import { drawPipe } from "./pipes/pipeRendering.js";
@@ -52,11 +52,27 @@ import {
   updateBackgroundDots
 } from "./backgroundLayer.js";
 import { buildRunStats } from "./gameStats.js";
+import {
+  activeDashConfig,
+  applyDashReflect,
+  dashBounceMaxFor,
+  startDashMotion,
+  updatePlayer,
+  useDashDestroy,
+  useDashRicochet,
+  useSlowExplosion,
+  useSlowField
+} from "./playerController.js";
+import {
+  applyDashDestroy,
+  dashImpactSlowdown,
+  destroyPipesInRadius,
+  handlePipeCollision,
+  pipeOverlapsCircle,
+  shatterPipe
+} from "./collisionSystem.js";
+import { emitTrail, updateComboSparkles, updateEffects } from "./effectsManager.js";
 
-const TRAIL_LIFE_SCALE = 1.45;
-const TRAIL_DISTANCE_SCALE = 1.18;
-const TRAIL_JITTER_SCALE = 0.55;
-const TRAIL_AURA_RATE = 0.42;
 const COMBO_WINDOW_BASE = 10;
 const COMBO_WINDOW_MIN = 5;
 const COMBO_WINDOW_DECAY = 5 / 39;
@@ -643,8 +659,7 @@ export class Game {
   }
 
   _activeDashConfig() {
-    if (this.skillSettings?.dashBehavior === "destroy") return this.cfg.skills.dashDestroy || this.cfg.skills.dash;
-    return this.cfg.skills.dash;
+    return activeDashConfig(this);
   }
 
   _activeSlowConfig() {
@@ -674,7 +689,7 @@ export class Game {
   }
 
   _dashBounceMax() {
-    return dashBounceMax(this._activeDashConfig());
+    return dashBounceMaxFor(this);
   }
 
   _dashBounceSfx(speed = 0) {
@@ -721,177 +736,31 @@ export class Game {
   }
 
   _applyDashReflect(hit) {
-    const p = this.player;
-    const nx = hit?.nx || 0, ny = hit?.ny || 0;
-    const dashCfg = this._activeDashConfig();
-    const keep = clamp(Number(dashCfg?.bounceRetain) || 0.86, 0, 1);
-    const baseSpeed = Math.max(Math.hypot(p.vx, p.vy), Number(dashCfg?.speed) || 0);
-    const dot = p.vx * nx + p.vy * ny;
-    let rx = p.vx - 2 * dot * nx;
-    let ry = p.vy - 2 * dot * ny;
-
-    const n = norm2(rx, ry);
-    let dirX = n.x, dirY = n.y;
-    if (n.len <= 1e-5) {
-      const fallback = norm2((nx !== 0 || ny !== 0) ? -nx : p.dashVX, (nx !== 0 || ny !== 0) ? -ny : p.dashVY);
-      dirX = fallback.x; dirY = fallback.y;
-    }
-
-    const speed = baseSpeed * keep;
-    p.vx = dirX * speed;
-    p.vy = dirY * speed;
-    p.dashVX = dirX;
-    p.dashVY = dirY;
-    p.dashBounces = (p.dashBounces | 0) + 1;
-    p.dashImpactFlash = Math.max(p.dashImpactFlash, 0.16);
-
-    const push = (hit?.penetration || 0) + 0.6;
-    p.x += (nx || 0) * push;
-    p.y += (ny || 0) * push;
-
-    const pad = p.r + 2;
-    p.x = clamp(p.x, pad, this.W - pad);
-    p.y = clamp(p.y, pad, this.H - pad);
-
-    this.lastDashReflect = {
-      t: this.timeAlive,
-      x: (hit?.contactX != null) ? hit.contactX : p.x,
-      y: (hit?.contactY != null) ? hit.contactY : p.y,
-      count: p.dashBounces,
-      serial: (this.lastDashReflect?.serial || 0) + 1
-    };
-
-    this._dashBounceSfx(speed);
-    this._spawnDashReflectFx(
-      (hit?.contactX != null) ? hit.contactX : p.x,
-      (hit?.contactY != null) ? hit.contactY : p.y,
-      nx, ny,
-      speed / Math.max(1, Number(dashCfg?.speed) || 1)
-    );
+    applyDashReflect(this, hit);
   }
 
   _shatterPipe(pipe, { hit, particles = 30, cause = "dashDestroy" } = {}) {
-    if (!pipe) return false;
-    const idx = this.pipes.indexOf(pipe);
-    if (idx >= 0) this.pipes.splice(idx, 1);
-    if (idx < 0) return false;
-    this._onGapPipeRemovedWithFlags(pipe, { broken: true });
-    this._recordBrokenPipe(1);
-
-    const cx = (hit?.contactX != null) ? hit.contactX : (pipe.cx ? pipe.cx() : pipe.x + pipe.w * 0.5);
-    const cy = (hit?.contactY != null) ? hit.contactY : (pipe.cy ? pipe.cy() : pipe.y + pipe.h * 0.5);
-    const nx = hit?.nx || 0, ny = hit?.ny || 0;
-
-    const vrand = (a, b) => this._visualRand(a, b);
-    const burst = this._scaleParticles(particles);
-    for (let i = 0; i < burst; i++) {
-      const spread = vrand(-0.7, 0.7);
-      const baseDir = Math.atan2(ny || 0, nx || 0);
-      const dir = (nx || ny) ? baseDir + spread : vrand(0, Math.PI * 2);
-      const sp = vrand(160, 420);
-      const prt = new Part(
-        cx, cy,
-        Math.cos(dir) * sp,
-        Math.sin(dir) * sp,
-        vrand(0.20, 0.42),
-        vrand(1.2, 2.8),
-        cause === "slowExplosion" ? "rgba(255,230,180,.85)" : "rgba(255,210,160,.90)",
-        true
-      );
-      prt.drag = 10.5;
-      prt.twinkle = true;
-      this.parts.push(prt);
-    }
-
-    this.lastPipeShatter = { t: this.timeAlive, x: cx, y: cy, cause };
-    return true;
+    return shatterPipe(this, pipe, { hit, particles, cause });
   }
 
   _applyDashDestroy(hit, dashCfg) {
-    const p = this.player;
-    this._dashDestroySfx();
-    this._shatterPipe(hit?.pipe, { hit, particles: Math.max(10, Number(dashCfg?.shatterParticles) || 30), cause: "dashDestroy" });
-    this._dashImpactSlowdown(hit);
-    p.dashDestroyed = true;
-    p.dashMode = null;
-    p.dashT = 0;
-    p.dashBounces = 0;
-    p.dashImpactFlash = Math.max(p.dashImpactFlash, 0.22);
-    const iFrames = Math.max(0, Number(dashCfg?.impactIFrames) || 0);
-    if (iFrames > 0) p.invT = Math.max(p.invT, iFrames);
-    return "destroyed";
+    return applyDashDestroy(this, hit, dashCfg);
   }
 
   _dashImpactSlowdown(hit) {
-    const p = this.player;
-    let nx = hit?.nx || 0, ny = hit?.ny || 0;
-    const pipeVX = hit?.pipe?.vx || 0;
-    const pipeVY = hit?.pipe?.vy || 0;
-
-    if (Math.abs(nx) < 1e-5 && Math.abs(ny) < 1e-5) {
-      const fallback = norm2(p.dashVX || p.vx, p.dashVY || p.vy);
-      nx = fallback.x; ny = fallback.y;
-    }
-
-    const relVx = p.vx - pipeVX;
-    const relVy = p.vy - pipeVY;
-    const relNormal = relVx * nx + relVy * ny;
-    const tangentialX = relVx - relNormal * nx;
-    const tangentialY = relVy - relNormal * ny;
-
-    const playerSpeed = Math.max(1e-3, Math.hypot(p.vx, p.vy));
-    const closing = Math.max(0, -relNormal);
-    const impactScale = clamp(closing / playerSpeed, 0, 1);
-    const damp = clamp(0.12 + impactScale * 0.45, 0, 0.65);
-
-    const newRelNormal = relNormal * (1 - damp);
-    const newVx = pipeVX + tangentialX + newRelNormal * nx;
-    const newVy = pipeVY + tangentialY + newRelNormal * ny;
-
-    p.vx = newVx;
-    p.vy = newVy;
-    const dir = norm2(newVx, newVy);
-    if (dir.len > 1e-5) {
-      p.dashVX = dir.x;
-      p.dashVY = dir.y;
-    }
+    dashImpactSlowdown(this, hit);
   }
 
   _pipeOverlapsCircle(pipe, { x, y, r }) {
-    if (!pipe || r <= 0) return false;
-    return circleRect(x, y, r, pipe.x, pipe.y, pipe.w, pipe.h);
+    return pipeOverlapsCircle(pipe, { x, y, r });
   }
 
   _destroyPipesInRadius({ x, y, r, cause = "slowExplosion" }) {
-    let brokenCount = 0;
-    for (let i = this.pipes.length - 1; i >= 0; i--) {
-      const pipe = this.pipes[i];
-      if (this._pipeOverlapsCircle(pipe, { x, y, r })) {
-        if (this._shatterPipe(pipe, { particles: 24, cause })) brokenCount += 1;
-      }
-    }
-    this._recordBrokenExplosion(brokenCount);
+    destroyPipesInRadius(this, { x, y, r, cause });
   }
 
   _handlePipeCollision(hit, bounceCap, dashCfg) {
-    if (this.player.dashT > 0) {
-      if (this.player.dashMode === "destroy" && !this.player.dashDestroyed) {
-        return this._applyDashDestroy(hit, dashCfg);
-      }
-      if (this.player.dashBounces < bounceCap) {
-        this._applyDashReflect(hit);
-        return "reflected";
-      }
-      this._gameOverSfx();
-      this.state = STATE.OVER; // exceeded reflect cap -> normal collision
-      this.onGameOver(this.score | 0);
-      return "over";
-    }
-
-    this._gameOverSfx();
-    this.state = STATE.OVER; // freeze
-    this.onGameOver(this.score | 0);
-    return "over";
+    return handlePipeCollision(this, hit, bounceCap, dashCfg, STATE);
   }
 
   _cooldownColor(rem, max) {
@@ -1064,178 +933,27 @@ export class Game {
   }
 
   _startDashMotion(d) {
-    const p = this.player;
-    const dur = clamp(Number(d.duration) || 0, 0, 1.2);
-    const mv = this.input.getMove();
-    const n = norm2(mv.dx, mv.dy);
-    const dx = (n.len > 0) ? n.x : p.lastX;
-    const dy = (n.len > 0) ? n.y : p.lastY;
-    const nn = norm2(dx, dy);
-
-    p.dashVX = (nn.len > 0) ? nn.x : 0;
-    p.dashVY = (nn.len > 0) ? nn.y : -1;
-    p.dashT = dur;
-    p.dashBounces = 0;
-    p.dashImpactFlash = 0;
-    p.dashDestroyed = false;
-
-    return { dur };
+    return startDashMotion(this, d);
   }
 
   _useDashRicochet(d) {
-    this._startDashMotion(d);
-    const p = this.player;
-    p.dashMode = "ricochet";
-    this.cds.dash = Math.max(0, Number(d.cooldown) || 0);
-    this._dashStartSfx();
-
-    const vrand = (a, b) => this._visualRand(a, b);
-    const burst = this._scaleParticles(18);
-    for (let i = 0; i < burst; i++) {
-      const a = vrand(0, Math.PI * 2), sp = vrand(40, 260);
-      const vx = Math.cos(a) * sp - p.dashVX * 220;
-      const vy = Math.sin(a) * sp - p.dashVY * 220;
-      const prt = new Part(p.x, p.y, vx, vy, vrand(0.18, 0.34), vrand(1.0, 2.2), "rgba(255,255,255,.80)", true);
-      prt.drag = 9.5;
-      this.parts.push(prt);
-    }
+    useDashRicochet(this, d);
   }
 
   _useDashDestroy(d) {
-    this._startDashMotion(d);
-    const p = this.player;
-    p.dashMode = "destroy";
-    this.cds.dash = Math.max(0, Number(d.cooldown) || 0);
-    this._dashStartSfx();
-
-    const vrand = (a, b) => this._visualRand(a, b);
-    const burst = this._scaleParticles(26);
-    for (let i = 0; i < burst; i++) {
-      const a = vrand(0, Math.PI * 2), sp = vrand(60, 320);
-      const vx = Math.cos(a) * sp - p.dashVX * 180;
-      const vy = Math.sin(a) * sp - p.dashVY * 180;
-      const prt = new Part(p.x, p.y, vx, vy, vrand(0.16, 0.36), vrand(1.1, 2.4), "rgba(255,220,180,.85)", true);
-      prt.drag = 11;
-      this.parts.push(prt);
-    }
+    useDashDestroy(this, d);
   }
 
   _useSlowField(s) {
-    const p = this.player;
-    const dur = clamp(Number(s.duration) || 0, 0, 8.0);
-    const rad = clamp(Number(s.radius) || 0, 40, 900);
-    const fac = clamp(Number(s.slowFactor) || 0.6, 0.10, 1.0);
-
-    this.slowField = { x: p.x, y: p.y, r: rad, fac, t: dur, tm: dur };
-    this.slowExplosion = null;
-    this.cds.slowField = Math.max(0, Number(s.cooldown) || 0);
-    this._slowFieldSfx();
-    this.floats.push(new FloatText("SLOW FIELD", p.x, p.y - p.r * 1.8, "rgba(120,210,255,.95)"));
+    useSlowField(this, s);
   }
 
   _useSlowExplosion(s) {
-    const p = this.player;
-    const dur = clamp(Number(s.duration) || 0.12, 0, 1.2);
-    const rad = clamp(Number(s.radius) || 0, 20, 900);
-    const blastParticles = this._scaleParticles(Math.max(0, Number(s.blastParticles) || 0));
-
-    this.slowField = null;
-    this.slowExplosion = { x: p.x, y: p.y, r: rad, t: dur, tm: dur };
-    this.cds.slowField = Math.max(0, Number(s.cooldown) || 0);
-    this._slowExplosionSfx();
-    this.floats.push(new FloatText("Explode", p.x, p.y - p.r * 1.8, "rgba(255,210,150,.95)"));
-
-    const shards = [];
-    const vrand = (a, b) => this._visualRand(a, b);
-    for (let i = 0; i < blastParticles; i++) {
-      const a = vrand(0, Math.PI * 2);
-      const sp = vrand(160, 440);
-      const prt = new Part(
-        p.x, p.y,
-        Math.cos(a) * sp,
-        Math.sin(a) * sp,
-        vrand(0.22, 0.45),
-        vrand(1.1, 2.6),
-        "rgba(255,230,180,.85)",
-        true
-      );
-      prt.drag = 10.8;
-      prt.twinkle = true;
-      this.parts.push(prt);
-      shards.push(prt);
-    }
-
-    this._destroyPipesInRadius({ x: p.x, y: p.y, r: rad, cause: "slowExplosion" });
-    this.lastSlowBlast = { t: this.timeAlive, x: p.x, y: p.y, shards };
+    useSlowExplosion(this, s);
   }
 
   _updatePlayer(dt) {
-    const p = this.player;
-    p.renderPrevX = p.x;
-    p.renderPrevY = p.y;
-
-    if (p.invT > 0) p.invT = Math.max(0, p.invT - dt);
-    if (p.dashT > 0) p.dashT = Math.max(0, p.dashT - dt);
-    if (p.dashT <= 0 && p.dashMode) p.dashMode = null;
-    if (p.dashImpactFlash > 0) p.dashImpactFlash = Math.max(0, p.dashImpactFlash - dt);
-
-    const mv = this.input.getMove();
-    const n = norm2(mv.dx, mv.dy);
-    if (n.len > 0) { p.lastX = n.x; p.lastY = n.y; }
-
-    if (p.dashT > 0) {
-      const dashCfg = this._activeDashConfig();
-      const dashSpeed = Math.max(0, Number(dashCfg?.speed) || 0);
-      p.vx = p.dashVX * dashSpeed;
-      p.vy = p.dashVY * dashSpeed;
-    } else {
-      const maxS = Number(this.cfg.player.maxSpeed) || 0;
-      const accel = Number(this.cfg.player.accel) || 0;
-      const fr = Number(this.cfg.player.friction) || 0;
-
-      const tvx = n.x * maxS, tvy = n.y * maxS;
-      p.vx = approach(p.vx, tvx, accel * dt);
-      p.vy = approach(p.vy, tvy, accel * dt);
-
-      if (n.len === 0) {
-        const damp = Math.exp(-fr * dt);
-        p.vx *= damp; p.vy *= damp;
-      }
-    }
-
-    const pad = p.r + 2;
-
-    p.x += p.vx * dt;
-    p.y += p.vy * dt;
-
-    let wallBounce = null;
-    let wallContact = null;
-    const bounceCap = this._dashBounceMax();
-    if (p.dashT > 0 && p.invT <= 0) {
-      const candidate =
-        (p.x < pad) ? { nx: 1, ny: 0, contactX: pad, contactY: p.y, penetration: pad - p.x }
-          : (p.x > this.W - pad) ? { nx: -1, ny: 0, contactX: this.W - pad, contactY: p.y, penetration: p.x - (this.W - pad) }
-            : (p.y < pad) ? { nx: 0, ny: 1, contactX: p.x, contactY: pad, penetration: pad - p.y }
-              : (p.y > this.H - pad) ? { nx: 0, ny: -1, contactX: p.x, contactY: this.H - pad, penetration: p.y - (this.H - pad) }
-                : null;
-      if (candidate) {
-        wallContact = candidate;
-        if (p.dashBounces < bounceCap) wallBounce = candidate;
-      }
-    }
-
-    p.x = clamp(p.x, pad, this.W - pad);
-    p.y = clamp(p.y, pad, this.H - pad);
-
-    if (wallBounce) this._applyDashReflect(wallBounce);
-    else if (wallContact && Number.isFinite(bounceCap)) {
-      this._dashBreakSfx();
-      p.dashMode = null;
-      p.dashT = 0;
-      p.dashBounces = bounceCap;
-      p.vx = 0;
-      p.vy = 0;
-    }
+    updatePlayer(this, dt);
   }
 
   _trailStyle(id) {
@@ -1243,270 +961,15 @@ export class Game {
   }
 
   _emitTrail(dt) {
-    const id = this.getTrailId();
-    const st = this._trailStyle(id);
-    const vrand = (a, b) => this._visualRand(a, b);
-    const glint = st.glint || {};
-    const sparkle = st.sparkle || {};
-    const aura = st.aura || {};
-    const extras = Array.isArray(st.extras) ? st.extras : [];
-    const particleScale = this._particleScale();
-    const reducedEffects = Boolean(this.skillSettings?.reducedEffects);
+    emitTrail(this, dt);
+  }
 
-    const baseLifeScale = st.lifeScale ?? TRAIL_LIFE_SCALE;
-    const distanceScale = st.distanceScale ?? TRAIL_DISTANCE_SCALE;
-    const auraRate = reducedEffects ? 0 : (aura.rate ?? st.rate * TRAIL_AURA_RATE);
-    const auraLifeScale = aura.lifeScale ?? baseLifeScale;
-    const auraDistanceScale = aura.distanceScale ?? distanceScale;
-    const auraSizeScale = aura.sizeScale ?? 1.08;
-    const jitterScale = st.jitterScale ?? TRAIL_JITTER_SCALE;
-    const applyShape = (prt, shape, sliceStyle, hexStyle) => {
-      if (!shape) return;
-      prt.shape = shape;
-      if (shape === "lemon_slice") prt.slice = sliceStyle || null;
-      if (shape === "hexagon") {
-        prt.strokeColor = hexStyle?.stroke ?? prt.color;
-        prt.fillColor = hexStyle?.fill ?? prt.color;
-        prt.lineWidth = hexStyle?.lineWidth ?? prt.lineWidth;
-      }
-      prt.rotation = shape === "pixel" ? 0 : vrand(0, Math.PI * 2);
-    };
-    const ensureExtraAcc = () => {
-      if (this.trailExtraAcc.length !== extras.length) {
-        this.trailExtraAcc = extras.map(() => 0);
-      }
-    };
-    const resolveRange = (group, key, fallback) => {
-      const range = group?.[key];
-      return Array.isArray(range) && range.length === 2 ? range : fallback;
-    };
-    const emitTrailGroup = (count, group = {}) => {
-      const groupBanding = group.banding ?? banding;
-      const groupBandCount = groupBanding?.count ?? 0;
-      const groupBandSpread = groupBanding ? p.r * (groupBanding.spreadScale ?? 0.9) : 0;
-      const groupBandJitter = groupBanding ? p.r * (groupBanding.jitterScale ?? 0.08) : 0;
-      const groupJitterScale = group.jitterScale ?? jitterScale;
-      const groupSpeed = resolveRange(group, "speed", st.speed);
-      const groupLife = resolveRange(group, "life", st.life);
-      const groupSize = resolveRange(group, "size", st.size);
-      const groupLifeScale = group.lifeScale ?? baseLifeScale;
-      const groupDistanceScale = group.distanceScale ?? distanceScale;
-      const groupSizeScale = group.sizeScale ?? 1.08;
-      const groupColor = group.color || st.color;
-      const groupAdd = group.add ?? st.add;
-      const groupDrag = group.drag ?? st.drag;
-      const groupShape = group.particleShape ?? st.particleShape;
-      const groupSlice = group.sliceStyle ?? st.sliceStyle;
-      const groupHex = group.hexStyle ?? st.hexStyle;
-      const groupPerpX = -backY;
-      const groupPerpY = backX;
+  _updateComboSparkles(dt) {
+    updateComboSparkles(this, dt);
+  }
 
-      for (let i = 0; i < count; i++) {
-        let jx = 0;
-        let jy = 0;
-        let bandIndex = i;
-        if (groupBanding && groupBandCount > 0) {
-          bandIndex = i % groupBandCount;
-          const t = groupBandCount > 1 ? bandIndex / (groupBandCount - 1) : 0.5;
-          const offset = (t - 0.5) * 2 * groupBandSpread;
-          const wobble = vrand(-groupBandJitter, groupBandJitter);
-          jx = groupPerpX * (offset + wobble);
-          jy = groupPerpY * (offset + wobble);
-        } else {
-          const jitter = vrand(0, Math.PI * 2);
-          jx = Math.cos(jitter) * vrand(0, p.r * groupJitterScale);
-          jy = Math.sin(jitter) * vrand(0, p.r * groupJitterScale);
-        }
-
-        const sp = vrand(groupSpeed[0], groupSpeed[1]) * groupDistanceScale;
-        const ang = vrand(0, Math.PI * 2);
-        const vx = backX * sp + Math.cos(ang) * sp * 0.55;
-        const vy = backY * sp + Math.sin(ang) * sp * 0.55;
-
-        const life = vrand(groupLife[0], groupLife[1]) * groupLifeScale;
-        const size = vrand(groupSize[0], groupSize[1]) * groupSizeScale;
-
-        const colorIndex = groupBanding ? bandIndex : i;
-        const color = groupColor ? groupColor({ i: colorIndex, hue: this.trailHue, rand: vrand }) : "rgba(140,220,255,.62)";
-
-        const prt = new Part(bx + jx, by + jy, vx, vy, life, size, color, groupAdd);
-        applyShape(prt, groupShape, groupSlice, groupHex);
-        prt.drag = groupDrag;
-        this.parts.push(prt);
-      }
-    };
-    const emitAuraGroup = (count, group = {}) => {
-      const groupOrbit = resolveRange(group, "orbit", aura.orbit ?? [p.r * 0.65, p.r * 1.65]);
-      const groupSpeed = resolveRange(group, "speed", aura.speed ?? [st.speed[0] * 0.65, st.speed[1] * 1.1]);
-      const groupLife = resolveRange(group, "life", aura.life ?? [st.life[0] * 0.9, st.life[1] * 1.15]);
-      const groupSize = resolveRange(group, "size", aura.size ?? [st.size[0] * 0.9, st.size[1] * 1.25]);
-      const groupLifeScale = group.lifeScale ?? auraLifeScale;
-      const groupDistanceScale = group.distanceScale ?? auraDistanceScale;
-      const groupSizeScale = group.sizeScale ?? auraSizeScale;
-      const groupColor = group.color || aura.color || st.color;
-      const groupAdd = group.add ?? aura.add ?? st.add;
-      const groupDrag = group.drag ?? aura.drag ?? st.drag ?? 10.5;
-      const groupShape = group.particleShape ?? aura.particleShape;
-      const groupHex = group.hexStyle ?? aura.hexStyle;
-      const groupTwinkle = group.twinkle ?? aura.twinkle ?? true;
-
-      for (let i = 0; i < count; i++) {
-        const ang = vrand(0, Math.PI * 2);
-        const wobble = vrand(-0.35, 0.35);
-        const orbit = vrand(groupOrbit[0], groupOrbit[1]);
-        const px = p.x + Math.cos(ang) * orbit;
-        const py = p.y + Math.sin(ang) * orbit;
-
-        const sp = vrand(groupSpeed[0], groupSpeed[1]) * groupDistanceScale;
-        const vx = Math.cos(ang + wobble) * sp;
-        const vy = Math.sin(ang + wobble) * sp;
-
-        const life = vrand(groupLife[0], groupLife[1]) * groupLifeScale;
-        const size = vrand(groupSize[0], groupSize[1]) * groupSizeScale;
-        const color = groupColor
-          ? groupColor({ i, hue: this.trailHue, rand: vrand })
-          : "rgba(140,220,255,.62)";
-
-        const prt = new Part(px, py, vx, vy, life, size, color, groupAdd);
-        prt.drag = groupDrag;
-        prt.twinkle = groupTwinkle;
-        applyShape(prt, groupShape, null, groupHex);
-        this.parts.push(prt);
-      }
-    };
-    const emitGlintGroup = (count, group = {}) => {
-      const groupSpeed = resolveRange(group, "speed", glint.speed ?? [55, 155]);
-      const groupLife = resolveRange(group, "life", glint.life ?? [0.18, 0.32]);
-      const groupSize = resolveRange(group, "size", glint.size ?? [1.2, 3.0]);
-      const groupLifeScale = group.lifeScale ?? baseLifeScale;
-      const groupDistanceScale = group.distanceScale ?? distanceScale;
-      const groupColor = group.color || glint.color || st.color;
-      const groupAdd = group.add ?? (glint.add !== false);
-      const groupDrag = group.drag ?? glint.drag ?? st.drag ?? 11.2;
-      const groupShape = group.particleShape ?? glint.particleShape;
-      const groupHex = group.hexStyle ?? glint.hexStyle;
-
-      for (let i = 0; i < count; i++) {
-        const spin = vrand(-0.9, 0.9);
-        const off = vrand(p.r * 0.12, p.r * 0.58);
-        const px = bx + Math.cos(backA + Math.PI + spin) * off;
-        const py = by + Math.sin(backA + Math.PI + spin) * off;
-
-        const sp = vrand(groupSpeed[0], groupSpeed[1]) * groupDistanceScale;
-        const vx = backX * sp * 0.42 + Math.cos(backA + Math.PI + spin) * sp * 0.58;
-        const vy = backY * sp * 0.42 + Math.sin(backA + Math.PI + spin) * sp * 0.58;
-
-        const life = vrand(groupLife[0], groupLife[1]) * groupLifeScale;
-        const size = vrand(groupSize[0], groupSize[1]);
-        const color = groupColor
-          ? groupColor({ i, hue: this.trailHue, rand: vrand })
-          : "rgba(255,255,255,.9)";
-
-        const prt = new Part(px, py, vx, vy, life, size, color, groupAdd);
-        prt.drag = groupDrag;
-        prt.twinkle = true;
-        applyShape(prt, groupShape, null, groupHex);
-        this.parts.push(prt);
-      }
-    };
-    const emitSparkleGroup = (count, group = {}) => {
-      const groupOrbit = resolveRange(group, "orbit", [p.r * 0.45, p.r * 1.05]);
-      const groupSpeed = resolveRange(group, "speed", sparkle.speed ?? [20, 55]);
-      const groupLife = resolveRange(group, "life", sparkle.life ?? [0.28, 0.46]);
-      const groupSize = resolveRange(group, "size", sparkle.size ?? [1.0, 2.4]);
-      const groupLifeScale = group.lifeScale ?? baseLifeScale;
-      const groupDistanceScale = group.distanceScale ?? distanceScale;
-      const groupSizeScale = group.sizeScale ?? 1.1;
-      const groupColor = group.color || sparkle.color || st.color;
-      const groupAdd = group.add ?? (sparkle.add !== false);
-      const groupDrag = group.drag ?? sparkle.drag ?? 12.5;
-      const groupShape = group.particleShape ?? sparkle.particleShape;
-      const groupHex = group.hexStyle ?? sparkle.hexStyle;
-      const groupTwinkle = group.twinkle ?? true;
-
-      for (let i = 0; i < count; i++) {
-        const ang = vrand(0, Math.PI * 2);
-        const orbit = vrand(groupOrbit[0], groupOrbit[1]);
-        const px = p.x + Math.cos(ang) * orbit;
-        const py = p.y + Math.sin(ang) * orbit;
-
-        const sp = vrand(groupSpeed[0], groupSpeed[1]) * groupDistanceScale;
-        const wobble = vrand(-0.55, 0.55);
-        const vx = Math.cos(ang + wobble) * sp * 0.65;
-        const vy = Math.sin(ang + wobble) * sp * 0.65;
-
-        const life = vrand(groupLife[0], groupLife[1]) * groupLifeScale;
-        const size = vrand(groupSize[0], groupSize[1]) * groupSizeScale;
-        const color = groupColor
-          ? groupColor({ i, hue: this.trailHue, rand: vrand })
-          : "rgba(255,255,255,.88)";
-
-        const prt = new Part(px, py, vx, vy, life, size, color, groupAdd);
-        prt.drag = groupDrag;
-        prt.twinkle = groupTwinkle;
-        applyShape(prt, groupShape, null, groupHex);
-        this.parts.push(prt);
-      }
-    };
-
-    this.trailHue = (this.trailHue + dt * (st.hueRate || 220)) % 360;
-    this.trailAcc += dt * st.rate * particleScale;
-    const glintRate = reducedEffects ? 0 : (glint.rate ?? st.rate * 0.55);
-    const sparkleRate = reducedEffects ? 0 : (sparkle.rate ?? 34);
-    this.trailGlintAcc += dt * glintRate * particleScale;
-    this.trailSparkAcc += dt * sparkleRate * particleScale;
-    this.trailAuraAcc += dt * auraRate * particleScale;
-
-    const n = this.trailAcc | 0;
-    this.trailAcc -= n;
-    const g = this.trailGlintAcc | 0;
-    this.trailGlintAcc -= g;
-    const s = this.trailSparkAcc | 0;
-    this.trailSparkAcc -= s;
-    const a = this.trailAuraAcc | 0;
-    this.trailAuraAcc -= a;
-
-    const p = this.player;
-
-    const v = norm2(p.vx, p.vy);
-    const backX = (v.len > 12) ? -v.x : -p.lastX;
-    const backY = (v.len > 12) ? -v.y : -p.lastY;
-    const bx = p.x + backX * p.r * 0.95;
-    const by = p.y + backY * p.r * 0.95;
-    const backA = Math.atan2(backY, backX);
-    const banding = st.banding;
-    const bandCount = banding?.count ?? 0;
-    const bandSpread = banding ? p.r * (banding.spreadScale ?? 0.9) : 0;
-    const bandJitter = banding ? p.r * (banding.jitterScale ?? 0.08) : 0;
-    const perpX = -backY;
-    const perpY = backX;
-
-    emitTrailGroup(n, st);
-
-    emitAuraGroup(a, aura);
-
-    emitGlintGroup(g, glint);
-
-    emitSparkleGroup(s, sparkle);
-
-    if (extras.length) {
-      ensureExtraAcc();
-      extras.forEach((group, idx) => {
-        if (!group || typeof group !== "object") return;
-        const mode = group.mode || "sparkle";
-        const disableForReduced = reducedEffects && mode !== "trail";
-        const rate = disableForReduced ? 0 : (group.rate ?? 0);
-        if (rate <= 0) return;
-        this.trailExtraAcc[idx] += dt * rate * particleScale;
-        const count = this.trailExtraAcc[idx] | 0;
-        this.trailExtraAcc[idx] -= count;
-        if (!count) return;
-        if (mode === "trail") emitTrailGroup(count, group);
-        else if (mode === "aura") emitAuraGroup(count, group);
-        else if (mode === "glint") emitGlintGroup(count, group);
-        else emitSparkleGroup(count, group);
-      });
-    }
+  _updateEffects(dt) {
+    updateEffects(this, dt);
   }
 
   update(dt) {
@@ -1541,29 +1004,7 @@ export class Game {
     this._updatePlayer(dt);
     this._emitTrail(dt);
 
-    // combo sparkles
-    const sparkleAt = Number(this.cfg.ui.comboBar.sparkleAt) || 9999;
-    if (this.combo >= sparkleAt) {
-      const vrand = (a, b) => this._visualRand(a, b);
-      const rate = Math.max(0, Number(this.cfg.ui.comboBar.sparkleRate) || 0) * this._particleScale();
-      this.comboSparkAcc += dt * rate;
-      const n = this.comboSparkAcc | 0;
-      this.comboSparkAcc -= n;
-
-      const { scoreX, scoreY, arcRadius, arcWidth } = this._scoreHudLayout();
-      for (let i = 0; i < n; i++) {
-        const a = vrand(Math.PI, Math.PI * 2);
-        const r = arcRadius + vrand(-arcWidth * 0.4, arcWidth * 0.4);
-        const px = scoreX + Math.cos(a) * r;
-        const py = scoreY + Math.sin(a) * r;
-        const sp = vrand(20, 90);
-        const prt = new Part(px, py, Math.cos(a) * sp, Math.sin(a) * sp, vrand(0.18, 0.35), vrand(0.9, 1.7), "rgba(255,255,255,.7)", true);
-        prt.drag = 10.5;
-        this.parts.push(prt);
-      }
-    } else {
-      this.comboSparkAcc = 0;
-    }
+    this._updateComboSparkles(dt);
 
     // spawn pipes
     this.pipeT -= dt;
@@ -1779,11 +1220,7 @@ export class Game {
       }
     }
 
-    // fx update/cleanup
-    for (const p of this.parts) p.update(dt);
-    for (const t of this.floats) t.update(dt);
-    for (let i = this.parts.length - 1; i >= 0; i--) if (this.parts[i].life <= 0) this.parts.splice(i, 1);
-    for (let i = this.floats.length - 1; i >= 0; i--) if (this.floats[i].life <= 0) this.floats.splice(i, 1);
+    this._updateEffects(dt);
 
     // caps
     if (this.pipes.length > 280) this.pipes.splice(0, this.pipes.length - 280);
