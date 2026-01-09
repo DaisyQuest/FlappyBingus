@@ -6,10 +6,11 @@ import {
   updateBackgroundDots,
   drawBackgroundLayer
 } from "../backgroundLayer.js";
-import { createProceduralBackground, createMonochromeBackground } from "../backgroundModes.js";
+import { createProceduralBackground, createMonochromeBackground, createSpaceBackground } from "../backgroundModes.js";
 import { setRandSource } from "../util.js";
 
 const makeCtx = () => ({
+  drawImage: vi.fn(),
   setTransform: vi.fn(),
   clearRect: vi.fn(),
   fillRect: vi.fn(),
@@ -64,6 +65,23 @@ describe("backgroundLayer", () => {
     updateBackgroundDots(layer, { width: 100, height: 50, dt: 1, rand: () => 0.75 });
     expect(layer.mode.dots[0].y).toBe(-10);
     expect(layer.mode.dots[0].x).toBe(75);
+  });
+
+  it("marks dirty when updating space mode", () => {
+    const layer = createBackgroundLayer();
+    layer.mode = createSpaceBackground({ width: 100, height: 50, rand: () => 0.5 });
+    layer.dirty = false;
+
+    updateBackgroundDots(layer, {
+      width: 100,
+      height: 50,
+      dt: 0.2,
+      rand: () => 0.25,
+      settings: { reducedEffects: false },
+      playerY: 20
+    });
+
+    expect(layer.dirty).toBe(true);
   });
 
   it("defaults to the global rand source when updating dots", () => {

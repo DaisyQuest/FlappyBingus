@@ -51,6 +51,7 @@ import {
   refreshBackgroundLayer,
   updateBackgroundDots
 } from "./backgroundLayer.js";
+import { createSpaceBackground } from "./backgroundModes.js";
 import { buildRunStats } from "./gameStats.js";
 
 const TRAIL_LIFE_SCALE = 1.45;
@@ -81,7 +82,7 @@ export class Game {
 
     this.W = 1; this.H = 1; this.DPR = 1;
 
-    // Offscreen background (dots + vignette) to avoid repainting thousands of primitives per frame
+    // Offscreen background (space + vignette) to avoid repainting thousands of primitives per frame
     this.background = createBackgroundLayer();
     this.backgroundRand = getRandSource();
     this.visualRand = getRandSource();
@@ -466,10 +467,17 @@ export class Game {
   }
 
   _initBackground() {
+    const mode = createSpaceBackground({
+      width: this.W,
+      height: this.H,
+      rand: this.backgroundRand,
+      settings: this.skillSettings
+    });
     initBackgroundLayer(this.background, {
       width: this.W,
       height: this.H,
-      rand: this.backgroundRand
+      rand: this.backgroundRand,
+      mode
     });
     this._refreshBackgroundLayer();
   }
@@ -1514,9 +1522,14 @@ export class Game {
     if (this.state === STATE.OVER) return;
 
     // background drift
-    if (!this.skillSettings?.simpleBackground) {
-      updateBackgroundDots(this.background, { width: this.W, height: this.H, dt, rand: this.backgroundRand });
-    }
+    updateBackgroundDots(this.background, {
+      width: this.W,
+      height: this.H,
+      dt,
+      rand: this.backgroundRand,
+      settings: this.skillSettings,
+      playerY: this.player?.y
+    });
 
     if (this.state !== STATE.PLAY) return;
 

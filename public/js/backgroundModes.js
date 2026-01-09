@@ -1,4 +1,5 @@
 import { clamp, getRandSource } from "./util.js";
+import { createSpaceBackground, updateSpaceBackground } from "./spaceBackground.js";
 
 const DEFAULT_BACKGROUND_COLOR = "#07101a";
 const DEFAULT_MONOCHROME_COLOR = "#111827";
@@ -57,3 +58,5 @@ export function createVideoBackground({ src, loop = true, muted = true } = {}) {
     muted: !!muted
   };
 }
+
+export { createSpaceBackground, updateSpaceBackground };

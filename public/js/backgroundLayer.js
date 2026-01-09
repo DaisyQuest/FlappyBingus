@@ -1,4 +1,5 @@
-import { createProceduralBackground, updateProceduralBackground } from "./backgroundModes.js";
+import { createProceduralBackground, updateProceduralBackground, updateSpaceBackground } from "./backgroundModes.js";
+import { renderSpaceBackground } from "./spaceBackground.js";
 import { getRandSource } from "./util.js";
 
 const DEFAULT_BACKGROUND_COLOR = "#07101a";
@@ -20,7 +21,11 @@ export function initBackgroundLayer(layer, { width, height, rand = getRandSource
   layer.dirty = true;
 }
 
-export function refreshBackgroundLayer(layer, { width, height, backgroundColor = DEFAULT_BACKGROUND_COLOR } = {}) {
+export function refreshBackgroundLayer(layer, {
+  width,
+  height,
+  backgroundColor = DEFAULT_BACKGROUND_COLOR
+} = {}) {
   if (!layer) throw new Error("Background layer is required.");
   const canvasFactory = () => {
     if (typeof OffscreenCanvas !== "undefined") return new OffscreenCanvas(1, 1);
@@ -54,6 +59,10 @@ export function refreshBackgroundLayer(layer, { width, height, backgroundColor =
   ctx.fillStyle = fillColor;
   ctx.fillRect(0, 0, w, h);
 
+  if (mode?.type === "space") {
+    renderSpaceBackground(ctx, mode, { width: w, height: h });
+  }
+
   const vg = ctx.createRadialGradient(
     w * 0.5, h * 0.45, Math.min(w, h) * 0.12,
     w * 0.5, h * 0.5, Math.max(w, h) * 0.75
@@ -63,25 +72,38 @@ export function refreshBackgroundLayer(layer, { width, height, backgroundColor =
   ctx.fillStyle = vg;
   ctx.fillRect(0, 0, w, h);
 
-  ctx.save();
-  ctx.globalAlpha = 0.75;
-  ctx.fillStyle = "rgba(255,255,255,.20)";
-  const dots = mode.dots || [];
-  for (const dot of dots) {
-    ctx.beginPath();
-    ctx.arc(dot.x, dot.y, dot.r, 0, Math.PI * 2);
-    ctx.fill();
+  if (mode?.type === "procedural") {
+    ctx.save();
+    ctx.globalAlpha = 0.75;
+    ctx.fillStyle = "rgba(255,255,255,.20)";
+    const dots = mode.dots || [];
+    for (const dot of dots) {
+      ctx.beginPath();
+      ctx.arc(dot.x, dot.y, dot.r, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.restore();
   }
-  ctx.restore();
 
   layer.dirty = false;
 }
 
-export function updateBackgroundDots(layer, { width, height, dt, rand = getRandSource() } = {}) {
+export function updateBackgroundDots(layer, {
+  width,
+  height,
+  dt,
+  rand = getRandSource(),
+  settings,
+  playerY
+} = {}) {
   if (!layer) throw new Error("Background layer is required.");
   const mode = layer.mode;
   if (mode?.type === "procedural") {
+    if (settings?.simpleBackground) return;
     updateProceduralBackground(mode, { width, height, dt, rand });
+  } else if (mode?.type === "space") {
+    const dirty = updateSpaceBackground(mode, { width, height, dt, rand, settings, playerY });
+    if (dirty) layer.dirty = true;
   }
 }
 
