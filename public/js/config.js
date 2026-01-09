@@ -22,6 +22,7 @@ export const DEFAULT_CONFIG = {
     gap: { startScale: 0.30, endScale: 0.20, min: 88, max: 190 },
     special: { startCadence: 3.8, endCadence: 2.3, jitterMin: 0.2, jitterMax: 0.7 },
     patternWeights: { wall: [0.18, 0.30], aimed: [0.26, 0.40] },
+    warning: { leadSeconds: 0.45, flashHz: 3.6, alphaMin: 0.25, alphaMax: 0.85, lineWidth: 2 },
     strokeWidth: 2,
     colors: {
       green: "#b7efb2",

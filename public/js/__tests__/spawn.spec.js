@@ -1,5 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { spawnBurst, spawnCrossfire, spawnSinglePipe, spawnWall } from "../pipes/pipeSpawner.js";
+import {
+  computeSinglePipeWarningSegments,
+  computeWallWarningSegments,
+  computeWarningAlpha
+} from "../pipes/pipeWarnings.js";
 import { spawnOrb } from "../orbs/orbSpawner.js";
 import { createSeededRand, setRandSource } from "../util.js";
 
@@ -209,5 +214,78 @@ describe("spawnOrb", () => {
     const orb = game.orbs[0];
     expect(orb.x).toBeCloseTo(game.W * 0.5, 5);
     expect(orb.y).toBeCloseTo(game.H * 0.5, 5);
+  });
+});
+
+describe("pipe warning helpers", () => {
+  it("computes wall warning segments with a centered gap (left side)", () => {
+    const segments = computeWallWarningSegments({
+      side: 0,
+      gapCenter: 50,
+      gapSize: 20,
+      width: 200,
+      height: 100
+    });
+    expect(segments).toEqual([
+      { start: 0, end: 40 },
+      { start: 60, end: 100 }
+    ]);
+  });
+
+  it("computes wall warning segments with a centered gap (top side)", () => {
+    const segments = computeWallWarningSegments({
+      side: 2,
+      gapCenter: 100,
+      gapSize: 40,
+      width: 200,
+      height: 120
+    });
+    expect(segments).toEqual([
+      { start: 0, end: 80 },
+      { start: 120, end: 200 }
+    ]);
+  });
+
+  it("drops the short segment when the gap hugs an edge", () => {
+    const segments = computeWallWarningSegments({
+      side: 1,
+      gapCenter: 8,
+      gapSize: 20,
+      width: 200,
+      height: 100
+    });
+    expect(segments).toEqual([{ start: 18, end: 100 }]);
+  });
+
+  it("computes single pipe warning segments and clamps to bounds", () => {
+    const segmentsLeft = computeSinglePipeWarningSegments({
+      side: 0,
+      x: -12,
+      y: -5,
+      w: 20,
+      h: 40,
+      width: 200,
+      height: 100
+    });
+    const segmentsTop = computeSinglePipeWarningSegments({
+      side: 2,
+      x: 190,
+      y: -10,
+      w: 30,
+      h: 20,
+      width: 200,
+      height: 100
+    });
+    expect(segmentsLeft).toEqual([{ start: 0, end: 35 }]);
+    expect(segmentsTop).toEqual([{ start: 190, end: 200 }]);
+  });
+
+  it("computes warning alpha bounds deterministically", () => {
+    const min = computeWarningAlpha({ time: 0, flashHz: 2, minAlpha: 0.2, maxAlpha: 0.8 });
+    const max = computeWarningAlpha({ time: 0.125, flashHz: 2, minAlpha: 0.2, maxAlpha: 0.8 });
+    const flat = computeWarningAlpha({ time: 2, flashHz: 0, minAlpha: 0.4, maxAlpha: 0.6 });
+    expect(min).toBeCloseTo(0.2, 5);
+    expect(max).toBeCloseTo(0.8, 5);
+    expect(flat).toBeCloseTo(0.4, 5);
   });
 });

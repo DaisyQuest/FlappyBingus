@@ -33,7 +33,23 @@ const STATE = Object.freeze({ MENU: 0, PLAY: 1, OVER: 2 });
 
 import { Orb, Part, FloatText, setEntityRandSource } from "./entities.js";
 import { Pipe, Gate } from "./pipes/pipeEntity.js";
-import { spawnBurst, spawnCrossfire, spawnSinglePipe, spawnWall } from "./pipes/pipeSpawner.js";
+import {
+  buildBurstPlans,
+  buildCrossfirePlans,
+  buildSinglePipePlan,
+  buildWallPlan,
+  spawnBurst,
+  spawnCrossfire,
+  spawnSinglePipe,
+  spawnSinglePipeFromPlan,
+  spawnWall,
+  spawnWallFromPlan
+} from "./pipes/pipeSpawner.js";
+import {
+  computeSinglePipeWarningSegments,
+  computeWallWarningSegments,
+  computeWarningAlpha
+} from "./pipes/pipeWarnings.js";
 import { spawnOrb } from "./orbs/orbSpawner.js";
 import { dashBounceMax, orbPoints, tickCooldowns } from "./mechanics.js";
 import { buildScorePopupStyle, buildComboAuraStyle, COMBO_AURA_THRESHOLDS } from "./uiStyles.js";
@@ -105,6 +121,10 @@ export class Game {
     this.orbs = [];
     this.parts = [];
     this.floats = [];
+    this.warnings = [];
+    this._pendingPipeSpawn = null;
+    this._pendingSpecialSpawn = null;
+    this._warningId = 1;
 
     this.score = 0;
     this.timeAlive = 0;
@@ -391,6 +411,10 @@ export class Game {
     this.orbs = [];
     this.parts = [];
     this.floats = [];
+    this.warnings = [];
+    this._pendingPipeSpawn = null;
+    this._pendingSpecialSpawn = null;
+    this._warningId = 1;
     this._resetRunStats();
 
     if (clearScore) this.score = 0;
@@ -582,6 +606,197 @@ export class Game {
     const markerSize = Math.max(12, this._thickness() * 0.6, 200 - this._margin());
     this.pipes.push(new Pipe(-200, -200, markerSize, markerSize, 0, 0));
     this._spawnWall({ side: (rand(0, 4)) | 0, gap: this._gapSize(), speed: this._pipeSpeed() * 1.05 });
+  }
+
+  _spawnSinglePipeFromPlan(plan) {
+    this._maybeSpawnWithBudget(() => spawnSinglePipeFromPlan(this, plan));
+  }
+
+  _spawnWallFromPlan(plan) {
+    this._maybeSpawnWithBudget(() => spawnWallFromPlan(this, plan));
+  }
+
+  _spawnBurstFromPlan(plan) {
+    this._maybeSpawnWithBudget(() => {
+      for (const pipePlan of plan.pipes) spawnSinglePipeFromPlan(this, pipePlan);
+    });
+  }
+
+  _spawnCrossfireFromPlan(plan) {
+    this._maybeSpawnWithBudget(() => {
+      for (const pipePlan of plan.pipes) spawnSinglePipeFromPlan(this, pipePlan);
+    });
+  }
+
+  _spawnSpecialWallFromPlan(plan) {
+    this._maybeSpawnWithBudget(() => {
+      const markerSize = Math.max(12, this._thickness() * 0.6, 200 - this._margin());
+      this.pipes.push(new Pipe(-200, -200, markerSize, markerSize, 0, 0));
+      spawnWallFromPlan(this, plan);
+    });
+  }
+
+  _warningConfig() {
+    const warning = this.cfg?.pipes?.warning || {};
+    return {
+      leadSeconds: Math.max(0, Number(warning.leadSeconds) || 0),
+      flashHz: Math.max(0, Number(warning.flashHz) || 0),
+      alphaMin: clamp(Number(warning.alphaMin) || 0.3, 0, 1),
+      alphaMax: clamp(Number(warning.alphaMax) || 0.9, 0, 1),
+      lineWidth: Math.max(1, Number(warning.lineWidth) || 2)
+    };
+  }
+
+  _registerWarning({ side, type, segments, thickness, spawnAt }) {
+    if (!segments || segments.length === 0) return;
+    const cfg = this._warningConfig();
+    this.warnings.push({
+      id: this._warningId++,
+      side,
+      type,
+      segments,
+      thickness,
+      spawnAt,
+      flashHz: cfg.flashHz,
+      alphaMin: cfg.alphaMin,
+      alphaMax: cfg.alphaMax,
+      lineWidth: cfg.lineWidth
+    });
+  }
+
+  _registerWallWarning(plan, spawnAt) {
+    const segments = computeWallWarningSegments({
+      side: plan.side,
+      gapCenter: plan.gapCenter,
+      gapSize: plan.gap,
+      width: this.W,
+      height: this.H
+    });
+    this._registerWarning({
+      side: plan.side,
+      type: "wall",
+      segments,
+      thickness: plan.thickness,
+      spawnAt
+    });
+  }
+
+  _registerSinglePipeWarning(plan, spawnAt) {
+    const segments = computeSinglePipeWarningSegments({
+      side: plan.side,
+      x: plan.x,
+      y: plan.y,
+      w: plan.w,
+      h: plan.h,
+      width: this.W,
+      height: this.H
+    });
+    this._registerWarning({
+      side: plan.side,
+      type: "pipe",
+      segments,
+      thickness: plan.thickness,
+      spawnAt
+    });
+  }
+
+  _registerPlanWarnings(plan, spawnAt) {
+    if (!plan) return;
+    if (plan.type === "wall") {
+      this._registerWallWarning(plan.plan ?? plan, spawnAt);
+    } else if (plan.type === "single") {
+      this._registerSinglePipeWarning(plan.plan ?? plan, spawnAt);
+    } else if (plan.type === "burst" || plan.type === "crossfire") {
+      const pipes = plan.pipes || [];
+      for (const pipePlan of pipes) {
+        this._registerSinglePipeWarning(pipePlan, spawnAt);
+      }
+    } else if (plan.type === "specialWall") {
+      this._registerWallWarning(plan.plan ?? plan, spawnAt);
+    }
+  }
+
+  _choosePipeSpawnPlan() {
+    const d = this._difficulty01();
+    const r = rand(0, 1);
+    const wall = this.cfg.pipes.patternWeights.wall;
+    const aimed = this.cfg.pipes.patternWeights.aimed;
+    const wallChance = lerp(wall[0], wall[1], d);
+    const aimedChance = lerp(aimed[0], aimed[1], d);
+
+    if (r < wallChance) {
+      return { type: "wall", plan: buildWallPlan(this, { side: (rand(0, 4)) | 0, gap: this._gapSize(), speed: this._pipeSpeed() * 0.95 }) };
+    }
+    if (r < wallChance + aimedChance) {
+      return { type: "single", plan: buildSinglePipePlan(this, { side: (rand(0, 4)) | 0, aimAtPlayer: true, speed: this._pipeSpeed() }) };
+    }
+    return { type: "single", plan: buildSinglePipePlan(this, { side: (rand(0, 4)) | 0, aimAtPlayer: false, speed: this._pipeSpeed() }) };
+  }
+
+  _chooseSpecialSpawnPlan() {
+    const r = rand(0, 1);
+    if (r < 0.48) {
+      return buildBurstPlans(this);
+    }
+    if (r < 0.78) {
+      return buildCrossfirePlans(this);
+    }
+    return { type: "specialWall", plan: buildWallPlan(this, { side: (rand(0, 4)) | 0, gap: this._gapSize(), speed: this._pipeSpeed() * 1.05 }) };
+  }
+
+  _maybeSchedulePipeWarning() {
+    const lead = this._warningConfig().leadSeconds;
+    if (lead <= 0) return;
+    if (this._pendingPipeSpawn) return;
+    if (this.pipeT > lead) return;
+    const spawnAt = this.timeAlive + Math.max(0, this.pipeT);
+    const plan = this._choosePipeSpawnPlan();
+    this._pendingPipeSpawn = plan;
+    this._registerPlanWarnings(plan, spawnAt);
+  }
+
+  _maybeScheduleSpecialWarning() {
+    const lead = this._warningConfig().leadSeconds;
+    if (lead <= 0) return;
+    if (this._pendingSpecialSpawn) return;
+    if (this.specialT > lead) return;
+    const spawnAt = this.timeAlive + Math.max(0, this.specialT);
+    const plan = this._chooseSpecialSpawnPlan();
+    this._pendingSpecialSpawn = plan;
+    this._registerPlanWarnings(plan, spawnAt);
+  }
+
+  _executePlannedSpawn(plan) {
+    if (!plan) return;
+    if (plan.type === "wall") {
+      this._spawnWallFromPlan(plan.plan ?? plan);
+      return;
+    }
+    if (plan.type === "single") {
+      this._spawnSinglePipeFromPlan(plan.plan ?? plan);
+      return;
+    }
+    if (plan.type === "burst") {
+      this._spawnBurstFromPlan(plan);
+      return;
+    }
+    if (plan.type === "crossfire") {
+      this._spawnCrossfireFromPlan(plan);
+      return;
+    }
+    if (plan.type === "specialWall") {
+      this._spawnSpecialWallFromPlan(plan.plan ?? plan);
+    }
+  }
+
+  _cleanupWarnings() {
+    if (!this.warnings) return;
+    const now = this.timeAlive;
+    for (let i = this.warnings.length - 1; i >= 0; i--) {
+      if (this.warnings[i].spawnAt <= now) {
+        this.warnings.splice(i, 1);
+      }
+    }
   }
 
   _spawnOrb() {
@@ -1567,28 +1782,22 @@ export class Game {
 
     // spawn pipes
     this.pipeT -= dt;
+    this._maybeSchedulePipeWarning();
     while (this.pipeT <= 0) {
       this.pipeT += this._spawnInterval();
-
-      const d = this._difficulty01();
-      const r = rand(0, 1);
-      const wall = this.cfg.pipes.patternWeights.wall;
-      const aimed = this.cfg.pipes.patternWeights.aimed;
-      const wallChance = lerp(wall[0], wall[1], d);
-      const aimedChance = lerp(aimed[0], aimed[1], d);
-
-      if (r < wallChance) this._spawnWall({ side: (rand(0, 4)) | 0, gap: this._gapSize(), speed: this._pipeSpeed() * 0.95 });
-      else if (r < wallChance + aimedChance) this._spawnSinglePipe({ side: (rand(0, 4)) | 0, aimAtPlayer: true, speed: this._pipeSpeed() });
-      else this._spawnSinglePipe({ side: (rand(0, 4)) | 0, aimAtPlayer: false, speed: this._pipeSpeed() });
+      const plan = this._pendingPipeSpawn || this._choosePipeSpawnPlan();
+      this._pendingPipeSpawn = null;
+      this._executePlannedSpawn(plan);
+      this._maybeSchedulePipeWarning();
     }
 
     // special patterns
     this.specialT -= dt;
+    this._maybeScheduleSpecialWarning();
     if (this.specialT <= 0) {
-      const r = rand(0, 1);
-      if (r < 0.48) this._spawnBurst();
-      else if (r < 0.78) this._spawnCrossfire();
-      else this._spawnSpecialWall();
+      const plan = this._pendingSpecialSpawn || this._chooseSpecialSpawnPlan();
+      this._pendingSpecialSpawn = null;
+      this._executePlannedSpawn(plan);
 
       const d = this._difficulty01();
       const sp = this.cfg.pipes.special;
@@ -1605,6 +1814,8 @@ export class Game {
         this.orbT = rand(a, b);
       }
     }
+
+    this._cleanupWarnings();
 
     // update gates + PERFECT
     for (const g of this.gates) g.update(dt, this.W, this.H);
@@ -1829,6 +2040,7 @@ export class Game {
       t.draw(ctx);
     }
 
+    this._drawEdgeWarnings();
     this._drawPlayer(renderPos);
 
     if (this.state === STATE.PLAY) {
@@ -1856,6 +2068,41 @@ export class Game {
       timeAlive: this.timeAlive,
       getPipeTexture: this.getPipeTexture
     });
+  }
+
+  _drawEdgeWarnings() {
+    if (!this.warnings || this.warnings.length === 0) return;
+    const ctx = this.ctx;
+    ctx.save();
+    ctx.strokeStyle = "rgba(255,90,90,1)";
+    for (const warning of this.warnings) {
+      const alpha = computeWarningAlpha({
+        time: this.timeAlive,
+        flashHz: warning.flashHz,
+        minAlpha: warning.alphaMin,
+        maxAlpha: warning.alphaMax
+      });
+      ctx.globalAlpha = alpha;
+      ctx.lineWidth = warning.lineWidth;
+      for (const seg of warning.segments) {
+        ctx.beginPath();
+        if (warning.side === 0) {
+          ctx.moveTo(0, seg.start);
+          ctx.lineTo(0, seg.end);
+        } else if (warning.side === 1) {
+          ctx.moveTo(this.W, seg.start);
+          ctx.lineTo(this.W, seg.end);
+        } else if (warning.side === 2) {
+          ctx.moveTo(seg.start, 0);
+          ctx.lineTo(seg.end, 0);
+        } else if (warning.side === 3) {
+          ctx.moveTo(seg.start, this.H);
+          ctx.lineTo(seg.end, this.H);
+        }
+        ctx.stroke();
+      }
+    }
+    ctx.restore();
   }
 
 _drawOrb(o) {
