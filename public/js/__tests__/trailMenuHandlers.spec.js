@@ -48,7 +48,6 @@ describe("trail menu handlers", () => {
       toggleTrailMenu: vi.fn(),
       setTrailHint: vi.fn(),
       applyTrailSelection: vi.fn(),
-      ensureLoggedInForSave: vi.fn().mockResolvedValue(true),
       openPurchaseModal: vi.fn(),
       handleTrailSaveResponse,
       setNetUser: vi.fn(),
@@ -85,5 +84,65 @@ describe("trail menu handlers", () => {
     await second;
 
     expect(handleTrailSaveResponse).toHaveBeenCalledTimes(1);
+  });
+
+  it("skips server saves for guests while updating the trail locally", async () => {
+    const elements = buildElements();
+    const net = {
+      user: null,
+      online: true,
+      trails: [{ id: "classic" }],
+      icons: [],
+      pipeTextures: []
+    };
+    const apiSetTrail = vi.fn();
+    const applyTrailSelection = vi.fn();
+    const setTrailHint = vi.fn();
+
+    const handlers = createTrailMenuHandlers({
+      elements,
+      getNet: () => net,
+      getCurrentTrailId: () => "old",
+      getCurrentIconId: () => "icon",
+      getPlayerIcons: () => [{ id: "icon" }],
+      getLastTrailHint: vi.fn(),
+      apiSetTrail,
+      refreshTrailMenu: vi.fn(),
+      toggleTrailMenu: vi.fn(),
+      setTrailHint,
+      applyTrailSelection,
+      openPurchaseModal: vi.fn(),
+      handleTrailSaveResponse: vi.fn(),
+      setNetUser: vi.fn(),
+      setUserHint: vi.fn(),
+      buildTrailHint: vi.fn(),
+      mergeTrailCatalog: vi.fn((trails) => trails),
+      syncUnlockablesCatalog: vi.fn(),
+      syncIconCatalog: vi.fn(),
+      syncPipeTextureCatalog: vi.fn(),
+      applyIconSelection: vi.fn(),
+      getAuthStatusFromResponse: vi.fn(),
+      recoverSession: vi.fn(),
+      getTrailMenuState: () => ({
+        orderedTrails: [{ id: "classic" }],
+        unlocked: new Set(["classic"]),
+        bestScore: 0,
+        isRecordHolder: false
+      }),
+      describeTrailLock: vi.fn(),
+      trailHoverText: vi.fn(),
+      DEFAULT_TRAIL_HINT: "hint",
+      DEFAULT_CURRENCY_ID: "bustercoin",
+      UNLOCKABLE_TYPES: { trail: "trail" }
+    });
+
+    await handlers.handlers.handleOptionsClick({ target: elements.button });
+
+    expect(applyTrailSelection).toHaveBeenCalledWith("classic", [{ id: "classic" }]);
+    expect(setTrailHint).toHaveBeenCalledWith({
+      className: "hint good",
+      text: "Equipped (guest mode). Sign in to save."
+    }, { persist: false });
+    expect(apiSetTrail).not.toHaveBeenCalled();
   });
 });
