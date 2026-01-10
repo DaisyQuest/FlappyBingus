@@ -45,6 +45,19 @@ const EASING_OPTIONS = [
   { value: "smoothStep", label: "Smooth Step" }
 ];
 
+const ANIMATION_TRIGGER_OPTIONS = [
+  { value: "", label: "None" },
+  { value: "hit", label: "Hit" },
+  { value: "anim:orbPickup", label: "Orb Pickup" },
+  { value: "anim:perfectGap", label: "Perfect Gap" },
+  { value: "anim:dash", label: "Dash" },
+  { value: "anim:phase", label: "Phase" },
+  { value: "anim:teleport", label: "Teleport" },
+  { value: "anim:explode", label: "Explode" },
+  { value: "tap", label: "Tap" },
+  { value: "score", label: "Score" }
+];
+
 const TARGET_SUGGESTIONS = [
   "palette.fill",
   "palette.core",
@@ -433,6 +446,9 @@ function createAnimationRow(animation = {}, index = 0) {
   actions.append(moveUp, moveDown, remove);
   header.append(idInput, typeSelect, enabled, createElement("span", { text: "Enabled" }), actions);
 
+  const triggerSelect = createSelect(ANIMATION_TRIGGER_OPTIONS, animation.triggeredBy || "");
+  triggerSelect.dataset.field = `style.animations[${index}].triggeredBy`;
+
   const target = createTextInput(animation.target || "");
   target.dataset.field = `style.animations[${index}].target`;
   const targetListId = `iconAnimationTargets-${animationTargetListId++}`;
@@ -464,6 +480,7 @@ function createAnimationRow(animation = {}, index = 0) {
 
   row.append(
     header,
+    createFieldRow("Trigger", triggerSelect, { hint: "Optional event trigger for one-shot animations." }),
     targetRow,
     createFieldRow("Timing mode", modeSelect),
     createFieldRow("Duration (ms)", duration),
@@ -747,15 +764,15 @@ function createIconCard({ icon, allowRemove = false } = {}) {
   const addAnimBtn = createElement("button", { text: "Add animation", attrs: { type: "button", "data-add-animation": "true" } });
   const testRow = createElement("div", { className: "test-events" });
   [
-    { label: "Test Tap", type: "tap" },
-    { label: "Test Score", type: "score" },
     { label: "Test Hit", type: "hit" },
     { label: "Orb Pickup", type: "anim:orbPickup" },
     { label: "Perfect Gap", type: "anim:perfectGap" },
     { label: "Dash", type: "anim:dash" },
     { label: "Phase", type: "anim:phase" },
     { label: "Teleport", type: "anim:teleport" },
-    { label: "Explode", type: "anim:explode" }
+    { label: "Explode", type: "anim:explode" },
+    { label: "Test Tap", type: "tap" },
+    { label: "Test Score", type: "score" }
   ].forEach((entry) => {
     const btn = createElement("button", { text: entry.label, attrs: { type: "button", "data-event-type": entry.type } });
     testRow.appendChild(btn);

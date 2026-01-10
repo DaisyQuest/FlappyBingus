@@ -23,7 +23,13 @@ describe("icon editor helpers", () => {
         palette: { fill: "#fff", core: "#eee", rim: "#111", glow: "#ccc" },
         pattern: { type: "stripes", colors: ["#111", "#222"] },
         effects: [{ type: "outline", enabled: true, params: { width: 6 } }],
-        animations: [{ id: "spin", type: "slowSpin", target: "pattern.rotationDeg", timing: { mode: "loop", durationMs: 1000 } }]
+        animations: [{
+          id: "spin",
+          type: "slowSpin",
+          target: "pattern.rotationDeg",
+          triggeredBy: "anim:orbPickup",
+          timing: { mode: "loop", durationMs: 1000 }
+        }]
       }
     };
     const card = createIconCard({ icon, allowRemove: true });
@@ -40,6 +46,7 @@ describe("icon editor helpers", () => {
     expect(first.style.pattern.type).toBe("stripes");
     expect(first.style.effects[0].type).toBe("outline");
     expect(first.style.animations[0].type).toBe("slowSpin");
+    expect(first.style.animations[0].triggeredBy).toBe("anim:orbPickup");
   });
 
   it("reads pattern color arrays from JSON", () => {
@@ -225,6 +232,35 @@ describe("icon editor helpers", () => {
     expect(guidance.textContent).toMatch(/choose a target/i);
   });
 
+  it("renders animation trigger fields with default options", () => {
+    const icon = {
+      id: "trigger-field",
+      name: "Trigger Field",
+      unlock: { type: "free" },
+      style: {
+        version: 2,
+        animations: [{ id: "pulse", type: "pulseUniform", target: "preview.scale", triggeredBy: "hit" }]
+      }
+    };
+    const card = createIconCard({ icon, allowRemove: false });
+    const triggerSelect = card.querySelector("[data-field='style.animations[0].triggeredBy']");
+    const options = Array.from(triggerSelect.options).map((opt) => opt.value);
+
+    expect(triggerSelect.value).toBe("hit");
+    expect(options).toEqual([
+      "",
+      "hit",
+      "anim:orbPickup",
+      "anim:perfectGap",
+      "anim:dash",
+      "anim:phase",
+      "anim:teleport",
+      "anim:explode",
+      "tap",
+      "score"
+    ]);
+  });
+
   it("applies preset patches through the preset panel", () => {
     const icon = { id: "preset", name: "Preset", unlock: { type: "free" }, style: {} };
     const card = createIconCard({ icon, allowRemove: false });
@@ -254,26 +290,26 @@ describe("icon editor helpers", () => {
     const labels = buttons.map((button) => button.textContent);
 
     expect(types).toEqual([
-      "tap",
-      "score",
       "hit",
       "anim:orbPickup",
       "anim:perfectGap",
       "anim:dash",
       "anim:phase",
       "anim:teleport",
-      "anim:explode"
+      "anim:explode",
+      "tap",
+      "score"
     ]);
     expect(labels).toEqual([
-      "Test Tap",
-      "Test Score",
       "Test Hit",
       "Orb Pickup",
       "Perfect Gap",
       "Dash",
       "Phase",
       "Teleport",
-      "Explode"
+      "Explode",
+      "Test Tap",
+      "Test Score"
     ]);
   });
 });
