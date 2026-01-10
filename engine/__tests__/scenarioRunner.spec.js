@@ -31,6 +31,7 @@ describe("runScenario", () => {
     const last = result.snapshots.at(-1);
     expect(last.state.time).toBeCloseTo(0.042, 5);
     expect(last.events[0].type).toBe("score:orb");
+    expect(last.events[1].type).toBe("anim:orbPickup");
   });
 
   it("throws when steps are out of order", () => {
