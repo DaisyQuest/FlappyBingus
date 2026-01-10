@@ -302,7 +302,9 @@ function applyAnimationsToStyle(style, animations = [], {
     const eased = easingValue(timing.easing, rawT);
     const target = anim.target || "";
     const baseValue = target === "preview.scale" ? preview.scale : readPath(next, target);
-    const value = sampleAnimationValue(anim.type, baseValue, eased, anim.params, anim.seed ?? seed, events, timing, timeMs);
+    const params = anim.params ? { ...anim.params } : {};
+    if (anim.triggeredBy && !params.eventType) params.eventType = anim.triggeredBy;
+    const value = sampleAnimationValue(anim.type, baseValue, eased, params, anim.seed ?? seed, events, timing, timeMs);
 
     if (target === "preview.scale") {
       preview.scale = clamp(Number(value) || preview.scale, 0.9, 1.1);

@@ -351,6 +351,9 @@ function validateIconStyleV2(style = {}) {
           errors.push({ path: `animations[${index}].target`, message: "invalid_target" });
         }
       }
+      if (anim?.triggeredBy !== undefined && typeof anim.triggeredBy !== "string") {
+        errors.push({ path: `animations[${index}].triggeredBy`, message: "invalid_triggered_by" });
+      }
       if (Number.isFinite(anim?.timing?.durationMs) && anim.timing.durationMs <= 0) {
         errors.push({ path: `animations[${index}].timing.durationMs`, message: "duration_out_of_range" });
       }
