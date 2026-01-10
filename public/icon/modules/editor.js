@@ -455,6 +455,9 @@ function createAnimationRow(animation = {}, index = 0) {
   const phaseOffset = createNumberInput(timing.phaseOffset ?? 0);
   phaseOffset.dataset.field = `style.animations[${index}].timing.phaseOffset`;
 
+  const triggeredBy = createTextInput(animation.triggeredBy || "");
+  triggeredBy.dataset.field = `style.animations[${index}].triggeredBy`;
+
   const params = createTextArea(JSON.stringify(animation.params || {}, null, 2));
   params.dataset.field = `style.animations[${index}].params`;
   params.dataset.type = "json";
@@ -470,6 +473,7 @@ function createAnimationRow(animation = {}, index = 0) {
     createFieldRow("Delay (ms)", delay),
     createFieldRow("Easing", easing),
     createFieldRow("Phase offset", phaseOffset),
+    createFieldRow("Triggered by", triggeredBy, { hint: "Event name (e.g. anim:orbPickup) to drive event animations." }),
     createFieldRow("Seed", seed),
     createFieldRow("Params (JSON)", params)
   );
@@ -745,16 +749,25 @@ function createIconCard({ icon, allowRemove = false } = {}) {
   const animList = createElement("div", { className: "effect-list", attrs: { "data-animation-list": "true" } });
   (style.animations || []).forEach((anim, idx) => animList.appendChild(createAnimationRow(anim, idx)));
   const addAnimBtn = createElement("button", { text: "Add animation", attrs: { type: "button", "data-add-animation": "true" } });
+  const eventRow = createElement("div", { className: "event-actions" });
+  [
+    { label: "Add Orb Spin", eventType: "anim:orbPickup" },
+    { label: "Add Perfect Spin", eventType: "anim:perfectGap" }
+  ].forEach((entry) => {
+    const btn = createElement("button", { text: entry.label, attrs: { type: "button", "data-spin-event": entry.eventType } });
+    eventRow.appendChild(btn);
+  });
   const testRow = createElement("div", { className: "test-events" });
   [
+    { label: "Test Orb", type: "anim:orbPickup" },
+    { label: "Test Perfect", type: "anim:perfectGap" },
     { label: "Test Tap", type: "tap" },
-    { label: "Test Score", type: "score" },
     { label: "Test Hit", type: "hit" }
   ].forEach((entry) => {
     const btn = createElement("button", { text: entry.label, attrs: { type: "button", "data-event-type": entry.type } });
     testRow.appendChild(btn);
   });
-  animationsPanel.append(animList, addAnimBtn, testRow);
+  animationsPanel.append(animList, addAnimBtn, eventRow, testRow);
 
   addEffectBtn.addEventListener("click", () => {
     effectsList.appendChild(createEffectRow({}, effectsList.children.length));
@@ -763,6 +776,22 @@ function createIconCard({ icon, allowRemove = false } = {}) {
 
   addAnimBtn.addEventListener("click", () => {
     animList.appendChild(createAnimationRow({}, animList.children.length));
+    reindexRows(animList, "data-animation-row", "style.animations[");
+  });
+
+  eventRow.addEventListener("click", (event) => {
+    const button = event.target.closest("button[data-spin-event]");
+    if (!button) return;
+    const eventType = button.dataset.spinEvent;
+    const animation = {
+      enabled: true,
+      timing: { mode: "once", durationMs: 500, delayMs: 0, easing: "linear", phaseOffset: 0 },
+      type: "patternRotate",
+      target: "pattern.rotationDeg",
+      params: { turns: 1 },
+      triggeredBy: eventType
+    };
+    animList.appendChild(createAnimationRow(animation, animList.children.length));
     reindexRows(animList, "data-animation-row", "style.animations[");
   });
 

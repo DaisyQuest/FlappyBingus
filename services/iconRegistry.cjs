@@ -29,16 +29,37 @@ class PlayerIconDefinition {
 
 class HighVisOrangeIcon extends PlayerIconDefinition {
   constructor() {
+    const style = migrateLegacyStyleToV2({
+      fill: "#ff8c1a",
+      core: "#ffc285",
+      rim: "#0f172a",
+      glow: "#ffe8c2"
+    });
+    style.effects = [
+      { type: "centerFlash", enabled: true, params: { color: "#38bdf8", alpha: 0.75, progress: 0 } },
+      { type: "centerFlash", enabled: true, params: { color: "#22c55e", alpha: 0.75, progress: 0 } }
+    ];
+    style.animations = [
+      {
+        enabled: true,
+        timing: { mode: "once", durationMs: 450, delayMs: 0, easing: "linear", phaseOffset: 0 },
+        type: "centerFlash",
+        target: "effects[0].params.progress",
+        triggeredBy: "anim:orbPickup"
+      },
+      {
+        enabled: true,
+        timing: { mode: "once", durationMs: 450, delayMs: 0, easing: "linear", phaseOffset: 0 },
+        type: "centerFlash",
+        target: "effects[1].params.progress",
+        triggeredBy: "anim:perfectGap"
+      }
+    ];
     super({
       id: HIGH_VIS_ORANGE_ID,
       name: "High-Vis Orange",
       unlock: { type: "free", label: "Free" },
-      style: migrateLegacyStyleToV2({
-        fill: "#ff8c1a",
-        core: "#ffc285",
-        rim: "#0f172a",
-        glow: "#ffe8c2"
-      })
+      style
     });
   }
 }

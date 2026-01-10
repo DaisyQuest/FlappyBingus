@@ -252,6 +252,13 @@ function sampleAnimationValue(type, baseValue, t, params = {}, seed, events, tim
       };
     }
     case "patternRotate": {
+      if (params.eventType) {
+        const duration = Math.max(60, Number(timing?.durationMs) || 400);
+        const progress = resolveEventProgress(events, params.eventType, timeMs, duration);
+        if (progress === null) return baseValue;
+        const turns = Number.isFinite(params.turns) ? params.turns : 1;
+        return (Number(baseValue) || 0) + turns * 360 * progress;
+      }
       const speed = Number.isFinite(params.speedDeg) ? params.speedDeg : 60;
       return (Number(baseValue) || 0) + speed * t * 360;
     }
@@ -295,14 +302,17 @@ function applyAnimationsToStyle(style, animations = [], {
   animations.forEach((anim) => {
     if (!anim || anim.enabled === false) return;
     if (!ANIMATION_TYPES.includes(anim.type)) return;
-    if (reducedMotion && CONTINUOUS_TYPES.has(anim.type) && !EVENT_TYPES.has(anim.type)) return;
     const timing = anim.timing || {};
     const mode = timing.mode || "loop";
     const rawT = resolveTimingProgress(timeMs, timing, mode);
     const eased = easingValue(timing.easing, rawT);
     const target = anim.target || "";
     const baseValue = target === "preview.scale" ? preview.scale : readPath(next, target);
-    const value = sampleAnimationValue(anim.type, baseValue, eased, anim.params, anim.seed ?? seed, events, timing, timeMs);
+    const params = anim.params ? { ...anim.params } : {};
+    if (anim.triggeredBy && !params.eventType) params.eventType = anim.triggeredBy;
+    const isEventDriven = Boolean(anim.triggeredBy || params.eventType);
+    if (reducedMotion && CONTINUOUS_TYPES.has(anim.type) && !EVENT_TYPES.has(anim.type) && !isEventDriven) return;
+    const value = sampleAnimationValue(anim.type, baseValue, eased, params, anim.seed ?? seed, events, timing, timeMs);
 
     if (target === "preview.scale") {
       preview.scale = clamp(Number(value) || preview.scale, 0.9, 1.1);

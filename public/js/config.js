@@ -41,6 +41,11 @@ export const DEFAULT_CONFIG = {
     slowField: { cooldown: 4.50, duration: 1.80, radius: 210, slowFactor: 0.58 },
     slowExplosion: { cooldown: 17.00, duration: 0.18, radius: 140, blastParticles: 28 }
   },
+  defaultAbilityEffect: {
+    effect: { type: "radialRipple", params: { color: "#ffffff", alpha: 0.75 } },
+    animation: { type: "radialRipple", timing: { durationMs: 380 }, target: "effects[].params.progress" }
+  },
+  abilityEffects: {},
   catalysts: {
     orbs: {
       enabled: true,

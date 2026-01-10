@@ -42,6 +42,23 @@ describe("icon editor helpers", () => {
     expect(first.style.animations[0].type).toBe("slowSpin");
   });
 
+  it("captures triggeredBy values from animation rows", () => {
+    const icon = {
+      id: "triggered",
+      name: "Triggered",
+      unlock: { type: "free" },
+      style: {
+        version: 2,
+        animations: [{ id: "orb", type: "patternRotate", target: "pattern.rotationDeg", triggeredBy: "anim:orbPickup" }]
+      }
+    };
+    const card = createIconCard({ icon, allowRemove: false });
+    const root = document.createElement("div");
+    root.appendChild(card);
+    const [read] = collectIconDefinitions(root);
+    expect(read.style.animations[0].triggeredBy).toBe("anim:orbPickup");
+  });
+
   it("reads pattern color arrays from JSON", () => {
     const icon = {
       id: "stripe",
@@ -193,6 +210,19 @@ describe("icon editor helpers", () => {
     typeSelect.dispatchEvent(new Event("change", { bubbles: true }));
     const updatedValues = Array.from(targetList.options).map((option) => option.value);
     expect(updatedValues).toEqual(["pattern.rotationDeg"]);
+  });
+
+  it("adds an orb spin animation from the quick action button", () => {
+    const icon = { id: "spin", name: "Spin", unlock: { type: "free" }, style: { version: 2, animations: [] } };
+    const card = createIconCard({ icon, allowRemove: false });
+    const button = card.querySelector("[data-spin-event='anim:orbPickup']");
+    button.click();
+    const animationRows = card.querySelectorAll("[data-animation-row]");
+    expect(animationRows).toHaveLength(1);
+    const triggeredInput = card.querySelector("[data-field='style.animations[0].triggeredBy']");
+    const targetInput = card.querySelector("[data-field='style.animations[0].target']");
+    expect(triggeredInput.value).toBe("anim:orbPickup");
+    expect(targetInput.value).toBe("pattern.rotationDeg");
   });
 
   it("shows generic guidance for non-specific animation targets", () => {

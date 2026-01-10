@@ -22,4 +22,17 @@ describe("client icon registry", () => {
     const icons = buildBaseIcons();
     expect(icons.find((icon) => icon.id === "file_icon")?.imageSrc).toBe("/file.png");
   });
+
+  it("adds orb and perfect flash animations to High-Vis Orange", () => {
+    const icons = buildBaseIcons();
+    const orange = icons.find((icon) => icon.id === "hi_vis_orange");
+    expect(orange?.style?.effects).toEqual(expect.arrayContaining([
+      expect.objectContaining({ type: "centerFlash", params: expect.objectContaining({ color: "#38bdf8" }) }),
+      expect.objectContaining({ type: "centerFlash", params: expect.objectContaining({ color: "#22c55e" }) })
+    ]));
+    expect(orange?.style?.animations).toEqual(expect.arrayContaining([
+      expect.objectContaining({ type: "centerFlash", target: "effects[0].params.progress", triggeredBy: "anim:orbPickup" }),
+      expect.objectContaining({ type: "centerFlash", target: "effects[1].params.progress", triggeredBy: "anim:perfectGap" })
+    ]));
+  });
 });
