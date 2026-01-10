@@ -115,6 +115,86 @@ describe("icon editor helpers", () => {
     expect(guidance.textContent).toMatch(/Color Shift/);
   });
 
+  it("filters target suggestions for strict animation types", () => {
+    const icon = {
+      id: "scroll-anim",
+      name: "Scroll Anim",
+      unlock: { type: "free" },
+      style: {
+        version: 2,
+        animations: [{ id: "scroll", type: "patternScroll", target: "" }]
+      }
+    };
+    const card = createIconCard({ icon, allowRemove: false });
+    const targetInput = card.querySelector("[data-field='style.animations[0].target']");
+    const targetList = card.querySelector(`#${targetInput.getAttribute("list")}`);
+    const values = Array.from(targetList.options).map((option) => option.value);
+
+    expect(values).toEqual(["pattern.centerOffset"]);
+  });
+
+  it("filters target suggestions for color shift animations", () => {
+    const icon = {
+      id: "color-targets",
+      name: "Color Targets",
+      unlock: { type: "free" },
+      style: {
+        version: 2,
+        animations: [{ id: "shift", type: "colorShift", target: "" }]
+      }
+    };
+    const card = createIconCard({ icon, allowRemove: false });
+    const targetInput = card.querySelector("[data-field='style.animations[0].target']");
+    const targetList = card.querySelector(`#${targetInput.getAttribute("list")}`);
+    const values = Array.from(targetList.options).map((option) => option.value);
+
+    expect(values).toEqual([
+      "palette.fill",
+      "palette.core",
+      "palette.rim",
+      "palette.glow",
+      "palette.accent"
+    ]);
+  });
+
+  it("updates target suggestions when the animation type changes", () => {
+    const icon = {
+      id: "dynamic-targets",
+      name: "Dynamic Targets",
+      unlock: { type: "free" },
+      style: {
+        version: 2,
+        animations: [{ id: "pulse", type: "pulseUniform", target: "" }]
+      }
+    };
+    const card = createIconCard({ icon, allowRemove: false });
+    const typeSelect = card.querySelector("[data-field='style.animations[0].type']");
+    const targetInput = card.querySelector("[data-field='style.animations[0].target']");
+    const targetList = card.querySelector(`#${targetInput.getAttribute("list")}`);
+
+    const initialValues = Array.from(targetList.options).map((option) => option.value);
+    expect(initialValues).toEqual([
+      "palette.fill",
+      "palette.core",
+      "palette.rim",
+      "palette.glow",
+      "palette.accent",
+      "pattern.rotationDeg",
+      "pattern.centerOffset",
+      "pattern.alpha",
+      "shadow.blur",
+      "stroke.width",
+      "texture.offset",
+      "effects[0].params.progress",
+      "preview.scale"
+    ]);
+
+    typeSelect.value = "patternRotate";
+    typeSelect.dispatchEvent(new Event("change", { bubbles: true }));
+    const updatedValues = Array.from(targetList.options).map((option) => option.value);
+    expect(updatedValues).toEqual(["pattern.rotationDeg"]);
+  });
+
   it("shows generic guidance for non-specific animation targets", () => {
     const icon = {
       id: "generic-anim",

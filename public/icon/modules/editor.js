@@ -68,33 +68,40 @@ const ANIMATION_TARGET_GUIDANCE = [
     match: /^pattern\.centerOffset$/,
     types: ["patternScroll"],
     description: "Pattern Scroll moves the pattern center.",
+    restrictTargets: true,
     strict: true
   },
   {
     match: /^pattern\.rotationDeg$/,
     types: ["patternRotate", "slowSpin"],
     description: "Pattern Rotate or Slow Spin keeps rotation consistent.",
+    restrictTargets: true,
     strict: true
   },
   {
     match: /^texture\.offset$/,
     types: ["grainDrift", "scanlineDrift"],
     description: "Texture drift animations move texture offsets.",
+    restrictTargets: true,
     strict: true
   },
   {
     match: /^effects\[\d+\]\.params\.progress$/,
     types: ["rimOrbitLight", "shimmerSweep", "radialRipple", "centerFlash", "sparkBloom", "shockRing", "hitFlash"],
     description: "Sweep or event animations drive effect progress.",
+    restrictTargets: true,
     strict: true
   },
   {
     match: /^preview\.scale$/,
     types: ["pulseUniform", "heartbeat", "tickPulse"],
     description: "Pulse animations give preview scale a quick beat.",
+    restrictTargets: false,
     strict: true
   }
 ];
+
+let animationTargetListId = 0;
 
 function isColorTarget(target) {
   if (!target) return false;
@@ -150,6 +157,18 @@ function resolveAnimationGuidance(target) {
   return null;
 }
 
+function resolveTargetsForAnimation(type) {
+  if (!type) return null;
+  if (type === "colorShift") {
+    const colorTargets = TARGET_SUGGESTIONS.filter((target) => isColorTarget(target));
+    return colorTargets.length ? colorTargets : null;
+  }
+  const rules = ANIMATION_TARGET_GUIDANCE.filter((rule) => rule.types.includes(type) && rule.restrictTargets);
+  if (!rules.length) return null;
+  const filtered = TARGET_SUGGESTIONS.filter((target) => rules.some((rule) => rule.match.test(target)));
+  return filtered.length ? filtered : null;
+}
+
 function updateAnimationGuidance({ targetInput, typeSelect, hintEl }) {
   const guidance = resolveAnimationGuidance(targetInput.value);
   const options = Array.from(typeSelect.options);
@@ -171,6 +190,17 @@ function updateAnimationGuidance({ targetInput, typeSelect, hintEl }) {
     typeSelect.value = guidance.types[0];
   }
   hintEl.textContent = buildAnimationHint(guidance.types, guidance.description);
+}
+
+function updateAnimationTargets({ typeSelect, targetList }) {
+  if (!targetList) return;
+  const targets = resolveTargetsForAnimation(typeSelect.value) || TARGET_SUGGESTIONS;
+  targetList.replaceChildren();
+  targets.forEach((value) => {
+    const option = createElement("option");
+    option.value = value;
+    targetList.appendChild(option);
+  });
 }
 
 function createFieldRow(labelText, input, { hint, defaultValue, colorPicker } = {}) {
@@ -405,7 +435,9 @@ function createAnimationRow(animation = {}, index = 0) {
 
   const target = createTextInput(animation.target || "");
   target.dataset.field = `style.animations[${index}].target`;
-  target.setAttribute("list", "iconAnimationTargets");
+  const targetListId = `iconAnimationTargets-${animationTargetListId++}`;
+  target.setAttribute("list", targetListId);
+  const targetList = createElement("datalist", { attrs: { id: targetListId } });
 
   const targetRow = createFieldRow("Target", target, { hint: "Choose a target to see compatible animations." });
   const targetHint = targetRow.querySelector("small.muted");
@@ -442,9 +474,15 @@ function createAnimationRow(animation = {}, index = 0) {
     createFieldRow("Params (JSON)", params)
   );
 
+  row.appendChild(targetList);
+
   updateAnimationGuidance({ targetInput: target, typeSelect, hintEl: targetHint });
+  updateAnimationTargets({ typeSelect, targetList });
   target.addEventListener("input", () => {
     updateAnimationGuidance({ targetInput: target, typeSelect, hintEl: targetHint });
+  });
+  typeSelect.addEventListener("change", () => {
+    updateAnimationTargets({ typeSelect, targetList });
   });
 
   return row;
@@ -778,14 +816,6 @@ function createIconCard({ icon, allowRemove = false } = {}) {
   panel.append(basics, unlock, stylePanel, patternPanel, effectsPanel, animationsPanel, presetPanel, advancedPanel);
   body.append(preview, tabs, panel);
   card.appendChild(body);
-
-  const targetList = createElement("datalist", { attrs: { id: "iconAnimationTargets" } });
-  TARGET_SUGGESTIONS.forEach((value) => {
-    const option = createElement("option");
-    option.value = value;
-    targetList.appendChild(option);
-  });
-  card.appendChild(targetList);
 
   if (allowRemove) {
     const actions = createElement("div", { className: "icon-actions" });
