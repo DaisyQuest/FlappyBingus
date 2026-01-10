@@ -4,6 +4,7 @@
 // =====================
 import { resolveIconStyleV2 } from "./iconStyleV2.js";
 import { applyAnimationsToStyle } from "./iconAnimationEngine.js";
+import { buildTriggeredAnimationLayer, mergeTriggeredAnimationLayer } from "./abilityAnimationRegistry.js";
 
 const DEFAULT_FILL = "#ff8c1a";
 const DEFAULT_CORE = "#ffc285";
@@ -1121,10 +1122,19 @@ function applyEffectsPipeline(ctx, radius, style = {}) {
   });
 }
 
-function buildIconRenderState(icon, { timeMs = 0, events = [], reducedMotion = false } = {}) {
+function buildIconRenderState(icon, {
+  timeMs = 0,
+  events = [],
+  reducedMotion = false,
+  triggeredAnimationRegistry = null
+} = {}) {
   const baseStyle = resolveIconStyleV2(icon);
+  const triggeredLayer = triggeredAnimationRegistry
+    ? buildTriggeredAnimationLayer(triggeredAnimationRegistry)
+    : null;
+  const composedStyle = triggeredLayer ? mergeTriggeredAnimationLayer(baseStyle, triggeredLayer) : baseStyle;
   const seed = typeof icon?.id === "string" ? icon.id : 0;
-  const { style, preview } = applyAnimationsToStyle(baseStyle, baseStyle.animations || [], {
+  const { style, preview } = applyAnimationsToStyle(composedStyle, composedStyle.animations || [], {
     timeMs,
     seed,
     events,
@@ -1137,11 +1147,17 @@ function renderIconFrameV2(ctx, canvas, icon = {}, {
   timeMs = 0,
   events = [],
   reducedMotion = false,
-  showMask = false
+  showMask = false,
+  triggeredAnimationRegistry = null
 } = {}) {
   if (!ctx || !canvas) return;
   const motionReduced = resolveReducedMotion(reducedMotion);
-  const { style, preview } = buildIconRenderState(icon, { timeMs, events, reducedMotion: motionReduced });
+  const { style, preview } = buildIconRenderState(icon, {
+    timeMs,
+    events,
+    reducedMotion: motionReduced,
+    triggeredAnimationRegistry
+  });
   const palette = style.palette || {};
   const glow = palette.glow || DEFAULT_GLOW;
   const fill = palette.fill || DEFAULT_FILL;
@@ -1238,9 +1254,20 @@ function renderIconFrameV2(ctx, canvas, icon = {}, {
 
 function drawImageIconFrameV2(ctx, canvas, icon, image, options = {}) {
   if (!ctx || !canvas) return;
-  const { timeMs = 0, events = [], reducedMotion = false, showMask = false } = options;
+  const {
+    timeMs = 0,
+    events = [],
+    reducedMotion = false,
+    showMask = false,
+    triggeredAnimationRegistry = null
+  } = options;
   const motionReduced = resolveReducedMotion(reducedMotion);
-  const { style, preview } = buildIconRenderState(icon, { timeMs, events, reducedMotion: motionReduced });
+  const { style, preview } = buildIconRenderState(icon, {
+    timeMs,
+    events,
+    reducedMotion: motionReduced,
+    triggeredAnimationRegistry
+  });
   const palette = style.palette || {};
   const glow = palette.glow || DEFAULT_GLOW;
   const fill = palette.fill || DEFAULT_FILL;
