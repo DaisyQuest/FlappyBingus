@@ -24,6 +24,25 @@ describe("animation trigger event adapter", () => {
     });
   });
 
+  it("adds derived metadata on animation trigger events", () => {
+    const engine = new GameEngine({ clock: createFixedClock(0) });
+
+    engine.emit("score:orb", { value: 1, triggerId: "orb-meta" });
+
+    const animEvent = engine.events.events.find((entry) => entry.type === "anim:orbPickup");
+    expect(animEvent?.meta).toMatchObject({ derivedFrom: "score:orb" });
+  });
+
+  it("falls back to the default player id when no player is set", () => {
+    const engine = new GameEngine({ clock: createFixedClock(0) });
+    engine.state.player = null;
+
+    engine.emit("score:orb", { value: 1, triggerId: "orb-default" });
+
+    const animEvent = engine.events.events.find((entry) => entry.type === "anim:orbPickup");
+    expect(animEvent?.payload?.playerId).toBe("player-1");
+  });
+
   it("emits anim:perfectGap after perfect score events", () => {
     const engine = new GameEngine({ clock: createFixedClock(0) });
     engine.state.player.id = "pilot-2";
@@ -39,6 +58,16 @@ describe("animation trigger event adapter", () => {
       combo: 2,
       score: { type: "perfect", delta: 1, total: 6 }
     });
+  });
+
+  it("defaults score deltas when none are provided", () => {
+    const engine = new GameEngine({ clock: createFixedClock(0) });
+    engine.state.score.orbs = 10;
+
+    engine.emit("score:orb", { triggerId: "orb-default-delta" });
+
+    const animEvent = engine.events.events.find((entry) => entry.type === "anim:orbPickup");
+    expect(animEvent?.payload?.score).toMatchObject({ delta: 1, total: 10 });
   });
 
   it("emits anim:dash and anim:phase for ability starts", () => {
@@ -62,6 +91,19 @@ describe("animation trigger event adapter", () => {
       playerId: "pilot-3",
       skillId: "phase"
     });
+  });
+
+  it("derives teleport variants from payload behavior and entry type", () => {
+    const engine = new GameEngine({ clock: createFixedClock(0) });
+    engine.state.player.id = "pilot-variant";
+
+    engine.emit("ability:teleport", { behavior: "explode", triggerId: "tele-behavior" });
+    engine.emit("ability:teleport:explode", { triggerId: "tele-type" });
+
+    const animEvents = engine.events.events.filter((e) => e.type.startsWith("anim:"));
+    expect(animEvents.map((event) => event.type)).toEqual(["anim:explode", "anim:explode"]);
+    expect(animEvents[0].payload.variant).toBe("explode");
+    expect(animEvents[1].payload.variant).toBe("explode");
   });
 
   it("handles teleport variants with explicit anim triggers", () => {
@@ -98,6 +140,8 @@ describe("animation trigger event adapter", () => {
 
     engine.emit("ability:teleport", { result: "cooldown" });
     engine.emit("ability:teleport", { success: false });
+    engine.emit("ability:teleport", { cooldown: true });
+    engine.emit("ability:teleport", { result: "failed" });
 
     const animEvents = engine.events.events.filter((e) => e.type.startsWith("anim:"));
     expect(animEvents).toHaveLength(0);
@@ -111,6 +155,26 @@ describe("animation trigger event adapter", () => {
 
     const animEvents = engine.events.events.filter((e) => e.type === "anim:orbPickup");
     expect(animEvents).toHaveLength(1);
+  });
+
+  it("deduplicates per event type while allowing shared trigger ids", () => {
+    const engine = new GameEngine({ clock: createFixedClock(0) });
+
+    engine.emit("score:orb", { value: 1, triggerId: "shared" });
+    engine.emit("score:perfect", { value: 1, triggerId: "shared" });
+
+    const animEvents = engine.events.events.filter((e) => e.type.startsWith("anim:"));
+    expect(animEvents.map((event) => event.type)).toEqual(["anim:orbPickup", "anim:perfectGap"]);
+  });
+
+  it("allows repeated trigger events without a trigger id", () => {
+    const engine = new GameEngine({ clock: createFixedClock(0) });
+
+    engine.emit("score:orb", { value: 1 });
+    engine.emit("score:orb", { value: 1 });
+
+    const animEvents = engine.events.events.filter((e) => e.type === "anim:orbPickup");
+    expect(animEvents).toHaveLength(2);
   });
 
   it("orders score events before animation triggers in the event log", () => {
