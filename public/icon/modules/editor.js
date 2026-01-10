@@ -749,7 +749,13 @@ function createIconCard({ icon, allowRemove = false } = {}) {
   [
     { label: "Test Tap", type: "tap" },
     { label: "Test Score", type: "score" },
-    { label: "Test Hit", type: "hit" }
+    { label: "Test Hit", type: "hit" },
+    { label: "Orb Pickup", type: "anim:orbPickup" },
+    { label: "Perfect Gap", type: "anim:perfectGap" },
+    { label: "Dash", type: "anim:dash" },
+    { label: "Phase", type: "anim:phase" },
+    { label: "Teleport", type: "anim:teleport" },
+    { label: "Explode", type: "anim:explode" }
   ].forEach((entry) => {
     const btn = createElement("button", { text: entry.label, attrs: { type: "button", "data-event-type": entry.type } });
     testRow.appendChild(btn);

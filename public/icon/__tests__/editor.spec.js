@@ -245,4 +245,35 @@ describe("icon editor helpers", () => {
     expect(result.ok).toBe(false);
     expect(result.errors.map((err) => err.path)).toContain("palette.fill");
   });
+
+  it("renders animation trigger buttons for deterministic anim events", () => {
+    const icon = { id: "anim-triggers", name: "Anim Triggers", unlock: { type: "free" }, style: {} };
+    const card = createIconCard({ icon, allowRemove: false });
+    const buttons = Array.from(card.querySelectorAll(".test-events [data-event-type]"));
+    const types = buttons.map((button) => button.dataset.eventType);
+    const labels = buttons.map((button) => button.textContent);
+
+    expect(types).toEqual([
+      "tap",
+      "score",
+      "hit",
+      "anim:orbPickup",
+      "anim:perfectGap",
+      "anim:dash",
+      "anim:phase",
+      "anim:teleport",
+      "anim:explode"
+    ]);
+    expect(labels).toEqual([
+      "Test Tap",
+      "Test Score",
+      "Test Hit",
+      "Orb Pickup",
+      "Perfect Gap",
+      "Dash",
+      "Phase",
+      "Teleport",
+      "Explode"
+    ]);
+  });
 });
