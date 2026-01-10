@@ -79,20 +79,47 @@ const COMBO_WINDOW_MIN = 5;
 const COMBO_WINDOW_DECAY = 5 / 39;
 const SIMPLE_PARTICLE_SCALE = 0.5;
 const REDUCED_PARTICLE_SCALE = 0.35;
+const PLAYER_ICON_EVENT_TYPES = Object.freeze({
+  ORB_PICKUP: "orbPickup"
+});
+const PLAYER_ICON_EVENT_LIMITS = Object.freeze({
+  maxAgeMs: 2000,
+  maxEvents: 24
+});
+
+const defaultIconEventClock = () => {
+  if (typeof performance !== "undefined" && typeof performance.now === "function") {
+    return performance.now();
+  }
+  return Date.now();
+};
 
 export { Pipe, Gate, Orb, Part, FloatText, WORLD_WIDTH, WORLD_HEIGHT };
 
 export class Game {
-  constructor({ canvas, ctx, config, playerImg, input, getTrailId, getBinds, getPipeTexture, onGameOver }) {
+  constructor({
+    canvas,
+    ctx,
+    config,
+    playerImg,
+    input,
+    getTrailId,
+    getBinds,
+    getPipeTexture,
+    onGameOver,
+    getIconEventTimeMs
+  }) {
     this.canvas = canvas;
     this.ctx = ctx;
     this.cfg = config;
-    this.playerImg = playerImg;
     this.input = input;
     this.getTrailId = getTrailId || (() => "classic");
     this.getPipeTexture = getPipeTexture || (() => ({ id: DEFAULT_PIPE_TEXTURE_ID, mode: DEFAULT_PIPE_TEXTURE_MODE }));
     this.getBinds = getBinds || (() => ({}));
     this.onGameOver = onGameOver || config?.onGameOver || (() => {});
+    this._iconEventClock = typeof getIconEventTimeMs === "function" ? getIconEventTimeMs : defaultIconEventClock;
+    this._playerIconEvents = [];
+    this._playerIconEventLimits = { ...PLAYER_ICON_EVENT_LIMITS };
 
     this.state = STATE.MENU;
 
@@ -116,6 +143,7 @@ export class Game {
       dashMode: null,
       dashDestroyed: false
     };
+    this.setPlayerImage(playerImg);
 
     this.pipes = [];
     this.gates = [];
@@ -210,6 +238,11 @@ export class Game {
 
   setPlayerImage(playerImg) {
     this.playerImg = playerImg || {};
+    const events = Array.isArray(this.playerImg?.__events) ? this.playerImg.__events : [];
+    if (this.playerImg && typeof this.playerImg === "object" && !Array.isArray(this.playerImg.__events)) {
+      this.playerImg.__events = events;
+    }
+    this._playerIconEvents = events;
     if (this.cfg?.player) this._computePlayerSize();
   }
 
@@ -296,6 +329,39 @@ export class Game {
     const safe = Math.max(0, Math.floor(Number(count) || 0));
     if (safe <= 0) return;
     this.runStats.maxBrokenPipesInExplosion = Math.max(this.runStats.maxBrokenPipesInExplosion || 0, safe);
+  }
+
+  _prunePlayerIconEvents(nowMs) {
+    const events = this._playerIconEvents;
+    if (!Array.isArray(events)) return;
+    if (!Number.isFinite(nowMs)) return;
+    const limits = this._playerIconEventLimits || PLAYER_ICON_EVENT_LIMITS;
+    const maxAgeMs = Math.max(0, Number(limits.maxAgeMs) || 0);
+    const maxEvents = Math.max(0, Number(limits.maxEvents) || 0);
+    const cutoff = nowMs - maxAgeMs;
+    let dropCount = 0;
+    for (let i = 0; i < events.length; i += 1) {
+      const timeMs = events[i]?.timeMs;
+      if (!Number.isFinite(timeMs) || timeMs < cutoff) {
+        dropCount += 1;
+      } else {
+        break;
+      }
+    }
+    if (dropCount > 0) events.splice(0, dropCount);
+    if (maxEvents > 0 && events.length > maxEvents) {
+      events.splice(0, events.length - maxEvents);
+    }
+  }
+
+  _triggerPlayerIconEvent(type) {
+    if (!type) return;
+    const events = this._playerIconEvents;
+    if (!Array.isArray(events)) return;
+    const nowMs = this._iconEventClock?.();
+    if (!Number.isFinite(nowMs)) return;
+    events.push({ type, timeMs: nowMs });
+    this._prunePlayerIconEvents(nowMs);
   }
 
   // NEW: orb pickup sound, pitched by combo
@@ -1931,6 +1997,7 @@ export class Game {
 
         // NEW: play boop AFTER combo increments (so pitch rises with combo)
         this._orbPickupSfx();
+        this._triggerPlayerIconEvent(PLAYER_ICON_EVENT_TYPES.ORB_PICKUP);
 
         const pts = this._orbPoints(this.combo);
         this._recordOrbScore(pts);
