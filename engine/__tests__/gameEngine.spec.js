@@ -46,10 +46,17 @@ describe("GameEngine", () => {
     engine.command("dash", { direction: "left" });
     expect(engine.state.player.dash.active).toBe(true);
     expect(engine.state.player.vx).toBeLessThan(0);
-    expect(engine.events.events.at(-1).type).toBe("dash:start");
+    const dashStartIndex = engine.events.events.findIndex((e) => e.type === "dash:start");
+    const animDashIndex = engine.events.events.findIndex((e) => e.type === "anim:dash");
+    expect(dashStartIndex).toBeGreaterThan(-1);
+    expect(animDashIndex).toBeGreaterThan(dashStartIndex);
 
     engine.command("phase");
     expect(engine.state.player.invulnerable).toBe(true);
+    const phaseStartIndex = engine.events.events.findIndex((e) => e.type === "ability:phase:start");
+    const animPhaseIndex = engine.events.events.findIndex((e) => e.type === "anim:phase");
+    expect(phaseStartIndex).toBeGreaterThan(-1);
+    expect(animPhaseIndex).toBeGreaterThan(phaseStartIndex);
 
     engine.step(0.05);
     expect(engine.state.player.dash.active).toBe(false);
@@ -122,9 +129,13 @@ describe("GameEngine", () => {
     engine.emit("gate:entered", { id: "g1" });
 
     const snap = engine.getSnapshot();
-    expect(snap.events).toHaveLength(2);
+    expect(snap.events).toHaveLength(3);
+    expect(snap.events[0].type).toBe("score:orb");
+    expect(snap.events[1].type).toBe("anim:orbPickup");
+    expect(snap.events[2].type).toBe("gate:entered");
     expect(snap.events[0].time).toBe(0);
-    expect(snap.events[1].time).toBeCloseTo(10, 5);
+    expect(snap.events[1].time).toBe(0);
+    expect(snap.events[2].time).toBeCloseTo(10, 5);
   });
 
   it("trims event history when configured", () => {

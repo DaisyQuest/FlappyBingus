@@ -23,7 +23,8 @@ describe("runScenario determinism", () => {
     const result = runScenario({ scenario: sampleScenario });
     const last = result.snapshots.at(-1);
     expect(last.state.time).toBeCloseTo(0.04, 5); // 0.01 gap + 0.005 + 0.005 gap + 0.01
-    expect(last.events).toHaveLength(2);
+    expect(last.events).toHaveLength(3);
     expect(last.events[0].type).toBe("score:orb");
+    expect(last.events[1].type).toBe("anim:orbPickup");
   });
 });

@@ -1,6 +1,7 @@
 import { createRng } from "./rng.js";
 import { createFixedClock } from "./clock.js";
 import { EventLog } from "./eventLog.js";
+import { createAnimationEventAdapter } from "./eventAdapters.js";
 import { applyAction } from "./actions.js";
 import { stepWorld, getDefaultSystemPipeline } from "./step.js";
 import { createSystemPipeline, listSystemNames } from "./systemPipeline.js";
@@ -17,7 +18,11 @@ export class GameEngine {
     this.clock = clock;
     this.world = createWorld({ seed: rngSeed, config });
     this.config = this.world.config;
-    this.events = new EventLog(clock, { maxSize: this.config.eventBufferSize });
+    this.events = new EventLog(clock, {
+      maxSize: this.config.eventBufferSize,
+      adapters: [createAnimationEventAdapter()],
+      context: () => ({ state: this.state, config: this.config })
+    });
     this.state = this.world.state;
     const basePipeline = getDefaultSystemPipeline();
     const baseSystems = basePipeline.systems.map((system) => ({
