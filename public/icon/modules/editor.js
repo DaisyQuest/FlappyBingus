@@ -921,25 +921,7 @@ function applyPresetToCard(card, preset) {
   const icon = readIconDefinition(card);
   if (!icon) return;
   const mergedStyle = applyPresetPatch(icon.style, preset);
-  card.querySelectorAll("[data-field^='style.']").forEach((input) => {
-    const path = input.dataset.field.replace("style.", "");
-    const value = path.split(".").reduce((acc, key) => (acc ? acc[key] : undefined), mergedStyle);
-    if (input.type === "checkbox") {
-      input.checked = Boolean(value);
-    } else if (value !== undefined) {
-      input.value = typeof value === "object" ? JSON.stringify(value) : String(value);
-    }
-  });
-  const effectsList = card.querySelector("[data-effect-list]");
-  if (effectsList) {
-    effectsList.innerHTML = "";
-    (mergedStyle.effects || []).forEach((effect, idx) => effectsList.appendChild(createEffectRow(effect, idx)));
-  }
-  const animList = card.querySelector("[data-animation-list]");
-  if (animList) {
-    animList.innerHTML = "";
-    (mergedStyle.animations || []).forEach((anim, idx) => animList.appendChild(createAnimationRow(anim, idx)));
-  }
+  applyStyleToCard(card, mergedStyle);
   const errors = validateIconStyleV2(mergedStyle);
   if (!errors.ok) {
     const errorBox = card.querySelector("[data-validation-errors]");
@@ -997,9 +979,7 @@ function wireAdvancedPanel(card) {
         errorBox.innerHTML = errors.errors.map((err) => `<div>${err.path}: ${err.message}</div>`).join("");
         return;
       }
-      card.querySelector("[data-field='id']").value = parsed.id || "";
-      card.querySelector("[data-field='name']").value = parsed.name || "";
-      card.querySelector("[data-field='imageSrc']").value = parsed.imageSrc || "";
+      applyIconJsonToCard(card, parsed, nextStyle);
     } catch (err) {
       if (errorBox) errorBox.textContent = `Invalid JSON: ${err.message}`;
     }
@@ -1014,6 +994,68 @@ function wireAdvancedPanel(card) {
       document.execCommand("copy");
     }
   });
+}
+
+function applyStyleToCard(card, style) {
+  card.querySelectorAll("[data-field^='style.']").forEach((input) => {
+    const path = input.dataset.field.replace("style.", "");
+    const value = path.split(".").reduce((acc, key) => (acc ? acc[key] : undefined), style);
+    setInputValue(input, value);
+  });
+
+  const effectsList = card.querySelector("[data-effect-list]");
+  if (effectsList) {
+    effectsList.innerHTML = "";
+    (style.effects || []).forEach((effect, idx) => effectsList.appendChild(createEffectRow(effect, idx)));
+  }
+  const animList = card.querySelector("[data-animation-list]");
+  if (animList) {
+    animList.innerHTML = "";
+    (style.animations || []).forEach((anim, idx) => animList.appendChild(createAnimationRow(anim, idx)));
+  }
+}
+
+function setInputValue(input, value) {
+  const inputType = input.dataset.type || input.type;
+  if (inputType === "checkbox") {
+    input.checked = Boolean(value);
+    return;
+  }
+  if (value === undefined || value === null) {
+    input.value = "";
+    return;
+  }
+  if (inputType === "json") {
+    input.value = JSON.stringify(value, null, 2);
+    return;
+  }
+  input.value = typeof value === "object" ? JSON.stringify(value) : String(value);
+}
+
+function setFieldValue(card, field, value) {
+  const input = card.querySelector(`[data-field='${field}']`);
+  if (!input) return;
+  setInputValue(input, value);
+}
+
+function applyIconJsonToCard(card, parsed, style) {
+  setFieldValue(card, "id", parsed.id || "");
+  setFieldValue(card, "name", parsed.name || "");
+  setFieldValue(card, "imageSrc", parsed.imageSrc || "");
+  setFieldValue(card, "schemaVersion", parsed.schemaVersion ?? 2);
+
+  const unlock = parsed.unlock || {};
+  setFieldValue(card, "unlockType", unlock.type || "free");
+  setFieldValue(card, "unlockLabel", unlock.label || "");
+  setFieldValue(card, "unlockId", unlock.id || "");
+  setFieldValue(card, "unlockScore", unlock.minScore ?? "");
+  setFieldValue(card, "unlockCost", unlock.cost ?? "");
+  setFieldValue(card, "unlockCurrency", unlock.currencyId || "");
+
+  const heading = card.querySelector("header h3");
+  if (heading) heading.textContent = parsed.name || parsed.id || "New icon";
+
+  applyStyleToCard(card, style);
 }
 
 function validateIconCard(card) {
