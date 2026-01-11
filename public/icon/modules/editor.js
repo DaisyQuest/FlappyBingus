@@ -31,6 +31,11 @@ const ANIMATION_LABELS = ANIMATION_TYPES.map((value) => ({
   label: value.replace(/([A-Z])/g, " $1").replace(/^./, (c) => c.toUpperCase())
 }));
 
+const ANIMATION_TYPE_OPTIONS = [
+  { value: "", label: "None" },
+  ...ANIMATION_LABELS
+];
+
 const TIMING_MODES = [
   { value: "loop", label: "Loop" },
   { value: "pingpong", label: "Pingpong" },
@@ -45,17 +50,17 @@ const EASING_OPTIONS = [
   { value: "smoothStep", label: "Smooth Step" }
 ];
 
-const ANIMATION_TRIGGER_OPTIONS = [
-  { value: "", label: "None" },
-  { value: "hit", label: "Hit" },
-  { value: "anim:orbPickup", label: "Orb Pickup" },
-  { value: "anim:perfectGap", label: "Perfect Gap" },
-  { value: "anim:dash", label: "Dash" },
-  { value: "anim:phase", label: "Phase" },
-  { value: "anim:teleport", label: "Teleport" },
-  { value: "anim:explode", label: "Explode" },
-  { value: "tap", label: "Tap" },
-  { value: "score", label: "Score" }
+const ANIMATION_TRIGGER_SLOTS = [
+  { key: "idle", label: "Idle", eventType: "", description: "Looping idle animation (optional)." },
+  { key: "hit", label: "Hit", eventType: "hit", description: "Plays when the player is hit." },
+  { key: "orbPickup", label: "Orb Pickup", eventType: "anim:orbPickup", description: "Plays on orb pickups." },
+  { key: "perfectGap", label: "Perfect Gap", eventType: "anim:perfectGap", description: "Plays on perfect gap scoring." },
+  { key: "dash", label: "Dash", eventType: "anim:dash", description: "Plays when the dash skill activates." },
+  { key: "phase", label: "Phase", eventType: "anim:phase", description: "Plays when the phase skill activates." },
+  { key: "teleport", label: "Teleport", eventType: "anim:teleport", description: "Plays on teleport activation." },
+  { key: "explode", label: "Explode", eventType: "anim:explode", description: "Plays on exploding teleport activation." },
+  { key: "tap", label: "Tap", eventType: "tap", description: "Plays on player tap events." },
+  { key: "score", label: "Score", eventType: "score", description: "Plays on score ticks." }
 ];
 
 const TARGET_SUGGESTIONS = [
@@ -199,7 +204,7 @@ function updateAnimationGuidance({ targetInput, typeSelect, hintEl }) {
   options.forEach((opt) => {
     opt.disabled = guidance.strict && !allowed.has(opt.value);
   });
-  if (guidance.strict && !allowed.has(typeSelect.value)) {
+  if (guidance.strict && typeSelect.value && !allowed.has(typeSelect.value)) {
     typeSelect.value = guidance.types[0];
   }
   hintEl.textContent = buildAnimationHint(guidance.types, guidance.description);
@@ -430,27 +435,58 @@ function createEffectRow(effect = {}, index = 0) {
   return row;
 }
 
-function createAnimationRow(animation = {}, index = 0) {
-  const row = createElement("div", { className: "effect-row", attrs: { "data-animation-row": String(index) } });
-  const header = createElement("div", { className: "effect-row-header" });
-  const idInput = createTextInput(animation.id || "");
-  idInput.dataset.field = `style.animations[${index}].id`;
-  const typeSelect = createSelect(ANIMATION_LABELS, animation.type || "pulseUniform");
-  typeSelect.dataset.field = `style.animations[${index}].type`;
-  const enabled = createCheckbox(animation.enabled !== false);
-  enabled.dataset.field = `style.animations[${index}].enabled`;
-  const actions = createElement("div", { className: "row-actions" });
-  const moveUp = createElement("button", { text: "↑", attrs: { type: "button", "data-move": "up" } });
-  const moveDown = createElement("button", { text: "↓", attrs: { type: "button", "data-move": "down" } });
-  const remove = createElement("button", { text: "Remove", attrs: { type: "button", "data-remove": "true" } });
-  actions.append(moveUp, moveDown, remove);
-  header.append(idInput, typeSelect, enabled, createElement("span", { text: "Enabled" }), actions);
+function buildAnimationTriggerMap(animations = []) {
+  const map = new Map();
+  if (!Array.isArray(animations)) return map;
+  animations.forEach((anim) => {
+    if (!anim) return;
+    const trigger = typeof anim.triggeredBy === "string" ? anim.triggeredBy : "";
+    if (!map.has(trigger)) map.set(trigger, anim);
+  });
+  return map;
+}
 
-  const triggerSelect = createSelect(ANIMATION_TRIGGER_OPTIONS, animation.triggeredBy || "");
-  triggerSelect.dataset.field = `style.animations[${index}].triggeredBy`;
+function setAnimationSlotDisabled(slot, disabled) {
+  slot.classList.toggle("is-disabled", disabled);
+  slot.querySelectorAll("[data-anim-field]").forEach((input) => {
+    if (input.dataset.animField === "type") return;
+    input.disabled = disabled;
+  });
+}
+
+function createAnimationSlot(trigger, animation = {}) {
+  const slot = createElement("section", {
+    className: "animation-slot",
+    attrs: {
+      "data-animation-slot": "true",
+      "data-animation-trigger": trigger.eventType,
+      "data-animation-label": trigger.label
+    }
+  });
+  const header = createElement("div", { className: "animation-slot-header" });
+  const title = createElement("div");
+  title.append(
+    createElement("strong", { text: trigger.label }),
+    createElement("small", { text: trigger.description, className: "muted" })
+  );
+  const previewBtn = createElement("button", {
+    text: "Preview",
+    attrs: { type: "button", "data-preview-trigger": trigger.eventType, "data-preview-label": trigger.label }
+  });
+  header.append(title, previewBtn);
+
+  const body = createElement("div", { className: "animation-slot-body" });
+  const idInput = createTextInput(animation.id || "");
+  idInput.dataset.animField = "id";
+
+  const typeSelect = createSelect(ANIMATION_TYPE_OPTIONS, animation.type || "");
+  typeSelect.dataset.animField = "type";
+
+  const enabled = createCheckbox(animation.enabled !== false);
+  enabled.dataset.animField = "enabled";
 
   const target = createTextInput(animation.target || "");
-  target.dataset.field = `style.animations[${index}].target`;
+  target.dataset.animField = "target";
   const targetListId = `iconAnimationTargets-${animationTargetListId++}`;
   target.setAttribute("list", targetListId);
   const targetList = createElement("datalist", { attrs: { id: targetListId } });
@@ -461,26 +497,31 @@ function createAnimationRow(animation = {}, index = 0) {
 
   const timing = animation.timing || {};
   const modeSelect = createSelect(TIMING_MODES, timing.mode || "loop");
-  modeSelect.dataset.field = `style.animations[${index}].timing.mode`;
+  modeSelect.dataset.animField = "timing.mode";
   const duration = createNumberInput(timing.durationMs ?? 1200);
-  duration.dataset.field = `style.animations[${index}].timing.durationMs`;
+  duration.dataset.animField = "timing.durationMs";
+  duration.dataset.type = "number";
   const delay = createNumberInput(timing.delayMs ?? 0);
-  delay.dataset.field = `style.animations[${index}].timing.delayMs`;
+  delay.dataset.animField = "timing.delayMs";
+  delay.dataset.type = "number";
   const easing = createSelect(EASING_OPTIONS, timing.easing || "linear");
-  easing.dataset.field = `style.animations[${index}].timing.easing`;
+  easing.dataset.animField = "timing.easing";
   const phaseOffset = createNumberInput(timing.phaseOffset ?? 0);
-  phaseOffset.dataset.field = `style.animations[${index}].timing.phaseOffset`;
+  phaseOffset.dataset.animField = "timing.phaseOffset";
+  phaseOffset.dataset.type = "number";
 
   const params = createTextArea(JSON.stringify(animation.params || {}, null, 2));
-  params.dataset.field = `style.animations[${index}].params`;
+  params.dataset.animField = "params";
   params.dataset.type = "json";
 
   const seed = createNumberInput(animation.seed ?? "");
-  seed.dataset.field = `style.animations[${index}].seed`;
+  seed.dataset.animField = "seed";
+  seed.dataset.type = "number";
 
-  row.append(
-    header,
-    createFieldRow("Trigger", triggerSelect, { hint: "Optional event trigger for one-shot animations." }),
+  body.append(
+    createFieldRow("ID", idInput),
+    createFieldRow("Animation", typeSelect),
+    createFieldRow("Enabled", enabled),
     targetRow,
     createFieldRow("Timing mode", modeSelect),
     createFieldRow("Duration (ms)", duration),
@@ -490,8 +531,7 @@ function createAnimationRow(animation = {}, index = 0) {
     createFieldRow("Seed", seed),
     createFieldRow("Params (JSON)", params)
   );
-
-  row.appendChild(targetList);
+  slot.append(header, body, targetList);
 
   updateAnimationGuidance({ targetInput: target, typeSelect, hintEl: targetHint });
   updateAnimationTargets({ typeSelect, targetList });
@@ -500,9 +540,11 @@ function createAnimationRow(animation = {}, index = 0) {
   });
   typeSelect.addEventListener("change", () => {
     updateAnimationTargets({ typeSelect, targetList });
+    setAnimationSlotDisabled(slot, !typeSelect.value);
   });
 
-  return row;
+  setAnimationSlotDisabled(slot, !typeSelect.value);
+  return slot;
 }
 
 function createPresetPanel(currentStyle) {
@@ -526,6 +568,15 @@ function createPresetPanel(currentStyle) {
   return wrap;
 }
 
+function renderAnimationSlots(list, animations = []) {
+  list.innerHTML = "";
+  const triggerMap = buildAnimationTriggerMap(animations);
+  ANIMATION_TRIGGER_SLOTS.forEach((trigger) => {
+    const anim = triggerMap.get(trigger.eventType) || {};
+    list.appendChild(createAnimationSlot(trigger, anim));
+  });
+}
+
 function createIconCard({ icon, allowRemove = false } = {}) {
   const style = resolveIconStyleV2(icon);
   const card = createElement("section", { className: "icon-card" });
@@ -540,6 +591,8 @@ function createIconCard({ icon, allowRemove = false } = {}) {
 
   const preview = createElement("div", { className: "icon-preview" });
   const previewToolbar = createElement("div", { className: "preview-toolbar" });
+  const previewStatus = createElement("div", { className: "preview-status", attrs: { "data-preview-status": "true" } });
+  previewStatus.textContent = "Preview: Idle";
   const previewBg = createSelect([
     { value: "dark", label: "Dark" },
     { value: "light", label: "Light" },
@@ -551,6 +604,7 @@ function createIconCard({ icon, allowRemove = false } = {}) {
   const maskToggle = createCheckbox(false);
   maskToggle.dataset.previewMask = "true";
   previewToolbar.append(
+    previewStatus,
     createFieldRow("Background", previewBg),
     createFieldRow("Reduced motion", reducedToggle),
     createFieldRow("Show mask", maskToggle)
@@ -759,34 +813,17 @@ function createIconCard({ icon, allowRemove = false } = {}) {
 
   const animationsPanel = createElement("section", { className: "section-card", attrs: { "data-tab-panel": "animations" } });
   animationsPanel.appendChild(createElement("strong", { text: "Animations" }));
-  const animList = createElement("div", { className: "effect-list", attrs: { "data-animation-list": "true" } });
-  (style.animations || []).forEach((anim, idx) => animList.appendChild(createAnimationRow(anim, idx)));
-  const addAnimBtn = createElement("button", { text: "Add animation", attrs: { type: "button", "data-add-animation": "true" } });
-  const testRow = createElement("div", { className: "test-events" });
-  [
-    { label: "Test Hit", type: "hit" },
-    { label: "Orb Pickup", type: "anim:orbPickup" },
-    { label: "Perfect Gap", type: "anim:perfectGap" },
-    { label: "Dash", type: "anim:dash" },
-    { label: "Phase", type: "anim:phase" },
-    { label: "Teleport", type: "anim:teleport" },
-    { label: "Explode", type: "anim:explode" },
-    { label: "Test Tap", type: "tap" },
-    { label: "Test Score", type: "score" }
-  ].forEach((entry) => {
-    const btn = createElement("button", { text: entry.label, attrs: { type: "button", "data-event-type": entry.type } });
-    testRow.appendChild(btn);
-  });
-  animationsPanel.append(animList, addAnimBtn, testRow);
+  animationsPanel.appendChild(createElement("p", {
+    text: "Configure one idle animation and one animation per trigger. Use Preview to test each trigger.",
+    className: "muted"
+  }));
+  const animList = createElement("div", { className: "animation-slot-list", attrs: { "data-animation-list": "true" } });
+  renderAnimationSlots(animList, style.animations || []);
+  animationsPanel.append(animList);
 
   addEffectBtn.addEventListener("click", () => {
     effectsList.appendChild(createEffectRow({}, effectsList.children.length));
     reindexRows(effectsList, "data-effect-row", "style.effects[");
-  });
-
-  addAnimBtn.addEventListener("click", () => {
-    animList.appendChild(createAnimationRow({}, animList.children.length));
-    reindexRows(animList, "data-animation-row", "style.animations[");
   });
 
   effectsList.addEventListener("click", (event) => {
@@ -804,23 +841,6 @@ function createIconCard({ icon, allowRemove = false } = {}) {
     if (move === "up") effectsList.insertBefore(row, sibling);
     else effectsList.insertBefore(sibling, row);
     reindexRows(effectsList, "data-effect-row", "style.effects[");
-  });
-
-  animList.addEventListener("click", (event) => {
-    const row = event.target.closest("[data-animation-row]");
-    if (!row) return;
-    if (event.target.dataset.remove) {
-      row.remove();
-      reindexRows(animList, "data-animation-row", "style.animations[");
-      return;
-    }
-    const move = event.target.dataset.move;
-    if (!move) return;
-    const sibling = move === "up" ? row.previousElementSibling : row.nextElementSibling;
-    if (!sibling) return;
-    if (move === "up") animList.insertBefore(row, sibling);
-    else animList.insertBefore(sibling, row);
-    reindexRows(animList, "data-animation-row", "style.animations[");
   });
 
   const presetPanel = createElement("section", { className: "section-card", attrs: { "data-tab-panel": "presets" } });
@@ -928,20 +948,23 @@ function readIconDefinition(card) {
     return effect;
   });
 
-  const animations = Array.from(card.querySelectorAll("[data-animation-row]"));
-  style.animations = animations.map((row, index) => {
+  const animationSlots = Array.from(card.querySelectorAll("[data-animation-slot]"));
+  style.animations = animationSlots.flatMap((slot) => {
     const anim = { enabled: true, timing: {} };
-    row.querySelectorAll("[data-field^='style.animations']").forEach((input) => {
+    slot.querySelectorAll("[data-anim-field]").forEach((input) => {
       const value = parseValue(input);
       if (value === undefined) return;
       if (value?.__jsonError) {
         input.dataset.jsonError = "true";
         return;
       }
-      const path = input.dataset.field.replace(`style.animations[${index}].`, "");
+      const path = input.dataset.animField;
       setPath(anim, path, value);
     });
-    return anim;
+    if (!anim.type) return [];
+    const trigger = slot.dataset.animationTrigger ?? "";
+    if (trigger) anim.triggeredBy = trigger;
+    return [anim];
   });
 
   icon.style = style;
@@ -1063,8 +1086,7 @@ function applyStyleToCard(card, style) {
   }
   const animList = card.querySelector("[data-animation-list]");
   if (animList) {
-    animList.innerHTML = "";
-    (style.animations || []).forEach((anim, idx) => animList.appendChild(createAnimationRow(anim, idx)));
+    renderAnimationSlots(animList, style.animations || []);
   }
 }
 

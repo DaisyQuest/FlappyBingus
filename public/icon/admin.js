@@ -1,6 +1,5 @@
 import { getIconRegistry, saveIconRegistry } from "./modules/api.js";
 import {
-  collectIconDefinitions,
   createIconCard,
   readIconDefinition,
   wirePresetPanel,
@@ -18,7 +17,7 @@ const loadingPanel = document.getElementById("iconLoading");
 
 const state = {
   icons: [],
-  previews: new Map()
+  editor: null
 };
 
 function setStatus(text, tone = "info") {
@@ -73,9 +72,17 @@ function updatePreview(card) {
   const reducedMotion = Boolean(card.querySelector("[data-preview-reduce-motion]")?.checked);
   const showMask = Boolean(card.querySelector("[data-preview-mask]")?.checked);
   const bg = card.querySelector("[data-preview-bg]")?.value || "dark";
+  const previewStatus = card.querySelector("[data-preview-status]");
+  const previewLabel = card.__previewLabel || "Idle";
+  if (previewStatus) previewStatus.textContent = `Preview: ${previewLabel}`;
   previewWrap.dataset.previewBg = bg;
 
   const events = card.__previewEvents || [];
+  const activeTrigger = card.dataset.previewTrigger ?? "";
+  card.querySelectorAll("[data-animation-slot]").forEach((slot) => {
+    const slotTrigger = slot.dataset.animationTrigger ?? "";
+    slot.classList.toggle("active-preview", slotTrigger === activeTrigger);
+  });
   [64, 128, 256].forEach((size) => {
     const canvas = createPlayerIconSprite(icon, { size, reducedMotion, events, showMask });
     canvas.classList.add("icon-preview-canvas");
@@ -107,15 +114,16 @@ function renderIconEditor() {
   saveBtn.className = "primary";
   actions.append(reloadBtn, addBtn, saveBtn);
 
-  const grid = document.createElement("div");
-  grid.className = "icon-grid";
-  panel.appendChild(grid);
+  const content = document.createElement("div");
+  panel.appendChild(content);
   main.appendChild(panel);
 
   function attachCard(card) {
-    grid.appendChild(card);
     wirePresetPanel(card);
     wireAdvancedPanel(card);
+    card.__previewLabel = "Idle";
+    card.__previewEvents = [];
+    card.dataset.previewTrigger = "";
     updatePreview(card);
     const schedulePreview = () => {
       if (card.__previewRaf) return;
@@ -129,72 +137,152 @@ function renderIconEditor() {
     };
     card.addEventListener("input", schedulePreview);
     card.addEventListener("click", (event) => {
-      const eventBtn = event.target.closest("[data-event-type]");
-      if (eventBtn) {
-        card.__previewEvents = card.__previewEvents || [];
-        card.__previewEvents.push({ type: eventBtn.dataset.eventType, timeMs: performance.now() });
-        schedulePreview();
-      }
+      const previewBtn = event.target.closest("[data-preview-trigger]");
+      if (!previewBtn) return;
+      const trigger = previewBtn.dataset.previewTrigger ?? "";
+      const label = previewBtn.dataset.previewLabel || "Idle";
+      card.__previewEvents = trigger ? [{ type: trigger, timeMs: performance.now() }] : [];
+      card.__previewLabel = label;
+      card.dataset.previewTrigger = trigger;
+      schedulePreview();
+    });
+    card.addEventListener("focusin", (event) => {
+      const slot = event.target.closest("[data-animation-slot]");
+      if (!slot) return;
+      const label = slot.dataset.animationLabel || "Idle";
+      card.__previewLabel = `Editing: ${label}`;
+      card.dataset.previewTrigger = slot.dataset.animationTrigger ?? "";
+      schedulePreview();
     });
   }
 
-  function refreshList() {
-    grid.innerHTML = "";
-    state.previews.forEach((preview) => stopPreview(preview));
-    state.previews.clear();
-    state.icons.forEach((icon) => {
+  function renderList() {
+    content.innerHTML = "";
+    const grid = document.createElement("div");
+    grid.className = "icon-grid";
+    state.icons.forEach((icon, index) => {
       if (!icon?.id) return;
-      const card = createIconCard({ icon, allowRemove: true });
-      attachCard(card);
+      const card = document.createElement("section");
+      card.className = "icon-summary-card";
+      const header = document.createElement("div");
+      header.className = "icon-summary-header";
+      const title = document.createElement("div");
+      const name = document.createElement("strong");
+      name.textContent = icon.name || icon.id || "Untitled icon";
+      const meta = document.createElement("small");
+      meta.textContent = icon.id;
+      meta.className = "muted";
+      title.append(name, meta);
+      const editBtn = document.createElement("button");
+      editBtn.textContent = "Edit";
+      editBtn.dataset.editIndex = String(index);
+      header.append(title, editBtn);
+      const preview = createPlayerIconSprite(icon, { size: 128, reducedMotion: true });
+      preview.classList.add("icon-summary-preview");
+      card.append(header, preview);
+      grid.appendChild(card);
+    });
+    grid.addEventListener("click", (event) => {
+      const editBtn = event.target.closest("[data-edit-index]");
+      if (!editBtn) return;
+      const index = Number(editBtn.dataset.editIndex);
+      renderDetail(index);
+    });
+    content.appendChild(grid);
+  }
+
+  function renderDetail(index, draftIcon = null) {
+    content.innerHTML = "";
+    const backBtn = document.createElement("button");
+    backBtn.textContent = "Back to list";
+    const saveIconBtn = document.createElement("button");
+    saveIconBtn.textContent = "Save icon";
+    saveIconBtn.className = "primary";
+    actions.replaceChildren(backBtn, saveIconBtn);
+
+    const isDraft = Boolean(draftIcon) || index === null || index === undefined;
+    const icon = draftIcon
+      || (!isDraft ? state.icons[index] : null)
+      || { id: "", name: "", unlock: { type: "free" }, style: {} };
+    const card = createIconCard({ icon, allowRemove: true });
+    attachCard(card);
+    content.appendChild(card);
+    state.editor = { index: isDraft ? null : index, card, isNew: isDraft };
+
+    backBtn.addEventListener("click", () => {
+      const iconUpdate = readIconDefinition(card);
+      if (iconUpdate?.id) {
+        if (state.editor.isNew) state.icons.push(iconUpdate);
+        else if (state.editor.index !== null) state.icons[state.editor.index] = iconUpdate;
+      }
+      state.editor = null;
+      renderIconEditor();
+    });
+
+    saveIconBtn.addEventListener("click", () => {
+      const result = validateIconCard(card);
+      const errorBox = card.querySelector("[data-validation-errors]");
+      if (errorBox) errorBox.innerHTML = "";
+      if (!result.ok) {
+        if (errorBox) {
+          errorBox.innerHTML = result.errors.map((err) => `<div>${err.path}: ${err.message}</div>`).join("");
+        }
+        setStatus("Fix validation errors before saving.", "error");
+        return;
+      }
+      const iconUpdate = readIconDefinition(card);
+      if (!iconUpdate?.id) {
+        setStatus("Icon ID is required before saving.", "error");
+        return;
+      }
+      if (state.editor.isNew) {
+        state.icons.push(iconUpdate);
+        state.editor.isNew = false;
+        state.editor.index = state.icons.length - 1;
+      } else {
+        state.icons[state.editor.index] = iconUpdate;
+      }
+      setStatus("Icon draft saved.", "ok");
     });
   }
 
   reloadBtn.addEventListener("click", () => loadConfig());
   addBtn.addEventListener("click", () => {
-    const card = createIconCard({
-      icon: { id: "", name: "", unlock: { type: "free" }, style: {} },
-      allowRemove: false
-    });
-    grid.prepend(card);
-    wirePresetPanel(card);
-    wireAdvancedPanel(card);
-    updatePreview(card);
-    card.addEventListener("input", () => {
-      updateHeading(card);
-      updatePreview(card);
-    });
+    renderDetail(null, { id: "", name: "", unlock: { type: "free" }, style: {} });
   });
   saveBtn.addEventListener("click", async () => {
     try {
       setStatus("Saving icons…");
-      const cards = Array.from(grid.querySelectorAll("[data-icon-card]"));
-      const invalid = cards.flatMap((card) => {
-        const result = validateIconCard(card);
-        const errorBox = card.querySelector("[data-validation-errors]");
+      if (state.editor?.card) {
+        const editorResult = validateIconCard(state.editor.card);
+        const errorBox = state.editor.card.querySelector("[data-validation-errors]");
         if (errorBox) errorBox.innerHTML = "";
-        if (!result.ok) {
+        if (!editorResult.ok) {
           if (errorBox) {
-            errorBox.innerHTML = result.errors.map((err) => `<div>${err.path}: ${err.message}</div>`).join("");
+            errorBox.innerHTML = editorResult.errors.map((err) => `<div>${err.path}: ${err.message}</div>`).join("");
           }
-          return result.errors.map((err) => `${err.path}: ${err.message}`);
+          setStatus("Fix validation errors before saving.", "error");
+          return;
         }
-        return [];
-      });
-      if (invalid.length) {
-        setStatus("Fix validation errors before saving.", "error");
-        return;
+        const editorIcon = readIconDefinition(state.editor.card);
+        if (editorIcon?.id) {
+          if (state.editor.isNew) state.icons.push(editorIcon);
+          else state.icons[state.editor.index] = editorIcon;
+          state.editor.isNew = false;
+        }
       }
-      const icons = collectIconDefinitions(grid);
+      const icons = state.icons.filter((icon) => icon?.id);
       const saved = await saveIconRegistry({ icons });
       state.icons = Array.isArray(saved?.icons) ? saved.icons : icons;
       setStatus("Icons saved", "ok");
+      renderIconEditor();
     } catch (err) {
       console.error(err);
       setStatus("Failed to save icons", "error");
     }
   });
 
-  refreshList();
+  renderList();
 }
 
 async function loadConfig() {

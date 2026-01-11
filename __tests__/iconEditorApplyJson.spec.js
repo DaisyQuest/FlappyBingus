@@ -121,19 +121,19 @@ describe("icon editor apply JSON", () => {
     expect(card.querySelector("[data-field='style.effects[0].params']").value)
       .toBe(JSON.stringify({ width: 4, alpha: 0.8, color: "#ff00ff" }, null, 2));
 
-    const animationRows = card.querySelectorAll("[data-animation-row]");
-    expect(animationRows).toHaveLength(1);
-    expect(card.querySelector("[data-field='style.animations[0].id']").value).toBe("pulse");
-    expect(card.querySelector("[data-field='style.animations[0].type']").value).toBe("pulseUniform");
-    expect(card.querySelector("[data-field='style.animations[0].enabled']").checked).toBe(true);
-    expect(card.querySelector("[data-field='style.animations[0].target']").value).toBe("preview.scale");
-    expect(card.querySelector("[data-field='style.animations[0].timing.mode']").value).toBe("loop");
-    expect(card.querySelector("[data-field='style.animations[0].timing.durationMs']").value).toBe("1400");
-    expect(card.querySelector("[data-field='style.animations[0].timing.delayMs']").value).toBe("150");
-    expect(card.querySelector("[data-field='style.animations[0].timing.easing']").value).toBe("easeOut");
-    expect(card.querySelector("[data-field='style.animations[0].timing.phaseOffset']").value).toBe("0.2");
-    expect(card.querySelector("[data-field='style.animations[0].seed']").value).toBe("42");
-    expect(card.querySelector("[data-field='style.animations[0].params']").value)
+    const idleSlot = card.querySelector("[data-animation-slot][data-animation-label='Idle']");
+    expect(idleSlot).not.toBeNull();
+    expect(idleSlot.querySelector("[data-anim-field='id']").value).toBe("pulse");
+    expect(idleSlot.querySelector("[data-anim-field='type']").value).toBe("pulseUniform");
+    expect(idleSlot.querySelector("[data-anim-field='enabled']").checked).toBe(true);
+    expect(idleSlot.querySelector("[data-anim-field='target']").value).toBe("preview.scale");
+    expect(idleSlot.querySelector("[data-anim-field='timing.mode']").value).toBe("loop");
+    expect(idleSlot.querySelector("[data-anim-field='timing.durationMs']").value).toBe("1400");
+    expect(idleSlot.querySelector("[data-anim-field='timing.delayMs']").value).toBe("150");
+    expect(idleSlot.querySelector("[data-anim-field='timing.easing']").value).toBe("easeOut");
+    expect(idleSlot.querySelector("[data-anim-field='timing.phaseOffset']").value).toBe("0.2");
+    expect(idleSlot.querySelector("[data-anim-field='seed']").value).toBe("42");
+    expect(idleSlot.querySelector("[data-anim-field='params']").value)
       .toBe(JSON.stringify({ amplitude: 0.3 }, null, 2));
   });
 
