@@ -12,6 +12,8 @@ import {
 import { ICON_PRESETS } from "../modules/presets.js";
 
 describe("icon editor helpers", () => {
+  const getTriggerSlot = (card, label) => card.querySelector(`[data-animation-slot][data-animation-label='${label}']`);
+
   it("serializes icon definitions from form fields", () => {
     const icon = {
       id: "spark",
@@ -93,8 +95,9 @@ describe("icon editor helpers", () => {
       }
     };
     const card = createIconCard({ icon, allowRemove: false });
-    const typeSelect = card.querySelector("[data-field='style.animations[0].type']");
-    const guidance = card.querySelector("[data-animation-guidance]");
+    const slot = getTriggerSlot(card, "Idle");
+    const typeSelect = slot.querySelector("[data-anim-field='type']");
+    const guidance = slot.querySelector("[data-animation-guidance]");
     const pulseOption = Array.from(typeSelect.options).find((option) => option.value === "pulseUniform");
 
     expect(typeSelect.value).toBe("patternScroll");
@@ -113,8 +116,9 @@ describe("icon editor helpers", () => {
       }
     };
     const card = createIconCard({ icon, allowRemove: false });
-    const typeSelect = card.querySelector("[data-field='style.animations[0].type']");
-    const guidance = card.querySelector("[data-animation-guidance]");
+    const slot = getTriggerSlot(card, "Idle");
+    const typeSelect = slot.querySelector("[data-anim-field='type']");
+    const guidance = slot.querySelector("[data-animation-guidance]");
     const slowSpinOption = Array.from(typeSelect.options).find((option) => option.value === "slowSpin");
 
     expect(typeSelect.value).toBe("colorShift");
@@ -133,7 +137,8 @@ describe("icon editor helpers", () => {
       }
     };
     const card = createIconCard({ icon, allowRemove: false });
-    const targetInput = card.querySelector("[data-field='style.animations[0].target']");
+    const slot = getTriggerSlot(card, "Idle");
+    const targetInput = slot.querySelector("[data-anim-field='target']");
     const targetList = card.querySelector(`#${targetInput.getAttribute("list")}`);
     const values = Array.from(targetList.options).map((option) => option.value);
 
@@ -151,7 +156,8 @@ describe("icon editor helpers", () => {
       }
     };
     const card = createIconCard({ icon, allowRemove: false });
-    const targetInput = card.querySelector("[data-field='style.animations[0].target']");
+    const slot = getTriggerSlot(card, "Idle");
+    const targetInput = slot.querySelector("[data-anim-field='target']");
     const targetList = card.querySelector(`#${targetInput.getAttribute("list")}`);
     const values = Array.from(targetList.options).map((option) => option.value);
 
@@ -175,8 +181,9 @@ describe("icon editor helpers", () => {
       }
     };
     const card = createIconCard({ icon, allowRemove: false });
-    const typeSelect = card.querySelector("[data-field='style.animations[0].type']");
-    const targetInput = card.querySelector("[data-field='style.animations[0].target']");
+    const slot = getTriggerSlot(card, "Idle");
+    const typeSelect = slot.querySelector("[data-anim-field='type']");
+    const targetInput = slot.querySelector("[data-anim-field='target']");
     const targetList = card.querySelector(`#${targetInput.getAttribute("list")}`);
 
     const initialValues = Array.from(targetList.options).map((option) => option.value);
@@ -213,7 +220,8 @@ describe("icon editor helpers", () => {
       }
     };
     const card = createIconCard({ icon, allowRemove: false });
-    const guidance = card.querySelector("[data-animation-guidance]");
+    const slot = getTriggerSlot(card, "Idle");
+    const guidance = slot.querySelector("[data-animation-guidance]");
     expect(guidance.textContent).toMatch(/numeric animations/i);
   });
 
@@ -228,11 +236,27 @@ describe("icon editor helpers", () => {
       }
     };
     const card = createIconCard({ icon, allowRemove: false });
-    const guidance = card.querySelector("[data-animation-guidance]");
+    const slot = getTriggerSlot(card, "Idle");
+    const guidance = slot.querySelector("[data-animation-guidance]");
     expect(guidance.textContent).toMatch(/choose a target/i);
   });
 
-  it("renders animation trigger fields with default options", () => {
+  it("disables animation fields until a type is selected", () => {
+    const icon = { id: "idle-none", name: "Idle None", unlock: { type: "free" }, style: {} };
+    const card = createIconCard({ icon, allowRemove: false });
+    const slot = getTriggerSlot(card, "Idle");
+    const typeSelect = slot.querySelector("[data-anim-field='type']");
+    const targetInput = slot.querySelector("[data-anim-field='target']");
+
+    expect(typeSelect.value).toBe("");
+    expect(targetInput.disabled).toBe(true);
+
+    typeSelect.value = "pulseUniform";
+    typeSelect.dispatchEvent(new Event("change", { bubbles: true }));
+    expect(targetInput.disabled).toBe(false);
+  });
+
+  it("renders animation trigger slots for each configured event", () => {
     const icon = {
       id: "trigger-field",
       name: "Trigger Field",
@@ -243,22 +267,23 @@ describe("icon editor helpers", () => {
       }
     };
     const card = createIconCard({ icon, allowRemove: false });
-    const triggerSelect = card.querySelector("[data-field='style.animations[0].triggeredBy']");
-    const options = Array.from(triggerSelect.options).map((opt) => opt.value);
-
-    expect(triggerSelect.value).toBe("hit");
-    expect(options).toEqual([
-      "",
-      "hit",
-      "anim:orbPickup",
-      "anim:perfectGap",
-      "anim:dash",
-      "anim:phase",
-      "anim:teleport",
-      "anim:explode",
-      "tap",
-      "score"
+    const slots = Array.from(card.querySelectorAll("[data-animation-slot]"));
+    const labels = slots.map((slot) => slot.dataset.animationLabel);
+    expect(labels).toEqual([
+      "Idle",
+      "Hit",
+      "Orb Pickup",
+      "Perfect Gap",
+      "Dash",
+      "Phase",
+      "Teleport",
+      "Explode",
+      "Tap",
+      "Score"
     ]);
+    const hitSlot = getTriggerSlot(card, "Hit");
+    const hitType = hitSlot.querySelector("[data-anim-field='type']");
+    expect(hitType.value).toBe("pulseUniform");
   });
 
   it("applies preset patches through the preset panel", () => {
@@ -282,14 +307,15 @@ describe("icon editor helpers", () => {
     expect(result.errors.map((err) => err.path)).toContain("palette.fill");
   });
 
-  it("renders animation trigger buttons for deterministic anim events", () => {
+  it("renders preview buttons for deterministic anim events", () => {
     const icon = { id: "anim-triggers", name: "Anim Triggers", unlock: { type: "free" }, style: {} };
     const card = createIconCard({ icon, allowRemove: false });
-    const buttons = Array.from(card.querySelectorAll(".test-events [data-event-type]"));
-    const types = buttons.map((button) => button.dataset.eventType);
+    const buttons = Array.from(card.querySelectorAll("[data-preview-trigger]"));
+    const types = buttons.map((button) => button.dataset.previewTrigger);
     const labels = buttons.map((button) => button.textContent);
 
     expect(types).toEqual([
+      "",
       "hit",
       "anim:orbPickup",
       "anim:perfectGap",
@@ -301,15 +327,16 @@ describe("icon editor helpers", () => {
       "score"
     ]);
     expect(labels).toEqual([
-      "Test Hit",
-      "Orb Pickup",
-      "Perfect Gap",
-      "Dash",
-      "Phase",
-      "Teleport",
-      "Explode",
-      "Test Tap",
-      "Test Score"
+      "Preview",
+      "Preview",
+      "Preview",
+      "Preview",
+      "Preview",
+      "Preview",
+      "Preview",
+      "Preview",
+      "Preview",
+      "Preview"
     ]);
   });
 });
