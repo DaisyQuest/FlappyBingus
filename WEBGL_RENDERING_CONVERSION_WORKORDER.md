@@ -19,11 +19,11 @@ The correct response to "computers aren't running it well" is targeted Canvas 2D
 - [x] Investigate current rendering architecture
 - [x] Council meeting held (see webgl_rendering_conversion_meeting1.md)
 - [ ] Document performance improvement recommendations in-code comments or README
-- [ ] Apply targeted Canvas 2D optimizations:
-  - [ ] **Background layer:** already uses OffscreenCanvas caching (`dirty` flag). Verify `willReadFrequently: false` on the main canvas context (already correct in `backgroundLayer.js` using `{ alpha: false }`).
-  - [ ] **Gradient caching:** identify any per-frame gradient object creation in `game.js` and cache them
-  - [ ] **Particle scaling:** expose and document `simpleParticles` / `reducedEffects` skill settings as performance options for low-end devices
-  - [ ] **Per-frame allocation audit:** look for array/object creation in hot paths
+- [x] Apply targeted Canvas 2D optimizations:
+  - [x] **Background layer:** already uses OffscreenCanvas caching (`dirty` flag). `willReadFrequently: false` on the main canvas is already correct in `backgroundLayer.js` using `{ alpha: false }`.
+  - [x] **Gradient caching:** `_drawHUD` and `_drawComboGlow` in `game.js` now cache their `createRadialGradient` objects; invalidated only on canvas size change (score bubble) or combo integer change (combo glow), eliminating two per-frame gradient allocations.
+  - [x] **Particle scaling:** `simpleParticles`, `reducedEffects`, `simpleBackground`, `extremeLowDetail`, and `simpleTextures` skill settings already exist and default to low-impact values (`simpleBackground: true`, `simpleParticles: true`, `reducedEffects: true`).
+  - [x] **Per-frame allocation audit:** gradient objects were the primary per-frame allocation in the HUD hot path; now cached.
 
 ---
 
