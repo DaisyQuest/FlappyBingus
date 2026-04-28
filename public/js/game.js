@@ -169,6 +169,18 @@ export class Game {
     // NEW: allow main.js to disable SFX during replay/export if desired
     this.audioEnabled = true;
 
+    // Cached gradient objects to avoid per-frame allocations in the render hot path.
+    // Each cache entry is invalidated when the logical canvas size changes.
+    this._scoreBubbleGradient = null;
+    this._scoreBubbleGradientW = 0;
+    this._scoreBubbleGradientH = 0;
+    this._scoreBubbleGradientSize = 0;
+    this._comboGlowGradient = null;
+    this._comboGlowGradientCombo = -1;
+    this._comboGlowGradientW = 0;
+    this._comboGlowGradientH = 0;
+    this._comboGlowGradientSize = 0;
+
     this.setVisualRand();
     this._resetRunStats();
   }
@@ -2325,13 +2337,26 @@ _drawOrb(o) {
 
   _drawComboGlow(scoreX, scoreY, bubbleSize, aura) {
     const ctx = this.ctx;
-    const glow = ctx.createRadialGradient(
-      scoreX, scoreY, bubbleSize * 0.25,
-      scoreX, scoreY, bubbleSize * 1.05
-    );
-    glow.addColorStop(0, aura.coreColor);
-    glow.addColorStop(0.6, aura.glowColor);
-    glow.addColorStop(1, "rgba(0,0,0,0)");
+    const comboInt = this.combo | 0;
+    if (!this._comboGlowGradient
+        || this._comboGlowGradientCombo !== comboInt
+        || this._comboGlowGradientW !== this.W
+        || this._comboGlowGradientH !== this.H
+        || this._comboGlowGradientSize !== bubbleSize) {
+      const g = ctx.createRadialGradient(
+        scoreX, scoreY, bubbleSize * 0.25,
+        scoreX, scoreY, bubbleSize * 1.05
+      );
+      g.addColorStop(0, aura.coreColor);
+      g.addColorStop(0.6, aura.glowColor);
+      g.addColorStop(1, "rgba(0,0,0,0)");
+      this._comboGlowGradient = g;
+      this._comboGlowGradientCombo = comboInt;
+      this._comboGlowGradientW = this.W;
+      this._comboGlowGradientH = this.H;
+      this._comboGlowGradientSize = bubbleSize;
+    }
+    const glow = this._comboGlowGradient;
     ctx.save();
     ctx.globalAlpha = aura.glowAlpha;
     ctx.fillStyle = glow;
@@ -2427,9 +2452,19 @@ _drawOrb(o) {
     ctx.shadowBlur = 18; ctx.shadowOffsetY = 4;
     ctx.lineJoin = "round";
 
-    const bubble = ctx.createRadialGradient(scoreX, scoreY, bubbleSize * 0.15, scoreX, scoreY, bubbleSize * 0.85);
-    bubble.addColorStop(0, "rgba(255,255,255,.70)");
-    bubble.addColorStop(1, "rgba(160,210,255,.30)");
+    if (!this._scoreBubbleGradient
+        || this._scoreBubbleGradientW !== this.W
+        || this._scoreBubbleGradientH !== this.H
+        || this._scoreBubbleGradientSize !== bubbleSize) {
+      const g = ctx.createRadialGradient(scoreX, scoreY, bubbleSize * 0.15, scoreX, scoreY, bubbleSize * 0.85);
+      g.addColorStop(0, "rgba(255,255,255,.70)");
+      g.addColorStop(1, "rgba(160,210,255,.30)");
+      this._scoreBubbleGradient = g;
+      this._scoreBubbleGradientW = this.W;
+      this._scoreBubbleGradientH = this.H;
+      this._scoreBubbleGradientSize = bubbleSize;
+    }
+    const bubble = this._scoreBubbleGradient;
 
     ctx.globalAlpha = 0.72;
     ctx.fillStyle = bubble;
