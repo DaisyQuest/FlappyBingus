@@ -168,10 +168,17 @@ function formatRgba({ r, g, b, a = 1 }) {
 
 function resolveEventProgress(events = [], type, timeMs, durationMs) {
   if (!Array.isArray(events) || !events.length) return null;
-  const matches = events.filter((evt) => evt?.type === type && Number.isFinite(evt.timeMs) && evt.timeMs <= timeMs);
+  const matches = events.flatMap((evt) => {
+    if (!evt || evt.type !== type) return [];
+    const eventTime = Number.isFinite(evt.timeMs)
+      ? evt.timeMs
+      : (Number.isFinite(evt.time) ? evt.time : null);
+    if (eventTime === null || eventTime > timeMs) return [];
+    return [{ eventTime }];
+  });
   if (!matches.length) return null;
-  const latest = matches.reduce((a, b) => (a.timeMs > b.timeMs ? a : b));
-  const elapsed = timeMs - latest.timeMs;
+  const latest = matches.reduce((a, b) => (a.eventTime > b.eventTime ? a : b));
+  const elapsed = timeMs - latest.eventTime;
   if (elapsed < 0 || elapsed > durationMs) return null;
   return clamp(elapsed / durationMs, 0, 1);
 }

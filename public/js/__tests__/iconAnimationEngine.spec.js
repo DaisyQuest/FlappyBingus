@@ -54,6 +54,15 @@ describe("icon animation engine", () => {
     expect(result.style.effects[0].params.progress).toBeCloseTo(0.25, 4);
   });
 
+  it("accepts event timing from engine snapshots", () => {
+    const events = [{ type: "anim:dash", time: 50 }];
+    const result = applyAnimationsToStyle(eventStyle, eventStyle.animations, {
+      timeMs: 100,
+      events
+    });
+    expect(result.style.effects[0].params.progress).toBeCloseTo(0.25, 4);
+  });
+
   it("uses the most recent overlapping event for progress", () => {
     const events = [{ type: "anim:dash", timeMs: 100 }, { type: "anim:dash", timeMs: 140 }];
     const result = applyAnimationsToStyle(eventStyle, eventStyle.animations, {
@@ -80,5 +89,19 @@ describe("icon animation engine", () => {
       reducedMotion: true
     });
     expect(result.style.effects[0].params.progress).toBeCloseTo(0.5, 4);
+  });
+
+  it("ends event-driven animations after their duration", () => {
+    const events = [{ type: "anim:dash", timeMs: 0 }];
+    const active = applyAnimationsToStyle(eventStyle, eventStyle.animations, {
+      timeMs: 100,
+      events
+    });
+    const expired = applyAnimationsToStyle(eventStyle, eventStyle.animations, {
+      timeMs: 250,
+      events
+    });
+    expect(active.style.effects[0].params.progress).toBeGreaterThan(0);
+    expect(expired.style.effects[0].params.progress).toBe(0);
   });
 });
