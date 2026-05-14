@@ -62,7 +62,6 @@ describe("pipe texture menu handlers", () => {
       openPurchaseModal: vi.fn(),
       applyPipeTextureSelection: vi.fn(),
       shouldTriggerSelectionSave: () => true,
-      ensureLoggedInForSave: vi.fn().mockResolvedValue(true),
       apiSetPipeTexture,
       getAuthStatusFromResponse: vi.fn(() => ({ online: true, unauthorized: false })),
       recoverSession: vi.fn(),
@@ -117,7 +116,6 @@ describe("pipe texture menu handlers", () => {
       openPurchaseModal: vi.fn(),
       applyPipeTextureSelection: vi.fn(),
       shouldTriggerSelectionSave: () => false,
-      ensureLoggedInForSave: vi.fn().mockResolvedValue(true),
       apiSetPipeTexture,
       getAuthStatusFromResponse: vi.fn(() => ({ online: true, unauthorized: false })),
       recoverSession: vi.fn(),
@@ -166,7 +164,6 @@ describe("pipe texture menu handlers", () => {
       openPurchaseModal: vi.fn(),
       applyPipeTextureSelection: vi.fn(),
       shouldTriggerSelectionSave: () => false,
-      ensureLoggedInForSave: vi.fn().mockResolvedValue(true),
       apiSetPipeTexture,
       getAuthStatusFromResponse: vi.fn(() => ({ online: true, unauthorized: false })),
       recoverSession: vi.fn(),
@@ -183,5 +180,105 @@ describe("pipe texture menu handlers", () => {
     await handlers.handlers.handleOptionsClick({ target: elements.button });
 
     expect(apiSetPipeTexture).not.toHaveBeenCalled();
+  });
+
+  it("skips server saves for guests and keeps local pipe texture selection", async () => {
+    const elements = buildElements();
+    const net = {
+      user: null,
+      online: true,
+      pipeTextures: [{ id: "basic" }, { id: "gold" }]
+    };
+    let currentId = "basic";
+    let currentMode = "NORMAL";
+    const apiSetPipeTexture = vi.fn();
+    const applyPipeTextureSelection = vi.fn();
+
+    const handlers = createPipeTextureMenuHandlers({
+      elements,
+      getNet: () => net,
+      getCurrentPipeTextureId: () => currentId,
+      setCurrentPipeTextureId: (id) => { currentId = id; },
+      getCurrentPipeTextureMode: () => currentMode,
+      setCurrentPipeTextureMode: (mode) => { currentMode = mode; },
+      refreshPipeTextureMenu: vi.fn(),
+      togglePipeTextureMenu: vi.fn(),
+      shouldClosePipeTextureMenu: vi.fn(() => false),
+      normalizePipeTextureMode: (mode) => mode,
+      writePipeTextureModeCookie: vi.fn(),
+      renderPipeTextureModeButtons: vi.fn(),
+      syncPipeTextureSwatch: vi.fn(),
+      renderPipeTextureMenuOptions: vi.fn(),
+      computeUnlockedPipeTextureSet: () => new Set(["basic", "gold"]),
+      openPurchaseModal: vi.fn(),
+      applyPipeTextureSelection,
+      shouldTriggerSelectionSave: () => true,
+      apiSetPipeTexture,
+      getAuthStatusFromResponse: vi.fn(() => ({ online: true, unauthorized: false })),
+      recoverSession: vi.fn(),
+      setUserHint: vi.fn(),
+      setNetUser: vi.fn(),
+      syncPipeTextureCatalog: vi.fn(),
+      describePipeTextureLock: vi.fn(),
+      pipeTextureHoverText: vi.fn(),
+      DEFAULT_PIPE_TEXTURE_HINT: "hint",
+      DEFAULT_CURRENCY_ID: "bustercoin",
+      UNLOCKABLE_TYPES: { pipeTexture: "pipe_texture" }
+    });
+
+    await handlers.handlers.handleOptionsClick({ target: elements.button });
+
+    expect(applyPipeTextureSelection).toHaveBeenCalledWith("gold", net.pipeTextures, expect.any(Set));
+    expect(elements.pipeTextureHint.textContent).toBe("Equipped (guest mode). Sign in to save.");
+    expect(apiSetPipeTexture).not.toHaveBeenCalled();
+  });
+
+  it("skips mode saves for guests but updates the hint", async () => {
+    const elements = buildElements();
+    const net = {
+      user: null,
+      online: true,
+      pipeTextures: [{ id: "basic" }]
+    };
+    let currentId = "basic";
+    let currentMode = "NORMAL";
+    const apiSetPipeTexture = vi.fn();
+
+    const handlers = createPipeTextureMenuHandlers({
+      elements,
+      getNet: () => net,
+      getCurrentPipeTextureId: () => currentId,
+      setCurrentPipeTextureId: (id) => { currentId = id; },
+      getCurrentPipeTextureMode: () => currentMode,
+      setCurrentPipeTextureMode: (mode) => { currentMode = mode; },
+      refreshPipeTextureMenu: vi.fn(),
+      togglePipeTextureMenu: vi.fn(),
+      shouldClosePipeTextureMenu: vi.fn(() => false),
+      normalizePipeTextureMode: (mode) => mode,
+      writePipeTextureModeCookie: vi.fn(),
+      renderPipeTextureModeButtons: vi.fn(),
+      syncPipeTextureSwatch: vi.fn(),
+      renderPipeTextureMenuOptions: vi.fn(),
+      computeUnlockedPipeTextureSet: () => new Set(["basic"]),
+      openPurchaseModal: vi.fn(),
+      applyPipeTextureSelection: vi.fn(),
+      shouldTriggerSelectionSave: () => true,
+      apiSetPipeTexture,
+      getAuthStatusFromResponse: vi.fn(() => ({ online: true, unauthorized: false })),
+      recoverSession: vi.fn(),
+      setUserHint: vi.fn(),
+      setNetUser: vi.fn(),
+      syncPipeTextureCatalog: vi.fn(),
+      describePipeTextureLock: vi.fn(),
+      pipeTextureHoverText: vi.fn(),
+      DEFAULT_PIPE_TEXTURE_HINT: "hint",
+      DEFAULT_CURRENCY_ID: "bustercoin",
+      UNLOCKABLE_TYPES: { pipeTexture: "pipe_texture" }
+    });
+
+    await handlers.handlers.handleModeClick({ target: elements.modeButton });
+
+    expect(apiSetPipeTexture).not.toHaveBeenCalled();
+    expect(elements.pipeTextureHint.textContent).toBe("Mode applied (guest mode). Sign in to save.");
   });
 });

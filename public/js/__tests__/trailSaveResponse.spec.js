@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import { handleTrailSaveResponse } from "../trailSaveResponse.js";
 
 describe("handleTrailSaveResponse", () => {
-  it("attempts session recovery on 401 responses before clearing the user", async () => {
+  it("attempts session recovery on 401 responses without clearing the user", async () => {
     const net = {
       online: true,
       user: { username: "PlayerOne", bestScore: 500, bustercoins: 12, achievements: { unlocked: {} } },
@@ -43,13 +43,13 @@ describe("handleTrailSaveResponse", () => {
     expect(getAuthStatusFromResponse).toHaveBeenCalledWith({ ok: false, status: 401 });
     expect(net.online).toBe(true);
     expect(recoverSession).toHaveBeenCalledTimes(1);
-    expect(setNetUser).toHaveBeenCalledWith(null);
-    expect(net.user).toBeNull();
-    expect(setUserHint).toHaveBeenCalledTimes(1);
+    expect(setNetUser).not.toHaveBeenCalled();
+    expect(net.user?.username).toBe("PlayerOne");
+    expect(setUserHint).toHaveBeenCalledWith({ allowReauth: false });
     expect(buildTrailHint).toHaveBeenCalledWith(expect.objectContaining({
       online: true,
-      user: null,
-      bestScore: 0,
+      user: net.user,
+      bestScore: 500,
       selectedTrail: "classic"
     }));
     expect(setTrailHint).toHaveBeenCalledWith({ className: "hint", text: "Guest hint" });
@@ -157,7 +157,7 @@ describe("handleTrailSaveResponse", () => {
 
     expect(setNetUser).not.toHaveBeenCalled();
     expect(net.user?.username).toBe("PlayerOne");
-    expect(setUserHint).toHaveBeenCalledTimes(1);
+    expect(setUserHint).toHaveBeenCalledWith({ allowReauth: false });
     expect(buildTrailHint).toHaveBeenCalledWith(expect.objectContaining({
       online: true,
       user: net.user
@@ -203,7 +203,7 @@ describe("handleTrailSaveResponse", () => {
 
     expect(setNetUser).not.toHaveBeenCalled();
     expect(net.user?.username).toBe("PlayerOne");
-    expect(setUserHint).toHaveBeenCalledTimes(1);
+    expect(setUserHint).toHaveBeenCalledWith({ allowReauth: false });
     expect(buildTrailHint).toHaveBeenCalledWith(expect.objectContaining({
       online: true,
       user: net.user

@@ -13,7 +13,6 @@ export function createTrailMenuHandlers({
   toggleTrailMenu,
   setTrailHint,
   applyTrailSelection,
-  ensureLoggedInForSave,
   openPurchaseModal,
   handleTrailSaveResponse,
   setNetUser,
@@ -108,10 +107,10 @@ export function createTrailMenuHandlers({
     refreshTrailMenu(id);
     setTrailHint({
       className: net.user ? "hint" : "hint good",
-      text: net.user ? "Saving trail choice…" : "Equipped (guest mode)."
+      text: net.user ? "Saving trail choice…" : "Equipped (guest mode). Sign in to save."
     }, { persist: Boolean(net.user) });
 
-    if (!net.user && !(await ensureLoggedInForSave())) return;
+    if (!net.user) return;
 
     trailSaveInFlight = id;
     try {
