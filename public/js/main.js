@@ -32,6 +32,7 @@ import {
   formatRunDuration
 } from "./util.js";
 import { SIM_DT } from "./simPrecision.js";
+import { planSimulationFrame } from "./frameBudget.js";
 
 import { Game } from "./game.js";
 import { GameDriver } from "/engine/gameDriver.js";
@@ -597,6 +598,7 @@ const ctx = canvas.getContext("2d", { alpha: false });
 
 // Deterministic sim clock
 const MAX_FRAME = 1 / 20;
+const MAX_SIM_STEPS_PER_FRAME = 8;
 let acc = 0;
 let lastTs = 0;
 
@@ -2217,7 +2219,14 @@ function frame(ts) {
   if (!replayManager?.isReplaying()) {
     acc += dt;
 
-    while (acc >= SIM_DT) {
+    const framePlan = planSimulationFrame({
+      accumulator: acc,
+      simDt: SIM_DT,
+      maxStepsPerFrame: MAX_SIM_STEPS_PER_FRAME
+    });
+    acc = framePlan.nextAccumulator;
+
+    for (let simStep = 0; simStep < framePlan.steps; simStep++) {
       // Capture input snapshot for THIS tick
       const snap = input.snapshot();
 
@@ -2279,10 +2288,10 @@ function frame(ts) {
         if (tutorial?.active) tutorial.afterSimTick(SIM_DT);
       }
       checkRunAchievements();
-      acc -= SIM_DT;
 
       if (game.state === 2 /* OVER */) {
         replayManager?.clearPendingActions();
+        acc = 0;
         break;
       }
     }
