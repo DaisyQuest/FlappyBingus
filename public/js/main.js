@@ -199,6 +199,9 @@ import { createVolumeController } from "./main/audioControls.js";
 import { refreshBootUI } from "./main/bootUI.js";
 import { createTrailMenuController } from "./main/trailMenuController.js";
 import { createIconMenuController } from "./main/iconMenuController.js";
+import { createAppBootstrap } from "./appBootstrap.js";
+import { createUIOrchestrator } from "./uiOrchestrator.js";
+import { createGameSession } from "./gameSession.js";
 import {
   computeUnlockedIconSet,
   computeUnlockedPipeTextureSet,
@@ -206,7 +209,12 @@ import {
 } from "./main/unlockableSets.js";
 
 // ---- DOM ----
-const ui = buildGameUI();
+const { ui, elements, textStyleElements, setUIMode, updateSkillCooldownUI, initMenuParallax } = createUIOrchestrator({
+  buildGameUI,
+  createMenuParallaxController,
+  defaultConfig: DEFAULT_CONFIG,
+  document
+});
 
 const {
   canvas,
@@ -366,36 +374,7 @@ const {
   purchaseModalConfirm,
   setMenuSubtitle,
   updateSkillCooldowns
-} = ui;
-
-const textStyleElements = {
-  textFontFamily,
-  textFontWeight,
-  textFontWeightValue,
-  textSizeScale,
-  textSizeScaleValue,
-  textUseGameColors,
-  textColor,
-  textUseGameGlow,
-  textGlowColor,
-  textStrokeColor,
-  textStrokeWidth,
-  textStrokeWidthValue,
-  textShadowBoost,
-  textShadowBoostValue,
-  textShadowOffsetY,
-  textShadowOffsetYValue,
-  textWobble,
-  textWobbleValue,
-  textSpin,
-  textSpinValue,
-  textShimmer,
-  textShimmerValue,
-  textSparkle,
-  textUseGradient,
-  textGradientStart,
-  textGradientEnd
-};
+} = elements;
 
 // ---- Local best fallback cookie (legacy support) ----
 const updatePersonalBestUIWrapper = createPersonalBestUpdater({
@@ -431,33 +410,23 @@ let runAchievementBaseState = null;
 let runAchievementIds = new Set();
 let runAchievementDefs = [];
 
-let menuParallaxControl = null;
-function setUIMode(isUI) {
-  // When UI is shown, let clicks go to HTML controls
-  canvas.style.pointerEvents = isUI ? "none" : "auto";
-  if (menuParallaxControl) {
-    const active = isUI && !menu.classList.contains("hidden");
-    menuParallaxControl.setEnabled(active);
-    if (active) menuParallaxControl.applyFromPoint();
-  }
-}
-
-function updateSkillCooldownUI(cfg) {
-  if (typeof updateSkillCooldowns === "function") {
-    updateSkillCooldowns(cfg || DEFAULT_CONFIG);
-  }
-}
-
 // ---- Boot + runtime state ----
-const boot = createBootState();
-const baseIcons = buildBaseIcons();
-const normalizedBaseIcons = normalizePlayerIcons(baseIcons);
-const fallbackIconId = getFirstIconId(normalizedBaseIcons);
-const net = createNetState({
-  defaultTrails: DEFAULT_TRAILS,
-  icons: normalizedBaseIcons,
+const {
+  boot,
+  net,
+  baseIcons,
+  normalizedBaseIcons,
+  fallbackIconId
+} = createAppBootstrap({
+  createBootState,
+  createNetState,
+  buildBaseIcons,
+  normalizePlayerIcons,
+  getFirstIconId,
+  DEFAULT_TRAILS,
   normalizePipeTextures,
-  achievements: { definitions: ACHIEVEMENTS, normalizeState: normalizeAchievementState },
+  ACHIEVEMENTS,
+  normalizeAchievementState,
   buildUnlockablesCatalog
 });
 
@@ -579,10 +548,7 @@ const iconMenuController = createIconMenuController({
 syncLauncherSwatch(currentIconId, playerIcons, playerImg);
 syncPipeTextureCatalog(net.pipeTextures);
 syncPipeTextureSwatch(currentPipeTextureId, net.pipeTextures);
-menuParallaxControl = createMenuParallaxController({
-  panel: menuPanel || menu,
-  layers: ui.menuParallaxLayers || []
-});
+initMenuParallax();
 
 const buildReplayCosmeticsApplier = (targetGame) => makeReplayCosmeticsApplier({
   targetGame,
@@ -603,118 +569,53 @@ let lastTs = 0;
 // Tutorial manager (initialized after Game is created, but referenced by the Input callback).
 let tutorial = null;
 let replayManager = null;
+let game = null;
+let replayGame = null;
+let input = null;
 
-const uploadBestRunArtifacts = createBestRunUploader({
-  getActiveRun: () => replayManager?.getActiveRun(),
-  getUser: () => net.user,
-  getConfig: () => CFG,
-  cloneReplayRun,
-  maybeUploadBestRun,
-  uploadBestRun: apiUploadBestRun,
-  setStatus: ({ className, text }) => {
-    if (!replayStatus) return;
-    if (className) replayStatus.className = className;
-    if (text !== undefined) replayStatus.textContent = text;
-  }
-});
-
-const renderBindUIWrapper = (listeningActionId = null) => {
-  renderBindUI({
-    bindWrap,
-    binds,
-    actions: ACTIONS,
-    listeningActionId,
-    humanizeBind
-  });
-};
-
-// Seed of the most recently finished run (used for "Retry Previous Seed")
-let lastEndedSeed = "";
-
-// Audio assets (served from /public/audio/*)
-const AUDIO = Object.freeze({
-  musicUrl: "/audio/music.mp3",
-  boopUrl: "/audio/orb-boop.mp3",
-  niceUrl: "/audio/nice.mp3",
-  bounceUrl: "/audio/dash-bounce.mp3",
-  shatterUrl: "/audio/dash-destroy.mp3",
-  slowFieldUrl: "/audio/slow-field.mp3",
-  slowExplosionUrl: "/audio/slow-explosion.mp3",
-  dashStartUrl: "/audio/dash-start.mp3",
-  dashBreakUrl: "/audio/dash-break.mp3",
-  teleportUrl: "/audio/teleport.mp3",
-  phaseUrl: "/audio/phase.mp3",
-  explosionUrl: "/audio/explosion.mp3",
-  gameOverUrl: "/audio/game-over.mp3"
-});
-
-// Volume UI defaults (match HTML defaults in flappybingus.html)
-const DEFAULT_MUSIC = DEFAULT_AUDIO_SETTINGS.music;
-const DEFAULT_SFX = DEFAULT_AUDIO_SETTINGS.sfx;
-const DEFAULT_AUDIO = { ...DEFAULT_AUDIO_SETTINGS, music: DEFAULT_MUSIC, sfx: DEFAULT_SFX, muted: false };
-applySkillSettingsToUI(skillSettings);
-initSocialDock({
-  discordButton,
-  donateButton,
-  supportButton,
-  discordPopover,
-  donatePopover,
-  supportPopover,
-  dock: socialDock,
-  document
-});
-
-// IMPORTANT: actions are NOT applied immediately.
-// They are enqueued and applied at the next simulation tick boundary.
-// This makes live run and replay have identical action timing.
-const input = new Input(canvas, () => binds, (actionId) => {
-  // IMPORTANT: actions are queued and applied on the next fixed tick.
-  // Tutorial runs without a replay recorder, so it keeps its own queue.
-  if (tutorial?.active && game.state === 1 /* PLAY */) {
+const handleActionQueued = ({ actionId, cursor }) => {
+  if (tutorial?.active && game?.state === 1 /* PLAY */) {
     tutorial.enqueueAction({
       id: actionId,
-      cursor: { x: input.cursor.x, y: input.cursor.y, has: input.cursor.has }
+      cursor
     });
     return;
   }
-  if (game.state === 1 /* PLAY */) {
+  if (game?.state === 1 /* PLAY */) {
     replayManager?.queueAction({
       id: actionId,
-      cursor: { x: input.cursor.x, y: input.cursor.y, has: input.cursor.has }
+      cursor
     });
   }
-  // DO NOT call game.handleAction(actionId) here.
-});
-input.install();
-
-const replayIdleInput = {
-  cursor: { x: 0, y: 0, has: false },
-  _move: { dx: 0, dy: 0 },
-  getMove() { return this._move; }
 };
 
-const buildGameInstance = ({ onGameOver, input: gameInput }) => new Game({
-  canvas,
-  ctx,
-  config: null,
-  playerImg,
-  input: gameInput,
-  getTrailId: () => {
-    if (net.user?.selectedTrail) return net.user.selectedTrail;
-    return currentTrailId || "classic";
-  },
-  getPipeTexture: () => ({
-    id: net.user?.selectedPipeTexture || currentPipeTextureId || DEFAULT_PIPE_TEXTURE_ID,
-    mode: net.user?.pipeTextureMode || currentPipeTextureMode || DEFAULT_PIPE_TEXTURE_MODE
-  }),
-  getBinds: () => binds,
-  onGameOver
+const getActiveTrailId = () => {
+  if (net.user?.selectedTrail) return net.user.selectedTrail;
+  return currentTrailId || "classic";
+};
+const getActivePipeTexture = () => ({
+  id: net.user?.selectedPipeTexture || currentPipeTextureId || DEFAULT_PIPE_TEXTURE_ID,
+  mode: net.user?.pipeTextureMode || currentPipeTextureMode || DEFAULT_PIPE_TEXTURE_MODE
 });
 
-let game = buildGameInstance({ onGameOver: (score) => onGameOver(score), input });
-let replayGame = buildGameInstance({ onGameOver: () => {}, input: replayIdleInput });
-game.setSkillSettings(skillSettings);
-replayGame.setSkillSettings(skillSettings);
+const session = createGameSession({
+  canvas,
+  ctx,
+  Input,
+  Game,
+  GameDriver,
+  getBinds: () => binds,
+  getTrailId: getActiveTrailId,
+  getPipeTexture: getActivePipeTexture,
+  playerImg,
+  onGameOver: (score) => onGameOver(score),
+  onActionQueued: handleActionQueued,
+  skillSettings,
+  setRandSource
+});
+({ input, game, replayGame } = session);
+const { replayIdleInput } = session;
+let driver = session.driver;
 
 const volumeController = createVolumeController({
   elements: { musicSlider, sfxSlider, muteToggle },
@@ -729,18 +630,6 @@ const volumeController = createVolumeController({
   game
 });
 volumeController.bindVolumeControls();
-
-let driver = new GameDriver({
-  game,
-  syncRandSource: setRandSource,
-  captureSnapshots: false,
-  mapState(engineState, g) {
-    engineState.time = g.timeAlive ?? engineState.time;
-    engineState.tick = (engineState.tick ?? 0) + 1;
-    engineState.score = { ...(engineState.score || {}), total: g.score ?? 0 };
-    engineState.player = { ...(engineState.player || {}), x: g.player?.x, y: g.player?.y, vx: g.player?.vx, vy: g.player?.vy };
-  }
-});
 
 // Tutorial wires into the same game instance.
 tutorial = new Tutorial({
