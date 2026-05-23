@@ -34,6 +34,20 @@ describe("player icon sprites", () => {
     expect(sprite.complete).toBe(true);
   });
 
+  it("exposes the provided event list for runtime animation triggers", () => {
+    const events = [];
+    const sprite = createPlayerIconSprite({ style: { fill: "#fff" } }, { size: 48, events });
+    expect(sprite.__events).toBe(events);
+    sprite.__events.push({ type: "orbPickup", timeMs: 1 });
+    expect(events).toHaveLength(1);
+  });
+
+  it("normalizes missing event arrays", () => {
+    const sprite = createPlayerIconSprite({ style: { fill: "#fff" } }, { size: 48, events: null });
+    expect(Array.isArray(sprite.__events)).toBe(true);
+    expect(sprite.__events).toHaveLength(0);
+  });
+
   it("handles missing 2d contexts gracefully", () => {
     global.document = {
       createElement: () => ({ width: 0, height: 0, getContext: () => null })
